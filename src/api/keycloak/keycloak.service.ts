@@ -99,6 +99,12 @@ export class KeycloakService {
 
     if (status === 401) {
       console.log('2222222');
+      if (error?.response?.data?.error === 'invalid_grant') {
+        throw new HttpException(
+          'Credenciales incorrectas, por favor verifique su usuario y contraseña',
+          HttpStatus.UNAUTHORIZED,
+        );
+      }
       throw new HttpException(
         'Usuario no autorizado en el sistema municipal, por favor comuníquese con el administrador',
         HttpStatus.UNAUTHORIZED,
