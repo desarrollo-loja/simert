@@ -555,7 +555,9 @@ export class IncidentService {
 
       let query = `
           SELECT 
-           i.id, i."zoneId", i."blockId", i."controllerId", i."statusIncident", i."plate", i."description", i."createdAt", it.name as reason
+           i.id, i."zoneId", i."blockId", i."controllerId", i."statusIncident", i."plate", i."description", 
+            TO_CHAR(i."createdAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS') AS "createdAt",  
+            it.name as reason
           FROM
             ${tableNameIncident} i
             INNER JOIN public."incident_type" it ON i."incidentTypeId" = it.id
