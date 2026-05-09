@@ -37,7 +37,7 @@ export class MappingService {
         .where('z.isActivated = :isActivated', { isActivated: true });
 
       if (search) {
-        query.andWhere('z.name LIKE :search', { search: `%${search}%` });
+        query.andWhere('z.name ILIKE :search', { search: `%${search}%` });
       }
 
       const zone = await query.getMany();
@@ -72,7 +72,7 @@ export class MappingService {
         .orderBy('schedules.dayOfWeekInit', 'ASC', 'NULLS LAST');
 
       if (search) {
-        query.where('bl.name LIKE :search', { search: `%${search}%` });
+        query.where('bl.name ILIKE :search', { search: `%${search}%` });
       }
 
       const block = await query.getMany();
@@ -105,7 +105,7 @@ export class MappingService {
         .where('sl.lt != :zero AND sl.lg != :zero', { zero: 0 });
 
       if (search) {
-        query.andWhere('sl.slot LIKE :search', { search: `%${search}%` });
+        query.andWhere('sl.slot ILIKE :search', { search: `%${search}%` });
       }
 
       slots = await query.getMany();
@@ -136,7 +136,7 @@ export class MappingService {
         .limit(50);
 
       if (search) {
-        query.andWhere('sl.slot LIKE :search', { search: `%${search}%` });
+        query.andWhere('sl.slot ILIKE :search', { search: `%${search}%` });
       }
 
       slots = await query.getMany();
