@@ -59,7 +59,7 @@ export class BlockService {
         .innerJoin("bl.zone", "zone");
 
       if (search) {
-        query.andWhere('bl.name LIKE :search', { search: `%${search}%` });
+        query.andWhere('bl.name ILIKE :search', { search: `%${search}%` });
       }
       const [blocks, total] = await Promise.all([
         query.take(limit).skip(offset).getMany(),
@@ -91,7 +91,7 @@ export class BlockService {
         .select(['s.id', 's.name', 's.geofence', 's.color']);
 
       if (search) {
-        query.andWhere('s.name LIKE :search', { search: `%${search}%` });
+        query.andWhere('s.name ILIKE :search', { search: `%${search}%` });
       }
 
       if(zoneId){

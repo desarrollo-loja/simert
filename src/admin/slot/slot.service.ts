@@ -53,7 +53,7 @@ export class SlotService {
         .innerJoin("sl.zone", "zone")
         .innerJoin("sl.block", "block");
       if (search) {
-        query.where('sl.slot LIKE :search', { search: `%${search}%` });
+        query.where('sl.slot ILIKE :search', { search: `%${search}%` });
       }
       const [slots, total] = await Promise.all([
         query.take(limit).skip(offset).getMany(),
@@ -185,7 +185,7 @@ export class SlotService {
       }
 
       if (search) {
-        query.andWhere('s.slot LIKE :search', { search: `%${search}%` });
+        query.andWhere('s.slot ILIKE :search', { search: `%${search}%` });
       }
 
       if (typeSlot) {
