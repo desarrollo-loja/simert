@@ -285,6 +285,7 @@ export class KeycloakService {
         refresh_expires_in: data.refresh_expires_in,
       };
     } catch (error: any) {
+      console.log(error)
       this.logger.warn('Error al iniciar sesión en Keycloak');
       return this.throwKeycloakError('loginClient', error);
     }
