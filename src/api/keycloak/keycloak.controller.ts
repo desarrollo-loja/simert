@@ -1,17 +1,17 @@
 import { Body, Controller, Get, Param, Post, Put, Query } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiStandardResponse } from 'src/common/decorators/api-standard-response.decorator';
 import { CreateKeycloakUserDto } from 'src/common/dto/create-keycloak-user.dto';
 import { LoginKeycloakClientDto } from 'src/common/dto/login-keycloak-client.dto';
 import { UpdateKeycloakUserDto } from 'src/common/dto/update-keycloak-user.dto';
-import { KeycloakService } from './keycloak.service';
-
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { ApiStandardResponse } from 'src/common/decorators/api-standard-response.decorator';
 import { ErrorCode } from 'src/common/glob/error';
+
+import { KeycloakService } from './keycloak.service';
 @ApiTags('Api - Keycloak')
 @ApiBearerAuth('keycloak')
 @Controller('api/keycloak')
 export class KeycloakController {
-  constructor(private readonly keycloakService: KeycloakService) {}
+  constructor(private readonly keycloakService: KeycloakService) { }
 
   // POST api/keycloak/login-client
   @ApiOperation({ summary: 'Login a ServiceHub client (citizen) against Keycloak realm GIM2_REALM_SERVICE_HUB' })
@@ -91,7 +91,6 @@ export class KeycloakController {
     return this.keycloakService.updateUser(id, dto);
   }
 
-
   // PUT api/keycloak/update-user-municipality/:id
   @ApiOperation({ summary: 'Update a municipal employee user in Keycloak' })
   @ApiStandardResponse({
@@ -162,7 +161,6 @@ export class KeycloakController {
   findByIdentification(@Query('identification') identification: string) {
     return this.keycloakService.findByIdentification(identification);
   }
-
 
   // GET api/keycloak/find-by-username/:username
   @ApiOperation({ summary: 'Find a municipal Keycloak user by exact username' })
