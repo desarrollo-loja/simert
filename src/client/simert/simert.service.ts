@@ -333,37 +333,40 @@ export class SimertService {
 
     try {
 
-      const [slot, checkboxes] = await Promise.all(
+      const [slot, checkboxes, dateRow] = await Promise.all(
         [
           this.slotRepository.createQueryBuilder('s')
-            .select(['s.id', 's.typeSlot', 's.isPaidParking', 's.status', 'block.id', 'block.name', 'zone.id', 'zone.name', 'block.timeLimit', 'block.timeGrace', 'block.timePerFraction', 'schedules.id', 'schedules.isActivated', 'schedules.dayOfWeekInit', 'schedules.dayOfWeekEnd', 'schedules.openingTime', 'schedules.closingTime'])
+            .select(['s.id', 's.typeSlot', 's.isPaidParking', 's.status', 'block.id', 'block.name', 'zone.id', 'zone.name', 'block.timeLimit',
+              'block.timeGrace', 'block.timePerFraction', 'schedules.id', 'schedules.isActivated', 'schedules.dayOfWeekInit', 'schedules.dayOfWeekEnd',
+              'schedules.openingTime', 'schedules.closingTime'
+            ])
             .innerJoin("s.block", "block")
             .innerJoin("s.zone", "zone")
-            // .innerJoin("block.blocksOperator", "blockOperator")
             .leftJoin('block.schedules', 'schedules')
             .where('s.slot = :slot', { slot: searchSlot })
-            // .andWhere('blockOperator.userId = :userId', { userId })
-            // .andWhere('blockOperator.isActivated = :isActivated', { isActivated: true })
-            // .andWhere(':date BETWEEN blockOperator.from AND blockOperator.to', {
-            //   date: new Date(),
-            // })
-            .orderBy('schedules.dayOfWeekInit', 'ASC')  // 👈 orden principal
+            .orderBy('schedules.dayOfWeekInit', 'ASC')
             .getOne(),
 
           this.checkboxUserRepository.createQueryBuilder('cb')
             .select(['cb.checkboxes'])
             .where('cb.userId = :userId', { userId })
-            .getOne()
+            .getOne(),
+
+          this.slotRepository.createQueryBuilder('s')
+            .select('NOW()', 'currentDate')
+            .getRawOne<{ currentDate: Date }>(),
         ]);
 
       if (!slot)
         return { errorCode: ErrorCode.NOT_FOUND }
 
+      const currentDate = dateRow?.currentDate;
+
       if (slot.status === StatusSlot.AVAILABLE) {
-        return { errorCode: ErrorCode.NONE, slot, checkboxes: checkboxes ? checkboxes.checkboxes : 0 };
+        return { errorCode: ErrorCode.NONE, slot, checkboxes: checkboxes?.checkboxes ?? 0, currentDate };
 
       }
-      return { errorCode: ErrorCode.OCCUPIED, slot, checkboxes: checkboxes ? checkboxes.checkboxes : 0 };
+      return { errorCode: ErrorCode.OCCUPIED, slot, checkboxes: checkboxes?.checkboxes ?? 0, currentDate };
     } catch (error) {
       handleDbExceptions(error, this.logger);
     }
@@ -385,7 +388,7 @@ export class SimertService {
       // Siempre guardamos el estado del fraction
       const fractionSatus = this.fractionSatusRepository.create({ fraction, moment, status: { id: statusId } });
       const a = await this.fractionSatusRepository.save(fractionSatus);
-        console.log(a)
+      console.log(a)
     }
 
     await this.fractionRepository.save({ ...fraction, status: { id: statusId } });
@@ -404,11 +407,11 @@ export class SimertService {
     } else {
       const now = new Date();
       this.logger.log(`[_notifyBlockOperators] blockId=${blockId} - buscando operadores desde DB: ${now}`);
-      
+
       const qb = this.blockOperatorRepository.createQueryBuilder('bo')
         .select(['bo.id', 'bo.userId', 'bo.from', 'bo.to'])
         .where('bo.blockId = :blockId', { blockId })
-        .andWhere(`bo.from <= (NOW() AT TIME ZONE 'America/Guayaquil') AND bo.to >= (NOW() AT TIME ZONE 'America/Guayaquil')`);                
+        .andWhere(`bo.from <= (NOW() AT TIME ZONE 'America/Guayaquil') AND bo.to >= (NOW() AT TIME ZONE 'America/Guayaquil')`);
 
       this.logger.log(`[_notifyBlockOperators] query: ${qb.getSql()} -- params: ${JSON.stringify(qb.getParameters())}`);
 
