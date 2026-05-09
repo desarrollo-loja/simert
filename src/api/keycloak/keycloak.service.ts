@@ -341,10 +341,51 @@ export class KeycloakService {
     }
   }
 
+  async findByIdentification(identification: string) {
+    const token = await this.getToken();
+    if (!token)
+      return { errorCode: ErrorCode.NOT_FOUND, message: 'No se pudo obtener el token de Keycloak ServiceHub' };
+
+    try {
+      const { data } = await axios.get(this.usersUrl(), {
+        headers: this.authHeaders(token),
+        params: { q: `identification:${identification}` },
+      });
+
+      if (data && data.length > 0)
+        return { errorCode: ErrorCode.NONE, message: 'Usuario encontrado exitosamente', data };
+      return { errorCode: ErrorCode.NOT_FOUND, message: 'Usuario no encontrado', data };
+
+    } catch (error: any) {
+      return this.throwKeycloakError('findByIdentification', error);
+    }
+  }
+
+
+  async findByIdentificationMunicipality(identification: string) {
+    const token = await this.getTokenMunicipalityK();
+    if (!token)
+      return { errorCode: ErrorCode.NOT_FOUND, message: 'No se pudo obtener el token de Keycloak Municipal' };
+
+    try {
+      const { data } = await axios.get(this.usersUrlMunicipality(), {
+        headers: this.authHeaders(token),
+        params: { q: `identification:${identification}` },
+      });
+
+      if (data && data.length > 0)
+        return { errorCode: ErrorCode.NONE, message: 'Usuario encontrado exitosamente', data };
+      return { errorCode: ErrorCode.NOT_FOUND, message: 'Usuario no encontrado', data };
+
+    } catch (error: any) {
+      return this.throwKeycloakError('findByIdentificationMunicipality', error);
+    }
+  }
+
   async findByEmailMunicipality(email: string) {
     const token = await this.getTokenMunicipalityK();
     if (!token)
-      return { errorCode: ErrorCode.NOT_FOUND, message: 'No se pudo obtener el token de Keycloak ServiceHub' };
+      return { errorCode: ErrorCode.NOT_FOUND, message: 'No se pudo obtener el token de Keycloak Municipal' };
 
     try {
       const { data } = await axios.get(this.usersUrlMunicipality(), {
