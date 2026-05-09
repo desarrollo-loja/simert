@@ -1,6 +1,7 @@
 import { CanActivate, ExecutionContext, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import axios from 'axios';
+import { IdTypeUser } from 'src/common/glob/id/id_type_user';
 import { TypeRol } from 'src/common/glob/type/type_rol';
 
 const MUNICIPALITY_ROLES = [TypeRol.ADMIN, TypeRol.CONTROLLER, TypeRol.SUPERVISOR];
@@ -39,6 +40,10 @@ export class KeycloakTokenGuard implements CanActivate {
         return roles?.some(role => MUNICIPALITY_ROLES.includes(role)) ?? false;
     }
 
+    private isMunicipal(idTypeUser: IdTypeUser): boolean {
+        return idTypeUser === IdTypeUser.MUNICIPALITY;
+    }
+
     async canActivate(context: ExecutionContext): Promise<boolean> {
         const req = context.switchToHttp().getRequest();
         const res = context.switchToHttp().getResponse();
@@ -48,7 +53,8 @@ export class KeycloakTokenGuard implements CanActivate {
             throw new UnauthorizedException('Keycloak token not found');
         }
 
-        const isMunicipality = this.isMunicipalEmployee(user.roles);
+        // const isMunicipality = this.isMunicipalEmployee(user.roles);
+        const isMunicipality = this.isMunicipal(user.idTypeUser);
         const kcBaseUrl = isMunicipality ? this.baseUrlMunicipality : this.baseUrl;
         const kcClientParams = isMunicipality ? this.clientParamsMunicipality : this.clientParams;
 
