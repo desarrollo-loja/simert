@@ -62,7 +62,7 @@ export class ZoneService {
         .select(['z.id', 'z.name', 'z.geofence', 'z.color']);
 
       if (search) {
-        query.andWhere('z.name LIKE :search', { search: `%${search}%` });
+        query.andWhere('z.name ILIKE :search', { search: `%${search}%` });
       }
 
       let zones = await query.getMany();
@@ -91,7 +91,7 @@ export class ZoneService {
           'z.geofence', 'z.isActivated', 'z.description', 'z.schedules', 'z.type', 'z.fromTemporary', 'z.toTemporary']);
 
       if (search) {
-        query.where('z.name LIKE :search', { search: `%${search}%` });
+        query.where('z.name ILIKE :search', { search: `%${search}%` });
       }
 
       const data = await query.getMany();
@@ -121,7 +121,7 @@ export class ZoneService {
         .where('z.isActivated = :isActivated', { isActivated: true });
 
       if (search) {
-        query.andWhere('z.name LIKE :search', { search: `%${search}%` });
+        query.andWhere('z.name ILIKE :search', { search: `%${search}%` });
       }
 
       const data = await query.getMany();
@@ -140,7 +140,7 @@ export class ZoneService {
         .where('z.isActivated = :isActivated', { isActivated: true })
 
       if (search) {
-        query.andWhere('z.name LIKE :search', { search: `%${search}%` });
+        query.andWhere('z.name ILIKE :search', { search: `%${search}%` });
       }
 
       const data = await query.getMany();
