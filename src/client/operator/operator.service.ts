@@ -403,8 +403,8 @@ export class OperatorService {
           'status',
           'fSlot.id',
         ])
-        .addSelect(`TO_CHAR(f."registerAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`, 'f_registerAt')
-        .addSelect(`TO_CHAR(f."departureDate", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`, 'f_departureDate')
+        .addSelect(`TO_CHAR(f."registerAt" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD HH24:MI:SS')`, 'f_registerAt')
+        .addSelect(`TO_CHAR(f."departureDate" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD HH24:MI:SS')`, 'f_departureDate')
         .innerJoin('f.status', 'status')
         .innerJoin('f.slot', 'fSlot')
         .where('f.blockId = :blockId', { blockId })
