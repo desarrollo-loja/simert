@@ -197,7 +197,7 @@ export class KeycloakController {
   })
   @Get('find-by-email-municipality')
   findByEmailMunicipality(@Query('email') email: string) {
-    return this.keycloakService.findByEmail(email);
+    return this.keycloakService.findByEmailMunicipality(email);
   }
 
   // GET api/keycloak/find-by-identification?identification=...
