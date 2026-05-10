@@ -37,7 +37,9 @@ export class RangeSalePointService {
 
     async findAll(filterDto: FilterDto) {
         try {
-            const query = this.rangeSalePointRepository.createQueryBuilder('rsp');
+            const query = this.rangeSalePointRepository.createQueryBuilder('rsp')
+                .addSelect(`TO_CHAR(rsp."createdAt" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD HH24:MI:SS')`, 'rsp_createdAt')
+                .addSelect(`TO_CHAR(rsp."updatedAt" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD HH24:MI:SS')`, 'rsp_updatedAt');
 
             const { conditions, parameters } = this._buildConditionsAndParameters(filterDto);
             if (conditions.length) {
@@ -46,7 +48,13 @@ export class RangeSalePointService {
 
             query.orderBy('rsp.id', 'DESC');
 
-            const rangeSalePoints = await query.getMany();
+            const result = await query.getRawAndEntities();
+
+            const rangeSalePoints = result.entities.map((entity: RangeSalePoint, i: number) => ({
+                ...entity,
+                createdAt: result.raw[i]?.rsp_createdAt ?? null,
+                updatedAt: result.raw[i]?.rsp_updatedAt ?? null,
+            }));
 
             return { errorCode: ErrorCode.NONE, rangeSalePoints }
 
@@ -106,7 +114,7 @@ export class RangeSalePointService {
 
     async findOne(id: number) {
         try {
-            const rangeSalePoint = await this.rangeSalePointRepository.findOneBy({ id });
+            const rangeSalePoint = await this._findOneWithFormattedDates(id);
             return { errorCode: ErrorCode.NONE, rangeSalePoint };
         } catch (error) {
             handleDbExceptions(error, this.logger);
@@ -124,6 +132,22 @@ export class RangeSalePointService {
         } catch (error) {
             handleDbExceptions(error, this.logger);
         }
+    }
+
+    private async _findOneWithFormattedDates(id: number) {
+        const result = await this.rangeSalePointRepository.createQueryBuilder('rsp')
+            .addSelect(`TO_CHAR(rsp."createdAt" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD HH24:MI:SS')`, 'rsp_createdAt')
+            .addSelect(`TO_CHAR(rsp."updatedAt" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD HH24:MI:SS')`, 'rsp_updatedAt')
+            .where('rsp.id = :id', { id })
+            .getRawAndEntities();
+
+        if (!result.entities.length) return null;
+
+        return {
+            ...result.entities[0],
+            createdAt: result.raw[0]?.rsp_createdAt ?? null,
+            updatedAt: result.raw[0]?.rsp_updatedAt ?? null,
+        };
     }
 
     private _buildConditionsAndParameters(filterDto: FilterDto) {
