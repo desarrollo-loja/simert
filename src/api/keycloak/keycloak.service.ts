@@ -2,11 +2,10 @@ import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { CommonGimService } from 'src/common/common.gim.service';
-import { ErrorCode } from 'src/common/glob/error';
-
 import { CreateKeycloakUserDto } from 'src/common/dto/create-keycloak-user.dto';
 import { LoginKeycloakClientDto } from 'src/common/dto/login-keycloak-client.dto';
 import { UpdateKeycloakUserDto } from 'src/common/dto/update-keycloak-user.dto';
+import { ErrorCode } from 'src/common/glob/error';
 
 // Margen de seguridad: renovar el token 30 segundos antes de que expire
 const TOKEN_REFRESH_MARGIN_MS = 30_000;
@@ -118,7 +117,7 @@ export class KeycloakService {
         HttpStatus.BAD_GATEWAY,
       );
     }
-    
+
     if (status === 409) {
       console.log('4444444');
       throw new HttpException(
@@ -152,7 +151,7 @@ export class KeycloakService {
 
   async createUser(dto: CreateKeycloakUserDto) {
     const token = await this.getToken();
-    if(!token)
+    if (!token)
       return { errorCode: ErrorCode.NOT_FOUND, message: 'No se pudo obtener el token de Keycloak ServiceHub' };
 
     try {
@@ -163,10 +162,10 @@ export class KeycloakService {
       const location = response.headers['location'] as string | undefined;
       const userId = location ? location.split('/').pop() : null;
 
-      if(!userId)
+      if (!userId)
         return { errorCode: ErrorCode.NOT_FOUND, message: 'No se pudo obtener el ID del usuario del sistema municipal, por favor comuníquese con el administrador', userId };
       return { errorCode: ErrorCode.NONE, message: 'Usuario creado exitosamente', userId };
-      
+
     } catch (error: any) {
       return this.throwKeycloakError('createUser', error);
     }
@@ -235,7 +234,7 @@ export class KeycloakService {
         params: { username, exact: true },
       });
 
-      if(data && data.length > 0)
+      if (data && data.length > 0)
         return { errorCode: ErrorCode.NONE, message: 'Usuario encontrado exitosamente', data };
       return { errorCode: ErrorCode.NOT_FOUND, message: 'Usuario no encontrado', data };
 
@@ -263,7 +262,6 @@ export class KeycloakService {
       return this.throwKeycloakError('findByUsername', error);
     }
   }
-
 
   async loginClient(dto: LoginKeycloakClientDto) {
     try {
@@ -339,7 +337,7 @@ export class KeycloakService {
         params: { email, exact: true },
       });
 
-      if(data && data.length > 0)
+      if (data && data.length > 0)
         return { errorCode: ErrorCode.NONE, message: 'Usuario encontrado exitosamente', data };
       return { errorCode: ErrorCode.NOT_FOUND, message: 'Usuario no encontrado', data };
 
@@ -367,7 +365,6 @@ export class KeycloakService {
       return this.throwKeycloakError('findByIdentification', error);
     }
   }
-
 
   async findByIdentificationMunicipality(identification: string) {
     const token = await this.getTokenMunicipalityK();
