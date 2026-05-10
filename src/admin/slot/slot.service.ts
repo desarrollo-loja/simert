@@ -162,7 +162,7 @@ export class SlotService {
     }
     return { conditions, parameters };
   }
-//hola
+
   async findAllSlotBlockParking(blockId?: number, zoneId?: number, filterDto?: FilterDto) {
     try {
       const { search, typeSlot, statusSlot } = filterDto ?? {};
