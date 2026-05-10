@@ -558,8 +558,8 @@ export class IncidentService {
             i.id, i."zoneId", i."blockId", i."controllerId", i."statusIncident", i."plate", i."description", 
             TO_CHAR(i."createdAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS') AS "createdAt",  
             it.name as reason, 
-            z.name as nameZone,
-            b.name as nameBlock
+            z.name as "nameZone",
+            b.name as "nameBlock"
           FROM
             ${tableNameIncident} i
             INNER JOIN public."incident_type" it ON i."incidentTypeId" = it.id
