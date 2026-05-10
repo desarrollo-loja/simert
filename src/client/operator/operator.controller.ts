@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Param, ParseIntPipe, ParseUUIDPipe, Post, Query } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthWithKeycloak, GetUser } from 'src/auth/decorators';
 import { JwtPayload } from 'src/auth/interfaces';
 import { GetMeta } from 'src/common/decorators/get-meta.decorator';
@@ -10,8 +11,6 @@ import { GetIncidentDto } from '../incident/dto/get-incident.dto';
 import { CreateOperatorDto } from './dto/create-operator.dto';
 import { IncrementOperatorDto } from './dto/increment-operator.dto';
 import { OperatorService } from './operator.service';
-
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 @ApiTags('Client - Operator')
 @ApiBearerAuth('keycloak')
 @Controller('client/operator')
