@@ -162,13 +162,13 @@ export class SlotService {
     }
     return { conditions, parameters };
   }
-
+//hola
   async findAllSlotBlockParking(blockId?: number, zoneId?: number, filterDto?: FilterDto) {
     try {
       const { search, typeSlot, statusSlot } = filterDto ?? {};
       const query = this.slotRepository.createQueryBuilder('s')
         .select(['s.id', 's.isActivated', 's.isPaidParking', 's.slot', 's.lt', 's.lg', 's.status', 's.typeSlot', 's.blockId', 'zone.id',
-          'zone.name', 'block.id', 'block.name', 'fraction.id', 'fraction.statusId', 'fraction.createdAt', 'fraction.image',
+          'zone.name', 'block.id', 'block.name', 'block.geofence', 'fraction.id', 'fraction.statusId', 'fraction.createdAt', 'fraction.image',
           'fraction.plate', 'status.id'
         ])
         .innerJoin("s.zone", "zone")
