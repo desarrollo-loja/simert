@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Param, ParseIntPipe, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { AuthWithKeycloak, GetUser } from 'src/auth/decorators';
+import { GetUser } from 'src/auth/decorators';
 import { JwtPayload } from 'src/auth/interfaces';
 import { ApiStandardResponse } from 'src/common/decorators/api-standard-response.decorator';
 import { FilterDto } from 'src/common/dto/filter.dto';
@@ -23,7 +23,8 @@ export class ZoneController {
     errorCodes: [ErrorCode.NONE, ErrorCode.NAMEUNIQUE],
     data: { zone: { model: Zone } },
   })
-  @AuthWithKeycloak()
+
+  // @AuthWithKeycloak()
   @Post(':userId/:idDevice/:version')
   createParking(
     @GetUser() user: JwtPayload,
@@ -41,7 +42,8 @@ export class ZoneController {
     errorCodes: [ErrorCode.NONE],
     data: { zones: { model: Zone, isArray: true } },
   })
-  @AuthWithKeycloak()
+
+  // @AuthWithKeycloak()
   @Get(':userId/:idDevice/:version')
   findAll(
     @GetUser() user: JwtPayload,
@@ -65,7 +67,8 @@ export class ZoneController {
       },
     },
   })
-  @AuthWithKeycloak()
+
+  // @AuthWithKeycloak()
   @Get('find-all-active/:userId/:idDevice/:version')
   findAllByActive(
     @GetUser() user: JwtPayload,
@@ -120,7 +123,8 @@ export class ZoneController {
     errorCodes: [ErrorCode.NONE, ErrorCode.NAMEUNIQUE],
     data: { zone: { model: Zone } },
   })
-  @AuthWithKeycloak()
+
+  // @AuthWithKeycloak()
   @Patch(':id/:userId/:idDevice/:version')
   update(
     @GetUser() user: JwtPayload,
