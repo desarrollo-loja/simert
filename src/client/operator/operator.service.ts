@@ -389,6 +389,66 @@ export class OperatorService {
     }
   }
 
+  // async findAllFractions(blockId: number, userId: number, paginationDto: PaginationDto) {
+  //   const { offset, limit } = paginationDto;
+  //   try {
+
+  //     // Queries independientes por blockId, se ejecutan en paralelo
+  //     const slotQuery = this.slotRepository.createQueryBuilder('slot')
+  //       .select([
+  //         'slot.id', 'slot.slot', 'slot.status',
+  //         'block.id', 'block.name', 'block.neighborhood', 'block.mainStreet', 'block.sideStreet', 'block.timePerFraction',
+  //       ])
+  //       .innerJoin('slot.block', 'block')
+  //       .where('slot.blockId = :blockId', { blockId });
+
+  //     const fractionQuery = this.fractionRepository.createQueryBuilder('f')
+  //       .select([
+  //         'f.id', 'f.typeFraction', 'f.userId', 'f.time', 'f.card', 'f.plate', 'f.tint', 'f.alias', 'f.image', 'f.transactionId', 'f.optionalData',
+  //         'status',
+  //         'fSlot.id',
+  //       ])
+  //       .addSelect(`TO_CHAR(f."registerAt" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD HH24:MI:SS')`, 'f_registerAt')
+  //       .addSelect(`TO_CHAR(f."departureDate" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD HH24:MI:SS')`, 'f_departureDate')
+  //       .innerJoin('f.status', 'status')
+  //       .innerJoin('f.slot', 'fSlot')
+  //       .where('f.blockId = :blockId', { blockId })
+  //       .innerJoin(
+  //         qb => qb.subQuery()
+  //           .select('MAX(sub.id)', 'maxid')
+  //           .from(Fraction, 'sub')
+  //           .where('sub.blockId = :blockId', { blockId })
+  //           .groupBy('sub.slot'),
+  //         'latest', 'latest.maxid = f.id',
+  //       );
+
+  //     // Ejecución en paralelo — ninguna espera a la otra
+  //     const [slots, fractionResult] = await Promise.all([
+  //       slotQuery.take(limit).skip(offset).getMany(),
+  //       fractionQuery.getRawAndEntities(),
+  //     ]);
+
+  //     const fractions = fractionResult.entities.map((entity, i) => ({
+  //       ...entity,
+  //       registerAt: fractionResult.raw[i]?.f_registerAt ?? null,
+  //       departureDate: fractionResult.raw[i]?.f_departureDate ?? null,
+  //     }));
+
+  //     // Merge con Map O(n)
+  //     const fractionBySlotId = new Map(fractions.map(f => [f.slot.id, f]));
+
+  //     const slotsWithFractions = slots.map(slot => ({
+  //       ...slot,
+  //       fraction: fractionBySlotId.get(slot.id) ?? null,
+  //     }));
+
+  //     const currentDate = new Date();
+  //     return { errorCode: ErrorCode.NONE, currentDate, fractions: slotsWithFractions };
+  //   } catch (error) {
+  //     handleDbExceptions(error, this.logger);
+  //   }
+  // }
+
   async findAllFractions(blockId: number, userId: number, paginationDto: PaginationDto) {
     const { offset, limit } = paginationDto;
     try {
@@ -408,8 +468,8 @@ export class OperatorService {
           'status',
           'fSlot.id',
         ])
-        .addSelect(`TO_CHAR(f."registerAt" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD HH24:MI:SS')`, 'f_registerAt')
-        .addSelect(`TO_CHAR(f."departureDate" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD HH24:MI:SS')`, 'f_departureDate')
+        .addSelect(`TO_CHAR(f."registerAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`, 'f_registerAt')
+        .addSelect(`TO_CHAR(f."departureDate", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`, 'f_departureDate')
         .innerJoin('f.status', 'status')
         .innerJoin('f.slot', 'fSlot')
         .where('f.blockId = :blockId', { blockId })
