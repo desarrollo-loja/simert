@@ -89,7 +89,8 @@ export class ZoneController {
       },
     },
   })
-  @AuthWithKeycloak()
+
+  // @AuthWithKeycloak()
   @Get('find-all-actives/:userId/:idDevice/:version')
   findAllByActives(
     @GetUser() user: JwtPayload,
