@@ -559,12 +559,14 @@ export class IncidentService {
             TO_CHAR(i."createdAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS') AS "createdAt",  
             it.name as reason, 
             z.name as "nameZone",
-            b.name as "nameBlock"
+            b.name as "nameBlock",
+            f.time as "timeFraction"
           FROM
             ${tableNameIncident} i
             INNER JOIN public."incident_type" it ON i."incidentTypeId" = it.id
             INNER JOIN public.zone z ON z.id = i."zoneId"
             INNER JOIN public.block b ON b.id = i."blockId"
+            INNER JOIN public.fraction f ON f.id = i."fractionId"
             WHERE i."fractionId" IS NOT NULL
         `;
 
