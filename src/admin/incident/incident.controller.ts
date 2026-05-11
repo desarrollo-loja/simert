@@ -175,7 +175,7 @@ export class IncidentController {
   }
 
   @ApiOperation({ summary: 'Full statistics combining fraction and sanction data' })
-  @AuthWithKeycloak()
+  // @AuthWithKeycloak()
   @Get('find-all-statistics-fraction-sanction/:userId/:idDevice/:version')
   findAllStatisticsFractionSanction(
     @Query() filterDto: FilterDto,
