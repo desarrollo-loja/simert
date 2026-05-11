@@ -36,7 +36,7 @@ export class IncidentController {
   }
 
   @ApiOperation({ summary: 'Count total incidents matching filters (admin role required)' })
-  // @AuthWithKeycloak(TypeRol.ADMIN)
+  @AuthWithKeycloak(TypeRol.ADMIN)
   @Patch('find-all-total/:userId/:idDevice')
   findAllTotal(
     @GetUser() user: JwtPayload,
@@ -106,7 +106,7 @@ export class IncidentController {
   }
 
   @ApiOperation({ summary: 'Delete an incident by id' })
-  // @AuthWithKeycloak()
+  @AuthWithKeycloak()
   @Delete('remove/:userId/:idDevice/:id')
   remove(
     @GetUser() user: JwtPayload,
@@ -117,7 +117,7 @@ export class IncidentController {
   }
 
   @ApiOperation({ summary: 'Aggregate incident statistics by date range and filters' })
-  // @AuthWithKeycloak()
+  @AuthWithKeycloak()
   @Get('find-statistics/:userId/:idDevice/:version')
   findStatistics(
     @Query() filterDto: FilterDto,
@@ -140,7 +140,7 @@ export class IncidentController {
   }
 
   @ApiOperation({ summary: 'Incident statistics grouped by fraction' })
-  // @AuthWithKeycloak()
+  @AuthWithKeycloak()
   @Get('find-statistics-by-fraction/:userId/:idDevice/:version')
   findStatisticsByFraction(
     @Query() filterDto: FilterDto,
@@ -152,7 +152,7 @@ export class IncidentController {
   }
 
   @ApiOperation({ summary: 'Count total fractions with sanctions matching filters' })
-  // @AuthWithKeycloak()
+  @AuthWithKeycloak()
   @Get('find-all-fraction-sanction-total/:userId/:idDevice/:version')
   findAllFractionSanctionTotal(
     @Query() filterDto: FilterDto,
@@ -175,7 +175,7 @@ export class IncidentController {
   }
 
   @ApiOperation({ summary: 'Full statistics combining fraction and sanction data' })
-  // @AuthWithKeycloak()
+  @AuthWithKeycloak()
   @Get('find-all-statistics-fraction-sanction/:userId/:idDevice/:version')
   findAllStatisticsFractionSanction(
     @Query() filterDto: FilterDto,
@@ -187,7 +187,7 @@ export class IncidentController {
   }
 
   @ApiOperation({ summary: 'Find pending incidents and synchronize/emit them to GIM' })
-  // @AuthWithKeycloak()
+  @AuthWithKeycloak()
   @Patch('find-and-sincronize-to-emit/:userId/:idDevice/:isTransacional/:version')
   findAndSincronizeToEmit(
     @GetUser() user: JwtPayload,
@@ -210,7 +210,7 @@ export class IncidentController {
   }
 
   @ApiOperation({ summary: 'Advance incident to next workflow step (isTransacional=1 for transactional mode)' })
-  // @AuthWithKeycloak()
+  @AuthWithKeycloak()
   @Patch('advance-next-process/:userId/:idDevice/:isTransacional/:version')
   advanceNextProcess(
     @GetUser() user: JwtPayload,
