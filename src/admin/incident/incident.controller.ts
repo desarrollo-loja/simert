@@ -25,7 +25,6 @@ export class IncidentController {
   }
 
   @ApiOperation({ summary: 'List incidents with filters (admin role required)' })
-  // @Auth(TypeRol.ADMIN)
   @AuthWithKeycloak(TypeRol.ADMIN)
   @Patch('find-all/:userId/:idDevice')
   findAll(
@@ -37,7 +36,6 @@ export class IncidentController {
   }
 
   @ApiOperation({ summary: 'Count total incidents matching filters (admin role required)' })
-  // @Auth(TypeRol.ADMIN)
   @AuthWithKeycloak(TypeRol.ADMIN)
   @Patch('find-all-total/:userId/:idDevice')
   findAllTotal(
@@ -55,10 +53,8 @@ export class IncidentController {
   }
 
   @ApiOperation({ summary: 'Update an incident (isTransacional=1 wraps in DB transaction)' })
-  // @Auth()
   @Patch('update/:userId/:idDevice/:id/:isTransacional')
   update(
-    // @GetUser() user: JwtPayload,
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
     @Param('id') id: string,
@@ -68,10 +64,8 @@ export class IncidentController {
   }
 
   @ApiOperation({ summary: 'Update incident GIM sync status after external emission' })
-  // @Auth()
   @Patch('update-status-gim/:userId/:idDevice/:id')
   updateStatusGim(
-    // @GetUser() user: JwtPayload,
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
     @Param('id') id: string,
@@ -80,7 +74,6 @@ export class IncidentController {
   }
 
   @ApiOperation({ summary: 'Upload an incident evidence file to Alfresco (multipart form-data, key: file)' })
-  // @Auth()
   @Post('upload-alfresco/:userId/:idDevice')
   @UseInterceptors(FileInterceptor('file')) // 'file' debe coincidir con el FormData
   uploadAlfresco(
@@ -92,7 +85,6 @@ export class IncidentController {
       throw new BadRequestException('Debe enviar el archivo en form-data con key: file');
     }
 
-    // console.log('file =======================>', file);
     // Multer siempre envía estas propiedades
     const { buffer, originalname } = file;
 
@@ -100,7 +92,6 @@ export class IncidentController {
   }
 
   @ApiOperation({ summary: 'Get a download URL for an Alfresco-stored file by alfrescoId' })
-  // @Auth()
   @Get('get-file-url-alfresco/:userId/:idDevice/:alfrescoId')
   getFileUrlAlfresco(
     @Param('userId', ParseIntPipe) userId: number,
@@ -115,7 +106,6 @@ export class IncidentController {
   }
 
   @ApiOperation({ summary: 'Delete an incident by id' })
-  // @Auth()
   @AuthWithKeycloak()
   @Delete('remove/:userId/:idDevice/:id')
   remove(
@@ -127,11 +117,9 @@ export class IncidentController {
   }
 
   @ApiOperation({ summary: 'Aggregate incident statistics by date range and filters' })
-  // @Auth()
   @AuthWithKeycloak()
   @Get('find-statistics/:userId/:idDevice/:version')
   findStatistics(
-    // @GetUser() user: JwtPayload,
     @Query() filterDto: FilterDto,
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
@@ -152,11 +140,9 @@ export class IncidentController {
   }
 
   @ApiOperation({ summary: 'Incident statistics grouped by fraction' })
-  // @Auth()
   @AuthWithKeycloak()
   @Get('find-statistics-by-fraction/:userId/:idDevice/:version')
   findStatisticsByFraction(
-    // @GetUser() user: JwtPayload,
     @Query() filterDto: FilterDto,
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
@@ -166,7 +152,6 @@ export class IncidentController {
   }
 
   @ApiOperation({ summary: 'Count total fractions with sanctions matching filters' })
-  // @Auth()
   @AuthWithKeycloak()
   @Get('find-all-fraction-sanction-total/:userId/:idDevice/:version')
   findAllFractionSanctionTotal(
@@ -181,7 +166,6 @@ export class IncidentController {
   @ApiOperation({ summary: 'Aggregate total parking time per vehicle/client from incident data' })
   @Get('find-all-total-vehicle-client-time/:userId/:idDevice/:version')
   findAllTotalVehicleClientTime(
-    // @GetUser() user: JwtPayload,
     @Query() filterDto: FilterDto,
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
@@ -191,11 +175,9 @@ export class IncidentController {
   }
 
   @ApiOperation({ summary: 'Full statistics combining fraction and sanction data' })
-  // @Auth()
   @AuthWithKeycloak()
   @Get('find-all-statistics-fraction-sanction/:userId/:idDevice/:version')
   findAllStatisticsFractionSanction(
-    // @GetUser() user: JwtPayload,
     @Query() filterDto: FilterDto,
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
@@ -205,7 +187,6 @@ export class IncidentController {
   }
 
   @ApiOperation({ summary: 'Find pending incidents and synchronize/emit them to GIM' })
-  // @Auth()
   @AuthWithKeycloak()
   @Patch('find-and-sincronize-to-emit/:userId/:idDevice/:isTransacional/:version')
   findAndSincronizeToEmit(
@@ -221,7 +202,6 @@ export class IncidentController {
   @ApiOperation({ summary: 'List incident notifications with optional filters' })
   @Get('find-all-notification/:userId/:idDevice/:version')
   findAllNotification(
-    // @GetUser() user: JwtPayload,
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
     @Param('version', ParseIntPipe) version: number,
@@ -230,7 +210,6 @@ export class IncidentController {
   }
 
   @ApiOperation({ summary: 'Advance incident to next workflow step (isTransacional=1 for transactional mode)' })
-  // @Auth()
   @AuthWithKeycloak()
   @Patch('advance-next-process/:userId/:idDevice/:isTransacional/:version')
   advanceNextProcess(
