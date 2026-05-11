@@ -92,7 +92,7 @@ export class CheckboxService {
             if (tableExists) {
                 query = `
                         SELECT
-                        cb.id, cb.amount, cb.checkboxes, cb."statusPayment", cb."createdAt"
+                        cb.id, cb.amount, cb.checkboxes, cb."statusPayment", TO_CHAR(cb."createdAt" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD HH24:MI:SS') AS "createdAt"
                         FROM ${tableName} cb
                         WHERE cb."userId" = $${idx++}
                     `;
@@ -106,7 +106,7 @@ export class CheckboxService {
                 query += `
                 ${tableExists ? 'UNION ALL' : ''}
                 SELECT
-                cb.id, cb.amount, cb.checkboxes, cb."statusPayment", cb."createdAt"
+                cb.id, cb.amount, cb.checkboxes, cb."statusPayment", TO_CHAR(cb."createdAt" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD HH24:MI:SS') AS "createdAt"
                 FROM checkbox cb
                 WHERE cb."userId" = $${idx++} AND EXTRACT(MONTH FROM cb."createdAt") = ${month}
                 `;
@@ -120,7 +120,7 @@ export class CheckboxService {
                 query += `
                 ${tableExists ? 'UNION ALL' : ''}
                 SELECT
-                cb.id, cb.amount, cb.checkboxes, cb."statusPayment", cb."createdAt"
+                cb.id, cb.amount, cb.checkboxes, cb."statusPayment", TO_CHAR(cb."createdAt" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD HH24:MI:SS') AS "createdAt"
                 FROM checkbox cb
                 WHERE cb."userId" = $${idx++} AND EXTRACT(MONTH FROM cb."createdAt") = ${month}
                 `;
