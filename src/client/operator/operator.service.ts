@@ -282,8 +282,7 @@ export class OperatorService {
   }
 
   async parking(createOperatorDto: CreateOperatorDto) {
-
-    console.log('dentro de parking')
+    console.log('dentro de parking', createOperatorDto)
     const { userId, transactionId, checkboxes, obsolete, physicId } = createOperatorDto;
     const register = this.commonService.getDate();
 
