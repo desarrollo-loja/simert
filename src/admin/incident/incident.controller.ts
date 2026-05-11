@@ -2,9 +2,10 @@ import { BadRequestException, Body, Controller, Delete, Get, Param, ParseIntPipe
 import { UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { GetUser } from 'src/auth/decorators';
+import { AuthWithKeycloak, GetUser } from 'src/auth/decorators';
 import { JwtPayload } from 'src/auth/interfaces';
 import { FilterDto } from 'src/common/dto/filter.dto';
+import { TypeRol } from 'src/common/glob/type/type_rol';
 
 import { CreateIncidentDto } from './dto/create-incident.dto';
 import { IncidentDto } from './dto/incident.dto';
@@ -24,7 +25,7 @@ export class IncidentController {
   }
 
   @ApiOperation({ summary: 'List incidents with filters (admin role required)' })
-  // @AuthWithKeycloak(TypeRol.ADMIN)
+  @AuthWithKeycloak(TypeRol.ADMIN)
   @Patch('find-all/:userId/:idDevice')
   findAll(
     @GetUser() user: JwtPayload,
