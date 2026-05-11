@@ -192,10 +192,16 @@ export class OperatorService {
         return { errorCode: ErrorCode.NOT_FOUND, physic: [], range: false };
       }
 
-      const physic = await this.physicRepository.createQueryBuilder('p')
-        .select(['p.id', 'p.zoneId', 'p.checkboxes', 'p.timeByBlock', 'p.registerAt',])
+      const physicResult = await this.physicRepository.createQueryBuilder('p')
+        .select(['p.id', 'p.zoneId', 'p.checkboxes', 'p.timeByBlock'])
+        .addSelect(`TO_CHAR(p."registerAt" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD HH24:MI:SS')`, 'p_registerAt')
         .where('p.card = :card', { card })
-        .getMany();
+        .getRawAndEntities();
+
+      const physic = physicResult.entities.map((entity, i) => ({
+        ...entity,
+        registerAt: physicResult.raw[i]?.p_registerAt ?? null,
+      }));
 
       const currentDate = new Date();
 
