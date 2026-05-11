@@ -2,10 +2,9 @@ import { BadRequestException, Body, Controller, Delete, Get, Param, ParseIntPipe
 import { UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { AuthWithKeycloak, GetUser } from 'src/auth/decorators';
+import { GetUser } from 'src/auth/decorators';
 import { JwtPayload } from 'src/auth/interfaces';
 import { FilterDto } from 'src/common/dto/filter.dto';
-import { TypeRol } from 'src/common/glob/type/type_rol';
 
 import { CreateIncidentDto } from './dto/create-incident.dto';
 import { IncidentDto } from './dto/incident.dto';
@@ -25,7 +24,7 @@ export class IncidentController {
   }
 
   @ApiOperation({ summary: 'List incidents with filters (admin role required)' })
-  @AuthWithKeycloak(TypeRol.ADMIN)
+  // @AuthWithKeycloak(TypeRol.ADMIN)
   @Patch('find-all/:userId/:idDevice')
   findAll(
     @GetUser() user: JwtPayload,
@@ -36,7 +35,7 @@ export class IncidentController {
   }
 
   @ApiOperation({ summary: 'Count total incidents matching filters (admin role required)' })
-  @AuthWithKeycloak(TypeRol.ADMIN)
+  // @AuthWithKeycloak(TypeRol.ADMIN)
   @Patch('find-all-total/:userId/:idDevice')
   findAllTotal(
     @GetUser() user: JwtPayload,
@@ -106,7 +105,7 @@ export class IncidentController {
   }
 
   @ApiOperation({ summary: 'Delete an incident by id' })
-  @AuthWithKeycloak()
+  // @AuthWithKeycloak()
   @Delete('remove/:userId/:idDevice/:id')
   remove(
     @GetUser() user: JwtPayload,
@@ -117,7 +116,7 @@ export class IncidentController {
   }
 
   @ApiOperation({ summary: 'Aggregate incident statistics by date range and filters' })
-  @AuthWithKeycloak()
+  // @AuthWithKeycloak()
   @Get('find-statistics/:userId/:idDevice/:version')
   findStatistics(
     @Query() filterDto: FilterDto,
@@ -140,7 +139,7 @@ export class IncidentController {
   }
 
   @ApiOperation({ summary: 'Incident statistics grouped by fraction' })
-  @AuthWithKeycloak()
+  // @AuthWithKeycloak()
   @Get('find-statistics-by-fraction/:userId/:idDevice/:version')
   findStatisticsByFraction(
     @Query() filterDto: FilterDto,
@@ -152,7 +151,7 @@ export class IncidentController {
   }
 
   @ApiOperation({ summary: 'Count total fractions with sanctions matching filters' })
-  @AuthWithKeycloak()
+  // @AuthWithKeycloak()
   @Get('find-all-fraction-sanction-total/:userId/:idDevice/:version')
   findAllFractionSanctionTotal(
     @Query() filterDto: FilterDto,
@@ -187,7 +186,7 @@ export class IncidentController {
   }
 
   @ApiOperation({ summary: 'Find pending incidents and synchronize/emit them to GIM' })
-  @AuthWithKeycloak()
+  // @AuthWithKeycloak()
   @Patch('find-and-sincronize-to-emit/:userId/:idDevice/:isTransacional/:version')
   findAndSincronizeToEmit(
     @GetUser() user: JwtPayload,
@@ -210,7 +209,7 @@ export class IncidentController {
   }
 
   @ApiOperation({ summary: 'Advance incident to next workflow step (isTransacional=1 for transactional mode)' })
-  @AuthWithKeycloak()
+  // @AuthWithKeycloak()
   @Patch('advance-next-process/:userId/:idDevice/:isTransacional/:version')
   advanceNextProcess(
     @GetUser() user: JwtPayload,
