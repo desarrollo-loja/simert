@@ -552,6 +552,7 @@ export class GimService {
           },
         }
       );
+      console.log('data', data);
       console.log("=========================");
 
       if (data && data.ok && +data.code === ResponseCodeGim.SUCCESS) {
