@@ -78,7 +78,8 @@ export class IncidentController {
       message: { type: 'string', example: 'No se pudo verificar la información del cliente, por favor inténtelo más tarde' },
     },
   })
-  @AuthWithKeycloak()
+
+  // @AuthWithKeycloak()
   @Post('find-by-identity-card/:userId/:idDevice/:identityCard/:version')
   findSanctionByIdentityCard(
     @GetUser() user: JwtPayload,
