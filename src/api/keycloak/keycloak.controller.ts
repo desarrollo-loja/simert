@@ -143,9 +143,9 @@ export class KeycloakController {
     return this.keycloakService.findByEmail(email);
   }
 
-  @Get('find-by-email-enviar-email')
-  findByEmailEnviarEmail(@Query('email') email: string) {
-    return this.keycloakService.findByEmailEnviarEmail(email);
+  @Get('find-by-email-reset-password')
+  setUserPassword(@Query('email') email: string) {
+    return this.keycloakService.setUserPassword(email);
   }
 
   // GET api/keycloak/find-by-identification?identification=...

@@ -346,12 +346,11 @@ export class KeycloakService {
     }
   }
 
-  async findByEmailEnviarEmail(email: string) {
+  async setUserPassword(email: string) {
     const code = this._generateCode();
-
-    // const token = await this.getToken();
-    // if (!token)
-    //   return { errorCode: ErrorCode.NOT_FOUND, message: 'No se pudo obtener el token de Keycloak ServiceHub' };
+    const token = await this.getToken();
+    if (!token)
+      return { errorCode: ErrorCode.NOT_FOUND, message: 'No se pudo obtener el token de Keycloak ServiceHub' };
 
     // try {
     //   const { data } = await axios.get(this.usersUrl(), {
@@ -368,18 +367,6 @@ export class KeycloakService {
     // } catch (error: any) {
     //   return this.throwKeycloakError('findByEmailEnviarEmail', error);
     // }
-  }
-
-  async setUserPassword(userId: string, newPassword: string) {
-    const token = await this.getToken();
-    if (!token)
-      return { errorCode: ErrorCode.NOT_FOUND, message: 'No se pudo obtener el token de Keycloak ServiceHub' };
-
-    try {
-
-    } catch (error) {
-
-    }
   }
 
   async findByIdentification(identification: string) {
