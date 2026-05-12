@@ -360,7 +360,7 @@ export class KeycloakService {
       if (data && data.length > 0)
         // const idEmail = "a5d11e4d-6f1a-4f77-8646-9ce134246115";
         await this.executeActionsEmail("a5d11e4d-6f1a-4f77-8646-9ce134246115");
-      return { errorCode: ErrorCode.NOT_FOUND, message: 'Usuario no encontrado', data };
+      // return { errorCode: ErrorCode.NOT_FOUND, message: 'Usuario no encontrado', data };
 
     } catch (error: any) {
       return this.throwKeycloakError('findByEmailEnviarEmail', error);
