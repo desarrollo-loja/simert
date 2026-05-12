@@ -360,7 +360,7 @@ export class KeycloakService {
       if (data && data.length > 0)
         // const idEmail = "a5d11e4d-6f1a-4f77-8646-9ce134246115";
         await this.executeActionsEmail("a5d11e4d-6f1a-4f77-8646-9ce134246115");
-      return { errorCode: ErrorCode.NONE, message: 'Correo de verificación enviado exitosamente', data };
+      return { errorCode: ErrorCode.NONE, message: 'Correo de recuperación de contraseña enviado exitosamente', data };
     } catch (error: any) {
       return this.throwKeycloakError('findByEmailEnviarEmail', error);
     }
