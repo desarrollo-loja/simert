@@ -374,7 +374,7 @@ export class KeycloakService {
 
       await axios.put(
         `${this.usersUrl(userId)}/reset-password`,
-        { type: 'password', value: newPassword, temporary: true },
+        { type: 'password', value: newPassword, temporary: false },
         { headers: this.authHeaders(token) },
       );
 
@@ -382,11 +382,11 @@ export class KeycloakService {
       const emailSent = await this._sendPasswordEmail(fullName, email, newPassword);
 
       return {
-        errorCode: ErrorCode.NONE,
+        errorCode: emailSent ? ErrorCode.NONE : ErrorCode.RESPONSE,
         message: emailSent
           ? 'Contraseña temporal generada y enviada al correo'
           : 'Contraseña temporal generada pero no se pudo enviar el correo',
-        userId,
+        newPassword,
         emailSent,
       };
     } catch (error: any) {
@@ -420,14 +420,14 @@ export class KeycloakService {
 
       await axios.put(
         `${this.usersUrlMunicipality(userId)}/reset-password`,
-        { type: 'password', value: newPassword, temporary: true },
+        { type: 'password', value: newPassword, temporary: false },
         { headers: this.authHeaders(token) },
       );
 
       const emailSent = await this._sendPasswordEmail(fullName, email, newPassword);
 
       return {
-        errorCode: ErrorCode.NONE,
+        errorCode: emailSent ? ErrorCode.NONE : ErrorCode.RESPONSE,
         message: emailSent
           ? 'Contraseña temporal generada y enviada al correo'
           : 'Contraseña temporal generada pero no se pudo enviar el correo',
@@ -439,6 +439,42 @@ export class KeycloakService {
     }
   }
 
+  async changePassword(email: string, newPassword: string) {
+    email = email?.trim();
+    if (!email || !newPassword)
+      return { errorCode: ErrorCode.NOT_FOUND, message: 'email y newPassword son requeridos' };
+
+    const token = await this.getToken();
+    if (!token)
+      return { errorCode: ErrorCode.NOT_FOUND, message: 'No se pudo obtener el token de Keycloak ServiceHub' };
+
+    try {
+      const { data } = await axios.get(this.usersUrl(), {
+        headers: this.authHeaders(token),
+        params: { email, exact: true },
+      });
+
+      if (!data || data.length === 0)
+        return { errorCode: ErrorCode.NOT_FOUND, message: 'Usuario no encontrado' };
+
+      const userId = data[0].id;
+
+      await axios.put(
+        `${this.usersUrl(userId)}/reset-password`,
+        { type: 'password', value: newPassword, temporary: false },
+        { headers: this.authHeaders(token) },
+      );
+
+      return {
+        errorCode: ErrorCode.NONE,
+        message: 'Contraseña actualizada exitosamente',
+        userId,
+      };
+    } catch (error: any) {
+      return this.throwKeycloakError('changePassword', error);
+    }
+  }
+
   private async _sendPasswordEmail(fullName: string, email: string, password: string, phone?: string): Promise<boolean> {
     if (!this.dominioAuth) {
       this.logger.warn('DOMINIO_AUTH no configurado, no se puede enviar el correo de recuperación');
@@ -447,7 +483,7 @@ export class KeycloakService {
 
     try {
       const { data } = await axios.post(
-        `${this.dominioAuth}/auth/mail/send-password`,
+        `${this.dominioAuth}api/auth/auth/mail/send-password`,
         { fullName, email, password, phone },
         { headers: { 'Content-Type': 'application/json' } },
       );
