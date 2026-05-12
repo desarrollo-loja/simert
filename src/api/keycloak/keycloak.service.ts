@@ -356,6 +356,7 @@ export class KeycloakService {
         headers: this.authHeaders(token),
         params: { email, exact: true },
       });
+      console.log(JSON.stringify(data))
 
       if (data && data.length > 0)
         // const idEmail = "a5d11e4d-6f1a-4f77-8646-9ce134246115";
