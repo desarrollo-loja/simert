@@ -386,7 +386,7 @@ export class KeycloakService {
         message: emailSent
           ? 'Contraseña temporal generada y enviada al correo'
           : 'Contraseña temporal generada pero no se pudo enviar el correo',
-        userId,
+        newPassword,
         emailSent,
       };
     } catch (error: any) {
@@ -436,6 +436,42 @@ export class KeycloakService {
       };
     } catch (error: any) {
       return this.throwKeycloakError('setUserPasswordMunicipality', error);
+    }
+  }
+
+  async changePassword(email: string, newPassword: string) {
+    email = email?.trim();
+    if (!email || !newPassword)
+      return { errorCode: ErrorCode.NOT_FOUND, message: 'email y newPassword son requeridos' };
+
+    const token = await this.getToken();
+    if (!token)
+      return { errorCode: ErrorCode.NOT_FOUND, message: 'No se pudo obtener el token de Keycloak ServiceHub' };
+
+    try {
+      const { data } = await axios.get(this.usersUrl(), {
+        headers: this.authHeaders(token),
+        params: { email, exact: true },
+      });
+
+      if (!data || data.length === 0)
+        return { errorCode: ErrorCode.NOT_FOUND, message: 'Usuario no encontrado' };
+
+      const userId = data[0].id;
+
+      await axios.put(
+        `${this.usersUrl(userId)}/reset-password`,
+        { type: 'password', value: newPassword, temporary: false },
+        { headers: this.authHeaders(token) },
+      );
+
+      return {
+        errorCode: ErrorCode.NONE,
+        message: 'Contraseña actualizada exitosamente',
+        userId,
+      };
+    } catch (error: any) {
+      return this.throwKeycloakError('changePassword', error);
     }
   }
 

@@ -1,11 +1,16 @@
-import { Body, Controller, Get, Param, Post, Put, Query } from '@nestjs/common';
+import { Body, Controller, ForbiddenException, Get, Param, Post, Put, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Auth } from 'src/auth/decorators/auth.decorator';
+import { GetUser } from 'src/auth/decorators/get-user.decorator';
+import { JwtPayload } from 'src/auth/interfaces/jwt-payload.interface';
 import { ApiStandardResponse } from 'src/common/decorators/api-standard-response.decorator';
 import { CreateKeycloakUserDto } from 'src/common/dto/create-keycloak-user.dto';
 import { LoginKeycloakClientDto } from 'src/common/dto/login-keycloak-client.dto';
-import { ResetPasswordDto } from './dto/reset-password.dto';
 import { UpdateKeycloakUserDto } from 'src/common/dto/update-keycloak-user.dto';
 import { ErrorCode } from 'src/common/glob/error';
+
+import { ChangePasswordDto } from './dto/change-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 
 import { KeycloakService } from './keycloak.service';
 @ApiTags('Api - Keycloak')
@@ -173,6 +178,27 @@ export class KeycloakController {
   @Post('reset-password-municipality')
   setUserPasswordMunicipality(@Body() dto: ResetPasswordDto) {
     return this.keycloakService.setUserPasswordMunicipality(dto.email);
+  }
+
+  @ApiOperation({ summary: 'Change own password (authenticated client). Email in body must match the JWT email.' })
+  @ApiStandardResponse({
+    description: 'Password updated in Keycloak (no email sent — the user already knows it)',
+    errorCodes: [ErrorCode.NONE, ErrorCode.NOT_FOUND],
+    data: {
+      message: { type: 'string', example: 'Contraseña actualizada exitosamente' },
+      userId: { type: 'string', example: 'b1b9e0f0-1234-4aaa-9999-abcdefabcdef' },
+    },
+  })
+  @Auth()
+  @Post('change-password')
+  changePassword(
+    @GetUser() user: JwtPayload,
+    @Body() dto: ChangePasswordDto,
+  ) {
+    if (user.email?.toLowerCase() !== dto.email.toLowerCase())
+      throw new ForbiddenException('Solo puedes cambiar tu propia contraseña');
+
+    return this.keycloakService.changePassword(dto.email, dto.newPassword);
   }
 
   // GET api/keycloak/find-by-identification?identification=...
