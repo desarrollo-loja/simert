@@ -119,6 +119,7 @@ export class KeycloakController {
       },
     },
   })
+
   @Get('find-by-username/:username')
   findByUsername(@Param('username') username: string) {
     return this.keycloakService.findByUsername(username);
@@ -181,6 +182,7 @@ export class KeycloakController {
       },
     },
   })
+
   @Get('find-by-username-municipality/:username')
   findByUsernameMunicipality(@Param('username') username: string) {
     return this.keycloakService.findByUsernameMunicipality(username);
