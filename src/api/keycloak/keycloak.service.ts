@@ -407,17 +407,17 @@ export class KeycloakService {
     }
   }
 
-  async executeActionsEmail(userId: string): Promise<{ errorCode: ErrorCode; message?: string }> {
+  async executeActionsEmail(userId: string): Promise<{ errorCode: ErrorCode; message?: string, data: [] }> {
     const token = await this.getToken();
     if (!token)
-      return { errorCode: ErrorCode.NOT_FOUND, message: 'No se pudo obtener el token de Keycloak ServiceHub' };
+      return { errorCode: ErrorCode.NOT_FOUND, message: 'No se pudo obtener el token de Keycloak ServiceHub', data: [] };
 
     try {
       const data = await axios.put(`${this.usersUrl(userId)}/execute-actions-email`, ['UPDATE_PASSWORD'], {
         headers: this.authHeaders(token),
       });
-      console.log(data);
-      return { errorCode: ErrorCode.NONE, message: 'Correo de verificación enviado exitosamente' };
+      console.log(data)
+      return { errorCode: ErrorCode.NONE, message: 'Correo de verificación enviado exitosamente', data: [] };
     } catch (error: any) {
       return this.throwKeycloakError('executeActionsEmail', error);
     }
