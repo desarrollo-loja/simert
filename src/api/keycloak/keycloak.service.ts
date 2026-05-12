@@ -360,8 +360,7 @@ export class KeycloakService {
       if (data && data.length > 0)
         // const idEmail = "a5d11e4d-6f1a-4f77-8646-9ce134246115";
         await this.executeActionsEmail("a5d11e4d-6f1a-4f77-8646-9ce134246115");
-      // return { errorCode: ErrorCode.NOT_FOUND, message: 'Usuario no encontrado', data };
-
+      return { errorCode: ErrorCode.NONE, message: 'Correo de verificación enviado exitosamente', data };
     } catch (error: any) {
       return this.throwKeycloakError('findByEmailEnviarEmail', error);
     }
@@ -413,10 +412,10 @@ export class KeycloakService {
       return { errorCode: ErrorCode.NOT_FOUND, message: 'No se pudo obtener el token de Keycloak ServiceHub' };
 
     try {
-      const { data } = await axios.put(`${this.usersUrl(userId)}/execute-actions-email`, ['UPDATE_PASSWORD'], {
+      await axios.put(`${this.usersUrl(userId)}/execute-actions-email`, ['UPDATE_PASSWORD'], {
         headers: this.authHeaders(token),
       });
-      return { errorCode: ErrorCode.NONE, message: 'Correo de verificación enviado exitosamente', data };
+      // return { errorCode: ErrorCode.NONE, message: 'Correo de verificación enviado exitosamente', data };
     } catch (error: any) {
       return this.throwKeycloakError('executeActionsEmail', error);
     }
