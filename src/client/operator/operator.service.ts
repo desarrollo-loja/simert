@@ -313,9 +313,11 @@ export class OperatorService {
       await queryRunner.connect();
       await queryRunner.startTransaction();
 
+      // Se guarda con la hora local del servidor (Ecuador). El driver pg
+      // serializa el Date usando los componentes locales (getHours, etc.) y
+      // los inserta tal cual en la columna timestamp (sin TZ), por lo que no
+      // se aplica ninguna conversión a UTC.
       const fromTime = new Date(createOperatorDto.fromTime);
-      const zonaHoraria = -5; // OJO Supongamos una zona horaria de -5 horas OJO
-      fromTime.setHours(fromTime.getHours() + (zonaHoraria * -1));
 
       if (createOperatorDto.typeFraction === TypeFraction.VIRTUAL) {
         const numberVirtual = await this._findNextIdVirtual();
