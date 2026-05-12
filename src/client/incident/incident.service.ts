@@ -501,7 +501,6 @@ export class IncidentService {
 
     // 1) Verificamos si existe el usuario y tiene el residentId en nuestra base de datos
     const user = await this.commonAuthService.filterByIdentityCard(userId, identityCard);
-    console.log("HOLA HAY DATOSD ----------------------->", user)
     const userFound = user.errorCode === ErrorCode.NONE;
     if (userFound) {
       residentId = user.data.residentId || null;

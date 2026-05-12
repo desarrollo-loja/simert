@@ -349,25 +349,25 @@ export class KeycloakService {
   async findByEmailEnviarEmail(email: string) {
     const code = this._generateCode();
 
-    const token = await this.getToken();
-    if (!token)
-      return { errorCode: ErrorCode.NOT_FOUND, message: 'No se pudo obtener el token de Keycloak ServiceHub' };
+    // const token = await this.getToken();
+    // if (!token)
+    //   return { errorCode: ErrorCode.NOT_FOUND, message: 'No se pudo obtener el token de Keycloak ServiceHub' };
 
-    try {
-      const { data } = await axios.get(this.usersUrl(), {
-        headers: this.authHeaders(token),
-        params: { email, exact: true },
-      });
+    // try {
+    //   const { data } = await axios.get(this.usersUrl(), {
+    //     headers: this.authHeaders(token),
+    //     params: { email, exact: true },
+    //   });
 
-      if (data && data.length > 0) {
-        const idUser = data[0].id;
-        await this.executeActionsEmail(idUser);
-        return { errorCode: ErrorCode.NONE, message: 'Correo de recuperación de contraseña enviado exitosamente', data };
-      }
-      return { errorCode: ErrorCode.NOT_FOUND, message: 'Usuario no encontrado', data };
-    } catch (error: any) {
-      return this.throwKeycloakError('findByEmailEnviarEmail', error);
-    }
+    //   if (data && data.length > 0) {
+    //     const idUser = data[0].id;
+    //     await this.executeActionsEmail(idUser);
+    //     return { errorCode: ErrorCode.NONE, message: 'Correo de recuperación de contraseña enviado exitosamente', data };
+    //   }
+    //   return { errorCode: ErrorCode.NOT_FOUND, message: 'Usuario no encontrado', data };
+    // } catch (error: any) {
+    //   return this.throwKeycloakError('findByEmailEnviarEmail', error);
+    // }
   }
 
   async setUserPassword(userId: string, newPassword: string) {
