@@ -356,12 +356,12 @@ export class KeycloakService {
         headers: this.authHeaders(token),
         params: { email, exact: true },
       });
-      console.log(JSON.stringify(data))
 
-      if (data && data.length > 0)
-        // const idEmail = "a5d11e4d-6f1a-4f77-8646-9ce134246115";
-        await this.executeActionsEmail("a5d11e4d-6f1a-4f77-8646-9ce134246115");
-      return { errorCode: ErrorCode.NONE, message: 'Correo de recuperación de contraseña enviado exitosamente', data };
+      if (data && data.length > 0) {
+        const idUser = data[0].id;
+        await this.executeActionsEmail(idUser);
+        return { errorCode: ErrorCode.NONE, message: 'Correo de recuperación de contraseña enviado exitosamente', data };
+      }
     } catch (error: any) {
       return this.throwKeycloakError('findByEmailEnviarEmail', error);
     }
