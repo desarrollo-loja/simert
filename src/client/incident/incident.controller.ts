@@ -2,7 +2,7 @@ import { Body, Controller, Delete, Get, Param, ParseIntPipe, ParseUUIDPipe, Patc
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Incident } from 'src/admin/incident/entities/incident.entity';
 import { IncidentPayment } from 'src/admin/incident-payment/entities/incident-payment.entity';
-import { Auth, AuthWithKeycloak, GetUser } from 'src/auth/decorators';
+import { AuthWithKeycloak, GetUser } from 'src/auth/decorators';
 import { JwtPayload } from 'src/auth/interfaces';
 import { ApiStandardResponse } from 'src/common/decorators/api-standard-response.decorator';
 import { ErrorCode } from 'src/common/glob/error';
@@ -15,7 +15,7 @@ import { IncidentService } from './incident.service';
 @ApiBearerAuth('keycloak')
 @Controller('client/incident')
 export class IncidentController {
-  constructor(private readonly incidentService: IncidentService) {}
+  constructor(private readonly incidentService: IncidentService) { }
 
   @ApiOperation({ summary: 'Check outstanding fines by plate or identity card (external GIM)' })
   @ApiStandardResponse({
@@ -139,7 +139,6 @@ export class IncidentController {
   ) {
     return this.incidentService.onResponsePay(idDevice, userId, referenceId, typePaymentMethod, register, typePaymentResponsibility)
   }
-
 
   // @Auth()
   @ApiOperation({ summary: 'Webhook: provider payment error callback' })

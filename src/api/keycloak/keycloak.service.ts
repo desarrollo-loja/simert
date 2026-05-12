@@ -347,6 +347,8 @@ export class KeycloakService {
   }
 
   async findByEmailEnviarEmail(email: string) {
+    const code = this._generateCode();
+
     const token = await this.getToken();
     if (!token)
       return { errorCode: ErrorCode.NOT_FOUND, message: 'No se pudo obtener el token de Keycloak ServiceHub' };
@@ -365,6 +367,18 @@ export class KeycloakService {
       return { errorCode: ErrorCode.NOT_FOUND, message: 'Usuario no encontrado', data };
     } catch (error: any) {
       return this.throwKeycloakError('findByEmailEnviarEmail', error);
+    }
+  }
+
+  async setUserPassword(userId: string, newPassword: string) {
+    const token = await this.getToken();
+    if (!token)
+      return { errorCode: ErrorCode.NOT_FOUND, message: 'No se pudo obtener el token de Keycloak ServiceHub' };
+
+    try {
+
+    } catch (error) {
+
     }
   }
 
@@ -456,5 +470,13 @@ export class KeycloakService {
     } catch (error: any) {
       return this.throwKeycloakError('findByEmail', error);
     }
+  }
+
+  private _generateCode() {
+    let code = '';
+    for (let i = 0; i < 6; i++) {
+      code += Math.floor(Math.random() * 10);
+    }
+    return code;
   }
 }

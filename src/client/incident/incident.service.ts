@@ -499,47 +499,53 @@ export class IncidentService {
   private async _getResidentId(userId: number, idDevice: string, identityCard: string, incidents: Incident[]): Promise<{ residentId: number | null }> {
     let residentId: number = null;
 
-    // Verificamos si existe el usuario y tiene el residenteId en nuestra base de datos
+    // 1) Verificamos si existe el usuario y tiene el residentId en nuestra base de datos
     const user = await this.commonAuthService.filterByIdentityCard(userId, identityCard);
-    if (user.errorCode === ErrorCode.NONE) {
+    const userFound = user.errorCode === ErrorCode.NONE;
+    if (userFound) {
       residentId = user.data.residentId || null;
     }
 
-    // Si no existe el residenteId en nuestra BD lo buscamos en el GIM
-    if (!residentId) {
-      const userGim = await this.commonGimService.getUserByIdentificationNumber(idDevice, identityCard);
-      if (userGim.errorCode === ErrorCode.NONE) {
-        residentId = userGim.data.id;
+    if (residentId) return { residentId };
+
+    // 2) Si no existe el residentId en nuestra BD lo buscamos en el GIM
+    const userGim = await this.commonGimService.getUserByIdentificationNumber(idDevice, identityCard);
+    if (userGim.errorCode === ErrorCode.NONE && userGim.data?.id) {
+      residentId = userGim.data.id;
+      // Si el usuario existe en nuestra BD pero no tenía residentId, lo guardamos
+      if (userFound) {
+        this.commonAuthService.updateResidentId(userId, identityCard, residentId);
       }
+      return { residentId };
     }
 
-    // Si no existe en el GIM lo creamos
-    if (!residentId && user.errorCode === ErrorCode.NONE) {
-      const createClientGimDto: CreateClientGimDto = {
-        controllerId: userId,
-        identityCard,
-        firstName: user.data.firstName,
-        lastName: user.data.lastName,
-        emailClient: user.data.email,
-      };
-      const createUserGim = await this.commonGimService.createClientGim(idDevice, createClientGimDto);
-      if (createUserGim.errorCode === ErrorCode.NONE) {
-        residentId = createUserGim.data.id;
+    // 3) Si no existe en el GIM lo creamos.
+    // Usamos los datos de auth si están disponibles; si no, los del incidente.
+    const incidentFallback = incidents?.[0];
+    const fullName = userFound ? null : (incidentFallback?.fullNameClient || 'Usuario');
+    const firstName = userFound ? user.data.firstName : fullName;
+    const lastName = userFound ? user.data.lastName : fullName;
+    const emailClient = userFound ? user.data.email : incidentFallback?.emailClient;
+
+    const createClientGimDto: CreateClientGimDto = {
+      controllerId: userId,
+      identityCard,
+      firstName,
+      lastName,
+      emailClient,
+    };
+
+    const createUserGim = await this.commonGimService.createClientGim(idDevice, createClientGimDto);
+    if (createUserGim.errorCode === ErrorCode.NONE && createUserGim.data?.id) {
+      residentId = createUserGim.data.id;
+      if (userFound) {
         this.commonAuthService.updateResidentId(userId, identityCard, residentId);
       }
     } else {
-      const createClientGimDto: CreateClientGimDto = {
-        controllerId: userId,
-        identityCard,
-        firstName: incidents[0].fullNameClient || 'Usuario',
-        lastName: incidents[0].fullNameClient || 'Usuario',
-        emailClient: incidents[0].emailClient,
-      };
-      const createUserGim = await this.commonGimService.createClientGim(idDevice, createClientGimDto);
-      if (createUserGim.errorCode === ErrorCode.NONE) {
-        residentId = createUserGim.data.id;
-        this.commonAuthService.updateResidentId(userId, identityCard, residentId);
-      }
+      this.logger.warn(
+        `_getResidentId: no se pudo crear cliente en GIM para identityCard=${identityCard}, ` +
+        `userFound=${userFound}, createUserGim=${JSON.stringify(createUserGim)}`,
+      );
     }
 
     return { residentId };
