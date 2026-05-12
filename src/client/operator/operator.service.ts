@@ -194,7 +194,7 @@ export class OperatorService {
 
       const physicResult = await this.physicRepository.createQueryBuilder('p')
         .select(['p.id', 'p.zoneId', 'p.checkboxes', 'p.timeByBlock'])
-        .addSelect(`TO_CHAR(p."registerAt" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD HH24:MI:SS')`, 'p_registerAt')
+        .addSelect(`TO_CHAR(p."registerAt", 'YYYY-MM-DD HH24:MI:SS')`, 'p_registerAt')
         .where('p.card = :card', { card })
         .getRawAndEntities();
 
