@@ -349,6 +349,7 @@ export class KeycloakService {
   }
 
   async setUserPassword(email: string) {
+    console.log('Ingreso a la verificación del usuario normal setUserPassword')
     email = email?.trim();
     if (!email)
       return { errorCode: ErrorCode.NOT_FOUND, message: 'El parámetro email es requerido' };
@@ -389,6 +390,7 @@ export class KeycloakService {
         emailSent,
       };
     } catch (error: any) {
+    console.log('Error en la verificación del usuario normal setUserPassword',error)
       return this.throwKeycloakError('setUserPassword', error);
     }
   }

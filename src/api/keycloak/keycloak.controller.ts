@@ -3,6 +3,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ApiStandardResponse } from 'src/common/decorators/api-standard-response.decorator';
 import { CreateKeycloakUserDto } from 'src/common/dto/create-keycloak-user.dto';
 import { LoginKeycloakClientDto } from 'src/common/dto/login-keycloak-client.dto';
+import { ResetPasswordDto } from 'src/common/dto/reset-password.dto';
 import { UpdateKeycloakUserDto } from 'src/common/dto/update-keycloak-user.dto';
 import { ErrorCode } from 'src/common/glob/error';
 
@@ -144,14 +145,34 @@ export class KeycloakController {
     return this.keycloakService.findByEmail(email);
   }
 
-  @Get('reset-password')
-  setUserPassword(@Query('email') email: string) {
-    return this.keycloakService.setUserPassword(email);
+  @ApiOperation({ summary: 'Reset a ServiceHub user password by email (generates temp password and emails it)' })
+  @ApiStandardResponse({
+    description: 'Temp password generated in Keycloak and dispatched to parking_auth mail service',
+    errorCodes: [ErrorCode.NONE, ErrorCode.NOT_FOUND],
+    data: {
+      message: { type: 'string', example: 'Contraseña temporal generada y enviada al correo' },
+      userId: { type: 'string', example: 'b1b9e0f0-1234-4aaa-9999-abcdefabcdef' },
+      emailSent: { type: 'boolean', example: true },
+    },
+  })
+  @Post('reset-password')
+  setUserPassword(@Body() dto: ResetPasswordDto) {
+    return this.keycloakService.setUserPassword(dto.email);
   }
 
-  @Get('reset-password-municipality')
-  setUserPasswordMunicipality(@Query('email') email: string) {
-    return this.keycloakService.setUserPasswordMunicipality(email);
+  @ApiOperation({ summary: 'Reset a municipal employee password by email' })
+  @ApiStandardResponse({
+    description: 'Temp password generated in Keycloak and dispatched to parking_auth mail service',
+    errorCodes: [ErrorCode.NONE, ErrorCode.NOT_FOUND],
+    data: {
+      message: { type: 'string', example: 'Contraseña temporal generada y enviada al correo' },
+      userId: { type: 'string', example: 'b1b9e0f0-1234-4aaa-9999-abcdefabcdef' },
+      emailSent: { type: 'boolean', example: true },
+    },
+  })
+  @Post('reset-password-municipality')
+  setUserPasswordMunicipality(@Body() dto: ResetPasswordDto) {
+    return this.keycloakService.setUserPasswordMunicipality(dto.email);
   }
 
   // GET api/keycloak/find-by-identification?identification=...
