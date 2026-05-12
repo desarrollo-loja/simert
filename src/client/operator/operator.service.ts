@@ -182,7 +182,7 @@ export class OperatorService {
 
       const queryVerifyTiraje = await this.rangeRepository.createQueryBuilder('r')
         .select(['r.id', 'r.from', 'r.to'])
-        .where(':card BETWEEN r.from AND r.to', { card })
+        .where('CAST(:card AS bigint) BETWEEN CAST(r.from AS bigint) AND CAST(r.to AS bigint)', { card })
         .andWhere('r.isActivated = :isActivated', { isActivated: true })
         .andWhere('r.status NOT IN (:...status)', { status: [StatusRange.CLOSED, StatusRange.DEPLETED] })
         .orderBy('r.id', 'DESC')
