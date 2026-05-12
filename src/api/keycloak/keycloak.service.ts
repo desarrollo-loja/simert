@@ -374,7 +374,7 @@ export class KeycloakService {
 
       await axios.put(
         `${this.usersUrl(userId)}/reset-password`,
-        { type: 'password', value: newPassword, temporary: true },
+        { type: 'password', value: newPassword, temporary: false },
         { headers: this.authHeaders(token) },
       );
 
@@ -420,7 +420,7 @@ export class KeycloakService {
 
       await axios.put(
         `${this.usersUrlMunicipality(userId)}/reset-password`,
-        { type: 'password', value: newPassword, temporary: true },
+        { type: 'password', value: newPassword, temporary: false },
         { headers: this.authHeaders(token) },
       );
 
@@ -447,7 +447,7 @@ export class KeycloakService {
 
     try {
       const { data } = await axios.post(
-        `${this.dominioAuth}/auth/mail/send-password`,
+        `${this.dominioAuth}api/auth/auth/mail/send-password`,
         { fullName, email, password, phone },
         { headers: { 'Content-Type': 'application/json' } },
       );
