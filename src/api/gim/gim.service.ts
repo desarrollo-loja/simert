@@ -537,6 +537,10 @@ export class GimService {
       // TODO: Use the correct URL from config
       // const url = `${this.gimBaseUrl}/api/external/emitInfractionGim`;
       const url = `${this.gimBaseUrl}/api/external/emitSimertSanction`;
+      console.log("=========================");
+      console.log('url', url);
+      console.log('body', body);
+      console.log('token', this.getToken());
 
       const { data } = await axios.post<EmitInfractionSimertResponse>(
         url,
@@ -548,6 +552,7 @@ export class GimService {
           },
         }
       );
+      console.log("=========================");
 
       if (data && data.ok && +data.code === ResponseCodeGim.SUCCESS) {
         return { errorCode: ErrorCode.NONE, data };
