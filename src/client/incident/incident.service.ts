@@ -501,6 +501,7 @@ export class IncidentService {
 
     // 1) Verificamos si existe el usuario y tiene el residentId en nuestra base de datos
     const user = await this.commonAuthService.filterByIdentityCard(userId, identityCard);
+    console.log("HOLA HAY DATOSD ----------------------->", user)
     const userFound = user.errorCode === ErrorCode.NONE;
     if (userFound) {
       residentId = user.data.residentId || null;
@@ -791,7 +792,7 @@ export class IncidentService {
     if (response && response['errorCode'] === ErrorCode.NONE) {
       // Esperamos 3 minutos para verificar si se realizo el PAGO, si el pago se hizo antes en respuesta al 
       // webhook ya se responde al cliente antes, caso contrario se verifica la transaccion antes de reversar 
-    
+
       setTimeout(async () => {
         const incidentPayments = await this.incidentPaymentRepository.find({ where: { referenceId: referenceId } });
         if (!incidentPayments) return;
@@ -840,7 +841,7 @@ export class IncidentService {
     if (response && response['errorCode'] === ErrorCode.NONE) {
       // Esperamos 3 minutos para verificar si se realizo el PAGO, si el pago se hizo antes en respuesta al 
       // webhook ya se responde al cliente antes, caso contrario se verifica la transaccion antes de reversar 
-     
+
       setTimeout(async () => {
         const incidentPayments = await this.incidentPaymentRepository.find({ where: { referenceId: referenceId } });
         if (!incidentPayments) return;
