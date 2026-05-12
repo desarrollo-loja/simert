@@ -143,6 +143,11 @@ export class KeycloakController {
     return this.keycloakService.findByEmail(email);
   }
 
+  @Get('find-by-email-enviar-email')
+  findByEmailEnviarEmail(@Query('email') email: string) {
+    return this.keycloakService.findByEmailEnviarEmail(email);
+  }
+
   // GET api/keycloak/find-by-identification?identification=...
   @ApiOperation({ summary: 'Find a ServiceHub Keycloak user by exact identification' })
   @ApiStandardResponse({

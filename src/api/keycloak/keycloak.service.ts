@@ -346,6 +346,27 @@ export class KeycloakService {
     }
   }
 
+  async findByEmailEnviarEmail(email: string) {
+    const token = await this.getToken();
+    if (!token)
+      return { errorCode: ErrorCode.NOT_FOUND, message: 'No se pudo obtener el token de Keycloak ServiceHub' };
+
+    try {
+      const { data } = await axios.get(this.usersUrl(), {
+        headers: this.authHeaders(token),
+        params: { email, exact: true },
+      });
+
+      if (data && data.length > 0)
+        // const idEmail = "a5d11e4d-6f1a-4f77-8646-9ce134246115";
+        await this.executeActionsEmail("a5d11e4d-6f1a-4f77-8646-9ce134246115");
+      return { errorCode: ErrorCode.NOT_FOUND, message: 'Usuario no encontrado', data };
+
+    } catch (error: any) {
+      return this.throwKeycloakError('findByEmailEnviarEmail', error);
+    }
+  }
+
   async findByIdentification(identification: string) {
     const token = await this.getToken();
     if (!token)
