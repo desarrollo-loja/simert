@@ -3,7 +3,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ApiStandardResponse } from 'src/common/decorators/api-standard-response.decorator';
 import { CreateKeycloakUserDto } from 'src/common/dto/create-keycloak-user.dto';
 import { LoginKeycloakClientDto } from 'src/common/dto/login-keycloak-client.dto';
-import { ResetPasswordDto } from 'src/common/dto/reset-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { UpdateKeycloakUserDto } from 'src/common/dto/update-keycloak-user.dto';
 import { ErrorCode } from 'src/common/glob/error';
 
