@@ -82,7 +82,7 @@ export class IncidentController {
   // @AuthWithKeycloak()
   @Post('find-by-identity-card/:userId/:idDevice/:identityCard/:version')
   findSanctionByIdentityCard(
-    @GetUser() user: JwtPayload,
+    // @GetUser() user: JwtPayload,
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
     @Param('identityCard') identityCard: string,
