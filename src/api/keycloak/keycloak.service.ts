@@ -362,6 +362,7 @@ export class KeycloakService {
         await this.executeActionsEmail(idUser);
         return { errorCode: ErrorCode.NONE, message: 'Correo de recuperación de contraseña enviado exitosamente', data };
       }
+      return { errorCode: ErrorCode.NOT_FOUND, message: 'Usuario no encontrado', data };
     } catch (error: any) {
       return this.throwKeycloakError('findByEmailEnviarEmail', error);
     }
