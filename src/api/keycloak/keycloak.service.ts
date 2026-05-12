@@ -349,6 +349,10 @@ export class KeycloakService {
   }
 
   async setUserPassword(email: string) {
+    email = email?.trim();
+    if (!email)
+      return { errorCode: ErrorCode.NOT_FOUND, message: 'El parámetro email es requerido' };
+
     const token = await this.getToken();
     if (!token)
       return { errorCode: ErrorCode.NOT_FOUND, message: 'No se pudo obtener el token de Keycloak ServiceHub' };
@@ -390,6 +394,10 @@ export class KeycloakService {
   }
 
   async setUserPasswordMunicipality(email: string) {
+    email = email?.trim();
+    if (!email)
+      return { errorCode: ErrorCode.NOT_FOUND, message: 'El parámetro email es requerido' };
+
     const token = await this.getTokenMunicipalityK();
     if (!token)
       return { errorCode: ErrorCode.NOT_FOUND, message: 'No se pudo obtener el token de Keycloak Municipal' };
