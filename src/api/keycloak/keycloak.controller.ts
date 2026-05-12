@@ -144,9 +144,14 @@ export class KeycloakController {
     return this.keycloakService.findByEmail(email);
   }
 
-  @Get('find-by-email-reset-password')
+  @Get('reset-password')
   setUserPassword(@Query('email') email: string) {
     return this.keycloakService.setUserPassword(email);
+  }
+
+  @Get('reset-password-municipality')
+  setUserPasswordMunicipality(@Query('email') email: string) {
+    return this.keycloakService.setUserPasswordMunicipality(email);
   }
 
   // GET api/keycloak/find-by-identification?identification=...

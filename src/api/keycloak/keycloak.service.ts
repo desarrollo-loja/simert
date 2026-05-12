@@ -17,6 +17,7 @@ export class KeycloakService {
   private readonly gimBaseUrlLoginMunicipality: string;
   private readonly gim2RealmServiceHub: string;
   private readonly gim2RealmMunicipality: string;
+  private readonly dominioAuth: string;
 
   // Caché del token de ServiceHub
   private serviceHubToken: string | null = null;
@@ -30,6 +31,7 @@ export class KeycloakService {
     this.gim2RealmServiceHub = this.configService.get<string>('GIM2_REALM_SERVICE_HUB'); // Default or Env
     this.gimBaseUrlLoginMunicipality = this.configService.get<string>('GIM_BASE_URL_LOGIN'); // Default or Env
     this.gim2RealmMunicipality = this.configService.get<string>('GIM2_REALM_MUNICIPIO_K'); // Default or Env
+    this.dominioAuth = this.configService.get<string>('DOMINIO_AUTH');
   }
 
   // ─── Token con caché inteligente ─────────────────────────────────────────────
@@ -347,26 +349,103 @@ export class KeycloakService {
   }
 
   async setUserPassword(email: string) {
-    const code = this._generateCode();
     const token = await this.getToken();
     if (!token)
       return { errorCode: ErrorCode.NOT_FOUND, message: 'No se pudo obtener el token de Keycloak ServiceHub' };
 
-    // try {
-    //   const { data } = await axios.get(this.usersUrl(), {
-    //     headers: this.authHeaders(token),
-    //     params: { email, exact: true },
-    //   });
+    try {
+      const { data } = await axios.get(this.usersUrl(), {
+        headers: this.authHeaders(token),
+        params: { email, exact: true },
+      });
 
-    //   if (data && data.length > 0) {
-    //     const idUser = data[0].id;
-    //     await this.executeActionsEmail(idUser);
-    //     return { errorCode: ErrorCode.NONE, message: 'Correo de recuperación de contraseña enviado exitosamente', data };
-    //   }
-    //   return { errorCode: ErrorCode.NOT_FOUND, message: 'Usuario no encontrado', data };
-    // } catch (error: any) {
-    //   return this.throwKeycloakError('findByEmailEnviarEmail', error);
-    // }
+      if (!data || data.length === 0)
+        return { errorCode: ErrorCode.NOT_FOUND, message: 'Usuario no encontrado', data };
+
+      const user = data[0];
+      const userId = user.id;
+      const fullName = `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.username || email;
+      const newPassword = this._generateCode();
+
+      await axios.put(
+        `${this.usersUrl(userId)}/reset-password`,
+        { type: 'password', value: newPassword, temporary: true },
+        { headers: this.authHeaders(token) },
+      );
+
+      console.log('Contraseña generada', newPassword);
+      const emailSent = await this._sendPasswordEmail(fullName, email, newPassword);
+
+      return {
+        errorCode: ErrorCode.NONE,
+        message: emailSent
+          ? 'Contraseña temporal generada y enviada al correo'
+          : 'Contraseña temporal generada pero no se pudo enviar el correo',
+        userId,
+        emailSent,
+      };
+    } catch (error: any) {
+      return this.throwKeycloakError('setUserPassword', error);
+    }
+  }
+
+  async setUserPasswordMunicipality(email: string) {
+    const token = await this.getTokenMunicipalityK();
+    if (!token)
+      return { errorCode: ErrorCode.NOT_FOUND, message: 'No se pudo obtener el token de Keycloak Municipal' };
+
+    try {
+      const { data } = await axios.get(this.usersUrlMunicipality(), {
+        headers: this.authHeaders(token),
+        params: { email, exact: true },
+      });
+
+      if (!data || data.length === 0)
+        return { errorCode: ErrorCode.NOT_FOUND, message: 'Usuario no encontrado', data };
+
+      const user = data[0];
+      const userId = user.id;
+      const fullName = `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.username || email;
+      const newPassword = this._generateCode();
+
+      await axios.put(
+        `${this.usersUrlMunicipality(userId)}/reset-password`,
+        { type: 'password', value: newPassword, temporary: true },
+        { headers: this.authHeaders(token) },
+      );
+
+      const emailSent = await this._sendPasswordEmail(fullName, email, newPassword);
+
+      return {
+        errorCode: ErrorCode.NONE,
+        message: emailSent
+          ? 'Contraseña temporal generada y enviada al correo'
+          : 'Contraseña temporal generada pero no se pudo enviar el correo',
+        userId,
+        emailSent,
+      };
+    } catch (error: any) {
+      return this.throwKeycloakError('setUserPasswordMunicipality', error);
+    }
+  }
+
+  private async _sendPasswordEmail(fullName: string, email: string, password: string, phone?: string): Promise<boolean> {
+    if (!this.dominioAuth) {
+      this.logger.warn('DOMINIO_AUTH no configurado, no se puede enviar el correo de recuperación');
+      return false;
+    }
+
+    try {
+      const { data } = await axios.post(
+        `${this.dominioAuth}/auth/mail/send-password`,
+        { fullName, email, password, phone },
+        { headers: { 'Content-Type': 'application/json' } },
+      );
+      return Boolean(data?.ok);
+    } catch (error: any) {
+      this.logger.error(`Error enviando correo de recuperación a ${email}: ${error?.message}`);
+      return false;
+    }
   }
 
   async findByIdentification(identification: string) {
