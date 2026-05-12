@@ -413,7 +413,7 @@ export class KeycloakService {
       return { errorCode: ErrorCode.NOT_FOUND, message: 'No se pudo obtener el token de Keycloak ServiceHub' };
 
     try {
-      await axios.put(`${this.usersUrl(userId)}/execute-actions-email`, ['VERIFY_EMAIL'], {
+      await axios.put(`${this.usersUrl(userId)}/execute-actions-email`, ['UPDATE_PASSWORD'], {
         headers: this.authHeaders(token),
       });
       return { errorCode: ErrorCode.NONE, message: 'Correo de verificación enviado exitosamente' };
