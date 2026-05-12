@@ -382,7 +382,7 @@ export class KeycloakService {
       const emailSent = await this._sendPasswordEmail(fullName, email, newPassword);
 
       return {
-        errorCode: ErrorCode.NONE,
+        errorCode: emailSent ? ErrorCode.NONE : ErrorCode.RESPONSE,
         message: emailSent
           ? 'Contraseña temporal generada y enviada al correo'
           : 'Contraseña temporal generada pero no se pudo enviar el correo',
@@ -427,7 +427,7 @@ export class KeycloakService {
       const emailSent = await this._sendPasswordEmail(fullName, email, newPassword);
 
       return {
-        errorCode: ErrorCode.NONE,
+        errorCode: emailSent ? ErrorCode.NONE : ErrorCode.RESPONSE,
         message: emailSent
           ? 'Contraseña temporal generada y enviada al correo'
           : 'Contraseña temporal generada pero no se pudo enviar el correo',
