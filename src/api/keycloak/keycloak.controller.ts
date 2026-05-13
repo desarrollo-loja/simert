@@ -11,7 +11,6 @@ import { ErrorCode } from 'src/common/glob/error';
 
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
-
 import { KeycloakService } from './keycloak.service';
 @ApiTags('Api - Keycloak')
 @ApiBearerAuth('keycloak')
