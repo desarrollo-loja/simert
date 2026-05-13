@@ -8,6 +8,7 @@ import { Repository } from 'typeorm';
 
 import { Fraction } from './entities/fraction.entity';
 import { TypeSizeVehicle } from 'src/common/glob/type/type_size_vehicle';
+import { TypeTimeZone } from 'src/common/glob/type/type_time_zone';
 
 @Injectable()
 export class FractionService {
@@ -76,6 +77,131 @@ export class FractionService {
       }
     } catch (error) {
       handleDbExceptions(error, this.logger);
+    }
+  }
+
+  // para postgres
+  async findFractionHistory(
+    filterDto: FilterDto
+  ) {
+    const { offset = 0, limit = 10, year, month} =
+      filterDto;
+
+    const { parameters, conditions } = this.buildParametersConditions(filterDto);
+
+    try {
+      let tableNameFraction = 'public.fraction';
+      let tableExistsFraction = false;
+      const schema = 'history';
+
+      const params: any[] = [...parameters];
+      let queryParts: string[] = [];
+
+      if (year && month) {
+        const monthString = month.toString().padStart(2, '0')
+
+        let tableNameFractionAux = `"${year}_${monthString}_fraction"`;
+        tableNameFractionAux = `${schema}.${tableNameFractionAux}`;
+        tableExistsFraction = await this._tableExists(tableNameFractionAux);
+
+        if (tableExistsFraction) {
+          tableNameFraction = tableNameFractionAux;
+        }
+      }
+
+      const addParam = (v: any) => {
+        params.push(v);
+        return `$${params.length}`;
+      };
+
+      const buildSelect = (fromTable: string, includeYearMonthFilter: boolean) => {
+        let q = `
+        SELECT f.id, f."userId", f."transactionId", f.time, f."typeFraction",
+        f.plate, f.alias, f.tint, f.image,
+        TO_CHAR(f."createdAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS') AS "createdAt",
+        TO_CHAR(f."departureDate", 'YYYY-MM-DD"T"HH24:MI:SS.MS') AS "departureDate",
+        f."timeByBlock",
+        zone.id AS "zoneId", zone.name AS "zoneName",
+        block.id AS "blockId", block.name AS "blockName",
+        slot.id AS "slotId", slot.slot AS "slotName", slot."typeSlot"  as "typeSlot",
+        status.id AS "statusId", status.name AS "statusName"
+        FROM ${fromTable} f
+        INNER JOIN zone ON zone.id = f."zoneId"
+        INNER JOIN block ON block.id = f."blockId"
+        INNER JOIN slot ON slot.id = f."slotId"
+        INNER JOIN status ON f."statusId" = status.id
+      `;
+
+        if (conditions.length > 0) {
+          q += ' WHERE ' + conditions.join(' AND ');
+        }
+
+        return q;
+      };
+
+      // histórico (si existe)
+      if (tableExistsFraction) {
+        queryParts.push(buildSelect(tableNameFraction, false));
+      }
+
+      // currentMonth o día 1 -> tabla actual filtrada por year/month
+      queryParts.push(buildSelect('public.fraction', true));
+
+      // si no agregaste nada, evita query vacía
+      if (queryParts.length === 0) {
+        return { errorCode: ErrorCode.NONE, fraction: [] };
+      }
+
+      let query = queryParts.join(' UNION ALL ');
+      query += `
+      ORDER BY "registerAt" DESC
+      LIMIT ${addParam(limit)} OFFSET ${addParam(offset)};
+    `;
+
+      this.logger.log('QUERY DE LAS FRACTIONS ');
+      this.logger.log(query);
+      this.logger.log('PARAMS DE LAS FRACTIONS ');
+      this.logger.log(params);
+
+      const fraction = await this.fractionRepository.query(query, params);
+      return { errorCode: ErrorCode.NONE, fraction };
+    } catch (error) {
+      handleDbExceptions(error, this.logger);
+    }
+  }
+
+  private _convertRangeToTimeZone = (startUTC: string, endUTC: string, timeZone: string): { start: string; end: string } => {
+    try {
+      // Extraemos las horas y minutos de la cadena de zona horaria (ej: "-05:00")
+      const [sign, hours, minutes] = timeZone.match(/([+-])(\d{2}):(\d{2})/)?.slice(1) || [];
+      const timeZoneOffset = (parseInt(hours) * 60 + parseInt(minutes)) * (sign === "-" ? 1 : -1);
+
+      // Convertimos ambas fechas de UTC a Date
+      const startDateUTC = new Date(startUTC + "Z"); // "Z" asegura que se interprete como UTC
+      const endDateUTC = new Date(endUTC + "Z");
+
+      // Aplicamos el desfase de la zona horaria
+      const startDateInTimeZone = new Date(startDateUTC.getTime() + timeZoneOffset * 60 * 1000);
+      const endDateInTimeZone = new Date(endDateUTC.getTime() + timeZoneOffset * 60 * 1000);
+
+      // Formateamos las fechas en el formato "YYYY-MM-DD HH:mm:ss"
+      const formatDate = (date: Date) =>
+        date.getUTCFullYear() +
+        "-" +
+        String(date.getUTCMonth() + 1).padStart(2, "0") +
+        "-" +
+        String(date.getUTCDate()).padStart(2, "0") +
+        " " +
+        String(date.getUTCHours()).padStart(2, "0") +
+        ":" +
+        String(date.getUTCMinutes()).padStart(2, "0") +
+        ":" +
+        String(date.getUTCSeconds()).padStart(2, "0");
+
+      return { start: formatDate(startDateInTimeZone), end: formatDate(endDateInTimeZone) };
+
+    } catch (error) {
+      return { start: '', end: '' };
     }
   }
 

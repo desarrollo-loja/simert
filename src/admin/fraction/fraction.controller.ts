@@ -23,6 +23,19 @@ export class FractionController {
     return this.fractionService.findAll(filterDto);
   }
 
+  @ApiOperation({ summary: 'List all parking fractions with optional filters' })
+  // @Auth(TypeRol.ADMIN)
+  @Get('find-all-fractions-history/:userId/:idDevice/:version')
+  findAllHistory(
+    // @GetUser() user: JwtPayload,
+    @Param('userId', ParseIntPipe) userId: number,
+    @Param('idDevice', ParseUUIDPipe) idDevice: string,
+    @Param('version', ParseIntPipe) version: number,
+    @Query() filterDto: FilterDto,
+  ) {
+    return this.fractionService.findFractionHistory(filterDto);
+  }
+
   @ApiOperation({ summary: 'Aggregate total vehicle time per client (reporting)' })
   // @Auth(TypeRol.ADMIN)
   @Get('find-all-total-vehicle-client-time/:userId/:idDevice/:version')
