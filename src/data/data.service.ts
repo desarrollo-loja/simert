@@ -110,7 +110,6 @@ export class DataService {
             // Agrupar por año/mes del campo `register` para rutear a la tabla histórica correcta
             if (incidentIdsToTransfer.length > 0) {
 
-                this.logger.log('incidentIdsToTransfer', incidentIdsToTransfer.length);
                 const groupedByMonth = incidentIdsToTransfer.reduce(
                     (acc: Record<string, number[]>, row: { id: number; tableSuffix: string }) => {
                         if (!acc[row.tableSuffix]) acc[row.tableSuffix] = [];
@@ -136,7 +135,6 @@ export class DataService {
                         [ids]
                     );
 
-                    this.logger.log(`[_transferData] Incident: ${ids.length} registros → history.${targetTable}`);
                 }
 
                 const allIncidentIds = incidentIdsToTransfer.map((e: { id: number }) => e.id);
@@ -149,7 +147,6 @@ export class DataService {
             // ================= FRACTION =================
             if (fractionIdsToTransfer.length > 0) {
 
-                this.logger.log('fractionIdsToTransfer', fractionIdsToTransfer.length);
                 const fractionIds = fractionIdsToTransfer.map((e) => e.id);
 
                 await queryRunner.query(`
@@ -180,7 +177,6 @@ export class DataService {
             // ej: history."2025_01_checkbox", history."2025_03_checkbox"
             if (checkboxIdsToTransfer.length > 0) {
 
-                this.logger.log('checkboxIdsToTransfer', checkboxIdsToTransfer.length);
                 const groupedByMonth = checkboxIdsToTransfer.reduce(
                     (acc: Record<string, number[]>, row: { id: number; tableSuffix: string }) => {
                         if (!acc[row.tableSuffix]) acc[row.tableSuffix] = [];
@@ -201,7 +197,6 @@ export class DataService {
                         [ids]
                     );
 
-                    this.logger.log(`[_transferData] Checkbox: ${ids.length} registros → history.${targetTable}`);
                 }
 
                 // Borrar todos los procesados en un solo DELETE

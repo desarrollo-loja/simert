@@ -43,7 +43,6 @@ export class KeycloakService {
       return this.serviceHubToken;
     }
 
-    this.logger.log('Renovando token de Keycloak ServiceHub...');
     const result = await this.commonGimService.loginGimServiceHub();
 
     if (result.errorCode !== ErrorCode.NONE || !result.data) {
@@ -53,14 +52,12 @@ export class KeycloakService {
     this.serviceHubToken = result.data.access_token;
     // expires_in viene en segundos
     this.serviceHubTokenExpiresAt = now + result.data.expires_in * 1000;
-    this.logger.log(`Token renovado. Expira en ${result.data.expires_in}s`);
 
     return this.serviceHubToken;
   }
 
   // Siempre obtiene un token nuevo para empleados municipales (realm municipio K, client_credentials)
   private async getTokenMunicipalityK(): Promise<string> {
-    this.logger.log('Obteniendo token de Keycloak MunicipalityK...');
     const result = await this.commonGimService.loginGimMunicipalityK();
 
     if (result.errorCode !== ErrorCode.NONE || !result.data) {

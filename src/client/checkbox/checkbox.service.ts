@@ -208,8 +208,6 @@ export class CheckboxService {
 
         //validamos que caja este abierta
         const openTill = await this.gimService.validateOpenTill();
-        this.logger.log('response de buyCheckboxs')
-        this.logger.log(openTill)
         if (openTill.errorCode !== ErrorCode.NONE) return openTill;
 
         const { userId, transactionId, typePaymentMethod, optionalData, identityCard, credentialId } = createCheckboxDto;

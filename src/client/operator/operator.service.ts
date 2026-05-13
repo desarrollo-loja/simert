@@ -731,7 +731,6 @@ export class OperatorService {
 
     try {
 
-      this.logger.log(`findSanctionByIdentityCard operator: ${identityCard}`);
 
       let tableName = 'public.incident';
       const currentDate = new Date();
@@ -788,7 +787,6 @@ export class OperatorService {
         // VERIFICAMOS SI LA DEUDA YA FUE EMITIDA en el gim y actualizamos el estado
         const findObligation = await this.gimService.findObligationsByCitation(incident.nroTicket, incident.identityCard);
         if (findObligation.errorCode === ErrorCode.NONE) {
-          this.logger.log(`Deuda encontrada en el GIM: ${JSON.stringify(findObligation.data)}`);
           const validateStatus = await this.gimService._validateStatusSistemWithGim(findObligation.data.obligations);
           if (validateStatus.errorCode === ErrorCode.NONE) {
             const onResponseExternal = this._formatOnExternalResponse(incident.onResponseExternal, findObligation.data);

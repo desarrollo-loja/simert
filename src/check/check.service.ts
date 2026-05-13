@@ -94,7 +94,6 @@ export class CheckService {
                         .andWhere(`((NOW() AT TIME ZONE 'America/Guayaquil') - INTERVAL '1 MINUTE' > "departureDate")`)
                         .getCount() > 0;
                     if (shouldUpdate) {
-                        this.logger.log('EXCEDID CAMBIANDO ESTADO', id);
                         await this.fractionRepository
                             .createQueryBuilder()
                             .update()
@@ -115,12 +114,10 @@ export class CheckService {
         const cacheKey = `BLOCK_OPERATORS:${blockId}`;
         const secondsCache = this.timeCacheBlockOperator;
 
-        this.logger.log(`[_notifyBlockOperators] blockId=${blockId} - buscando operadores _notifyBlockOperators`);
 
         let blockOperators: BlockOperator[] = await this.commonCacheService.get(cacheKey) as BlockOperator[];
 
         if (blockOperators) {
-            this.logger.log(`[_notifyBlockOperators] blockId=${blockId} - operadores desde cache: ${blockOperators.length}`);
         } else {
             blockOperators = await this.blockOperatorRepository.createQueryBuilder('bo')
                 .select(['bo.id', 'bo.userId'])
@@ -128,13 +125,11 @@ export class CheckService {
                 .andWhere(`DATE(bo.from) <= DATE(NOW() AT TIME ZONE 'America/Guayaquil') AND DATE(bo.to) >= DATE(NOW() AT TIME ZONE 'America/Guayaquil')`)
                 .getMany();
 
-            this.logger.log(`[_notifyBlockOperators] blockId=${blockId} - operadores desde DB: ${blockOperators.length}`);
 
             await this.commonCacheService.set(cacheKey, blockOperators, secondsCache);
         }
 
         for (const operator of blockOperators) {
-            this.logger.log(`[_notifyBlockOperators] notificando operador userId=${operator.userId}`);
             this._notifyChangeStatus(operator.userId, statusFraction, fractionId.toString());
         }
     }
@@ -180,7 +175,6 @@ export class CheckService {
 
             if (!checkboxes.length) return;
 
-            this.logger.log(`[Job GIM] Procesando ${checkboxes.length} checkboxes PAID`);
 
             for (const checkbox of checkboxes) {
                 try {
@@ -194,7 +188,6 @@ export class CheckService {
                         case null:
                         case IncidentStatus.ENTERED:
                         case IncidentStatus.APPROVED:
-                            this.logger.log('intentando emitir titulo de credito desde el job de check')
                             // Emitir título de crédito
                             const emision = await this._emitCreditCard(checkbox);
 

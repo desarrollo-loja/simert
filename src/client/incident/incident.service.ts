@@ -329,7 +329,6 @@ export class IncidentService {
       const openTill = await this.gimService.validateOpenTill();
       if (openTill.errorCode !== ErrorCode.NONE) return openTill;
 
-      this.logger.log(`findSanctionByIdentityCard: ${identityCard}`);
 
       let tableName = 'public.incident';
       const currentDate = new Date();
@@ -394,7 +393,6 @@ export class IncidentService {
         // VERIFICAMOS SI LA DEUDA YA FUE EMITIDA en el gim y actualizamos el estado
         const findObligation = await this.gimService.findObligationsByCitation(incident.nroTicket, incident.identityCard);
         if (findObligation.errorCode === ErrorCode.NONE) {
-          this.logger.log(`Deuda encontrada en el GIM: ${JSON.stringify(findObligation.data)}`);
           const validateStatus = await this.gimService._validateStatusSistemWithGim(findObligation.data.obligations);
           if (validateStatus.errorCode === ErrorCode.NONE) {
             const onResponseExternal = this._formatOnExternalResponse(incident.onResponseExternal, findObligation.data);
@@ -409,7 +407,6 @@ export class IncidentService {
           continue;
         }
 
-        this.logger.log('Creando deuda en el GIM');
         //creamos la deuda en el gim
 
         const optionalData = this._formatOptionalData(incident.optionalData, residentId);
@@ -454,7 +451,6 @@ export class IncidentService {
         const findObligation = await this.gimService.findObligationsByCitation(issue.nroTicket, issue.identityCard);
 
         if (findObligation.errorCode === ErrorCode.NONE) {
-          this.logger.log(`VERIICANDO VALOR DE LA DEUDA: ${JSON.stringify(findObligation.data)}`);
           const onResponseExternal = this._formatOnExternalResponse(incident.onResponseExternal, findObligation.data);
           await this.incidentRepository.update(issue.incidenId, {
             amount: findObligation.data?.obligations?.[0]?.total || incident.amount,
@@ -782,8 +778,8 @@ export class IncidentService {
 
     //Cuando el provehedor responde el estado correcto
     if (response && response['errorCode'] === ErrorCode.NONE) {
-      // Esperamos 3 minutos para verificar si se realizo el PAGO, si el pago se hizo antes en respuesta al 
-      // webhook ya se responde al cliente antes, caso contrario se verifica la transaccion antes de reversar 
+      // Esperamos 3 minutos para verificar si se realizo el PAGO, si el pago se hizo antes en respuesta al
+      // webhook ya se responde al cliente antes, caso contrario se verifica la transaccion antes de reversar
 
       setTimeout(async () => {
         const incidentPayments = await this.incidentPaymentRepository.find({ where: { referenceId: referenceId } });
@@ -831,8 +827,8 @@ export class IncidentService {
 
     //Cuando el provehedor responde el estado correcto
     if (response && response['errorCode'] === ErrorCode.NONE) {
-      // Esperamos 3 minutos para verificar si se realizo el PAGO, si el pago se hizo antes en respuesta al 
-      // webhook ya se responde al cliente antes, caso contrario se verifica la transaccion antes de reversar 
+      // Esperamos 3 minutos para verificar si se realizo el PAGO, si el pago se hizo antes en respuesta al
+      // webhook ya se responde al cliente antes, caso contrario se verifica la transaccion antes de reversar
 
       setTimeout(async () => {
         const incidentPayments = await this.incidentPaymentRepository.find({ where: { referenceId: referenceId } });
@@ -999,7 +995,6 @@ export class IncidentService {
 
     const incidentPayments = await this.incidentPaymentRepository.find({ where: { referenceId: referenceId } });
 
-    this.logger.log('rrespuesta recibida')
 
     if (!incidentPayments || incidentPayments.length === 0) {
       return { errorCode: ErrorCode.NOT_FOUND }

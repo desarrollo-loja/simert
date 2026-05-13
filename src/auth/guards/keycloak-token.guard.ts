@@ -69,7 +69,6 @@ export class KeycloakTokenGuard implements CanActivate {
 
         const secondsLeft = introspection.exp - Math.floor(Date.now() / 1000);
         if (secondsLeft <= this.REFRESH_THRESHOLD_SECONDS) {
-            this.logger.log(`KC token expira en ${secondsLeft}s — refrescando preventivamente`);
             return this.doRefresh(user, res, kcBaseUrl, kcClientParams);
         }
 

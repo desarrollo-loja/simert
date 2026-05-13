@@ -67,7 +67,6 @@ export class IncidentService {
                 {}
             );
 
-            this.logger.log(`[Job GIM] ${incidents.length} incidents → ${Object.keys(groups).length} grupos`);
 
             for (const [key, group] of Object.entries(groups)) {
                 try {

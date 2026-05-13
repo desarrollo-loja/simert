@@ -395,32 +395,26 @@ export class SimertService {
     const cacheKey = `BLOCK_OPERATORS:${blockId}`;
     const secondsCache = this.timeCacheBlockOperator;
 
-    this.logger.log(`[_notifyBlockOperators] blockId=${blockId} - buscando operadores _notifyBlockOperators simert`);
 
     let blockOperators: BlockOperator[] = await this.commonCacheService.get(cacheKey) as BlockOperator[];
 
     if (blockOperators) {
-      this.logger.log(`[_notifyBlockOperators] blockId=${blockId} - operadores desde cache: ${blockOperators.length}`);
     } else {
       const now = new Date();
-      this.logger.log(`[_notifyBlockOperators] blockId=${blockId} - buscando operadores desde DB: ${now}`);
 
       const qb = this.blockOperatorRepository.createQueryBuilder('bo')
         .select(['bo.id', 'bo.userId', 'bo.from', 'bo.to'])
         .where('bo.blockId = :blockId', { blockId })
         .andWhere(`bo.from <= (NOW() AT TIME ZONE 'America/Guayaquil') AND bo.to >= (NOW() AT TIME ZONE 'America/Guayaquil')`);
 
-      this.logger.log(`[_notifyBlockOperators] query: ${qb.getSql()} -- params: ${JSON.stringify(qb.getParameters())}`);
 
       blockOperators = await qb.getMany();
 
-      this.logger.log(`[_notifyBlockOperators] blockId=${blockId} - operadores desde DB: ${blockOperators.length}`);
 
       await this.commonCacheService.set(cacheKey, blockOperators, secondsCache);
     }
 
     for (const operator of blockOperators) {
-      this.logger.log(`[_notifyBlockOperators] notificando operador userId=${operator.userId}`);
       this._notifyChageStatus(operator.userId, statusFraction, fractionId);
     }
   }
