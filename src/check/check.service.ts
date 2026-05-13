@@ -342,6 +342,14 @@ export class CheckService {
 
     private addResponse(list: any[], item: any) {
         if (!item) return;
+
+        //verificamos si no existe una respesta igual
+        const itemKey = JSON.stringify(item);
+        const existingIndex = list.findIndex(existing => JSON.stringify(existing) === itemKey);
+        if (existingIndex >= 0) {
+            list[existingIndex] = item;
+            return;
+        }
         if (list.length >= 20) {
             list.pop();
         }
