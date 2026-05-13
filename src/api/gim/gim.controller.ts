@@ -108,7 +108,6 @@ export class GimController {
     @Param('userId') _userId: string,
     @Param('idDevice') _idDevice: string,
   ) {
-    console.log('findVehicleTypesForSimert');
     return this.gimService.findVehicleTypesForSimert();
   }
 
@@ -129,7 +128,6 @@ export class GimController {
     @Param('idDevice') idDevice: string,
     @Body() registerDepositGimDto: RegisterDepositGimDto,
   ) {
-    console.log('registerDeposit');
     return this.gimService.registerDeposit(registerDepositGimDto);
   }
 
@@ -140,7 +138,6 @@ export class GimController {
     @Param('idDevice') idDevice: string,
     @Body() getClientGimDto: GetClientGimDto,
   ) {
-    console.log('findObligations');
     return this.gimService.findObligations(getClientGimDto);
   }
 
@@ -172,7 +169,6 @@ export class GimController {
     @Param('idDevice') idDevice: string,
     @Body() emissionSanctionDto: EmissionSanctionDto,
   ) {
-    console.log('emitSanction');
     return this.gimService.emitSanction(emissionSanctionDto);
   }
 }

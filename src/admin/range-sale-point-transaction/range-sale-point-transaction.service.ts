@@ -119,7 +119,6 @@ export class RangeSalePointTransactionService {
                 .getOne();
 
             if (!rangeSalePointLock) {
-                console.log("REJECTED")
                 throw new Error('REJECTED');
             }
 

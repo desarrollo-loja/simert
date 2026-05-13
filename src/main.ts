@@ -65,13 +65,11 @@ async function bootstrap() {
 
   const allowedOrigins = [];
   if (process.env.NODE_ENV === 'development') {
-    console.log(process.env.NODE_ENV);
     development.forEach(dominio => {
       allowedOrigins.push(dominio);
     });
   }
   else if (process.env.NODE_ENV === 'production') {
-    console.log(process.env.NODE_ENV);
     production.forEach(dominio => {
       allowedOrigins.push(dominio);
     });

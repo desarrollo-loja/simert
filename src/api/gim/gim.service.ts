@@ -93,7 +93,6 @@ export class GimService {
       if (!residentIdComplete) {
         // OBTENER EL CLIENTE DESDE EL GIM CON LA CEDULA Y SACAR EL RESIDENT ID
         const dataUserGim = await this.getUserByIdentityCardGim(createGimDto.identityCard);
-        console.log('dataUserGim', dataUserGim)
 
         if (dataUserGim.errorCode !== ErrorCode.NONE) {
           //CREAR EL CLIETE EN EL GIM SI NO EXISTE VERIFICAR SIE S RUC O PERSONA FINAL 
@@ -105,8 +104,6 @@ export class GimService {
           createClientGimDto.controllerId = createGimDto.controllerId;
 
           const createClientGim = await this.createNewNaturalPersonGim(createClientGimDto);
-          console.log('createClientGim')
-          console.log(createClientGim)
 
           if (createClientGim.errorCode !== ErrorCode.NONE) {
             return {
@@ -127,13 +124,9 @@ export class GimService {
 
       // VERIFICAMOS SI LA DEUDA YA FUE EMITIDA en el gim
       const debtData = await this.findObligationsByCitation(createGimDto.nroTicket, createGimDto.identityCard);
-      console.log('debtData')
-      console.log(debtData)
 
       if (debtData.errorCode === ErrorCode.NONE) {
         const validateStatus = await this._validateStatusSistemWithGim(debtData.data.obligations);
-        console.log('validateStatus')
-        console.log(validateStatus)
         if (validateStatus.errorCode === ErrorCode.NONE) {
           createGimDto.statusIncident = validateStatus.statusIncident;
           const updateDto = this._buildAntDataResponse(debtData.data.obligations[0], validateStatus.statusIncident);
@@ -144,8 +137,6 @@ export class GimService {
 
       // MANDAMOS A  EMITIR LA DEUDA EN EL GIM
       const responeEmit = await this.emitInfractionGim(createGimDto);
-      console.log('responeEmit')
-      console.log(responeEmit)
 
       if (responeEmit.errorCode !== ErrorCode.NONE) {
         return {
@@ -256,8 +247,6 @@ export class GimService {
         },
       });
 
-      console.log('data del usaurio')
-      console.log(data)
 
       if (data.ok && +data.code === 200) {
         return {
@@ -291,8 +280,6 @@ export class GimService {
       //verificamos al usuario en nuestro sistema
       const user = await this.commonAuthService.filterByIdentityCard(createClientGimDto.controllerId, createClientGimDto.identityCard);
 
-      console.log('crenado usurio')
-      console.log(user)
       let body = null;
 
       const removeAccents = (text: string = '') =>
@@ -520,7 +507,6 @@ export class GimService {
       // | `notificationNumber`| String| No | Número de serie/notificación de la boleta impresa. |
       // | `vehicleType` | Long | No | ID del tipo de vehículo (según catálogo GIM). |
       // | `address` | String | No | Ubicación donde ocurrió la infracción. |
-      //console.log('createGimDto.createdAt.split("T")[0]', createGimDto.createdAt.split(' ')[0]);
       const residentId = createGimDto.optionalData.find((item: any) => item.key === 'residentId')?.value;
       const body = {
         residentId: Number(residentId), // Default or map

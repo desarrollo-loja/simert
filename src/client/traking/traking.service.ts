@@ -132,7 +132,6 @@ export class TrakingService {
 
     } catch (error) {
       this.logger.error(`Call plot`);
-      console.log(error);
     }
 
     return true;

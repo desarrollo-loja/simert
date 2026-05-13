@@ -13,7 +13,6 @@ export class UserRoleGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean | Promise<boolean> | Observable<boolean> {
     const req = context.switchToHttp().getRequest();
 
-    // console.log('META_ROLES ******', META_ROLES);
     const validRoles: string[] = this.reflector.get(META_ROLES, context.getHandler());
     
     // Si no hay roles requeridos para la ruta, permitimos el acceso

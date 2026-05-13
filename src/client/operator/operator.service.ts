@@ -93,8 +93,6 @@ export class OperatorService {
   async createIncident(userId: number, idDevice: string, createIncidentDto: CreateIncidentDto) {
     try {
 
-      console.log('createIncident');
-      console.log(createIncidentDto);
 
       const { fractionId, incidentCategory, incidentTypeId } = createIncidentDto;
 
@@ -105,8 +103,6 @@ export class OperatorService {
 
       if (plate) {
         const antResult = await this.dinardapAntService.getUserDataByPlateAnt(plate);
-        console.log('antResult');
-        console.log(antResult);
         if (antResult.errorCode === ErrorCode.NONE) {
           antEmailClient = antResult.data.email || null;
           antFullNameClient = antResult.data.fullName || null;
@@ -282,7 +278,6 @@ export class OperatorService {
   }
 
   async parking(createOperatorDto: CreateOperatorDto) {
-    console.log('dentro de parking', createOperatorDto)
     const { userId, transactionId, checkboxes, obsolete, physicId } = createOperatorDto;
     const register = this.commonService.getDate();
 
@@ -782,8 +777,6 @@ export class OperatorService {
 
       const query = `${baseSelect(tableName)} ${buildWhere()}`;
 
-      console.log('query', query);
-      console.log('params', params);
 
       const incidents: Incident[] = await this.incidentRepository.query(query, params);
 
@@ -794,7 +787,6 @@ export class OperatorService {
 
         // VERIFICAMOS SI LA DEUDA YA FUE EMITIDA en el gim y actualizamos el estado
         const findObligation = await this.gimService.findObligationsByCitation(incident.nroTicket, incident.identityCard);
-        console.log(findObligation)
         if (findObligation.errorCode === ErrorCode.NONE) {
           this.logger.log(`Deuda encontrada en el GIM: ${JSON.stringify(findObligation.data)}`);
           const validateStatus = await this.gimService._validateStatusSistemWithGim(findObligation.data.obligations);

@@ -128,7 +128,6 @@ export class DataService {
                     const incidents = await queryRunner.query(`SELECT * FROM public.incident
                         WHERE id = ANY($1)`, [ids]);
 
-                        console.log(incidents)
 
                     await queryRunner.query(
                         `INSERT INTO history.${targetTable}

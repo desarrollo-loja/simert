@@ -203,7 +203,6 @@ export class SimertService {
 
   async finished(userId: number, fractionId: number) {
 
-    console.log('finalizanodo un parqueo')
     const fraction = await this.fractionRepository.createQueryBuilder('f')
       .select(['f.id', 'status.id', 's.id', 'b.id'])
       .innerJoin('f.slot', 's')
@@ -378,7 +377,6 @@ export class SimertService {
       where: { fraction: { id: fraction.id }, status: { id: statusId }, },
     });
 
-    console.log('existingFractionStatus', existingFractionStatus);
 
     if (existingFractionStatus) {
       existingFractionStatus.moment = moment;
@@ -388,7 +386,6 @@ export class SimertService {
       // Siempre guardamos el estado del fraction
       const fractionSatus = this.fractionSatusRepository.create({ fraction, moment, status: { id: statusId } });
       const a = await this.fractionSatusRepository.save(fractionSatus);
-      console.log(a)
     }
 
     await this.fractionRepository.save({ ...fraction, status: { id: statusId } });
@@ -416,7 +413,6 @@ export class SimertService {
       this.logger.log(`[_notifyBlockOperators] query: ${qb.getSql()} -- params: ${JSON.stringify(qb.getParameters())}`);
 
       blockOperators = await qb.getMany();
-      console.log(blockOperators)
 
       this.logger.log(`[_notifyBlockOperators] blockId=${blockId} - operadores desde DB: ${blockOperators.length}`);
 

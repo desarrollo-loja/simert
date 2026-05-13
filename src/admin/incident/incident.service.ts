@@ -671,10 +671,8 @@ export class IncidentService {
     ) AS "exists";
   `;
 
-    // console.log(query, table_schema, table_name);
 
     const result = await this.incidentRepository.query(query, [table_schema, table_name]);
-    // console.log('=======================> result ',result);
     return !!result[0]?.exists;
   }
 
@@ -962,8 +960,6 @@ export class IncidentService {
 
     const validateIncident = await this.commonGimService.findObligationsByCitation(userId, idDevice, incidentDto.nroTicket, incidentDto.identityCard);
 
-    // console.log('incidentDto',incidentDto);
-    // console.log('validateIncident',validateIncident);
 
     let internalState = incidentDto.internalState;
 
@@ -978,8 +974,6 @@ export class IncidentService {
       internalState = InternalStateIncident.REVENUE_DEPARTMENT;
     }
 
-    // console.log('validateIncident',validateIncident);
-    // console.log('internalState',internalState);
     if (validateIncident.errorCode === ErrorCode.NONE) {
       // valido si me devuelve algun resultado significa que si existe la deuda
       // ya  esta emitida por lo cual debe pasar al departamentod e rentas directamente 

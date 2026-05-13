@@ -131,8 +131,6 @@ export class IncidentService {
         }
 
         const salaryBasic = await this.commonCacheService.getSalary();
-        console.log('el valor del salario es ')
-        console.log(salaryBasic)
 
         amount = ((Number(queryTypeIncident.percentage) * salaryBasic.salary) / 100).toFixed(2);
         optionalData.push({ key: SystemConfigKey.BASIC_SALARY, value: salaryBasic.salary });
@@ -175,7 +173,6 @@ export class IncidentService {
         await this._saveSatusFraction(queryFraction, StatusFraction.SANCTIONED, StatusMoment.NOTIFIED);
         await this._notifyChageStatusFraction(queryFraction.userId, StatusFraction.SANCTIONED, fractionId);
 
-        console.log(queryFraction)
         await this.slotRepository.update(queryFraction.slot.id, {
           status: StatusSlot.SANCTIONED,
         });
@@ -396,7 +393,6 @@ export class IncidentService {
 
         // VERIFICAMOS SI LA DEUDA YA FUE EMITIDA en el gim y actualizamos el estado
         const findObligation = await this.gimService.findObligationsByCitation(incident.nroTicket, incident.identityCard);
-        console.log(findObligation)
         if (findObligation.errorCode === ErrorCode.NONE) {
           this.logger.log(`Deuda encontrada en el GIM: ${JSON.stringify(findObligation.data)}`);
           const validateStatus = await this.gimService._validateStatusSistemWithGim(findObligation.data.obligations);
@@ -685,7 +681,6 @@ export class IncidentService {
             break;
 
           default:
-            console.log('no implementado')
             throw new Error('call buy TypePaymentMethod not found');
         }
 
@@ -713,7 +708,6 @@ export class IncidentService {
       return { errorCode: ErrorCode.UNAUTHORIZED };
 
     } catch (error) {
-      console.log('Error en buyCheckboxs', error);
     }
 
   }
@@ -756,7 +750,6 @@ export class IncidentService {
       return debitAmounDto;
 
     } catch (error) {
-      console.log('Error en _parseDebitAmounDto', error);
     }
   }
 
@@ -904,7 +897,6 @@ export class IncidentService {
       return { errorCode: ErrorCode.NONE, deeplink: response['deeplink'] };
     } else {
       const incidentPayments = await this.incidentPaymentRepository.find({ where: { referenceId: referenceId } });
-      console.log('incidentPayments', incidentPayments);
       this._saveResponsePay(incidentPayments, StatusMoment.RESPONSE, StatusPayment.ERROR);
       this._notifyChageStatus(userId, StatusPayment.ERROR, referenceId, amount, typePaymentMethod);
       return { errorCode: ErrorCode.RESPONSE };
@@ -967,7 +959,6 @@ export class IncidentService {
           );
         }
 
-        console.log('actualizados los pagos correctos');
 
       } catch (error) {
         this.logger.error(`call _saveResponsePay error.message ${error.message} StatusMoment.CORRECTLY_PAID_UNASSIGNED`);
@@ -1031,7 +1022,6 @@ export class IncidentService {
 
   async onResponsePayError(idDevice: string, userId: number, referenceId: string, typePaymentMethod: TypePaymentMethod, register: string, typePaymentResponsibility: number) {
 
-    console.log('llego el pago de place to pay de error en onResponsePayError')
     const incidentPayments = await this.incidentPaymentRepository.find({ where: { referenceId: referenceId } });
     if (!incidentPayments || incidentPayments.length === 0) return;
 
@@ -1082,10 +1072,8 @@ export class IncidentService {
     ) AS "exists";
   `;
 
-    // console.log(query, table_schema, table_name);
 
     const result = await this.incidentRepository.query(query, [table_schema, table_name]);
-    // console.log('=======================> result ',result);
     return !!result[0]?.exists;
   }
 

@@ -91,7 +91,6 @@ export class KeycloakService {
     this.logger.error(`Error ${context} | status: ${status} | code: ${error?.code} | msg: ${error?.message}`);
 
     if (isConnectionError) {
-      console.log('1111111');
       throw new HttpException(
         'No hay comunicación con el sistema municipal, por favor comuníquese con el administrador',
         HttpStatus.GATEWAY_TIMEOUT,
@@ -99,7 +98,6 @@ export class KeycloakService {
     }
 
     if (status === 401) {
-      console.log('2222222');
       if (error?.response?.data?.error === 'invalid_grant') {
         throw new HttpException(
           'Credenciales incorrectas, por favor verifique su usuario y contraseña',
@@ -113,7 +111,6 @@ export class KeycloakService {
     }
 
     if (status === 500) {
-      console.log('3333333');
       throw new HttpException(
         'Error con el sistema municipal, por favor comuníquese con el administrador',
         HttpStatus.BAD_GATEWAY,
@@ -121,7 +118,6 @@ export class KeycloakService {
     }
 
     if (status === 409) {
-      console.log('4444444');
       throw new HttpException(
         'El usuario ya existe en el sistema municipal, por favor comuníquese con el administrador',
         HttpStatus.CONFLICT,
@@ -135,14 +131,12 @@ export class KeycloakService {
       'Error inesperado en Keycloak';
 
     if (rawMessage.includes('Account disabled')) {
-      console.log('5555555');
       throw new HttpException(
         'Su cuenta está deshabilitada en el sistema municipal. Por favor comuníquese con el administrador',
         HttpStatus.FORBIDDEN,
       );
     }
 
-    console.log('5555555');
     throw new HttpException(
       'Error al verificar el usuario en el municipio. Por favor comuníquese con el administrador.',
       status,
@@ -268,7 +262,6 @@ export class KeycloakService {
   async loginClient(dto: LoginKeycloakClientDto) {
     try {
 
-      console.log('Ingreso a la verificación del usuario normal')
 
       const params = new URLSearchParams({
         grant_type: 'password',
@@ -291,7 +284,6 @@ export class KeycloakService {
         refresh_expires_in: data.refresh_expires_in,
       };
     } catch (error: any) {
-      console.log(error)
       this.logger.warn('Error al iniciar sesión en Keycloak');
       return this.throwKeycloakError('loginClient', error);
     }
@@ -300,7 +292,6 @@ export class KeycloakService {
   async loginClientMunicipality(dto: LoginKeycloakClientDto) {
     try {
 
-      console.log('Ingreso a la verificación del usuario del municipio')
 
       const params = new URLSearchParams({
         grant_type: 'password',
@@ -388,7 +379,6 @@ export class KeycloakService {
         emailSent,
       };
     } catch (error: any) {
-      console.log('Error en la verificación del usuario normal setUserPassword', error)
       return this.throwKeycloakError('setUserPassword', error);
     }
   }

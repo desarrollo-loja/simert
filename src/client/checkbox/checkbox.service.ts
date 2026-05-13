@@ -180,7 +180,6 @@ export class CheckboxService {
 
     async getCardsAndCheckboxes(userId: number) {
 
-        console.log('dentro de getCardsAndCheckboxes');
 
         try {
             const [cards, checkboxes] = await Promise.all(
@@ -196,10 +195,7 @@ export class CheckboxService {
                         .getOne()
                 ]);
 
-            console.log('respuesta de la consulta')
-            console.log('cards', cards)
 
-            console.log('checkboxes', checkboxes)
 
             return { errorCode: ErrorCode.NONE, cards, checkboxes: checkboxes ? checkboxes.checkboxes : 0 };
         } catch (error) {
@@ -278,7 +274,6 @@ export class CheckboxService {
 
                 checkbox = await queryRunner.manager.save(checkbox);
 
-                console.log('checkbox ', checkbox);
 
                 switch (typePaymentMethod) {
 
@@ -301,7 +296,6 @@ export class CheckboxService {
 
                         const responsePlaceToPay = await this._payPlaceToPay(idDevice, checkbox, debitAmounDto, createCheckboxDto, typePaymentResponsibility);
 
-                        console.log('responsePlaceToPay ', responsePlaceToPay);
 
                         urlPlaceToPay = responsePlaceToPay['deeplink'];
                         checkbox.url = urlPlaceToPay;
@@ -309,7 +303,6 @@ export class CheckboxService {
                         break;
 
                     default:
-                        console.log('no implementado');
                         throw new Error('call buy TypePaymentMethod not found');
                 }
 
@@ -333,7 +326,6 @@ export class CheckboxService {
             return { errorCode: ErrorCode.UNAUTHORIZED };
 
         } catch (error) {
-            console.log('Error en buyCheckboxs', error);
         }
 
     }
@@ -376,7 +368,6 @@ export class CheckboxService {
             return debitAmounDto;
 
         } catch (error) {
-            console.log('Error en _parseDebitAmounDto', error);
         }
     }
 
@@ -388,8 +379,6 @@ export class CheckboxService {
                 // Emitimos el título de crédito en el GIM
                 // const emisionResult = await this._resolveResidentIdAndEmitCreditCard(idDevice, checkbox);
                 const emisionResult = await this.commonCheckboxService.resolveResidentIdAndEmitCreditCard(idDevice, checkbox);
-                console.log('****************** emisionResult **************');
-                console.log(emisionResult)
 
                 if (emisionResult && emisionResult.errorCode !== ErrorCode.NONE) {
                     this.logger.error(`_saveResponsePay: no se pudo emitir título de crédito para checkbox ${checkbox.id}`);
@@ -406,8 +395,6 @@ export class CheckboxService {
                     // Hacemos el depósito en el GIM
                     // const depositResult = await this._registerDepositGim(idDevice, checkbox);
                     const depositResult = await this.commonCheckboxService.registerDepositGim(idDevice, checkbox);
-                    console.log('****************** emisiondepositResultResult **************');
-                    console.log(depositResult)
 
                     // this._registerDepositGim(idDevice, checkbox);
 
@@ -415,7 +402,6 @@ export class CheckboxService {
                         if (depositResult.dataDeposit)
                             checkbox.onResponseExternal.push(depositResult.dataDeposit);
                         checkbox.statusIncident = IncidentStatus.SUPPLIED;
-                        console.log('****************** ERROR: depositResult **************', depositResult);
 
                         this.logger.error(`_saveResponsePay: no se pudo hacer el depósito para checkbox ${checkbox.id}`);
                     } else {
@@ -435,7 +421,6 @@ export class CheckboxService {
                     // moment: moment,
                 }
                 const updateResponseCheck = await this.checkboxRepository.update(checkbox.id, updateData);
-                console.log('updateResponseCheck', updateResponseCheck);
 
                 // Buscamos si el usuario tiene checkboxUser para aumentar alli sus checkboxes
                 let checkboxUser = await this.checkboxUserRepository.findOne({ where: { userId } });
@@ -461,7 +446,6 @@ export class CheckboxService {
     }
 
     private async _notifyChageStatus(userId: number, status: number, checkbox: Checkbox) {
-        console.log('enviando notificacion')
         const notification = new CreateNotificationDto({
             userId,
             notification: {
@@ -475,7 +459,6 @@ export class CheckboxService {
                 },
             }
         });
-        console.log('enviado notificacion')
         this.commonService.notify(notification);
     }
 
@@ -506,8 +489,6 @@ export class CheckboxService {
         //Cuando el provehedor responde el estado correcto
         if (response && response['errorCode'] === ErrorCode.NONE) {
 
-            console.log('Response de pago de de una')
-            console.log(response)
 
             // Esperamos 5 minutos para verificar si se realizo el PAGO, si el pago se hizo antes en respuesta al 
             // webhook ya se responde al cliente antes, caso contrario se verifica la transaccion antes de reversar 
@@ -557,7 +538,6 @@ export class CheckboxService {
         });
 
         const response = await this.commonService.payAhorita(idDevice, registerAhoritaDto);
-        console.log('responseAhorita', response);
 
         //Cuando el provehedor responde el estado correcto
         if (response && response['errorCode'] === ErrorCode.NONE) {
@@ -575,7 +555,6 @@ export class CheckboxService {
             }, this.timerMinuteDeuna);
             return { errorCode: ErrorCode.NONE, deeplink: response['deeplink'] };
         } else {
-            console.log('responseAhorita', response);
             this._saveResponsePay(idDevice, checkbox, StatusMoment.RESPONSE, StatusPayment.ERROR);
             this._notifyChageStatus(userId, StatusPayment.ERROR, checkbox);
             return { errorCode: ErrorCode.RESPONSE };
@@ -609,15 +588,12 @@ export class CheckboxService {
         });
 
         const response = await this.commonService.payPlaceToPay(idDevice, referenceId, registerPlaceToPayDto);
-        console.log('responsePlaceToPay');
-        console.log(response);
 
         //Cuando el provehedor responde el estado correcto
         if (response && response['errorCode'] === ErrorCode.NONE) {
             // Esperamos 3 minutos para verificar si se realizo el PAGO, si el pago se hizo antes en respuesta al
             // webhook ya se responde al cliente antes, caso contrario se verifica la transaccion antes de reversar
             setTimeout(async () => {
-                console.log('verificando el pago de la transaccion de pay to pay')
                 const checkboxCheck = await this.checkboxRepository.findOne({ where: { id: checkbox.id } });
                 if (!checkboxCheck) return;
                 if (checkboxCheck.statusPayment === StatusPayment.PAID) {
@@ -637,7 +613,6 @@ export class CheckboxService {
 
     async onResponsePay(idDevice: string, userId: number, checkboxId: number, typePaymentMethod: number, register: string, typePaymentResponsibility: TypePaymentResponsibility) {
 
-        console.log('respuesta correcta del pago de tarjetas place to pay');
         let checkbox = await this.checkboxRepository.findOne({ where: { id: checkboxId } });
         if (!checkbox) {
             return { errorCode: ErrorCode.NOT_FOUND };
@@ -656,7 +631,6 @@ export class CheckboxService {
 
     async onResponsePayError(idDevice: string, userId: number, checkboxId: number, typePaymentMethod: number, register: string, typePaymentResponsibility: TypePaymentResponsibility) {
 
-        console.log('llego el pago de error en onResponsePayError')
         const checkbox = await this.checkboxRepository.findOne({ where: { id: checkboxId } });
         if (!checkbox) {
             return { errorCode: ErrorCode.NOT_FOUND };

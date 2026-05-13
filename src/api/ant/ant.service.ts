@@ -103,7 +103,6 @@ export class AntService {
 
     try {
       const { data: xml } = await axios.request<string>(config);
-      console.log('============================< DATOS REPONSE DEL RECURSO DE ANT =============================',xml);
 
       // 1) parse XML -> objeto
       const parsed = this.xmlParser.parse(xml);
