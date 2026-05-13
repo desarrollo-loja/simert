@@ -105,7 +105,7 @@ export class FractionService {
         if (tableExistsFraction) {
           this.logger.log('TABLA EXISTE' + tableNameFractionAux);
           //comillas para poder buscar data en la historica
-          tableNameFraction = `${schema}."${tableNameFractionAux}"`;
+          tableNameFraction = `${schema}."${year}_${monthString}_fraction"`;
         }
       }
 
