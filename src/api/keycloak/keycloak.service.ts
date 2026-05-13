@@ -259,7 +259,6 @@ export class KeycloakService {
   async loginClient(dto: LoginKeycloakClientDto) {
     try {
 
-
       const params = new URLSearchParams({
         grant_type: 'password',
         client_id: this.configService.get<string>('GIM_CLIENT_ID_SERVICE_HUB'),
@@ -288,7 +287,6 @@ export class KeycloakService {
 
   async loginClientMunicipality(dto: LoginKeycloakClientDto) {
     try {
-
 
       const params = new URLSearchParams({
         grant_type: 'password',
@@ -372,7 +370,7 @@ export class KeycloakService {
         message: emailSent
           ? 'Contraseña temporal generada y enviada al correo'
           : 'Contraseña temporal generada pero no se pudo enviar el correo',
-        // newPassword,
+        newPassword,
         emailSent,
       };
     } catch (error: any) {
