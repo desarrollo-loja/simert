@@ -360,32 +360,25 @@ export class FractionService {
     }
   }
 
-  private async _tableExists(tableName: string): Promise<boolean> {
+
+  public async _tableExists(tableName: string): Promise<boolean> {
     const names = tableName.split('.');
     if (names.length <= 1) {
-      this.logger.error(`No se especificó el esquema en la tabla ${tableName}`);
+      this.logger.error(`No se especifico el esquema en la tabla ${tableName}`);
       return false;
     }
-
-    const table_schema: string = names[0];
-    const table_name: string = names[1];
-
-    const query = `
-    SELECT EXISTS(
-      SELECT 1
-      FROM information_schema.tables
-      WHERE table_schema = $1
-        AND table_name = $2
-    ) AS "exists";
-  `;
+    const table_schema: string = names[0],
+      table_name: string = names[1];
+    const query = `SELECT table_name 
+    FROM information_schema.tables 
+    WHERE table_schema = '${table_schema}' AND table_name = '${table_name}';`;
 
     try {
-      const result = await this.fractionRepository.query(query, [table_schema, table_name]);
+      const result = await this.fractionRepository.query(query);
       this.logger.log('RESULTADO DE LA TABLA EXISTE');
       this.logger.log(result);
-      return result[0].exists;
+      return result.length > 0;
     } catch (error) {
-      this.logger.error(error);
       return false;
     }
   }
