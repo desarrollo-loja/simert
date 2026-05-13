@@ -554,7 +554,21 @@ export class GimService {
 
       if (responseData) {
         if (!responseData.ok && responseData.code === '400') {
-          this.logger.warn(`emitInfractionGim catch jornada cerrada: ${responseData.message}`);
+          const innerMessage: string = responseData.message ?? '';
+
+          //verificamos error de rubro
+          if (innerMessage.includes('SIMERT_SANCTION_ENTRY_CODES')) {
+            const rubroMatch = innerMessage.match(/rubro\s+(\d+)/i);
+            const rubro = rubroMatch?.[1] ?? '';
+            this.logger.warn(`emitInfractionGim catch rubro no permitido: ${innerMessage}`);
+            return {
+              errorCode: ErrorCode.NOT_FOUND,
+              message: `El rubro ${rubro}, no esta correctamente definido o no esta permitido por favor comuniquese con el administrador`,
+              data: responseData
+            };
+          }
+
+          this.logger.warn(`emitInfractionGim catch jornada cerrada: ${innerMessage}`);
           return {
             errorCode: ErrorCode.NOT_FOUND,
             message: 'Fuera del horario, jornada no aperturada en el municipio, comuniquese con el administrador',
