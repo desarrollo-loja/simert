@@ -349,7 +349,6 @@ export class KeycloakService {
   }
 
   async setUserPassword(email: string) {
-    console.log('Ingreso a la verificación del usuario normal setUserPassword')
     email = email?.trim();
     if (!email)
       return { errorCode: ErrorCode.NOT_FOUND, message: 'El parámetro email es requerido' };
@@ -378,7 +377,6 @@ export class KeycloakService {
         { headers: this.authHeaders(token) },
       );
 
-      console.log('Contraseña generada', newPassword);
       const emailSent = await this._sendPasswordEmail(fullName, email, newPassword);
 
       return {
@@ -386,11 +384,11 @@ export class KeycloakService {
         message: emailSent
           ? 'Contraseña temporal generada y enviada al correo'
           : 'Contraseña temporal generada pero no se pudo enviar el correo',
-        newPassword,
+        // newPassword,
         emailSent,
       };
     } catch (error: any) {
-    console.log('Error en la verificación del usuario normal setUserPassword',error)
+      console.log('Error en la verificación del usuario normal setUserPassword', error)
       return this.throwKeycloakError('setUserPassword', error);
     }
   }
