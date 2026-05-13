@@ -401,6 +401,7 @@ export class KeycloakService {
       const userId = user.id;
       const fullName = `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.username || email;
       const newPassword = this._generateCode();
+      console.log('newPassword', newPassword);
 
       await axios.put(
         `${this.usersUrlMunicipality(userId)}/reset-password`,
