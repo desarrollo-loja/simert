@@ -159,6 +159,7 @@ export class KeycloakController {
       emailSent: { type: 'boolean', example: true },
     },
   })
+
   @Post('reset-password')
   setUserPassword(@Body() dto: ResetPasswordDto) {
     return this.keycloakService.setUserPassword(dto.email);
@@ -174,6 +175,7 @@ export class KeycloakController {
       emailSent: { type: 'boolean', example: true },
     },
   })
+
   @Post('reset-password-municipality')
   setUserPasswordMunicipality(@Body() dto: ResetPasswordDto) {
     return this.keycloakService.setUserPasswordMunicipality(dto.email);
