@@ -379,6 +379,7 @@ export class KeycloakService {
   }
 
   async setUserPasswordMunicipality(email: string) {
+    console.log('email', email);
     email = email?.trim();
     if (!email)
       return { errorCode: ErrorCode.NOT_FOUND, message: 'El parámetro email es requerido' };
