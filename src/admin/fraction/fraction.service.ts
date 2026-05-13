@@ -97,13 +97,15 @@ export class FractionService {
       if (year && month) {
         const monthString = month.toString().padStart(2, '0')
 
+        //sin comillas para verifiar la tabla histiorica si existe
         let tableNameFractionAux = `${year}_${monthString}_fraction`;
         tableNameFractionAux = `${schema}.${tableNameFractionAux}`;
         tableExistsFraction = await this._tableExists(tableNameFractionAux);
 
         if (tableExistsFraction) {
           this.logger.log('TABLA EXISTE' + tableNameFractionAux);
-          tableNameFraction = tableNameFractionAux;
+          //comillas para poder buscar data en la historica
+          tableNameFraction = `${schema}."${tableNameFractionAux}"`;
         }
       }
 
