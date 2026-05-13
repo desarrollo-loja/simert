@@ -81,11 +81,8 @@ export class FractionService {
   }
 
   // para postgres
-  async findFractionHistory(
-    filterDto: FilterDto
-  ) {
-    const { offset = 0, limit = 10, year, month} =
-      filterDto;
+  async findFractionHistory( filterDto: FilterDto ) {
+    const { offset = 0, limit = 10, year, month} = filterDto;
 
     const { parameters, conditions } = this.buildParametersConditions(filterDto);
 
@@ -105,6 +102,7 @@ export class FractionService {
         tableExistsFraction = await this._tableExists(tableNameFractionAux);
 
         if (tableExistsFraction) {
+          this.logger.log('TABLA EXISTE' + tableNameFractionAux);
           tableNameFraction = tableNameFractionAux;
         }
       }
@@ -383,6 +381,8 @@ export class FractionService {
 
     try {
       const result = await this.fractionRepository.query(query, [table_schema, table_name]);
+      this.logger.log('RESULTADO DE LA TABLA EXISTE');
+      this.logger.log(result);
       return result[0].exists;
     } catch (error) {
       this.logger.error(error);
