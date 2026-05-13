@@ -408,7 +408,7 @@ export class KeycloakService {
       );
 
       const emailSent = await this._sendPasswordEmail(fullName, email, newPassword);
-
+      console.log('emailSent Municipality', emailSent);
       return {
         errorCode: emailSent ? ErrorCode.NONE : ErrorCode.RESPONSE,
         message: emailSent
