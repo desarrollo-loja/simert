@@ -173,7 +173,7 @@ export class DataService {
                 ORDER BY f.register ASC
                 LIMIT 5000
                 `,
-                [from, to]
+                [to]
             );
 
             // Agrupamos por año/mes del campo `register` (igual que en el bloque INCIDENT)
