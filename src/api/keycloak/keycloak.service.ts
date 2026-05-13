@@ -363,8 +363,11 @@ export class KeycloakService {
         { headers: this.authHeaders(token) },
       );
 
+      console.log('newPassword Cliente', newPassword);
+
       const emailSent = await this._sendPasswordEmail(fullName, email, newPassword);
 
+      console.log('emailSent Cliente', emailSent);
       return {
         errorCode: emailSent ? ErrorCode.NONE : ErrorCode.RESPONSE,
         message: emailSent
