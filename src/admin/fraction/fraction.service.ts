@@ -97,7 +97,7 @@ export class FractionService {
       if (year && month) {
         const monthString = month.toString().padStart(2, '0')
 
-        let tableNameFractionAux = `"${year}_${monthString}_fraction"`;
+        let tableNameFractionAux = `${year}_${monthString}_fraction`;
         tableNameFractionAux = `${schema}.${tableNameFractionAux}`;
         tableExistsFraction = await this._tableExists(tableNameFractionAux);
 
@@ -360,27 +360,32 @@ export class FractionService {
     }
   }
 
-
-  public async _tableExists(tableName: string): Promise<boolean> {
+  private async _tableExists(tableName: string): Promise<boolean> {
     const names = tableName.split('.');
-    this.logger.log('NOMBRES DE LA TABLA');
-    this.logger.log(names);
     if (names.length <= 1) {
-      this.logger.error(`No se especifico el esquema en la tabla ${tableName}`);
+      this.logger.error(`No se especificó el esquema en la tabla ${tableName}`);
       return false;
     }
-    const table_schema: string = names[0],
-      table_name: string = names[1];
-    const query = `SELECT table_name 
-    FROM information_schema.tables 
-    WHERE table_schema = '${table_schema}' AND table_name = '${table_name}';`;
+
+    const table_schema: string = names[0];
+    const table_name: string = names[1];
+
+    const query = `
+    SELECT EXISTS(
+      SELECT 1
+      FROM information_schema.tables
+      WHERE table_schema = $1
+        AND table_name = $2
+    ) AS "exists";
+  `;
 
     try {
-      const result = await this.fractionRepository.query(query);
+      const result = await this.fractionRepository.query(query, [table_schema, table_name]);
       this.logger.log('RESULTADO DE LA TABLA EXISTE');
       this.logger.log(result);
-      return result.length > 0;
+      return result[0].exists;
     } catch (error) {
+      this.logger.error(error);
       return false;
     }
   }
