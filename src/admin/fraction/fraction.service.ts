@@ -363,6 +363,8 @@ export class FractionService {
 
   public async _tableExists(tableName: string): Promise<boolean> {
     const names = tableName.split('.');
+    this.logger.log('NOMBRES DE LA TABLA');
+    this.logger.log(names);
     if (names.length <= 1) {
       this.logger.error(`No se especifico el esquema en la tabla ${tableName}`);
       return false;
