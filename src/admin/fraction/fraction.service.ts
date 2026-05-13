@@ -154,7 +154,7 @@ export class FractionService {
 
       let query = queryParts.join(' UNION ALL ');
       query += `
-      ORDER BY "registerAt" DESC
+      ORDER BY "createdAt" DESC
       LIMIT ${addParam(limit)} OFFSET ${addParam(offset)};
     `;
 
