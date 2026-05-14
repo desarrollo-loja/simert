@@ -182,4 +182,19 @@ export class ZoneService {
       handleDbExceptions(error, this.logger);
     }
   }
+
+  async remove(userId: number, id: number) {
+    try {
+      const zone = await this.zoneRepository.findOne({ where: { id } });
+      if (zone) {
+        zone.isActivated = false;
+        await this.zoneRepository.save(zone);
+        this.loggerService.saveZoneLogger({ id: zone.id, userId, typeOperation: TypeOperation.DELETE, zone });
+        return { errorCode: ErrorCode.NONE, zone };
+      }
+      return { errorCode: ErrorCode.NONE, zone: {} };
+    } catch (error) {
+      handleDbExceptions(error, this.logger);
+    }
+  }
 }
