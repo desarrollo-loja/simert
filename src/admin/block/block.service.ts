@@ -94,7 +94,7 @@ export class BlockService {
         query.andWhere('s.name ILIKE :search', { search: `%${search}%` });
       }
 
-      if(zoneId){
+      if (zoneId) {
         query.andWhere('s.zoneId = :zoneId', { zoneId });
       }
 
@@ -159,7 +159,8 @@ export class BlockService {
           TO_CHAR(b."createdAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS') AS "createdAt",
           TO_CHAR(b."updatedAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS') AS "updatedAt",
           b."zoneId", b.priority, b.description,
-          z.name AS "nameZone", ST_AsGeoJSON(z.geofence) AS "geofenceZone", z.color AS "colorZone"
+          z.name AS "nameZone", ST_AsGeoJSON(z.geofence) AS "geofenceZone", z.color AS "colorZone",
+          z.lg AS "lgZone", z.lt AS "ltZone"
         FROM ${tableBlockSector} AS b
         INNER JOIN ${tableZone} AS z ON b."zoneId" = z.id
         ${where}
