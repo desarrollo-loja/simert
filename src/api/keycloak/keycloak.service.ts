@@ -469,15 +469,21 @@ export class KeycloakService {
       return false;
     }
 
+    const url = `${this.dominioAuth}api/auth/auth/mail/send-password`;
+    this.logger.log(`POST ${url} | body: ${JSON.stringify({ fullName, email, phone })}`);
+
     try {
-      const { data } = await axios.post(
-        `${this.dominioAuth}api/auth/auth/mail/send-password`,
+      const response = await axios.post(
+        url,
         { fullName, email, password, phone },
-        { headers: { 'Content-Type': 'application/json' } },
+        { headers: { 'Content-Type': 'application/json' }, validateStatus: () => true },
       );
-      return Boolean(data?.ok);
+      this.logger.log(`send-password response | status: ${response.status} | body: ${JSON.stringify(response.data)}`);
+      return response.status >= 200 && response.status < 300 && Boolean(response.data?.ok);
     } catch (error: any) {
-      this.logger.error(`Error enviando correo de recuperación a ${email}: ${error?.message}`);
+      this.logger.error(
+        `Error enviando correo a ${email} | code: ${error?.code} | status: ${error?.response?.status} | data: ${JSON.stringify(error?.response?.data)} | msg: ${error?.message}`,
+      );
       return false;
     }
   }
