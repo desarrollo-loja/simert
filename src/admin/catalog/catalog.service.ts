@@ -1,5 +1,4 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { Injectable } from '@nestjs/common';
 import { Catalog } from './entities/catalog.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
