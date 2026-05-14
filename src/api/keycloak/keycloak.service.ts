@@ -363,17 +363,13 @@ export class KeycloakService {
         { headers: this.authHeaders(token) },
       );
 
-      console.log('newPassword Cliente', newPassword);
-
       const emailSent = await this._sendPasswordEmail(fullName, email, newPassword);
-
-      console.log('emailSent Cliente', emailSent);
       return {
         errorCode: emailSent ? ErrorCode.NONE : ErrorCode.RESPONSE,
         message: emailSent
           ? 'Contraseña temporal generada y enviada al correo'
           : 'Contraseña temporal generada pero no se pudo enviar el correo',
-        newPassword,
+        userId,
         emailSent,
       };
     } catch (error: any) {
@@ -382,7 +378,6 @@ export class KeycloakService {
   }
 
   async setUserPasswordMunicipality(email: string) {
-    console.log('email', email);
     email = email?.trim();
     if (!email)
       return { errorCode: ErrorCode.NOT_FOUND, message: 'El parámetro email es requerido' };
@@ -404,8 +399,6 @@ export class KeycloakService {
       const userId = user.id;
       const fullName = `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.username || email;
       const newPassword = this._generateCode();
-      console.log('newPassword', newPassword);
-
       await axios.put(
         `${this.usersUrlMunicipality(userId)}/reset-password`,
         { type: 'password', value: newPassword, temporary: false },
@@ -413,7 +406,7 @@ export class KeycloakService {
       );
 
       const emailSent = await this._sendPasswordEmail(fullName, email, newPassword);
-      console.log('emailSent Municipality', emailSent);
+
       return {
         errorCode: emailSent ? ErrorCode.NONE : ErrorCode.RESPONSE,
         message: emailSent
