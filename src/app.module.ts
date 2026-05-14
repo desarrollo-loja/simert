@@ -54,6 +54,7 @@ import { LoggerModule } from './common/logger.module';
 import { ResponseTimeMiddleware } from './common/response-time.middleware';
 import { DataModule } from './data/data.module';
 import { IncidentCheckModule } from './incident/incident.module';
+import { CatalogModule } from './admin/catalog/catalog.module';
 
 @Module({
   imports: [
@@ -196,6 +197,7 @@ import { IncidentCheckModule } from './incident/incident.module';
     PortalModule,
     DinardapAntModule,
     KeycloakModule,
+    CatalogModule
   ],
   controllers: [AppController],
 })
