@@ -11,6 +11,5 @@ import { Card } from './entities/card.entity';
   controllers: [CardController],
   providers: [CardService],
   imports: [TypeOrmModule.forFeature([Card]), AuthModule, LoggerModule],
-
 })
 export class CardModule { }
