@@ -55,8 +55,13 @@ export class KeycloakTokenGuard implements CanActivate {
 
         // const isMunicipality = this.isMunicipalEmployee(user.roles);
         const isMunicipality = this.isMunicipal(user.idTypeUser);
+
+        this.logger.debug(`canActivate user.idTypeUser=${user.idTypeUser} (${typeof user.idTypeUser}) roles=${JSON.stringify(user.roles)} isMunicipality=${isMunicipality}`);
+        this.logger.debug(`canActivate user payload (kcToken/kcRefreshToken redacted): ${JSON.stringify({ ...user, kcToken: user.kcToken ? `...${String(user.kcToken).slice(-8)}` : null, kcRefreshToken: user.kcRefreshToken ? `...${String(user.kcRefreshToken).slice(-8)}` : null })}`);
+
         const kcBaseUrl = isMunicipality ? this.baseUrlMunicipality : this.baseUrl;
         const kcClientParams = isMunicipality ? this.clientParamsMunicipality : this.clientParams;
+        this.logger.debug(`canActivate selected realm kcBaseUrl=${kcBaseUrl} client_id=${kcClientParams.client_id}`);
 
         const introspection = await this.introspect(user.kcToken, kcBaseUrl, kcClientParams);
 
