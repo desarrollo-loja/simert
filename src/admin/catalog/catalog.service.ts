@@ -50,7 +50,7 @@ export class CatalogService {
                 .createQueryBuilder('c')
                 .select([
                     'c.id AS "id"',
-                    'c.type AS "type"',
+                    'c.name AS "name"',
                     'c.data AS "data"',
                     'c.description AS "description"',
                     'c.isActivated AS "isActivated"',
@@ -62,7 +62,7 @@ export class CatalogService {
                 .offset(skip);
 
             if (search) {
-                query.andWhere('c.type ILIKE :search', { search: `%${search}%` });
+                query.andWhere('c.name ILIKE :search', { search: `%${search}%` });
             }
 
             const catalog = await query.getRawMany();

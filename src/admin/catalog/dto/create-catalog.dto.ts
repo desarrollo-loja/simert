@@ -5,7 +5,7 @@ export class CreateCatalogDto {
     @IsString()
     @MinLength(3)
     @MaxLength(255)
-    type: string;
+    name: string;
 
     @IsArray()
     @IsObject({ each: true })

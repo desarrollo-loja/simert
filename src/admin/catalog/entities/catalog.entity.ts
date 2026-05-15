@@ -7,9 +7,9 @@ export class Catalog {
     @PrimaryGeneratedColumn()
     id: number;
 
-    @ApiProperty({ example: 'Zona', description: 'Type of catalog' })
+    @ApiProperty({ example: 'Zone', description: 'Name of catalog' })
     @Column({ unique: true })
-    type: string;
+    name: string;
 
     @ApiProperty({ example: '{}', description: 'Data of catalog' })
     @Column('json', { comment: 'Data of catalog' })
