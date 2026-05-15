@@ -1,4 +1,4 @@
-import { IsBoolean, IsObject, IsOptional, IsString, MaxLength, MinLength } from "class-validator";
+import { IsArray, IsBoolean, IsObject, IsOptional, IsString, MaxLength, MinLength } from "class-validator";
 
 export class CreateCatalogDto {
 
@@ -7,8 +7,9 @@ export class CreateCatalogDto {
     @MaxLength(255)
     type: string;
 
-    @IsObject()
-    data: Record<string, any>;
+    @IsArray()
+    @IsObject({ each: true })
+    data: Record<string, any>[];
 
     @IsOptional()
     @IsString()
