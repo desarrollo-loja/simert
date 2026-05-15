@@ -42,23 +42,23 @@ export class CatalogService {
             const query = this.catalogRepository
                 .createQueryBuilder('c')
                 .select([
-                    'c.id',
-                    'c.type',
-                    'c.data',
-                    'c.description',
-                    'c.isActivated',
-                    'c.createdAt',
-                    'c.updatedAt',
+                    'c.id AS "id"',
+                    'c.type AS "type"',
+                    'c.data AS "data"',
+                    'c.description AS "description"',
+                    'c.isActivated AS "isActivated"',
                 ])
+                .addSelect(`TO_CHAR(c."createdAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`, 'createdAt')
+                .addSelect(`TO_CHAR(c."updatedAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`, 'updatedAt')
                 .orderBy('c.id', 'DESC')
-                .take(take)
-                .skip(skip);
+                .limit(take)
+                .offset(skip);
 
             if (search) {
                 query.andWhere('c.type ILIKE :search', { search: `%${search}%` });
             }
 
-            const catalog = await query.getMany();
+            const catalog = await query.getRawMany();
 
             return { errorCode: ErrorCode.NONE, catalog, offset: skip, limit: take };
         } catch (error) {
