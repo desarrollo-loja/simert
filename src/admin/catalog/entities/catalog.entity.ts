@@ -8,7 +8,7 @@ export class Catalog {
     id: number;
 
     @ApiProperty({ example: 'Zone', description: 'Name of catalog' })
-    @Column({ unique: true })
+    @Column("varchar", { length: 100, unique: true, comment: 'Name of catalog' })
     name: string;
 
     @ApiProperty({ example: '{}', description: 'Data of catalog' })
