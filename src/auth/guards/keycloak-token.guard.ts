@@ -61,6 +61,7 @@ export class KeycloakTokenGuard implements CanActivate {
         const introspection = await this.introspect(user.kcToken, kcBaseUrl, kcClientParams);
 
         if (!introspection.active) {
+            this.logger.debug(`doRefresh trigger=inactive secondsLeft=expired refreshToken=${user.kcRefreshToken}`);
             if (!user.kcRefreshToken) {
                 throw new UnauthorizedException('Keycloak session expired');
             }
@@ -69,6 +70,7 @@ export class KeycloakTokenGuard implements CanActivate {
 
         const secondsLeft = introspection.exp - Math.floor(Date.now() / 1000);
         if (secondsLeft <= this.REFRESH_THRESHOLD_SECONDS) {
+            this.logger.debug(`doRefresh trigger=threshold secondsLeft=${secondsLeft} threshold=${this.REFRESH_THRESHOLD_SECONDS} refreshToken=${user.kcRefreshToken}`);
             return this.doRefresh(user, res, kcBaseUrl, kcClientParams);
         }
 
@@ -80,6 +82,7 @@ export class KeycloakTokenGuard implements CanActivate {
             throw new UnauthorizedException('Keycloak session expired');
         }
 
+        this.logger.debug(`doRefresh calling refresh kcBaseUrl=${kcBaseUrl} refreshToken=${user.kcRefreshToken}`);
         const refreshed = await this.refresh(user.kcRefreshToken, kcBaseUrl, kcClientParams);
         if (!refreshed) {
             throw new UnauthorizedException('Keycloak session expired');
