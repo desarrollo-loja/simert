@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseIntPipe, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthWithKeycloak, GetUser } from 'src/auth/decorators';
 import { JwtPayload } from 'src/auth/interfaces';
@@ -135,5 +135,23 @@ export class ZoneController {
     @Body() updateZoneDto: UpdateZoneDto
   ) {
     return this.zoneService.update(userId, id, updateZoneDto);
+  }
+
+  @ApiOperation({ summary: 'Delete a zone by id (soft delete)' })
+  @ApiStandardResponse({
+    description: 'Zone deleted. Empty object when id is not found.',
+    errorCodes: [ErrorCode.NONE],
+    data: { zone: { model: Zone } },
+  })
+  @AuthWithKeycloak()
+  @Delete(':id/:userId/:idDevice/:version')
+  remove(
+    @GetUser() user: JwtPayload,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('userId', ParseIntPipe) userId: number,
+    @Param('idDevice', ParseUUIDPipe) idDevice: string,
+    @Param('version', ParseIntPipe) version: number,
+  ) {
+    return this.zoneService.remove(userId, id);
   }
 }
