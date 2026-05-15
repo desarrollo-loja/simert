@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import handleDbExceptions from 'src/common/exceptions/error.db.exception';
 import { ErrorCode } from 'src/common/glob/error';
+import { TypeOperation } from 'src/common/glob/type/type_operation';
 import { LoggerService } from 'src/common/logger.service.ts';
 import { Repository } from 'typeorm';
 
@@ -22,10 +23,16 @@ export class CatalogService {
         private readonly loggerService: LoggerService,
     ) {}
 
-    async create(createCatalogDto: CreateCatalogDto) {
+    async create(userId: number, createCatalogDto: CreateCatalogDto) {
         try {
             let catalog = this.catalogRepository.create({ ...createCatalogDto });
             catalog = await this.catalogRepository.save(catalog);
+            this.loggerService.saveCatalogLogger({
+                id: catalog.id,
+                userId,
+                typeOperation: TypeOperation.CREATE,
+                catalog,
+            });
             return { errorCode: ErrorCode.NONE, catalog };
         } catch (error) {
             handleDbExceptions(error, this.logger);
@@ -66,11 +73,17 @@ export class CatalogService {
         }
     }
 
-    async update(id: number, updateCatalogDto: UpdateCatalogDto) {
+    async update(id: number, userId: number, updateCatalogDto: UpdateCatalogDto) {
         try {
             const catalog = await this.catalogRepository.preload({ id, ...updateCatalogDto });
             if (catalog) {
                 await this.catalogRepository.save(catalog);
+                this.loggerService.saveCatalogLogger({
+                    id: catalog.id,
+                    userId,
+                    typeOperation: TypeOperation.UPDATE,
+                    catalog,
+                });
                 return { errorCode: ErrorCode.NONE, catalog };
             }
             return { errorCode: ErrorCode.NOT_FOUND };

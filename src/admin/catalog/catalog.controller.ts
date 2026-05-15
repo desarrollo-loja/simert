@@ -20,7 +20,7 @@ export class CatalogController {
     @Param('version', ParseIntPipe) version: number,
     @Body() createCatalogDto: CreateCatalogDto,
   ) {
-    return this.catalogService.create(createCatalogDto);
+    return this.catalogService.create(userId, createCatalogDto);
   }
 
   @ApiOperation({ summary: 'List catalogs with optional filters' })
@@ -43,6 +43,6 @@ export class CatalogController {
     @Param('version', ParseIntPipe) version: number,
     @Body() updateCatalogDto: UpdateCatalogDto,
   ) {
-    return this.catalogService.update(+id, updateCatalogDto);
+    return this.catalogService.update(+id, userId, updateCatalogDto);
   }
 }
