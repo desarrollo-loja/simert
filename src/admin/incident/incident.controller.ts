@@ -75,7 +75,7 @@ export class IncidentController {
 
   @ApiOperation({ summary: 'Upload an incident evidence file to Alfresco (multipart form-data, key: file)' })
   @Post('upload-alfresco/:userId/:idDevice')
-  @UseInterceptors(FileInterceptor('file')) // 'file' debe coincidir con el FormData
+  @UseInterceptors(FileInterceptor('file')) // form-data field name must match 'file'
   uploadAlfresco(
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
@@ -85,7 +85,7 @@ export class IncidentController {
       throw new BadRequestException('Debe enviar el archivo en form-data con key: file');
     }
 
-    // Multer siempre envía estas propiedades
+    // Multer always populates these properties on UploadedFile.
     const { buffer, originalname } = file;
 
     return this.incidentService.uploadToAlfresco(buffer, originalname);

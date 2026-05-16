@@ -141,7 +141,7 @@ export class BlockService {
     return `This action removes a #${id} block`;
   }
 
-  // SIMERT MODULO SECTOR 
+  // SIMERT SECTOR MODULE
   async getAllBlockSector(filterDto: FilterDto) {
     try {
       let tableBlockSector = 'block';
@@ -219,17 +219,18 @@ export class BlockService {
   public async _tableExists(tableName: string): Promise<boolean> {
     const names = tableName.split('.');
     if (names.length <= 1) {
-      this.logger.error(`No se especifico el esquema en la tabla ${tableName}`);
+      this.logger.error(`Schema not specified in table ${tableName}`);
       return false;
     }
     const table_schema: string = names[0],
       table_name: string = names[1];
-    const query = `SELECT table_name 
-    FROM information_schema.tables 
-    WHERE table_schema = '${table_schema}' AND table_name = '${table_name}';`;
+    // Parameterized query — prevents SQL injection via schema/table identifiers.
+    const query = `SELECT table_name
+    FROM information_schema.tables
+    WHERE table_schema = $1 AND table_name = $2;`;
 
     try {
-      const result = await this.blockRepository.query(query);
+      const result = await this.blockRepository.query(query, [table_schema, table_name]);
       return result.length > 0;
     } catch (error) {
       return false;

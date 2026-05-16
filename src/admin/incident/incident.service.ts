@@ -9,7 +9,6 @@ import { ErrorCode } from 'src/common/glob/error';
 import { IncidentStatus } from 'src/common/glob/type/type_incident';
 import { InternalStateIncident } from 'src/common/glob/type/type_internal_state_incident';
 import { TypeRol } from 'src/common/glob/type/type_rol';
-// import { TypeIncident } from 'src/common/glob/type/type_incident';
 import { LoggerService } from 'src/common/logger.service.ts';
 import { Repository } from 'typeorm';
 
@@ -34,6 +33,20 @@ export class IncidentService {
     private readonly commonGimService: CommonGimService,
   ) { }
 
+  // Validates that `year` and `month` are safe integers within sensible bounds
+  // before being interpolated into a SQL identifier (historical table name).
+  // Existence of the resulting table is still verified via `_tableExists` against
+  // `information_schema`, but this guard prevents malformed identifiers reaching
+  // the query string at all.
+  private _isValidYearMonth(year: any, month: any): boolean {
+    const y = Number(year);
+    const m = Number(month);
+    return (
+      Number.isInteger(y) && y >= 2000 && y <= 2100 &&
+      Number.isInteger(m) && m >= 1 && m <= 12
+    );
+  }
+
   async create(createIncidentDto: CreateIncidentDto) {
     try {
       const incident = this.incidentRepository.create({ ...createIncidentDto });
@@ -50,6 +63,9 @@ export class IncidentService {
     let isHistorical = false;
 
     if (year && month) {
+      if (!this._isValidYearMonth(year, month)) {
+        return { incidents: [], errorCode: ErrorCode.NONE, message: 'No se encontro la tabla' };
+      }
       const monthString = month.toString().padStart(2, '0');
       const historicalTable = `history."${year}_${monthString}_incident"`;
 
@@ -57,7 +73,7 @@ export class IncidentService {
         table = historicalTable;
         isHistorical = true;
       } else {
-        // If filtering by specific month/year but table doesn't exist, return empty
+        // No historical table for the requested year/month: return empty result.
         return { incidents: [], errorCode: ErrorCode.NONE, message: 'No se encontro la tabla' };
       }
     }
@@ -68,13 +84,13 @@ export class IncidentService {
 
     const { conditions, parameters } = this._buildConditionsAndParametersPg(filterDto);
 
-    // Helper para mantener el mismo formato $1, $2, ...
+    // Adds an extra value to the parameters array and returns its $N placeholder.
     const addParamOutside = (value: any) => {
       parameters.push(value);
       return `$${parameters.length}`;
     };
 
-    // Si viene [100,200,300] o [100] => agregar IN
+    // Filter incidents by the internal state(s) derived from the caller roles.
     if (Array.isArray(internalState) && internalState.length > 0) {
       const placeholders = internalState.map(v => addParamOutside(v)).join(', ');
       conditions.push(`i."internalState" IN (${placeholders})`);
@@ -123,12 +139,20 @@ export class IncidentService {
 
     queryInfo += ' ORDER BY i."createdAt" DESC';
 
-    if (filterDto.limit) {
-      queryInfo += ` LIMIT ${filterDto.limit}`;
+    // Parameterized LIMIT/OFFSET. Coerced and validated to safe integers as
+    // defense-in-depth against any caller bypassing DTO validation.
+    if (filterDto.limit !== undefined && filterDto.limit !== null) {
+      const lim = Math.trunc(Number(filterDto.limit));
+      if (Number.isFinite(lim) && lim > 0) {
+        queryInfo += ` LIMIT ${addParamOutside(lim)}`;
+      }
     }
 
-    if (filterDto.offset) {
-      queryInfo += ` OFFSET ${filterDto.offset}`;
+    if (filterDto.offset !== undefined && filterDto.offset !== null) {
+      const off = Math.trunc(Number(filterDto.offset));
+      if (Number.isFinite(off) && off >= 0) {
+        queryInfo += ` OFFSET ${addParamOutside(off)}`;
+      }
     }
 
     queryInfo += ';';
@@ -188,7 +212,7 @@ export class IncidentService {
     isTransacional: number,
   ) {
     try {
-      // 🟢 CASO 1: NO histórico → tabla principal
+      // Case 1: transactional flag set => update the main `public.incident` table.
       if (isTransacional) {
         const incident = await this.incidentRepository.preload({
           id,
@@ -203,8 +227,8 @@ export class IncidentService {
         return { incident, errorCode: ErrorCode.NONE };
       }
 
-      //  CASO 2: HISTÓRICO → necesitamos fecha para año/mes
-      // Primero obtenemos el registro actual (solo para leer createdAt y estar seguros que esta  en esta tabla historica )
+      // Case 2: historical update. Read createdAt to derive the target year/month
+      // table; identifier is built from DB-owned data, not user input.
       const current = await this.incidentRepository.findOne({
         where: { id },
         select: ['id', 'createdAt'],
@@ -222,12 +246,12 @@ export class IncidentService {
 
       const exists = await this._tableExists(table);
       if (!exists) {
-        // mismo criterio que findAll: NO fallback
+        // Same policy as findAll: no fallback to main table when historical
+        // table is missing.
         return { incident: null, errorCode: ErrorCode.NONE };
       }
 
-      // UPDATE directo en tabla histórica
-      // const result = await this.dataSource
+      // Direct UPDATE on the historical table.
       const result = await this.incidentRepository
         .createQueryBuilder()
         .update(table)
@@ -335,8 +359,7 @@ export class IncidentService {
 
       const payload = {
         nodeId: alfrescoId,
-        // name: `incident_${alfrescoId}.pdf`, // opcional si quieres poner nombre
-        expiresAt: null as null | string, // null = nunca expira
+        expiresAt: null as null | string,
       };
 
       const config: AxiosRequestConfig = {
@@ -355,12 +378,11 @@ export class IncidentService {
       const response = await axios.request(config);
       const { data } = response;
 
-      // Alfresco normalmente responde con { entry: { id, name, ... } }
       if (!data || !data.entry?.id) {
         return { errorCode: ErrorCode.HTTP_ERROR_REINTENT };
       }
 
-      //  El id del shared-link sirve para construir la URL pública de descarga
+      // The shared-link id is used to build the public download URL:
       // /shared-links/{sharedId}/content
       const sharedId = data.entry.id;
       const sharedUrl = `${process.env.ALFRESCO_BASE_URL_PUBLIC}/alf/alfresco/api/-default-/public/alfresco/versions/1/shared-links/${sharedId}/content`;
@@ -383,6 +405,7 @@ export class IncidentService {
     try {
       const incident = await this.incidentRepository.findOne({ where: { id } });
       if (incident) {
+        // Soft-delete: business rule is to deactivate, not physically remove.
         incident.isActivated = false;
         await this.incidentRepository.save(incident);
         return { incident, errorCode: ErrorCode.NONE };
@@ -488,6 +511,8 @@ export class IncidentService {
       return `$${parameters.length}`;
     };
 
+    // Search guard: ignore empty/whitespace strings and literal 'undefined'/'null'
+    // sent by clients that stringify missing values.
     if (search && search.trim() && search.trim() !== 'undefined' && search.trim() !== 'null' && search.trim() !== '') {
       conditions.push(`(i."description" ILIKE ${addParam(`%${search}%`)} OR i."plate" ILIKE ${addParam(`%${search}%`)} OR i."supervisorObservations" ILIKE ${addParam(`%${search}%`)})`);
     }
@@ -541,7 +566,7 @@ export class IncidentService {
       let tableExistsIncident = false;
       let schema = 'history';
 
-      if (year && month) {
+      if (year && month && this._isValidYearMonth(year, month)) {
         const monthString = month.toString().padStart(2, '0')
         let tableNameIncidentAux = `"${year}_${monthString}_incident"`;
         tableNameIncidentAux = `${schema}.${tableNameIncidentAux}`;
@@ -579,16 +604,13 @@ export class IncidentService {
         query += ' AND ' + conditions.join(' AND ');
       }
       query += ' ORDER BY i.id DESC';
+      // Parameterized pagination (defense-in-depth on top of DTO validation).
+      const safeLimit = Math.max(0, Math.trunc(Number(limit)) || 0);
+      const safeOffset = Math.max(0, Math.trunc(Number(offset)) || 0);
       query += ` LIMIT $${parameters.length + 1} OFFSET $${parameters.length + 2}`;
-      parameters.push(limit, offset);
+      parameters.push(safeLimit, safeOffset);
 
-      let fractionSanction;
-
-      if (tableExistsIncident) {
-        fractionSanction = await this.incidentRepository.query(query, parameters);
-      } else {
-        fractionSanction = await this.incidentRepository.query(query, parameters);
-      }
+      const fractionSanction = await this.incidentRepository.query(query, parameters);
 
       return {
         fractionSanction,
@@ -610,7 +632,7 @@ export class IncidentService {
       let tableExistsIncident = false;
       let schema = 'history';
 
-      if (year && month) {
+      if (year && month && this._isValidYearMonth(year, month)) {
         const monthString = month.toString().padStart(2, '0')
         let tableNameIncidentAux = `"${year}_${monthString}_incident"`;
         tableNameIncidentAux = `${schema}.${tableNameIncidentAux}`;
@@ -623,7 +645,7 @@ export class IncidentService {
       const { parameters, conditions } = this._buildConditionsAndParametersPg(filterDto);
 
       let query = `
-          SELECT 
+          SELECT
             COUNT(*) as total
           FROM
             ${tableNameIncident} i
@@ -635,13 +657,7 @@ export class IncidentService {
         query += ' AND ' + conditions.join(' AND ');
       }
 
-      let fractionSanction;
-
-      if (tableExistsIncident) {
-        fractionSanction = await this.incidentRepository.query(query, parameters);
-      } else {
-        fractionSanction = await this.incidentRepository.query(query, parameters);
-      }
+      const fractionSanction = await this.incidentRepository.query(query, parameters);
 
       let total = 0;
       if (fractionSanction.length > 0) {
@@ -657,10 +673,12 @@ export class IncidentService {
     }
   }
 
+  // Verifies the existence of a fully-qualified schema-prefixed table via
+  // information_schema. Returns false (and logs) if the name has no schema.
   private async _tableExists(tableName: string): Promise<boolean> {
     const names = tableName.split('.');
     if (names.length <= 1) {
-      this.logger.error(`No se especificó el esquema en la tabla ${tableName}`);
+      this.logger.error(`No schema was specified for table ${tableName}`);
       return false;
     }
 
@@ -690,7 +708,7 @@ export class IncidentService {
       let tableExistsFraction = false;
       let schema = 'history';
 
-      if (year && month) {
+      if (year && month && this._isValidYearMonth(year, month)) {
         const monthString = month.toString().padStart(2, '0')
 
         let tableNameIncidentAux = `"${year}_${monthString}_incident"`;
@@ -732,13 +750,7 @@ export class IncidentService {
         query += ' AND ' + conditions.join(' AND ');
       }
 
-      let fractionSanction;
-
-      if (tableExistsIncident) {
-        fractionSanction = await this.incidentRepository.query(query, parameters);
-      } else {
-        fractionSanction = await this.incidentRepository.query(query, parameters);
-      }
+      const fractionSanction = await this.incidentRepository.query(query, parameters);
 
       return {
         fractionSanction
@@ -758,7 +770,7 @@ export class IncidentService {
       let tableExistsFraction = false;
       let schema = 'history';
 
-      if (year && month) {
+      if (year && month && this._isValidYearMonth(year, month)) {
         const monthString = month.toString().padStart(2, '0')
 
         let tableNameIncidentAux = `"${year}_${monthString}_incident"`;
@@ -811,13 +823,7 @@ export class IncidentService {
 
       query += ' GROUP BY fraction."zoneId" , fraction."blockId" , fraction.time';
 
-      let fractionSanction;
-
-      if (tableExistsIncident) {
-        fractionSanction = await this.incidentRepository.query(query, parameters);
-      } else {
-        fractionSanction = await this.incidentRepository.query(query, parameters);
-      }
+      const fractionSanction = await this.incidentRepository.query(query, parameters);
 
       return {
         fractionSanction
@@ -828,13 +834,17 @@ export class IncidentService {
     }
   }
 
-  // CONSULTAMOS NUESTRAS MULTAS Y SINCRIONIZAMOS CON EL ESTADO DE LAS DEL GIM 
+  // Reads pending incidents and synchronizes their state against GIM, marking
+  // those that match an active obligation as emitted.
   async findAndSincronizeToEmit(userId: number, idDevice: string, filterDto: IncidentFilterDto, isTransacional: number) {
     const { year, month } = filterDto;
-    let table = 'public.incident'; // 
+    let table = 'public.incident';
     let isHistorical = false;
 
     if (year && month) {
+      if (!this._isValidYearMonth(year, month)) {
+        return { incidents: [], errorCode: ErrorCode.NONE, message: 'No se encontro la tabla' };
+      }
       const monthString = month.toString().padStart(2, '0');
       const historicalTable = `history."${year}_${monthString}_incident"`;
 
@@ -842,7 +852,6 @@ export class IncidentService {
         table = historicalTable;
         isHistorical = true;
       } else {
-        // If filtering by specific month/year but table doesn't exist, return empty
         return { incidents: [], errorCode: ErrorCode.NONE, message: 'No se encontro la tabla' };
       }
     }
@@ -862,20 +871,11 @@ export class IncidentService {
 
     queryInfo += ' ORDER BY i."nroTicket" DESC';
 
-    // if (filterDto.limit) {
-    //   queryInfo += ` LIMIT ${filterDto.limit}`;
-    // }
-
-    // if (filterDto.offset) {
-    //   queryInfo += ` OFFSET ${filterDto.offset}`;
-    // }
-
     queryInfo += ';';
 
     try {
       const incidents = await this.incidentRepository.query(queryInfo, parameters);
 
-      // CONSULTAMOS NUESTRAS MULTAS Y SINCRIONIZAMOS CON EL ESTADO DE LAS DEL GIM PARA ACTUALZIAR A EMITIDAS LAS DE NSOOTROS
       if (incidents.length === 0)
         return { errorCode: ErrorCode.NOT_FOUND, incidents };
 
@@ -893,7 +893,7 @@ export class IncidentService {
             validateIncident.data,
             incident.id,
             incident,
-            isTransacional, // isTransacional: siempre tabla principal en sincronización
+            isTransacional,
           );
           if (validateStatus.errorCode !== ErrorCode.NONE) {
             return {
@@ -911,8 +911,6 @@ export class IncidentService {
         if (incidentsSupplied.length === 0) {
           messageInfo = 'No se encontraron incidencias para sincronizar';
         }
-
-        // AQUI SI NOS DANE LE RECURSO DE VERIFICAR [AGOS TB SE PEUDE SINCRONIZAR ESTDPS DE PAGO ]
       }
 
       return { incidents: incidentsSupplied, errorCode: ErrorCode.NONE, message: messageInfo };
@@ -923,7 +921,12 @@ export class IncidentService {
 
   async findAllNotification(filterDto: IncidentFilterDto) {
     const { limit = 30, offset = 0 } = filterDto;
-    let table = 'public.incident';
+    const table = 'public.incident';
+
+    // Parameterized LIMIT/OFFSET. Coerced to safe integers to prevent any
+    // SQL injection regardless of upstream DTO validation.
+    const safeLimit = Math.max(0, Math.trunc(Number(limit)) || 0);
+    const safeOffset = Math.max(0, Math.trunc(Number(offset)) || 0);
 
     let queryInfo = `
       SELECT i."id", i."description",
@@ -931,14 +934,10 @@ export class IncidentService {
       FROM ${table} i
     `;
 
-    queryInfo += ` ORDER BY i."updatedAt" DESC 
-    LIMIT ${limit}  OFFSET ${offset}
-    `;
-
-    queryInfo += ';';
+    queryInfo += ` ORDER BY i."updatedAt" DESC LIMIT $1 OFFSET $2;`;
 
     try {
-      const incidents = await this.incidentRepository.query(queryInfo, []);
+      const incidents = await this.incidentRepository.query(queryInfo, [safeLimit, safeOffset]);
       return { errorCode: ErrorCode.NONE, incidents }
 
     } catch (error) {
@@ -947,23 +946,6 @@ export class IncidentService {
   }
 
   async advanceNextProcess(userId: number, idDevice: string, incidentDto: IncidentDto, isTransacional: number) {
-    // const { year, month } = createIncidentDto;
-    // let table = 'public.incident'; 
-    // let isHistorical = false;
-
-    // if (year && month) {
-    //   const monthString = month.toString().padStart(2, '0');
-    //   const historicalTable = `history."${year}_${monthString}_incident"`;
-
-    //   if (await this._tableExists(historicalTable)) {
-    //     table = historicalTable;
-    //     isHistorical = true;
-    //   } else {
-    //     // If filtering by specific month/year but table doesn't exist, return empty
-    //     return { incidents: [], errorCode: ErrorCode.NONE, message: 'No se encontro la tabla' };
-    //   }
-    // }
-
     if (!incidentDto.identityCard) {
       return { errorCode: ErrorCode.NOT_FOUND, message: 'La incidencia no tiene una cedula ruc o pasaporte vinculado' };
     }
@@ -976,7 +958,8 @@ export class IncidentService {
 
     let internalState = incidentDto.internalState;
 
-    // la logica del proceso de una incidencia y por los encargados que va a pasar
+    // Workflow transition: each handler advances to the next department.
+    // REVENUE_DEPARTMENT is terminal and stays in place.
     if (incidentDto.internalState === InternalStateIncident.SIMERT_ADMINISTRATION) {
       internalState = InternalStateIncident.TRAFFIC_POLICE_STATION;
     }
@@ -988,18 +971,18 @@ export class IncidentService {
     }
 
     if (validateIncident.errorCode === ErrorCode.NONE) {
-      // valido si me devuelve algun resultado significa que si existe la deuda
-      // ya  esta emitida por lo cual debe pasar al departamentod e rentas directamente 
+      // If GIM already returned an existing obligation, the debt has been
+      // emitted and the incident jumps directly to the revenue department.
       if (validateIncident.data.length > 0) {
         internalState = InternalStateIncident.REVENUE_DEPARTMENT;
       }
     }
 
-    // 🟢 CASO 1: NO histórico → tabla principal
     const updateIncidentDto = {
       internalState,
     }
 
+    // Case 1: transactional flag set => update the main `public.incident` table.
     if (isTransacional) {
       const incident = await this.incidentRepository.preload({
         id: incidentDto.id,
@@ -1014,8 +997,8 @@ export class IncidentService {
       return { incident, errorCode: ErrorCode.NONE };
     }
 
-    //  CASO 2: HISTÓRICO → necesitamos fecha para año/mes
-    // Primero obtenemos el registro actual (solo para leer createdAt y estar seguros que esta  en esta tabla historica )
+    // Case 2: historical update. Read createdAt to derive the target year/month
+    // table; identifier is built from DB-owned data, not user input.
     const current = await this.incidentRepository.findOne({
       where: { id: incidentDto.id },
       select: ['id', 'createdAt'],
@@ -1033,11 +1016,9 @@ export class IncidentService {
 
     const exists = await this._tableExists(table);
     if (!exists) {
-      // mismo criterio que findAll: NO fallback
       return { incident: null, errorCode: ErrorCode.NONE, message: 'No se encontro la incidencia para actualizar' };
     }
 
-    // actualiozamos la historica
     const result = await this.incidentRepository
       .createQueryBuilder()
       .update(table)

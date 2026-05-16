@@ -59,14 +59,14 @@ export class RangeSalePointTransactionService {
                 .select("rsp")
                 .from(RangeSalePoint, "rsp")
                 .where('rsp.id = :rangeSalePointId', { rangeSalePointId: rangeSalePoint.id })
-                .setLock("pessimistic_write") // Bloqueo de escritura
+                .setLock("pessimistic_write") // Write lock
                 .getOne();
 
             if (!rangeSalePointLock) {
                 throw new Error('REJECTED');
             }
 
-            // Crear la transacción
+            // Create the transaction
             const transactionRangeSalePoint = this.rangeSalePointTransactionRepository.create({
                 userIdBuy: userIdBuy,
                 userIdSell: userIdSell,

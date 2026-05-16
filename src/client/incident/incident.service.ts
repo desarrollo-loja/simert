@@ -52,8 +52,8 @@ import { UpdateIncidentDto } from './dto/update-incident.dto';
 export class IncidentService {
   private readonly logger = new Logger(IncidentService.name);
 
-  private readonly antBaseUrl = process.env.ANT_BASE_URL; // ej: https://ant.tu-dominio.com
-  private readonly antApiKey = process.env.ANT_API_KEY;   // si aplica
+  private readonly antBaseUrl = process.env.ANT_BASE_URL; // e.g. https://ant.your-domain.com
+  private readonly antApiKey = process.env.ANT_API_KEY;   // if applicable
   private readonly gimBaseUrl = process.env.GIM_BASE_URL;
   private readonly gimApiKey = process.env.GIM_API_KEY;
   private readonly domainSimert: string = process.env.DOMINIO_SIMERT;
@@ -102,7 +102,7 @@ export class IncidentService {
     try {
       const { fractionId, incidentCategory, incidentTypeId } = createIncidentDto;
 
-      //  1) Consultar ANT por placa y setear emailClient, fullNameClient, identityCard
+      // 1) Query ANT by plate and set emailClient, fullNameClient, identityCard
       const plate = (createIncidentDto.plate ?? '').trim();
       let antEmailClient: string = null;
       let antFullNameClient: string = null;
@@ -120,7 +120,7 @@ export class IncidentService {
       let amount: string = null;
       const optionalData = [...(createIncidentDto.optionalData ?? [])];
 
-      //calculamos el valor del incidente
+      // Calculate the incident amount
       if (incidentCategory === IncidentCategory.NOTIFICATION) {
 
         const queryTypeIncident = await this.incidentTypeRepository.findOne({
@@ -136,7 +136,7 @@ export class IncidentService {
         optionalData.push({ key: SystemConfigKey.BASIC_SALARY, value: salaryBasic.salary });
       }
 
-      //  2) Crear y guardar incidente (flujo igual)
+      // 2) Create and save the incident (same flow)
 
       const register = this.commonService.getDate();
       const incident = this.incidentRepository.create({
@@ -155,7 +155,7 @@ export class IncidentService {
 
       const savedIncident = await this.incidentRepository.save(incident);
 
-      //cambiamos el estado de la fraccion a sancionada
+      // Change the fraction status to SANCTIONED
       if (fractionId) {
         const queryFraction = await this.fractionRepository
           .createQueryBuilder('fraction')
@@ -204,8 +204,8 @@ export class IncidentService {
 
       const { data } = await axios.request(config);
 
-      // ✅ Ajusta el path real según la respuesta de ANT
-      // Ejemplos comunes:
+      // Adjust the real path according to the ANT response
+      // Common examples:
       // const email = data?.email;
       // const email = data?.data?.email;
       // const email = data?.owner?.email;
@@ -219,7 +219,7 @@ export class IncidentService {
       this.logger.error(
         `ANT lookup failed for plate=${plate}: ${error?.message ?? error}`,
       );
-      return null; // no revienta el flujo si ANT falla
+      return null; // Do not break the flow if ANT fails
     }
   }
 
@@ -230,13 +230,12 @@ export class IncidentService {
     }
 
     try {
-      // ellos siempre reciben cedula si algun recurso no tiene cedula antes hay q consultar al ANT SACAR LA CEDULA X MEDIO DE LA PLACA 
-      // Y ENVIARLA EN identityCard 
-      // asi uno de ellos este vacio o eso deberia controlar yo aca y 
-      // solo enviar uno de ellos
+      // They always receive identity card; if some resource has no identity card
+      // we need to consult ANT first to extract it via the plate and send it in identityCard.
+      // Either one may be empty; we control that here and send only one of them.
 
       const config: AxiosRequestConfig = {
-        method: 'get', // o 'post' si el GIM lo requiere
+        method: 'get', // or 'post' if GIM requires it
         url: `${this.gimBaseUrl}/fines/outstanding`,
         headers: {
           'Content-Type': 'application/json',
@@ -325,12 +324,12 @@ export class IncidentService {
 
     try {
 
-      //validamos que caja este abierta
+      // Validate that the till is open
       const openTill = await this.gimService.validateOpenTill();
       if (openTill.errorCode !== ErrorCode.NONE) return openTill;
 
 
-      let tableName = 'public.incident';
+      const tableName = 'public.incident';
       const currentDate = new Date();
 
       let params: any[] = [];
@@ -338,15 +337,15 @@ export class IncidentService {
 
       const buildWhere = () => {
 
-        //Solo notificaciones que son multas
+        // Only notifications that are fines
         let where = `WHERE i."incidentCategory" = $${paramIndex++}`;
         params.push(IncidentCategory.NOTIFICATION);
 
-        // que no esten pagadas en el municipio
+        // Not already paid at the municipality
         where += ` AND i."statusIncident" IN ($${paramIndex++}, $${paramIndex++}, $${paramIndex++})`;
         params.push(IncidentStatus.ENTERED, IncidentStatus.APPROVED, IncidentStatus.SUPPLIED);
 
-        // que no esten pagadas internamente
+        // Not paid internally either
         where += ` AND (i."statusPayment" != $${paramIndex++} OR i."statusPayment" IS NULL)`;
         params.push(StatusPayment.PAID);
 
@@ -380,17 +379,17 @@ export class IncidentService {
       if (incidents.length === 0)
         return { errorCode: ErrorCode.NOT_FOUND, currentDate, incidents };
 
-      //ResidentId necesario para la emisión
+      // ResidentId is required for issuing the obligation
       const residentResult = await this._getResidentId(userId, idDevice, identityCard, incidents);
       if (!residentResult.residentId) {
         return { errorCode: ErrorCode.NOT_VALID, message: 'No se pudo verificar la información del cliente, por favor inténtelo más tarde' };
       }
-      const residentId = residentResult.residentId; //id del cliente del GIM
-      const issued = []; //Guardamos las emitidas para obtne el valor a pagar
+      const residentId = residentResult.residentId; // GIM customer id
+      const issued = []; // Track issued items to retrieve the amount to pay
 
       for (const incident of incidents) {
 
-        // VERIFICAMOS SI LA DEUDA YA FUE EMITIDA en el gim y actualizamos el estado
+        // Check whether the debt was already issued in GIM and update the status
         const findObligation = await this.gimService.findObligationsByCitation(incident.nroTicket, incident.identityCard);
         if (findObligation.errorCode === ErrorCode.NONE) {
           const validateStatus = await this.gimService._validateStatusSistemWithGim(findObligation.data.obligations);
@@ -407,7 +406,7 @@ export class IncidentService {
           continue;
         }
 
-        //creamos la deuda en el gim
+        // Create the debt in GIM
 
         const optionalData = this._formatOptionalData(incident.optionalData, residentId);
 
@@ -460,7 +459,7 @@ export class IncidentService {
         } else return;
       }));
 
-      // Re-query para devolver solo los que siguen en estados pendientes
+      // Re-query to return only those still in pending states
       const updatedIncidents = await this.incidentRepository.query(query, params);
 
       if (updatedIncidents.length === 0)
@@ -491,7 +490,7 @@ export class IncidentService {
   private async _getResidentId(userId: number, idDevice: string, identityCard: string, incidents: Incident[]): Promise<{ residentId: number | null }> {
     let residentId: number = null;
 
-    // 1) Verificamos si existe el usuario y tiene el residentId en nuestra base de datos
+    // 1) Check whether the user exists and already has residentId in our DB
     const user = await this.commonAuthService.filterByIdentityCard(userId, identityCard);
     const userFound = user.errorCode === ErrorCode.NONE;
     if (userFound) {
@@ -500,19 +499,19 @@ export class IncidentService {
 
     if (residentId) return { residentId };
 
-    // 2) Si no existe el residentId en nuestra BD lo buscamos en el GIM
+    // 2) If residentId is not in our DB, search for it in GIM
     const userGim = await this.commonGimService.getUserByIdentificationNumber(idDevice, identityCard);
     if (userGim.errorCode === ErrorCode.NONE && userGim.data?.id) {
       residentId = userGim.data.id;
-      // Si el usuario existe en nuestra BD pero no tenía residentId, lo guardamos
+      // If the user already exists in our DB but didn't have residentId, persist it
       if (userFound) {
         this.commonAuthService.updateResidentId(userId, identityCard, residentId);
       }
       return { residentId };
     }
 
-    // 3) Si no existe en el GIM lo creamos.
-    // Usamos los datos de auth si están disponibles; si no, los del incidente.
+    // 3) If it doesn't exist in GIM, create it.
+    // Use auth data when available, otherwise the incident's data.
     const incidentFallback = incidents?.[0];
     const fullName = userFound ? null : (incidentFallback?.fullNameClient || 'Usuario');
     const firstName = userFound ? user.data.firstName : fullName;
@@ -545,7 +544,7 @@ export class IncidentService {
 
   async pay(idDevice: string, payIncidentDto: PayIncidentDto) {
 
-    //validamos que caja este abierta
+    // Validate that the till is open
     const openTill = await this.gimService.validateOpenTill();
     if (openTill.errorCode !== ErrorCode.NONE) return openTill;
 
@@ -555,7 +554,7 @@ export class IncidentService {
     let urlAhorita = '';
     let urlPlaceToPay = '';
 
-    this.logger.debug('Ingreso a la funcion de pay')
+    this.logger.debug('Entering pay function')
     this.logger.debug(payIncidentDto)
 
     if (typePaymentMethod === TypePaymentMethod.DEUNA || typePaymentMethod === TypePaymentMethod.DEUNAV2) {
@@ -580,7 +579,7 @@ export class IncidentService {
       urlPlaceToPay = response['url'];
     }
 
-    // Buscamos si el usuario tiene una transaccion previa
+    // Check whether the user already has a previous transaction
     // let incidentPayment = await this.incidentPaymentRepository.findOne({ where: { transactionId } });
 
     // if (incidentPayment) {
@@ -599,7 +598,7 @@ export class IncidentService {
 
       const debitAmounDto = await this._parseDebitAmounDto(concept, payIncidentDto);
 
-      //vERIFICAMOS 
+      // Verify
 
       const queryRunner = this.dataSource.createQueryRunner();
 
@@ -776,10 +775,10 @@ export class IncidentService {
 
     const response = await this.commonService.payDeUnaV2(idDevice, registerDeunaDto);
 
-    //Cuando el provehedor responde el estado correcto
+    // When the provider responds with the correct status
     if (response && response['errorCode'] === ErrorCode.NONE) {
-      // Esperamos 3 minutos para verificar si se realizo el PAGO, si el pago se hizo antes en respuesta al
-      // webhook ya se responde al cliente antes, caso contrario se verifica la transaccion antes de reversar
+      // Wait 3 minutes to verify whether the PAYMENT happened. If it occurred earlier in response to the
+      // webhook the client was already notified; otherwise we verify the transaction before reversing.
 
       setTimeout(async () => {
         const incidentPayments = await this.incidentPaymentRepository.find({ where: { referenceId: referenceId } });
@@ -825,10 +824,10 @@ export class IncidentService {
 
     const response = await this.commonService.payAhorita(idDevice, registerAhoritaDto);
 
-    //Cuando el provehedor responde el estado correcto
+    // When the provider responds with the correct status
     if (response && response['errorCode'] === ErrorCode.NONE) {
-      // Esperamos 3 minutos para verificar si se realizo el PAGO, si el pago se hizo antes en respuesta al
-      // webhook ya se responde al cliente antes, caso contrario se verifica la transaccion antes de reversar
+      // Wait 3 minutes to verify whether the PAYMENT happened. If it occurred earlier in response to the
+      // webhook the client was already notified; otherwise we verify the transaction before reversing.
 
       setTimeout(async () => {
         const incidentPayments = await this.incidentPaymentRepository.find({ where: { referenceId: referenceId } });
@@ -876,10 +875,10 @@ export class IncidentService {
 
     const response = await this.commonService.payPlaceToPay(idDevice, referenceId, registerPlaceToPayDto);
 
-    //Cuando el provehedor responde el estado correcto
+    // When the provider responds with the correct status
     if (response && response['errorCode'] === ErrorCode.NONE) {
-      // Esperamos 3 minutos para verificar si se realizo el PAGO, si el pago se hizo antes en respuesta al 
-      // webhook ya se responde al cliente antes, caso contrario se verifica la transaccion antes de reversar 
+      // Wait 3 minutes to verify whether the PAYMENT happened. If it occurred earlier in response to the
+      // webhook the client was already notified; otherwise we verify the transaction before reversing.
       setTimeout(async () => {
         const incidentPayments = await this.incidentPaymentRepository.find({ where: { referenceId: referenceId } });
         if (!incidentPayments || incidentPayments.length === 0) return;
@@ -911,16 +910,16 @@ export class IncidentService {
 
         await this.incidentPaymentRepository.update({ referenceId }, { statusPayment, moment });
 
-        // Una sola consulta para obtener bondIds, identityCard y onResponseExternal
+        // Single query to fetch bondIds, identityCard and onResponseExternal
         const incidents = await this.incidentRepository.find({ where: { id: In(ids) } });
         const bondIds = incidents.map(incident => incident.bondId);
 
-        // control para evitar errores de decimales, obtenemos el total pagado
+        // Control to avoid decimal precision errors; compute the total paid
         const amount = incidentPayments.reduce((acc, i) => {
           return acc + Number(i.amount) * 100;
         }, 0) / 100;
 
-        // realizamos el depósito en el GIM
+        // Perform the deposit in GIM
         const registerDepositGimDto: RegisterDepositGimDto = {
           amount: amount.toFixed(2),
           identificationNumber: incidents[0].identityCard,
@@ -932,7 +931,7 @@ export class IncidentService {
         const response = await this.gimService.registerDeposit(registerDepositGimDto);
 
         if (response && response.errorCode === ErrorCode.NONE) {
-          // Actualizamos cada incidente con statusIncident PAYED y onResponseExternal acumulado
+          // Update each incident with statusIncident PAYED and the accumulated onResponseExternal
           for (const incident of incidents) {
             const onResponseExternal = [...(incident.onResponseExternal ?? [])];
             if (response.data) onResponseExternal.push(response.data);
@@ -1000,7 +999,7 @@ export class IncidentService {
       return { errorCode: ErrorCode.NOT_FOUND }
     }
 
-    //control para evitar errores de decimales
+    // Control to avoid decimal precision errors
     const amount = incidentPayments.reduce((acc, i) => {
       return acc + Number(i.amount) * 100;
     }, 0) / 100;
@@ -1020,7 +1019,7 @@ export class IncidentService {
     const incidentPayments = await this.incidentPaymentRepository.find({ where: { referenceId: referenceId } });
     if (!incidentPayments || incidentPayments.length === 0) return;
 
-    //control para evitar errores de decimales
+    // Control to avoid decimal precision errors
     const amount = incidentPayments.reduce((acc, i) => {
       return acc + Number(i.amount) * 100;
     }, 0) / 100;
@@ -1073,7 +1072,7 @@ export class IncidentService {
   }
 
   private async _saveSatusFraction(fraction: Fraction, statusId: number, moment: number) {
-    // Verifica si ya existe un registro para el status y fractionid dado
+    // Check whether a record already exists for the given status and fractionId
     const existingFractionStatus = await this.fractionStatusRepository.findOne({
       where: { fraction: { id: fraction.id }, status: { id: statusId }, },
     });
@@ -1083,7 +1082,7 @@ export class IncidentService {
       await this.fractionStatusRepository.save(existingFractionStatus);
     }
     else {
-      // Siempre guardamos el estado del fraction
+      // Always persist the fraction status
       const fractionSatus = this.fractionStatusRepository.create({ fraction, moment, status: { id: statusId } });
       await this.fractionStatusRepository.save(fractionSatus);
     }

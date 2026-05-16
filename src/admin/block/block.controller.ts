@@ -139,7 +139,7 @@ export class BlockController {
     return this.blockService.remove(+id);
   }
 
-  // SIMERT MODULO SECTOR
+  // SIMERT SECTOR MODULE
   // @Auth()
   @ApiOperation({ summary: 'List blocks for the sector module (raw SQL with zone info)' })
   @ApiStandardResponse({

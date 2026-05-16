@@ -19,12 +19,12 @@ export class SupportTicketService {
 
   async create(userId: number, createSupportTicketDto: CreateSupportTicketDto) {
     try {
-      // Asignar userId si viene en el DTO o usar el del parámetro
+      // Use the userId from the DTO if provided, otherwise fall back to the parameter
       if (!createSupportTicketDto.userId) {
         createSupportTicketDto.userId = userId;
       }
 
-      // Si no se especifica status, usar PENDING por defecto
+      // If no status is provided, default to PENDING
       if (!createSupportTicketDto.status) {
         createSupportTicketDto.status = SupportTicketStatus.PENDING;
       }
@@ -35,7 +35,7 @@ export class SupportTicketService {
 
       const savedTicket = await this.supportTicketRepository.save(supportTicket);
 
-      // Generar número de ticket de referencia
+      // Generate reference ticket number
       const ticketNumber = `ST-${savedTicket.id.toString().padStart(6, '0')}`;
 
       return {

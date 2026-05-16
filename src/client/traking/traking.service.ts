@@ -74,8 +74,8 @@ export class TrakingService {
 
       const [
         , version
-        , distanceOnline //no borrar
-        , distanceOfline //no borrar
+        , distanceOnline // do not remove
+        , distanceOfline // do not remove
         , vehicleId
         , latitude
         , longitude
@@ -96,7 +96,7 @@ export class TrakingService {
 
       ]: any = p.split(',');
 
-      // 1️⃣ Intentar UPDATE primero
+      // 1) Try UPDATE first
       const updateResult = await this.locationRepository.query(
         `
           UPDATE public.l
@@ -112,10 +112,10 @@ export class TrakingService {
         [latitude, longitude, heading, taken, polyline, userId]
       );
 
-      // updateResult[1] es número de filas afectadas en MySQL
+      // updateResult[1] is the affected rows count on MySQL
       if (updateResult[1] === 0) {
         this.logger.debug('No existing location found, inserting new record.');
-        // 2️⃣ Si no existe, hacer INSERT
+        // 2) If it does not exist, INSERT
         await this.locationRepository.query(
           `
           INSERT INTO public.l
@@ -141,7 +141,7 @@ export class TrakingService {
 
     let trackings: any = [];
 
-    // Hacemos dos consultas
+    // Run two queries (date range crosses partitions)
     if (from.getDate() !== to.getDate()) {
 
       const isoStringFrom = from.toISOString().split('T');
@@ -174,7 +174,7 @@ export class TrakingService {
       const resultTo = await this.dataSource.query(queryTo, [dateTo, userId, timeTo]);
       trackings = [...resultFrom, ...resultTo];
     }
-    //Una sola consulta pues los datos estan en una sola particion
+    // Single query — data lives in a single partition
     else {
       const isoStringFrom = from.toISOString().split('T');
       const dateFrom = isoStringFrom[0];
@@ -237,7 +237,7 @@ export class TrakingService {
   async getTrackings(userIds: string) {
     const userIdArray = userIds.split(',').map(id => Number(id));
 
-    // Query crudo como al inicio
+    // Raw query (kept as-is from original implementation)
     const query = `
     SELECT userId, latitude, longitude, heading, polyline
     FROM simert.l

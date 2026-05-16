@@ -63,7 +63,10 @@ export class DinardapAntService {
       return null;
     }
 
-    const url = `${this.dinardapAntBaseUrl}/api/dinardap/vehicles/${plate}/registration`;
+    // URL-encode plate to prevent path traversal / URL injection if a caller
+    // supplies non-alphanumeric input. Legitimate plates are alphanumeric so
+    // encoding is a no-op for them.
+    const url = `${this.dinardapAntBaseUrl}/api/dinardap/vehicles/${encodeURIComponent(plate)}/registration`;
 
     const config: AxiosRequestConfig = {
       method: 'GET',

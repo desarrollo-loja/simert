@@ -85,20 +85,20 @@ export class RangeSalePointService {
         try {
             const query = this.rangeSalePointRepository.createQueryBuilder('rsp');
 
-            // Filtros dinámicos
+            // Dynamic filters
             const { conditions, parameters } = this._buildConditionsAndParameters(filterDto);
             if (conditions.length) {
                 query.andWhere(conditions.join(' AND '), parameters);
             }
 
-            // SUM de todas las filas filtradas
+            // SUM over all filtered rows
             const result = await query
                 .select('COALESCE(SUM(rsp.sold), 0)', 'availableSum')
                 .getRawOne();
 
-            const stock = parseInt(result.availableSum, 10); // total disponible
+            const stock = parseInt(result.availableSum, 10); // total available
             const maximum = Configuration.MAXIMO_PUNTO_VENTAS;
-            const available = maximum - stock; // máximo que puede comprar todavía
+            const available = maximum - stock; // max that can still be purchased
 
             return {
                 errorCode: ErrorCode.NONE,

@@ -25,11 +25,11 @@ export class CheckboxController {
     return this.checkboxService.findAll(filterDto);
   }
 
-  // ─── Endpoints internos consumidos por CommonCheckboxService ─────────────
+  // ─── Internal endpoints consumed by CommonCheckboxService ─────────────
 
   @ApiOperation({ summary: 'List paid checkboxes with no linked incident (statusIncident = NULL)' })
   /**
-   * Retorna los checkboxes PAGADOS cuyo statusIncident es NULL.
+   * Returns PAID checkboxes whose statusIncident is NULL.
    * GET /admin/checkbox/common/paid-without-incident
    */
   @Get('common/paid-without-incident')
@@ -39,7 +39,7 @@ export class CheckboxController {
 
   @ApiOperation({ summary: 'List paid checkboxes with a pending GIM incident status' })
   /**
-   * Retorna los checkboxes PAGADOS con statusIncident pendiente en el GIM.
+   * Returns PAID checkboxes with a statusIncident pending in GIM.
    * GET /admin/checkbox/common/paid-pending-incident
    */
   @Get('common/paid-pending-incident')
@@ -49,9 +49,9 @@ export class CheckboxController {
 
   @ApiOperation({ summary: 'Update a checkbox by id (partial update, any field except id)' })
   /**
-   * Actualiza un checkbox por su id.
+   * Updates a checkbox by its id.
    * PATCH /admin/checkbox/common/update/:id
-   * Body: objeto parcial de Checkbox (sin 'id').
+   * Body: partial Checkbox object (without 'id').
    */
   @Patch('common/update/:id')
   updateCheckboxById(
@@ -63,7 +63,7 @@ export class CheckboxController {
 
   @ApiOperation({ summary: 'Move a checkbox record to its history table' })
   /**
-   * Transfiere un checkbox a la tabla histórica correspondiente.
+   * Transfers a checkbox to the corresponding historical table.
    * POST /admin/checkbox/common/move-to-history/:id
    */
   @Post('common/move-to-history/:id')

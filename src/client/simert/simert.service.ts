@@ -133,13 +133,13 @@ export class SimertService {
     await queryRunner.startTransaction();
 
     try {
-      // Bloquear la columna "checkbox" en CheckboxUser para evitar ventas repetidas simultáneas
+      // Lock the "checkbox" column in CheckboxUser to prevent concurrent duplicate sales
       const checkboxUser = await queryRunner.manager
         .createQueryBuilder()
         .select("checkboxUser")
         .from(CheckboxUser, "checkboxUser")
         .where("checkboxUser.userId = :userId", { userId })
-        .setLock("pessimistic_write") // Bloqueo de escritura
+        .setLock("pessimistic_write") // Write lock
         .getOne();
 
       if (!checkboxUser) {
@@ -169,12 +169,12 @@ export class SimertService {
 
       await queryRunner.manager.save(fraction);
 
-      // Actualizar los checkboxes del usuario en CheckboxUser
+      // Update the user's checkboxes in CheckboxUser
       checkboxUser.checkboxes -= checkboxes;
       await queryRunner.manager.save(checkboxUser);
       await queryRunner.commitTransaction();
 
-      //Finalizamos la fraccion anterior y creamos una nueva por el incremento de tiempo
+      // Finish the previous fraction and create a new one for the time increment
       this._saveStatus(fractionOld, StatusFraction.FINISHED_BY_INCREMENT, StatusMoment.NOTIFIED);
 
       this._saveStatus(fraction, StatusFraction.INCREMENTED, StatusMoment.NOTIFIED);
@@ -217,7 +217,7 @@ export class SimertService {
       return { errorCode: ErrorCode.NOT_FOUND };
     }
 
-    //Angel -> Siempre se libera la plaza
+    // Always release the slot
     await this.slotRepository.save({ id: fraction.slot.id, status: StatusSlot.AVAILABLE });
 
     this._saveStatus(fraction, StatusFraction.FINISHED, StatusMoment.NOTIFIED);
@@ -260,13 +260,13 @@ export class SimertService {
       await queryRunner.connect();
       await queryRunner.startTransaction();
 
-      // Bloquear la columna "checkbox" en CheckboxUser para evitar ventas repetidas simultáneas
+      // Lock the "checkbox" column in CheckboxUser to prevent concurrent duplicate sales
       const checkboxUser = await queryRunner.manager
         .createQueryBuilder()
         .select("checkboxUser")
         .from(CheckboxUser, "checkboxUser")
         .where("checkboxUser.userId = :userId", { userId })
-        .setLock("pessimistic_write") // Escritura en modo de bloqueo
+        .setLock("pessimistic_write") // Write lock
         .getOne();
 
       if (!checkboxUser) {
@@ -300,7 +300,7 @@ export class SimertService {
       slot.status = StatusSlot.OCCUPIED;
       await queryRunner.manager.save(slot);
 
-      // Actualizar los checkboxes del usuario en CheckboxUser si es pagado ese fraccion
+      // Update the user's checkboxes in CheckboxUser if this fraction is paid
       if (isPaidParking) {
         checkboxUser.checkboxes -= checkboxes;
         await queryRunner.manager.save(checkboxUser);
@@ -372,7 +372,7 @@ export class SimertService {
   }
 
   private async _saveStatus(fraction: Fraction, statusId: number, moment: number) {
-    // Verifica si ya existe un registro para el status y fractionid dado
+    // Check whether a record already exists for the given status and fractionId
     const existingFractionStatus = await this.fractionSatusRepository.findOne({
       where: { fraction: { id: fraction.id }, status: { id: statusId }, },
     });
@@ -383,7 +383,7 @@ export class SimertService {
       await this.fractionSatusRepository.save(existingFractionStatus);
     }
     else {
-      // Siempre guardamos el estado del fraction
+      // Always persist the fraction status
       const fractionSatus = this.fractionSatusRepository.create({ fraction, moment, status: { id: statusId } });
       const a = await this.fractionSatusRepository.save(fractionSatus);
     }
@@ -433,7 +433,7 @@ export class SimertService {
     this.commonService.notify(notification);
   }
 
-  // para postgres
+  // for postgres
   async findFractionHistory(
     userId: number,
     searchFractionDto: SearchFractionDto
@@ -441,7 +441,7 @@ export class SimertService {
     const { offset = 0, limit = 10, year, month, currentMonth, statusId, dateFrom, dateTo, timeZone = false } =
       searchFractionDto;
 
-    // Lógica para FILTROS POR RANGO DE FECHAS
+    // Date-range filter logic
     const timeFrom = '00:00:00';
     const timeTo = '23:59:59';
     let dateFromSend = '';
@@ -465,7 +465,9 @@ export class SimertService {
       const params: any[] = [];
       let queryParts: string[] = [];
 
-      if (year && month) {
+      // Guard against SQL injection: only allow safe integer year/month before
+      // interpolating into the historical table identifier.
+      if (year && month && this._isValidYearMonth(year, month)) {
         const monthString = month.toString().padStart(2, '0')
 
         let tableNameFractionAux = `"${year}_${monthString}_fraction"`;
@@ -520,12 +522,12 @@ export class SimertService {
         return q;
       };
 
-      // histórico (si existe)
+      // historical (if it exists)
       if (tableExistsFraction) {
         queryParts.push(buildSelect(tableNameFraction, false));
       }
 
-      // currentMonth o día 1 -> tabla actual filtrada por year/month
+      // currentMonth or day 1 -> current table filtered by year/month
       const currentDate = new Date();
       const currentDay = currentDate.getDate();
 
@@ -533,7 +535,7 @@ export class SimertService {
         queryParts.push(buildSelect(tableNameFraction, true));
       }
 
-      // si no agregaste nada, evita query vacía
+      // If nothing was added, avoid an empty query
       if (queryParts.length === 0) {
         return { errorCode: ErrorCode.NONE, fraction: [] };
       }
@@ -551,19 +553,38 @@ export class SimertService {
     }
   }
 
+  // Validates that `year` and `month` are safe integers within sensible bounds
+  // before being interpolated into a SQL identifier (historical table name).
+  private _isValidYearMonth(year: any, month: any): boolean {
+    const y = Number(year);
+    const m = Number(month);
+    return (
+      Number.isInteger(y) && y >= 2000 && y <= 2100 &&
+      Number.isInteger(m) && m >= 1 && m <= 12
+    );
+  }
+
   private async _tableExists(tableName: string): Promise<boolean> {
     const names = tableName.split('.');
     if (names.length <= 1) {
-      this.logger.error(`No se especifico el esquema en la tabla ${tableName}`);
+      this.logger.error(`No schema was specified for table ${tableName}`);
       return false;
     }
-    const table_schema: string = names[0],
-      table_name: string = names[1];
-    const query = `SELECT table_name FROM information_schema.tables WHERE table_schema = '${table_schema}' AND table_name = '${table_name}';`;
+    const table_schema = names[0].replace(/"/g, '').trim();
+    const table_name = names[1].replace(/"/g, '').trim();
+
+    const query = `
+      SELECT EXISTS(
+        SELECT 1
+        FROM information_schema.tables
+        WHERE table_schema = $1
+          AND table_name = $2
+      ) AS "exists";
+    `;
 
     try {
-      const result = await this.fractionRepository.query(query);
-      return result.length > 0;
+      const result = await this.fractionRepository.query(query, [table_schema, table_name]);
+      return !!result[0]?.exists;
     } catch (error) {
       return false;
     }
@@ -571,19 +592,19 @@ export class SimertService {
 
   private _convertRangeToTimeZone = (startUTC: string, endUTC: string, timeZone: string): { start: string; end: string } => {
     try {
-      // Extraemos las horas y minutos de la cadena de zona horaria (ej: "-05:00")
+      // Extract hours and minutes from the timezone string (e.g. "-05:00")
       const [sign, hours, minutes] = timeZone.match(/([+-])(\d{2}):(\d{2})/)?.slice(1) || [];
       const timeZoneOffset = (parseInt(hours) * 60 + parseInt(minutes)) * (sign === "-" ? 1 : -1);
 
-      // Convertimos ambas fechas de UTC a Date
-      const startDateUTC = new Date(startUTC + "Z"); // "Z" asegura que se interprete como UTC
+      // Convert both dates from UTC to Date
+      const startDateUTC = new Date(startUTC + "Z"); // "Z" ensures UTC interpretation
       const endDateUTC = new Date(endUTC + "Z");
 
-      // Aplicamos el desfase de la zona horaria
+      // Apply the timezone offset
       const startDateInTimeZone = new Date(startDateUTC.getTime() + timeZoneOffset * 60 * 1000);
       const endDateInTimeZone = new Date(endDateUTC.getTime() + timeZoneOffset * 60 * 1000);
 
-      // Formateamos las fechas en el formato "YYYY-MM-DD HH:mm:ss"
+      // Format dates as "YYYY-MM-DD HH:mm:ss"
       const formatDate = (date: Date) =>
         date.getUTCFullYear() +
         "-" +

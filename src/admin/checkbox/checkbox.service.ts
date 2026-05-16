@@ -20,17 +20,36 @@ export class CheckboxService {
 
   async findAll(filterDto: FilterDto) {
     const {
-      offset = 0,
-      limit = 10,
+      offset: rawOffset = 0,
+      limit: rawLimit = 10,
       year,
       month
     } = filterDto;
+    // Defense-in-depth: coerce pagination to safe non-negative integers
+    // even if class-validator was bypassed upstream.
+    const safeLimit = Number.isFinite(Number(rawLimit)) && Number(rawLimit) >= 0
+      ? Math.trunc(Number(rawLimit))
+      : 10;
+    const safeOffset = Number.isFinite(Number(rawOffset)) && Number(rawOffset) >= 0
+      ? Math.trunc(Number(rawOffset))
+      : 0;
     try {
       let tableName = 'checkbox';
       let tableExists = false;
-      if (year && month) {
-        tableName = `${year}_${month}_checkbox`;
+      // Only treat year/month as usable when both are integers in a sane range.
+      // This blocks SQL injection via interpolation of `${year}_${month}_checkbox`.
+      const y = Number(year);
+      const m = Number(month);
+      const validYearMonth =
+        Number.isInteger(y) && y >= 2000 && y <= 2100 &&
+        Number.isInteger(m) && m >= 1 && m <= 12;
+      if (year && month && validYearMonth) {
+        const mm = String(m).padStart(2, '0');
+        tableName = `${y}_${mm}_checkbox`;
         tableExists = await this._tableExists(tableName);
+      } else if (year || month) {
+        // Invalid year/month supplied: deny historical lookup.
+        return { checkbox: [] };
       }
 
       const { conditions, parameters } = this._buildConditionsAndParameters(filterDto);
@@ -55,7 +74,7 @@ export class CheckboxService {
         const totalResult = await this.checkboxRepository.query(totalQuery, parameters);
         const total = totalResult[0].total;
 
-        parameters.push(limit, offset);
+        parameters.push(safeLimit, safeOffset);
         const paramLimit = parameters.length - 1;
         const paramOffset = parameters.length;
 
@@ -66,8 +85,8 @@ export class CheckboxService {
         return {
           checkbox,
           total,
-          limit,
-          offset,
+          limit: safeLimit,
+          offset: safeOffset,
         };
       } else {
         return {
@@ -142,11 +161,11 @@ export class CheckboxService {
     return { conditions, parameters };
   }
 
-  // ─── Endpoints consumidos por CommonCheckboxService via HTTP ──────────────
+  // ─── Endpoints consumed by CommonCheckboxService via HTTP ──────────────
 
   /**
-   * Retorna los checkboxes PAGADOS cuyo statusIncident es NULL
-   * (falta emisión + depósito en el GIM).
+   * Returns PAID checkboxes whose statusIncident is NULL
+   * (pending emission + deposit in GIM).
    */
   async findPaidWithoutIncident(): Promise<{ errorCode: ErrorCode; data: Checkbox[] }> {
     try {
@@ -164,8 +183,8 @@ export class CheckboxService {
   }
 
   /**
-   * Retorna los checkboxes PAGADOS con statusIncident en estado intermedio:
-   * ENTERED, APPROVED, CONVENIO, ON_CREDIT, PENDIENTE_LIQUIDACION o SUPPLIED.
+   * Returns PAID checkboxes whose statusIncident is in an intermediate state:
+   * ENTERED, APPROVED, CONVENIO, ON_CREDIT, PENDIENTE_LIQUIDACION or SUPPLIED.
    */
   async findPaidWithPendingIncident(): Promise<{ errorCode: ErrorCode; data: Checkbox[] }> {
     try {
@@ -192,8 +211,8 @@ export class CheckboxService {
   }
 
   /**
-   * Actualiza un checkbox por su id.
-   * Recibe el objeto parcial con los campos a modificar (sin incluir 'id').
+   * Updates a checkbox by its id.
+   * Receives a partial object with the fields to modify (excluding 'id').
    */
   async updateCheckboxById(id: number, fields: Partial<Checkbox>): Promise<{ errorCode: ErrorCode; data: any; message: string }> {
     try {
@@ -206,8 +225,8 @@ export class CheckboxService {
   }
 
   /**
-   * Transfiere un checkbox a la tabla histórica history."YYYY_MM_checkbox"
-   * según su fecha de creación.
+   * Transfers a checkbox to the corresponding historical table
+   * history."YYYY_MM_checkbox" based on its createdAt date.
    */
   async moveCheckboxToHistory(id: number): Promise<{ errorCode: ErrorCode; data: any; message: string }> {
     try {

@@ -80,8 +80,15 @@ export class CheckboxService {
             let tableName = 'checkbox';
             let tableExists = false;
 
-            if (year && month) {
-                tableName = `"${year}_${month}_${tableName}"`;
+            // Defense-in-depth: validate year/month as safe integers before
+            // interpolating into the table identifier. DTO already constrains
+            // these via class-validator, but this guard prevents any callers
+            // that bypass the pipe from injecting SQL.
+            const safeYear = Number.isInteger(Number(year)) && Number(year) >= 2000 && Number(year) <= 2100 ? Number(year) : null;
+            const safeMonth = Number.isInteger(Number(month)) && Number(month) >= 1 && Number(month) <= 12 ? Number(month) : null;
+
+            if (safeYear && safeMonth) {
+                tableName = `"${safeYear}_${safeMonth}_${tableName}"`;
                 tableName = `${schema}.${tableName}`;
                 tableExists = await this._tableExists(tableName);
             }
@@ -103,28 +110,30 @@ export class CheckboxService {
                 return { checkboxs: [] };
 
             if (currentMonth) {
+                // Parameterize month to prevent SQL injection in EXTRACT comparison.
                 query += `
                 ${tableExists ? 'UNION ALL' : ''}
                 SELECT
                 cb.id, cb.amount, cb.checkboxes, cb."statusPayment", TO_CHAR(cb."createdAt" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD HH24:MI:SS') AS "createdAt"
                 FROM checkbox cb
-                WHERE cb."userId" = $${idx++} AND EXTRACT(MONTH FROM cb."createdAt") = ${month}
+                WHERE cb."userId" = $${idx++} AND EXTRACT(MONTH FROM cb."createdAt") = $${idx++}
                 `;
-                params.push(userId);
+                params.push(userId, safeMonth ?? 0);
             }
 
-            // Si es el mes anterior y estamos primero obtenemos las ultimas transaccines que pueden estar en tabla transaccional
-            // Ya que las mismas se pasan cada 24 horas por lo que el primero de cada mes las transacciones del ultimo dia del mes anterior
-            //Estaran en esta tabla
+            // On day 1 of the current month, also fetch records from the
+            // previous month still in the transactional table (the cron that
+            // moves rows to history runs every 24h, so day 1 may still see
+            // last day of the previous month).
             else if (currentDay === 1) {
                 query += `
                 ${tableExists ? 'UNION ALL' : ''}
                 SELECT
                 cb.id, cb.amount, cb.checkboxes, cb."statusPayment", TO_CHAR(cb."createdAt" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD HH24:MI:SS') AS "createdAt"
                 FROM checkbox cb
-                WHERE cb."userId" = $${idx++} AND EXTRACT(MONTH FROM cb."createdAt") = ${month}
+                WHERE cb."userId" = $${idx++} AND EXTRACT(MONTH FROM cb."createdAt") = $${idx++}
                 `;
-                params.push(userId);
+                params.push(userId, safeMonth ?? 0);
             }
 
             query += `

@@ -51,12 +51,18 @@ export class RangeSalePointTransactionService {
 
             queryInfo += ' ORDER BY rspt.id DESC';
 
-            if (filterDto.limit) {
-                queryInfo += ` LIMIT ${filterDto.limit}`;
+            // Defense-in-depth: coerce limit/offset to safe non-negative integers
+            // and parameterize them rather than interpolating raw values.
+            if (filterDto.limit !== undefined && filterDto.limit !== null) {
+                const safeLimit = Math.max(0, Math.floor(Number(filterDto.limit)) || 0);
+                parameters.push(safeLimit);
+                queryInfo += ` LIMIT $${parameters.length}`;
             }
 
-            if (filterDto.offset) {
-                queryInfo += ` OFFSET ${filterDto.offset}`;
+            if (filterDto.offset !== undefined && filterDto.offset !== null) {
+                const safeOffset = Math.max(0, Math.floor(Number(filterDto.offset)) || 0);
+                parameters.push(safeOffset);
+                queryInfo += ` OFFSET $${parameters.length}`;
             }
 
             const transactions = await this.rangeSalePointTransactionRepository.query(queryInfo, parameters);
@@ -115,14 +121,14 @@ export class RangeSalePointTransactionService {
                 .select("rsp")
                 .from(RangeSalePoint, "rsp")
                 .where('rsp.id = :rangeSalePointId', { rangeSalePointId: rangeSalePoint.id })
-                .setLock("pessimistic_write") // Bloqueo de escritura
+                .setLock("pessimistic_write") // Write lock
                 .getOne();
 
             if (!rangeSalePointLock) {
                 throw new Error('REJECTED');
             }
 
-            // Crear la transacción
+            // Create the transaction
             const transactionRangeSalePoint = this.rangeSalePointTransactionRepository.create({
                 userIdBuy: userIdBuy,
                 userIdSell: userIdSell,

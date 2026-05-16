@@ -308,10 +308,10 @@ export class OperatorService {
       await queryRunner.connect();
       await queryRunner.startTransaction();
 
-      // Se guarda con la hora local del servidor (Ecuador). El driver pg
-      // serializa el Date usando los componentes locales (getHours, etc.) y
-      // los inserta tal cual en la columna timestamp (sin TZ), por lo que no
-      // se aplica ninguna conversión a UTC.
+      // Saved using the server's local time (Ecuador). The pg driver
+      // serializes the Date using local components (getHours, etc.) and
+      // inserts them as-is into the timestamp column (without TZ), so no
+      // UTC conversion is applied.
       const fromTime = new Date(createOperatorDto.fromTime);
 
       if (createOperatorDto.typeFraction === TypeFraction.VIRTUAL) {
@@ -377,7 +377,7 @@ export class OperatorService {
         .andWhere('bo.isActivated = :isActivated', { isActivated: 1 })
         .andWhere('bo.from <= :currentDate', { currentDate })
         .andWhere('bo.to >= :currentDate', { currentDate })
-        .andWhere('bo.isFinalized = :isFinalized', { isFinalized: 0 }) //No se devuelve los bloques finalizados
+        .andWhere('bo.isFinalized = :isFinalized', { isFinalized: 0 }) // Finalized blocks are not returned
         .getMany();
 
       return { errorCode: ErrorCode.NONE, currentDate, blocks };
@@ -450,7 +450,7 @@ export class OperatorService {
     const { offset, limit } = paginationDto;
     try {
 
-      // Queries independientes por blockId, se ejecutan en paralelo
+      // Independent queries by blockId, executed in parallel
       const slotQuery = this.slotRepository.createQueryBuilder('slot')
         .select([
           'slot.id', 'slot.slot', 'slot.status',
@@ -479,7 +479,7 @@ export class OperatorService {
           'latest', 'latest.maxid = f.id',
         );
 
-      // Ejecución en paralelo — ninguna espera a la otra
+      // Parallel execution — neither awaits the other
       const [slots, fractionResult] = await Promise.all([
         slotQuery.take(limit).skip(offset).getMany(),
         fractionQuery.getRawAndEntities(),
@@ -491,7 +491,7 @@ export class OperatorService {
         departureDate: fractionResult.raw[i]?.f_departureDate ?? null,
       }));
 
-      // Merge con Map O(n)
+      // Merge with Map O(n)
       const fractionBySlotId = new Map(fractions.map(f => [f.slot.id, f]));
 
       const slotsWithFractions = slots.map(slot => ({
@@ -599,7 +599,7 @@ export class OperatorService {
     await this.slotRepository.save({ id: fraction.slot.id, status: StatusSlot.AVAILABLE });
 
     await this._saveSatus(fraction, StatusFraction.FINISHED_BY_OPERATOR, StatusMoment.NOTIFIED);
-    //Notificamos al usuario propietario de la fracion que puede ser el controlador o el cliente
+    // Notify the fraction owner (could be the controller or the client)
     await this._notifyChageStatus(fraction.userId, StatusFraction.FINISHED_BY_OPERATOR, fraction.id);
 
     return { errorCode: ErrorCode.NONE };
@@ -648,7 +648,7 @@ export class OperatorService {
   }
 
   private async _saveSatus(fraction: Fraction, statusId: number, moment: number) {
-    // Verifica si ya existe un registro para el status y fractionid dado
+    // Check if a record already exists for the given status and fractionId
     const existingFractionStatus = await this.fractionSatusRepository.findOne({
       where: { fraction: { id: fraction.id }, status: { id: statusId }, },
     });
@@ -658,7 +658,7 @@ export class OperatorService {
       await this.fractionSatusRepository.save(existingFractionStatus);
     }
     else {
-      // Siempre guardamos el estado del fraction
+      // Always save the fraction status
       const fractionSatus = this.fractionSatusRepository.create({ fraction, moment, status: { id: statusId } });
       await this.fractionSatusRepository.save(fractionSatus);
     }
@@ -740,15 +740,15 @@ export class OperatorService {
 
       const buildWhere = () => {
 
-        //Solo notificaciones que son multas
+        // Only notifications that are fines
         let where = `WHERE i."incidentCategory" = $${paramIndex++}`;
         params.push(IncidentCategory.NOTIFICATION);
 
-        // que no esten pagadas en el municipio
+        // Not paid at the municipality
         where += ` AND i."statusIncident" IN ($${paramIndex++}, $${paramIndex++}, $${paramIndex++})`;
         params.push(IncidentStatus.ENTERED, IncidentStatus.APPROVED, IncidentStatus.SUPPLIED);
 
-        // que no esten pagadas internamente
+        // Not paid internally
         where += ` AND (i."statusPayment" != $${paramIndex++} OR i."statusPayment" IS NULL)`;
         params.push(StatusPayment.PAID);
 
@@ -784,7 +784,7 @@ export class OperatorService {
 
       for (const incident of incidents) {
 
-        // VERIFICAMOS SI LA DEUDA YA FUE EMITIDA en el gim y actualizamos el estado
+        // Check if the debt was already emitted in GIM and update the status
         const findObligation = await this.gimService.findObligationsByCitation(incident.nroTicket, incident.identityCard);
         if (findObligation.errorCode === ErrorCode.NONE) {
           const validateStatus = await this.gimService._validateStatusSistemWithGim(findObligation.data.obligations);
@@ -802,7 +802,7 @@ export class OperatorService {
         }
       }
 
-      // Re-query para devolver solo los que siguen en estados pendientes
+      // Re-query to return only those still in pending states
       const updatedIncidents = await this.incidentRepository.query(query, params);
 
       if (updatedIncidents.length === 0)

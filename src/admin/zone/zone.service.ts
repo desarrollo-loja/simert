@@ -39,18 +39,18 @@ export class ZoneService {
       return { errorCode: ErrorCode.NONE, zone };
     } catch (error) {
       const driverError = (error as any).driverError;
-      // Código 23505: Violación de restricción única
+      // Code 23505: unique constraint violation
       if (error instanceof QueryFailedError && driverError?.code === '23505') {
-        // LOG TEMPORAL: Mira tu consola para ver el nombre real de la restricción
+        // Temporary log: inspect the console to see the real constraint name
         this.logger.error(`Violación detectada en: ${driverError.constraint}`);
-        // Si el error viene de la restricción compuesta que definiste
-        // Ajusta el nombre 'UQ_...' según lo que veas en tu DB o logs
+        // If the error comes from the composite constraint defined on the entity,
+        // adjust the 'UQ_...' name according to what appears in the DB or logs
         if (driverError.constraint?.includes('name')) {
           return { errorCode: ErrorCode.NAMEUNIQUE };
         }
-        return { errorCode: ErrorCode.NAMEUNIQUE }; // Un error genérico de duplicado
+        return { errorCode: ErrorCode.NAMEUNIQUE }; // Generic duplicate error
       }
-      // Si no es un error de duplicado, deja que el manejador global lo procese
+      // If it is not a duplicate error, let the global handler process it
       handleDbExceptions(error, this.logger);
     }
   }
@@ -167,18 +167,18 @@ export class ZoneService {
       }
     } catch (error) {
       const driverError = (error as any).driverError;
-      // Código 23505: Violación de restricción única
+      // Code 23505: unique constraint violation
       if (error instanceof QueryFailedError && driverError?.code === '23505') {
-        // LOG TEMPORAL: Mira tu consola para ver el nombre real de la restricción
+        // Temporary log: inspect the console to see the real constraint name
         this.logger.error(`Violación detectada en: ${driverError.constraint}`);
-        // Si el error viene de la restricción compuesta que definiste
-        // Ajusta el nombre 'UQ_...' según lo que veas en tu DB o logs
+        // If the error comes from the composite constraint defined on the entity,
+        // adjust the 'UQ_...' name according to what appears in the DB or logs
         if (driverError.constraint?.includes('name')) {
           return { errorCode: ErrorCode.NAMEUNIQUE };
         }
-        return { errorCode: ErrorCode.NAMEUNIQUE }; // Un error genérico de duplicado
+        return { errorCode: ErrorCode.NAMEUNIQUE }; // Generic duplicate error
       }
-      // Si no es un error de duplicado, deja que el manejador global lo procese
+      // If it is not a duplicate error, let the global handler process it
       handleDbExceptions(error, this.logger);
     }
   }

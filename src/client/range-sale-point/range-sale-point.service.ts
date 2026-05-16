@@ -24,13 +24,13 @@ export class RangeSalePointService {
       const rangeSalePoint = await this.rangeSalePointRepository.findOne({
         where: {
           userId,
-          // available: MoreThan(0), // el numero de tarjetas que compro 
-          sold: MoreThan(0), // stock disponible
+          // available: MoreThan(0), // number of cards purchased
+          sold: MoreThan(0), // available stock
         },
         order: {
-          createdAt: 'ASC', // el más antiguo
+          createdAt: 'ASC', // oldest first
         },
-        select: ['sold','id'], // slect stock disponible
+        select: ['sold','id'], // select available stock
       });
 
       if(!rangeSalePoint)

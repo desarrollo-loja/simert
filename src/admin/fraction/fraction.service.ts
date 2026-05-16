@@ -28,6 +28,9 @@ export class FractionService {
       let tableName = 'fraction';
       let tableExists = false;
       if (year && month) {
+        if (!this._isValidYearMonth(year, month)) {
+          return { fractions: [] };
+        }
         const monthComplite = month.toString().padStart(2, '0')
         tableName = `history.${year}_${monthComplite}_fraction`;
         tableExists = await this._tableExists(tableName);
@@ -95,15 +98,18 @@ export class FractionService {
       let queryParts: string[] = [];
 
       if (year && month) {
+        if (!this._isValidYearMonth(year, month)) {
+          return { errorCode: ErrorCode.NONE, fraction: [] };
+        }
         const monthString = month.toString().padStart(2, '0')
 
-        //sin comillas para verifiar la tabla histiorica si existe
+        // No quotes — used to check existence of the historical table.
         let tableNameFractionAux = `${year}_${monthString}_fraction`;
         tableNameFractionAux = `${schema}.${tableNameFractionAux}`;
         tableExistsFraction = await this._tableExists(tableNameFractionAux);
 
         if (tableExistsFraction) {
-          this.logger.log('TABLA EXISTE' + tableNameFractionAux);
+          this.logger.log('TABLE EXISTS' + tableNameFractionAux);
           //comillas para poder buscar data en la historica
           tableNameFraction = `${schema}."${year}_${monthString}_fraction"`;
         }
@@ -139,15 +145,15 @@ export class FractionService {
         return q;
       };
 
-      // histórico (si existe)
+      // historical (if it exists)
       if (tableExistsFraction) {
         queryParts.push(buildSelect(tableNameFraction, false));
       }
 
-      // currentMonth o día 1 -> tabla actual filtrada por year/month
+      // currentMonth or day 1 -> current table filtered by year/month
       queryParts.push(buildSelect('public.fraction', true));
 
-      // si no agregaste nada, evita query vacía
+      // If nothing was appended, avoid an empty query.
       if (queryParts.length === 0) {
         return { errorCode: ErrorCode.NONE, fraction: [] };
       }
@@ -158,9 +164,9 @@ export class FractionService {
       LIMIT ${addParam(limit)} OFFSET ${addParam(offset)};
     `;
 
-      this.logger.log('QUERY DE LAS FRACTIONS ');
+      this.logger.log('QUERY FOR FRACTIONS ');
       this.logger.log(query);
-      this.logger.log('PARAMS DE LAS FRACTIONS ');
+      this.logger.log('PARAMS FOR FRACTIONS ');
       this.logger.log(params);
 
       const fraction = await this.fractionRepository.query(query, params);
@@ -172,19 +178,19 @@ export class FractionService {
 
   private _convertRangeToTimeZone = (startUTC: string, endUTC: string, timeZone: string): { start: string; end: string } => {
     try {
-      // Extraemos las horas y minutos de la cadena de zona horaria (ej: "-05:00")
+      // Extract hours and minutes from the timezone string (e.g. "-05:00").
       const [sign, hours, minutes] = timeZone.match(/([+-])(\d{2}):(\d{2})/)?.slice(1) || [];
       const timeZoneOffset = (parseInt(hours) * 60 + parseInt(minutes)) * (sign === "-" ? 1 : -1);
 
-      // Convertimos ambas fechas de UTC a Date
-      const startDateUTC = new Date(startUTC + "Z"); // "Z" asegura que se interprete como UTC
+      // Convert both dates from UTC to Date.
+      const startDateUTC = new Date(startUTC + "Z"); // "Z" forces UTC interpretation
       const endDateUTC = new Date(endUTC + "Z");
 
-      // Aplicamos el desfase de la zona horaria
+      // Apply the timezone offset.
       const startDateInTimeZone = new Date(startDateUTC.getTime() + timeZoneOffset * 60 * 1000);
       const endDateInTimeZone = new Date(endDateUTC.getTime() + timeZoneOffset * 60 * 1000);
 
-      // Formateamos las fechas en el formato "YYYY-MM-DD HH:mm:ss"
+      // Format the dates as "YYYY-MM-DD HH:mm:ss".
       const formatDate = (date: Date) =>
         date.getUTCFullYear() +
         "-" +
@@ -212,6 +218,9 @@ export class FractionService {
       let tableName = 'fraction';
       let tableExists = false;
       if (year && month) {
+        if (!this._isValidYearMonth(year, month)) {
+          return { fractions: [] };
+        }
         const monthString = month.toString().padStart(2, '0')
         tableName = `${year}_${monthString}_fraction`;
         tableName = `${tableName}`;
@@ -254,6 +263,9 @@ export class FractionService {
       let tableName = 'fraction';
       let tableExists = false;
       if (year && month) {
+        if (!this._isValidYearMonth(year, month)) {
+          return { fractions: [] };
+        }
         const monthString = month.toString().padStart(2, '0')
         tableName = `${year}_${monthString}_fraction`;
         tableName = `${tableName}`;
@@ -261,7 +273,7 @@ export class FractionService {
       }
       if (tableExists || (!year && !month)) {
 
-        //calculamos el valor de slots
+        // Compute slot total.
         let queryTotalSlot = `SELECT COUNT(*) AS total FROM slot`;
         let parametersSlot = [];
         const conditionsSlot: string[] = [];
@@ -324,6 +336,9 @@ export class FractionService {
       let tableName = 'fraction';
       let tableExists = false;
       if (year && month) {
+        if (!this._isValidYearMonth(year, month)) {
+          return { fractions: [] };
+        }
         const monthString = month.toString().padStart(2, '0')
         tableName = `${year}_${monthString}_fraction`;
         tableName = `${tableName}`;
@@ -362,10 +377,24 @@ export class FractionService {
     }
   }
 
+  // Defense-in-depth validator for year/month before interpolating them into
+  // raw SQL table names. DTO validation already enforces a number type, but
+  // this guards against bypasses and out-of-range values.
+  private _isValidYearMonth(year: any, month: any): boolean {
+    return (
+      Number.isInteger(year) &&
+      year >= 2000 &&
+      year <= 2100 &&
+      Number.isInteger(month) &&
+      month >= 1 &&
+      month <= 12
+    );
+  }
+
   private async _tableExists(tableName: string): Promise<boolean> {
     const names = tableName.split('.');
     if (names.length <= 1) {
-      this.logger.error(`No se especificó el esquema en la tabla ${tableName}`);
+      this.logger.error(`Schema not specified in table ${tableName}`);
       return false;
     }
 
@@ -383,7 +412,7 @@ export class FractionService {
 
     try {
       const result = await this.fractionRepository.query(query, [table_schema, table_name]);
-      this.logger.log('RESULTADO DE LA TABLA EXISTE');
+      this.logger.log('TABLE EXISTS RESULT');
       this.logger.log(result);
       return result[0].exists;
     } catch (error) {
@@ -401,6 +430,9 @@ export class FractionService {
       let tableExists = false;
       const schema = 'history';
       if (year && month) {
+        if (!this._isValidYearMonth(year, month)) {
+          return { errorCode: ErrorCode.NOT_FOUND, message: 'No se encontraron resultados' };
+        }
         const monthString = month.toString().padStart(2, '0')
         let tableNameAux = `${schema}."${year}_${monthString}_fraction"`;
         tableExists = await this._tableExists(tableNameAux);
@@ -470,7 +502,7 @@ export class FractionService {
     const conditions: string[] = [];
     const parameters: any[] = [];
 
-    // Función auxiliar para numerar placeholders
+    // Helper to number positional placeholders.
     const addParam = (value: any) => {
       parameters.push(value);
       return `$${parameters.length}`;
@@ -524,7 +556,7 @@ export class FractionService {
       }
     } else {
       if (dateFrom && dateTo) {
-        conditions.push(`DATE(f."register") BETWEEN ${addParam(dateFrom)} AND ${addParam(dateTo)}`); //TEMPORAL VER si se envia la hora
+        conditions.push(`DATE(f."register") BETWEEN ${addParam(dateFrom)} AND ${addParam(dateTo)}`); // TEMP: review if time is also sent
       }
     }
 

@@ -92,7 +92,7 @@ export class SlotService {
     }
   }
 
-  // modulo sectores 
+  // sectors module
   async getSlotsByBlockByZone(blockId, zoneId) {
     try {
       const slots = await this.slotRepository.createQueryBuilder('s')
@@ -125,7 +125,7 @@ export class SlotService {
 
       const { conditions, parameters } = this._buildConditionsAndParametersModuleBlockSector(filterDto);
 
-      // ST_AsText(b.geofence) as geofence,  -- Convertir a WKT
+      // ST_AsText(b.geofence) as geofence,  -- Convert to WKT
       let query = `
           SELECT s.id, s.slot as nameSlot, s.lt as ltSlot, s.lg as lgSlot, s.blockId, s.zoneId          
           FROM ${tableSlot} AS s
@@ -217,12 +217,14 @@ export class SlotService {
     }
     const table_schema: string = names[0],
       table_name: string = names[1];
-    const query = `SELECT table_name 
-      FROM information_schema.tables 
-      WHERE table_schema = '${table_schema}' AND table_name = '${table_name}';`;
+    // SQL injection fix: pass schema and table as bound parameters instead of
+    // interpolating them into the SQL string.
+    const query = `SELECT table_name
+      FROM information_schema.tables
+      WHERE table_schema = $1 AND table_name = $2;`;
 
     try {
-      const result = await this.slotRepository.query(query);
+      const result = await this.slotRepository.query(query, [table_schema, table_name]);
       return result.length > 0;
     } catch (error) {
       return false;

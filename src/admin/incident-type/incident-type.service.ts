@@ -174,7 +174,7 @@ export class IncidentTypeService {
     };
 
     if (search.trim() && search.trim() !== 'undefined' && search.trim() !== 'null' && search.trim() !== '') {
-      conditions.push(`it."name" ILIKE ${addParam(`%${search}%`)}`); // ILIKE = case-insensitive en Postgres
+      conditions.push(`it."name" ILIKE ${addParam(`%${search}%`)}`); // ILIKE: case-insensitive match in Postgres
     }
 
     if (dateFrom && dateTo) {

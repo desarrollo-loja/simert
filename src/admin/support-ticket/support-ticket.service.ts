@@ -21,7 +21,7 @@ export class SupportTicketService {
 
   async create(createSupportTicketDto: CreateSupportTicketDto) {
     try {
-      // Si no se especifica status, usar PENDING por defecto
+      // If no status is provided, default to PENDING
       if (!createSupportTicketDto.status) {
         createSupportTicketDto.status = SupportTicketStatus.PENDING;
       }
@@ -32,7 +32,7 @@ export class SupportTicketService {
 
       const savedTicket = await this.supportTicketRepository.save(supportTicket);
 
-      // Generar número de ticket de referencia
+      // Build reference ticket number
       const ticketNumber = `ST-${savedTicket.id.toString().padStart(6, '0')}`;
 
       return {
@@ -70,12 +70,18 @@ export class SupportTicketService {
 
     queryInfo += ' ORDER BY st."createdAt" DESC';
 
-    if (filterDto.limit) {
-      queryInfo += ` LIMIT ${filterDto.limit}`;
+    // SQL injection fix: parameterize LIMIT/OFFSET via $N placeholders and
+    // coerce to safe non-negative integers instead of interpolating raw values.
+    const safeLimit = Math.trunc(Number(filterDto.limit));
+    if (Number.isFinite(safeLimit) && safeLimit > 0) {
+      parameters.push(safeLimit);
+      queryInfo += ` LIMIT $${parameters.length}`;
     }
 
-    if (filterDto.offset) {
-      queryInfo += ` OFFSET ${filterDto.offset}`;
+    const safeOffset = Math.trunc(Number(filterDto.offset));
+    if (Number.isFinite(safeOffset) && safeOffset > 0) {
+      parameters.push(safeOffset);
+      queryInfo += ` OFFSET $${parameters.length}`;
     }
 
     queryInfo += ';';
@@ -143,7 +149,7 @@ export class SupportTicketService {
     try {
       const supportTicket = await this.supportTicketRepository.findOne({ where: { id } });
       if (supportTicket) {
-        // Soft delete: cambiar status a REJECTED
+        // Soft delete: mark status as REJECTED
         supportTicket.status = SupportTicketStatus.REJECTED;
         await this.supportTicketRepository.save(supportTicket);
         return { supportTicket, errorCode: ErrorCode.NONE };

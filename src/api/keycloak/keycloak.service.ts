@@ -7,7 +7,7 @@ import { LoginKeycloakClientDto } from 'src/common/dto/login-keycloak-client.dto
 import { UpdateKeycloakUserDto } from 'src/common/dto/update-keycloak-user.dto';
 import { ErrorCode } from 'src/common/glob/error';
 
-// Margen de seguridad: renovar el token 30 segundos antes de que expire
+// Safety margin: refresh the token 30 seconds before it expires
 const TOKEN_REFRESH_MARGIN_MS = 30_000;
 
 @Injectable()
@@ -19,9 +19,9 @@ export class KeycloakService {
   private readonly gim2RealmMunicipality: string;
   private readonly dominioAuth: string;
 
-  // Caché del token de ServiceHub
+  // ServiceHub token cache
   private serviceHubToken: string | null = null;
-  private serviceHubTokenExpiresAt = 0; // timestamp en ms
+  private serviceHubTokenExpiresAt = 0; // timestamp in ms
 
   constructor(
     private readonly commonGimService: CommonGimService,
@@ -34,7 +34,7 @@ export class KeycloakService {
     this.dominioAuth = this.configService.get<string>('DOMINIO_AUTH');
   }
 
-  // ─── Token con caché inteligente ─────────────────────────────────────────────
+  // ─── Smart-cached token ─────────────────────────────────────────────────────
 
   private async getToken(): Promise<string> {
     const now = Date.now();
@@ -50,13 +50,13 @@ export class KeycloakService {
     }
 
     this.serviceHubToken = result.data.access_token;
-    // expires_in viene en segundos
+    // expires_in is in seconds
     this.serviceHubTokenExpiresAt = now + result.data.expires_in * 1000;
 
     return this.serviceHubToken;
   }
 
-  // Siempre obtiene un token nuevo para empleados municipales (realm municipio K, client_credentials)
+  // Always fetches a fresh token for municipal employees (realm Municipio K, client_credentials)
   private async getTokenMunicipalityK(): Promise<string> {
     const result = await this.commonGimService.loginGimMunicipalityK();
 
@@ -151,7 +151,7 @@ export class KeycloakService {
       const response = await axios.post(this.usersUrl(), dto, {
         headers: this.authHeaders(token),
       });
-      // Keycloak devuelve 201 sin body; el ID viene en Location header
+      // Keycloak returns 201 with no body; the ID comes back in the Location header
       const location = response.headers['location'] as string | undefined;
       const userId = location ? location.split('/').pop() : null;
 
@@ -173,7 +173,7 @@ export class KeycloakService {
       const response = await axios.post(this.usersUrlMunicipality(), dto, {
         headers: this.authHeaders(token),
       });
-      // Keycloak devuelve 201 sin body; el ID viene en Location header
+      // Keycloak returns 201 with no body; the ID comes back in the Location header
       const location = response.headers['location'] as string | undefined;
       const userId = location ? location.split('/').pop() : null;
 
@@ -280,7 +280,7 @@ export class KeycloakService {
         refresh_expires_in: data.refresh_expires_in,
       };
     } catch (error: any) {
-      this.logger.warn('Error al iniciar sesión en Keycloak');
+      this.logger.warn('Error logging into Keycloak');
       return this.throwKeycloakError('loginClient', error);
     }
   }
@@ -309,7 +309,7 @@ export class KeycloakService {
         refresh_expires_in: data.refresh_expires_in,
       };
     } catch (error: any) {
-      this.logger.warn('Error al iniciar sesión en Keycloak empleados municipales');
+      this.logger.warn('Error logging into Keycloak (municipal employees)');
       return this.throwKeycloakError('loginClient', error);
     }
   }
@@ -458,7 +458,7 @@ export class KeycloakService {
 
   private async _sendPasswordEmail(fullName: string, email: string, password: string, phone?: string): Promise<boolean> {
     if (!this.dominioAuth) {
-      this.logger.warn('DOMINIO_AUTH no configurado, no se puede enviar el correo de recuperación');
+      this.logger.warn('DOMINIO_AUTH not configured, password recovery email cannot be dispatched');
       return false;
     }
 
@@ -475,7 +475,7 @@ export class KeycloakService {
       return response.status >= 200 && response.status < 300 && Boolean(response.data?.ok);
     } catch (error: any) {
       this.logger.error(
-        `Error enviando correo a ${email} | code: ${error?.code} | status: ${error?.response?.status} | data: ${JSON.stringify(error?.response?.data)} | msg: ${error?.message}`,
+        `Error sending email to ${email} | code: ${error?.code} | status: ${error?.response?.status} | data: ${JSON.stringify(error?.response?.data)} | msg: ${error?.message}`,
       );
       return false;
     }
