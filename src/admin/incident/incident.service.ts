@@ -476,7 +476,8 @@ export class IncidentService {
       blockId,
       userId,
       blockOperatorId,
-      incidentCategory
+      incidentCategory,
+      typeFractionId
 
     } = filterDto;
 
@@ -517,6 +518,10 @@ export class IncidentService {
 
     if (incidentCategory) {
       conditions.push(`i."incidentCategory" = ${addParam(incidentCategory)}`);
+    }
+
+    if (typeFractionId) {
+      conditions.push(`f."typeFraction" = ${addParam(typeFractionId)}`);
     }
 
     if (dateFrom && dateTo) {
