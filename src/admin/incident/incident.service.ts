@@ -676,7 +676,6 @@ export class IncidentService {
     ) AS "exists";
   `;
 
-
     const result = await this.incidentRepository.query(query, [table_schema, table_name]);
     return !!result[0]?.exists;
   }
@@ -974,7 +973,6 @@ export class IncidentService {
     }
 
     const validateIncident = await this.commonGimService.findObligationsByCitation(userId, idDevice, incidentDto.nroTicket, incidentDto.identityCard);
-
 
     let internalState = incidentDto.internalState;
 
