@@ -476,8 +476,7 @@ export class IncidentService {
       blockId,
       userId,
       blockOperatorId,
-      incidentCategory,
-      typeFractionId
+      incidentCategory
 
     } = filterDto;
 
@@ -520,10 +519,6 @@ export class IncidentService {
       conditions.push(`i."incidentCategory" = ${addParam(incidentCategory)}`);
     }
 
-    if (typeFractionId) {
-      conditions.push(`f."typeFraction" = ${addParam(typeFractionId)}`);
-    }
-
     if (dateFrom && dateTo) {
       conditions.push(`DATE(i."createdAt") BETWEEN ${addParam(dateFrom)} AND ${addParam(dateTo)}`);
     }
@@ -540,7 +535,7 @@ export class IncidentService {
   async findAllFractionSanction(filterDto: FilterDto) {
 
     try {
-      const { year, month, limit = 10, offset = 0 } = filterDto;
+      const { year, month, limit = 10, offset = 0, typeFractionId } = filterDto;
 
       let tableNameIncident = 'public.incident';
       let tableExistsIncident = false;
@@ -558,11 +553,16 @@ export class IncidentService {
 
       const { parameters, conditions } = this._buildConditionsAndParametersPg(filterDto);
 
+      if (typeFractionId) {
+        parameters.push(typeFractionId);
+        conditions.push(`f."typeFraction" = $${parameters.length}`);
+      }
+
       let query = `
-          SELECT 
-            i.id, i."zoneId", i."blockId", i."controllerId", i."statusIncident", i."plate", i."description", 
-            TO_CHAR(i."createdAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS') AS "createdAt",  
-            it.name as reason, 
+          SELECT
+            i.id, i."zoneId", i."blockId", i."controllerId", i."statusIncident", i."plate", i."description",
+            TO_CHAR(i."createdAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS') AS "createdAt",
+            it.name as reason,
             z.name as "nameZone",
             b.name as "nameBlock",
             f.time as "timeFraction"
@@ -683,7 +683,7 @@ export class IncidentService {
 
   async findAllTotalVehicleClientTime(filterDto: FilterDto) {
     try {
-      const { year, month, dateFrom, dateTo } = filterDto;
+      const { year, month, dateFrom, dateTo, typeFractionId } = filterDto;
 
       let tableNameIncident = 'public.incident';
       let tableNameFraction = 'public.fraction';
@@ -713,8 +713,13 @@ export class IncidentService {
 
       const { parameters, conditions } = this._buildConditionsAndParametersPg(filterDto);
 
+      if (typeFractionId) {
+        parameters.push(typeFractionId);
+        conditions.push(`fraction."typeFraction" = $${parameters.length}`);
+      }
+
       let query = `
-          SELECT 
+          SELECT
             COUNT(DISTINCT fraction.plate) AS "totalVehicle",
             COUNT(DISTINCT fraction."userId") AS "totalClient",
             SUM(fraction.time)::time AS "totalTime"
@@ -746,7 +751,7 @@ export class IncidentService {
   }
 
   async findAllStatisticsFractionSanction(filterDto: FilterDto) {
-    const { year, month } = filterDto;
+    const { year, month, typeFractionId } = filterDto;
     try {
       let tableNameIncident = 'public.incident';
       let tableNameFraction = 'public.fraction';
@@ -776,8 +781,13 @@ export class IncidentService {
 
       const { parameters, conditions } = this._buildConditionsAndParametersPg(filterDto);
 
+      if (typeFractionId) {
+        parameters.push(typeFractionId);
+        conditions.push(`fraction."typeFraction" = $${parameters.length}`);
+      }
+
       let query = `
-          SELECT 
+          SELECT
               MAX(z.id) AS "idZone",
               MAX(z.name) AS "nameZone",
               MAX(b.id) AS "idBlock",
