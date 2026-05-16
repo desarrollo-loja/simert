@@ -23,10 +23,9 @@ export class CreateRangeDto {
     @IsString()
     to: string;
 
-    @MinLength(5)
+    @IsOptional()
     @MaxLength(90)
     @IsString()
-    @IsOptional()
     description?: string;
 
     @IsBoolean()
