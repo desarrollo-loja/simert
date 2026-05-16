@@ -1,4 +1,4 @@
-import { IsBoolean, IsDateString, IsEnum, IsNumber, IsOptional, IsString, MaxLength, MinLength } from "class-validator";
+import { IsBoolean, IsDateString, IsEnum, IsNumber, IsOptional, IsString, MaxLength } from "class-validator";
 import { StatusRange } from "src/common/glob/status/status_range";
 import { TypeCard } from "src/common/glob/type/type_card";
 
