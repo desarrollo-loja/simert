@@ -603,10 +603,10 @@ export class IncidentService {
       let query = `
           SELECT
             i.id, i."zoneId", i."blockId", i."controllerId", i."statusIncident", i."plate", i."description",
-            i."identityCard",
-            i."emailClient",
-            i."fullNameClient",
+            i."identityCard", i."emailClient", i."fullNameClient", i."nroTicket", i."nroObligation", i."vehicleType",
+            i."amount", i."incidentTypeId", i."address", i."images",
             TO_CHAR(i."createdAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS') AS "createdAt",
+            TO_CHAR(i."updatedAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS') AS "updatedAt",
             it.name as reason,
             z.name as "nameZone",
             b.name as "nameBlock",
