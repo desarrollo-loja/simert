@@ -514,7 +514,15 @@ export class IncidentService {
     // Search guard: ignore empty/whitespace strings and literal 'undefined'/'null'
     // sent by clients that stringify missing values.
     if (search && search.trim() && search.trim() !== 'undefined' && search.trim() !== 'null' && search.trim() !== '') {
-      conditions.push(`(i."description" ILIKE ${addParam(`%${search}%`)} OR i."plate" ILIKE ${addParam(`%${search}%`)} OR i."supervisorObservations" ILIKE ${addParam(`%${search}%`)})`);
+      const like = `%${search}%`;
+      conditions.push(
+        `(i."description" ILIKE ${addParam(like)}` +
+        ` OR i."plate" ILIKE ${addParam(like)}` +
+        ` OR i."supervisorObservations" ILIKE ${addParam(like)}` +
+        ` OR i."identityCard" ILIKE ${addParam(like)}` +
+        ` OR i."nroTicket" ILIKE ${addParam(like)}` +
+        ` OR i."nroObligation" ILIKE ${addParam(like)})`,
+      );
     }
 
     if (incidentTypeId) {
