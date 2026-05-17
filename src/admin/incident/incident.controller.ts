@@ -139,18 +139,6 @@ export class IncidentController {
     return this.incidentService.findAllFractionSanction(filterDto);
   }
 
-  @ApiOperation({ summary: 'Incident statistics grouped by fraction' })
-  @AuthWithKeycloak()
-  @Get('find-statistics-by-fraction/:userId/:idDevice/:version')
-  findStatisticsByFraction(
-    @Query() filterDto: FilterDto,
-    @Param('userId', ParseIntPipe) userId: number,
-    @Param('idDevice', ParseUUIDPipe) idDevice: string,
-    @Param('version', ParseIntPipe) version: number
-  ) {
-    return this.incidentService.findStatisticsByFraction(filterDto);
-  }
-
   @ApiOperation({ summary: 'Count total fractions with sanctions matching filters' })
   @AuthWithKeycloak()
   @Get('find-all-fraction-sanction-total/:userId/:idDevice/:version')
@@ -161,6 +149,18 @@ export class IncidentController {
     @Param('version', ParseIntPipe) version: number
   ) {
     return this.incidentService.findAllFractionSanctionTotal(filterDto);
+  }
+
+  @ApiOperation({ summary: 'Incident statistics grouped by fraction' })
+  @AuthWithKeycloak()
+  @Get('find-statistics-by-fraction/:userId/:idDevice/:version')
+  findStatisticsByFraction(
+    @Query() filterDto: FilterDto,
+    @Param('userId', ParseIntPipe) userId: number,
+    @Param('idDevice', ParseUUIDPipe) idDevice: string,
+    @Param('version', ParseIntPipe) version: number
+  ) {
+    return this.incidentService.findStatisticsByFraction(filterDto);
   }
 
   @ApiOperation({ summary: 'Aggregate total parking time per vehicle/client from incident data' })
