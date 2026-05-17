@@ -563,16 +563,33 @@ export class IncidentService {
       const { year, month, limit = 10, offset = 0, typeFractionId } = filterDto;
 
       let tableNameIncident = 'public.incident';
+      let tableNameFraction = 'public.fraction';
       let tableExistsIncident = false;
+      let tableExistsFraction = false;
       let schema = 'history';
 
       if (year && month && this._isValidYearMonth(year, month)) {
         const monthString = month.toString().padStart(2, '0')
+
         let tableNameIncidentAux = `"${year}_${monthString}_incident"`;
         tableNameIncidentAux = `${schema}.${tableNameIncidentAux}`;
         tableExistsIncident = await this._tableExists(tableNameIncidentAux);
+
+        let tableNameFractionAux = `"${year}_${monthString}_fraction"`;
+        tableNameFractionAux = `${schema}.${tableNameFractionAux}`;
+        tableExistsFraction = await this._tableExists(tableNameFractionAux);
+
         if (tableExistsIncident) {
           tableNameIncident = tableNameIncidentAux;
+        }
+
+        // Only route the fraction join to the historical table when BOTH the
+        // incident and the fraction archive exist for the requested period.
+        // Mixing historical incidents with public fractions (or vice versa)
+        // can leave rows orphaned by the INNER JOIN once fractions are purged
+        // from public.fraction after monthly archival.
+        if (tableExistsIncident && tableExistsFraction) {
+          tableNameFraction = tableNameFractionAux;
         }
       }
 
@@ -596,7 +613,7 @@ export class IncidentService {
             INNER JOIN public."incident_type" it ON i."incidentTypeId" = it.id
             INNER JOIN public.zone z ON z.id = i."zoneId"
             INNER JOIN public.block b ON b.id = i."blockId"
-            INNER JOIN public.fraction f ON f.id = i."fractionId"
+            INNER JOIN ${tableNameFraction} f ON f.id = i."fractionId"
             WHERE i."fractionId" IS NOT NULL
         `;
 

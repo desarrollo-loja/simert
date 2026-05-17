@@ -564,9 +564,11 @@ describe('IncidentService', () => {
       expect(repo.query.mock.calls[0][0]).toContain('public.incident');
     });
 
-    it('uses historical incident table when it exists', async () => {
-      // tableExists for incident -> true. Then actual query.
+    it('uses historical incident and fraction tables when both exist', async () => {
+      // tableExists for incident -> true, tableExists for fraction -> true,
+      // then the actual query.
       repo.query
+        .mockResolvedValueOnce([{ exists: true }])
         .mockResolvedValueOnce([{ exists: true }])
         .mockResolvedValueOnce([{ id: 9 }]);
 
@@ -579,9 +581,32 @@ describe('IncidentService', () => {
       } as any);
 
       expect(result.fractionSanction).toEqual([{ id: 9 }]);
-      expect(repo.query.mock.calls[1][0]).toContain('history."2026_03_incident"');
+      expect(repo.query.mock.calls[2][0]).toContain('history."2026_03_incident"');
+      expect(repo.query.mock.calls[2][0]).toContain('history."2026_03_fraction"');
       // typeFractionId condition appended.
-      expect(repo.query.mock.calls[1][1]).toContain(99);
+      expect(repo.query.mock.calls[2][1]).toContain(99);
+    });
+
+    it('keeps public.fraction when only the incident archive exists', async () => {
+      // tableExists for incident -> true, tableExists for fraction -> false,
+      // then the actual query. Mixing historical incidents with public fractions
+      // is unsafe, so the join must stay on public.fraction in that case.
+      repo.query
+        .mockResolvedValueOnce([{ exists: true }])
+        .mockResolvedValueOnce([{ exists: false }])
+        .mockResolvedValueOnce([{ id: 10 }]);
+
+      const result: any = await service.findAllFractionSanction({
+        year: 2026,
+        month: 3,
+        limit: 5,
+        offset: 0,
+      } as any);
+
+      expect(result.fractionSanction).toEqual([{ id: 10 }]);
+      expect(repo.query.mock.calls[2][0]).toContain('history."2026_03_incident"');
+      expect(repo.query.mock.calls[2][0]).toContain('public.fraction');
+      expect(repo.query.mock.calls[2][0]).not.toContain('history."2026_03_fraction"');
     });
 
     it('skips historical lookup when year/month invalid', async () => {
