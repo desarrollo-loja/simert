@@ -643,30 +643,55 @@ export class IncidentService {
   async findAllFractionSanctionTotal(filterDto: FilterDto) {
 
     try {
-      const { year, month } = filterDto;
+      const { year, month, typeFractionId } = filterDto;
 
       let tableNameIncident = 'public.incident';
+      let tableNameFraction = 'public.fraction';
       let tableExistsIncident = false;
+      let tableExistsFraction = false;
       let schema = 'history';
 
       if (year && month && this._isValidYearMonth(year, month)) {
         const monthString = month.toString().padStart(2, '0')
+
         let tableNameIncidentAux = `"${year}_${monthString}_incident"`;
         tableNameIncidentAux = `${schema}.${tableNameIncidentAux}`;
         tableExistsIncident = await this._tableExists(tableNameIncidentAux);
+
+        let tableNameFractionAux = `"${year}_${monthString}_fraction"`;
+        tableNameFractionAux = `${schema}.${tableNameFractionAux}`;
+        tableExistsFraction = await this._tableExists(tableNameFractionAux);
+
         if (tableExistsIncident) {
           tableNameIncident = tableNameIncidentAux;
+        }
+
+        // Mirror the list query in findAllFractionSanction: only route to the
+        // historical fraction table when both archives exist for the period.
+        if (tableExistsIncident && tableExistsFraction) {
+          tableNameFraction = tableNameFractionAux;
         }
       }
 
       const { parameters, conditions } = this._buildConditionsAndParametersPg(filterDto);
 
+      if (typeFractionId) {
+        parameters.push(typeFractionId);
+        conditions.push(`f."typeFraction" = $${parameters.length}`);
+      }
+
+      // Use the same FROM/JOIN chain as findAllFractionSanction so the total
+      // matches the paginated list row-by-row. Any incident whose related
+      // zone/block/fraction is missing is excluded from both queries identically.
       let query = `
           SELECT
             COUNT(*) as total
           FROM
             ${tableNameIncident} i
             INNER JOIN public."incident_type" it ON i."incidentTypeId" = it.id
+            INNER JOIN public.zone z ON z.id = i."zoneId"
+            INNER JOIN public.block b ON b.id = i."blockId"
+            INNER JOIN ${tableNameFraction} f ON f.id = i."fractionId"
             WHERE i."fractionId" IS NOT NULL
        `;
 

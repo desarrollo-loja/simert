@@ -654,15 +654,55 @@ describe('IncidentService', () => {
       expect(repo.query.mock.calls[0][0]).toContain(' AND ');
     });
 
-    it('uses historical table when it exists', async () => {
+    it('uses historical incident and fraction tables when both exist', async () => {
       repo.query
+        .mockResolvedValueOnce([{ exists: true }])
         .mockResolvedValueOnce([{ exists: true }])
         .mockResolvedValueOnce([{ total: '2' }]);
 
       const result = await service.findAllFractionSanctionTotal({ year: 2026, month: 3 } as any);
 
       expect(result).toEqual({ total: 2 });
-      expect(repo.query.mock.calls[1][0]).toContain('history."2026_03_incident"');
+      expect(repo.query.mock.calls[2][0]).toContain('history."2026_03_incident"');
+      expect(repo.query.mock.calls[2][0]).toContain('history."2026_03_fraction"');
+    });
+
+    it('keeps public.fraction in total when only the incident archive exists', async () => {
+      repo.query
+        .mockResolvedValueOnce([{ exists: true }])
+        .mockResolvedValueOnce([{ exists: false }])
+        .mockResolvedValueOnce([{ total: '4' }]);
+
+      const result = await service.findAllFractionSanctionTotal({ year: 2026, month: 3 } as any);
+
+      expect(result).toEqual({ total: 4 });
+      expect(repo.query.mock.calls[2][0]).toContain('history."2026_03_incident"');
+      expect(repo.query.mock.calls[2][0]).toContain('public.fraction');
+      expect(repo.query.mock.calls[2][0]).not.toContain('history."2026_03_fraction"');
+    });
+
+    it('total query joins to zone, block and fraction so it matches the list', async () => {
+      repo.query.mockResolvedValueOnce([{ total: '5' }]);
+
+      const result = await service.findAllFractionSanctionTotal({} as any);
+
+      expect(result).toEqual({ total: 5 });
+      const sql = repo.query.mock.calls[0][0];
+      expect(sql).toContain('INNER JOIN public.zone z');
+      expect(sql).toContain('INNER JOIN public.block b');
+      expect(sql).toContain('public.fraction f');
+    });
+
+    it('applies typeFractionId filter on the total query', async () => {
+      repo.query.mockResolvedValueOnce([{ total: '1' }]);
+
+      const result = await service.findAllFractionSanctionTotal({ typeFractionId: 99 } as any);
+
+      expect(result).toEqual({ total: 1 });
+      const sql = repo.query.mock.calls[0][0];
+      const params = repo.query.mock.calls[0][1];
+      expect(sql).toContain('f."typeFraction"');
+      expect(params).toContain(99);
     });
 
     it('handles errors', async () => {
