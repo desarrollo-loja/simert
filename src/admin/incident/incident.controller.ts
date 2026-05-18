@@ -106,7 +106,7 @@ export class IncidentController {
   }
 
   @ApiOperation({ summary: 'Resolve the Alfresco nodeId from a stored shared-link URL (or raw sharedId)' })
-  @Get('get-alfresco-id-by-shared:userId/:idDevice')
+  @Get('get-alfresco-id-by-shared/:userId/:idDevice')
   getAlfrescoIdBySharedUrl(
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
