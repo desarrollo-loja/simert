@@ -131,10 +131,10 @@ export class IncidentController {
   @ApiOperation({ summary: 'List fractions that have sanctions, with optional filters' })
   @Get('find-all-fraction-sanction/:userId/:idDevice/:version')
   findAllFractionSanction(
+    @Query() filterDto: IncidentFilterDto,
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
     @Param('version', ParseIntPipe) version: number,
-    @Query() filterDto: IncidentFilterDto,
   ) {
     return this.incidentService.findAllFractionSanction(filterDto);
   }
@@ -143,10 +143,10 @@ export class IncidentController {
   @AuthWithKeycloak()
   @Get('find-all-fraction-sanction-total/:userId/:idDevice/:version')
   findAllFractionSanctionTotal(
+    @Query() filterDto: IncidentFilterDto,
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
     @Param('version', ParseIntPipe) version: number,
-    @Query() filterDto: IncidentFilterDto,
   ) {
     return this.incidentService.findAllFractionSanctionTotal(filterDto);
   }
