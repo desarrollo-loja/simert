@@ -16,5 +16,13 @@ export class GetClientGimByCitationDto {
     @IsString()
     @MaxLength(250)
     nroTicket?: string;
-    
+
+}
+
+export class GetClientGimByLicensePlateDto {
+
+    @IsString()
+    @MaxLength(20)
+    licensePlate: string;
+
 }

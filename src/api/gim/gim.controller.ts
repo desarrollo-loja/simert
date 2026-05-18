@@ -10,7 +10,7 @@ import { RegisterDepositGimDto } from 'src/common/dto/register-deposit-gim.dto';
 
 import { CreateGimDto } from './dto/create-gim.dto';
 import FindBondNumberDto from './dto/find-bond-number';
-import { GetClientGimByCitationDto, GetClientGimDto } from './dto/get-client-gim.dto';
+import { GetClientGimByCitationDto, GetClientGimByLicensePlateDto, GetClientGimDto } from './dto/get-client-gim.dto';
 import { ValidateStatusGimDto } from './dto/validate-status-gim.dto';
 import { GimService } from './gim.service';
 @ApiTags('Api - Gim')
@@ -149,6 +149,16 @@ export class GimController {
     @Body() getClientGimByCitationDto: GetClientGimByCitationDto,
   ) {
     return this.gimService.findObligationsByCitation(getClientGimByCitationDto.nroTicket, getClientGimByCitationDto.identityCard);
+  }
+
+  @ApiOperation({ summary: 'Find obligations by vehicle license plate' })
+  @Post('find-obligations-by-license-plate/:userId/:idDevice')
+  findObligationsByLicensePlate(
+    @Param('userId') userId: string,
+    @Param('idDevice') idDevice: string,
+    @Body() getClientGimByLicensePlateDto: GetClientGimByLicensePlateDto,
+  ) {
+    return this.gimService.findObligationsByLicensePlate(getClientGimByLicensePlateDto.licensePlate);
   }
 
   @ApiOperation({ summary: 'Validate the SIMERT system status against GIM and sync if needed' })

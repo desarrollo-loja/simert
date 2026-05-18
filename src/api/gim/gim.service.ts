@@ -665,6 +665,46 @@ export class GimService {
     }
   }
 
+  // Buscar Obligación por placa (devuelve todas las deudas asociadas a la placa)
+  async findObligationsByLicensePlate(licensePlate: string): Promise<{ errorCode: number, data: ObligationsResponse, message?: string }> {
+    try {
+      const url = `${this.gimBaseUrl}/api/external/findObligationsByLicensePlate`;
+      const body = {
+        licensePlate: licensePlate
+      };
+      const { data } = await axios.post<ObligationsResponse>(url, body, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.getToken()}`,
+        },
+      });
+      // si me viene sin obligaciones significa que no esta emitida
+      if (data && data.ok && +data.code === ResponseCodeGim.SUCCESS && data.obligations && data.obligations.length > 0) {
+
+        if (data.obligations.length > 1)
+          this.logger.debug('El número de obligaciones por placa es de: ', data.obligations.length);
+
+        return {
+          errorCode: ErrorCode.NONE,
+          data: data
+        };
+      } else {
+        return {
+          errorCode: ErrorCode.NOT_FOUND,
+          message: 'No se encontro la deuda',
+          data: null
+        };
+      }
+    } catch (error) {
+      this.logger.error(`Error findObligationsByLicensePlate: ${error.message}`);
+      return {
+        errorCode: ErrorCode.NOT_FOUND,
+        message: error.message,
+        data: null
+      };
+    }
+  }
+
   public async validateStatusSistemWithGim(debtDataObligations: Obligation[], incidentId: number, createGimDto: CreateGimDto, isTransacional: number) {
     try {
 
