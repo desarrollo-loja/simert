@@ -445,6 +445,87 @@ describe('IncidentService', () => {
     });
   });
 
+  describe('getAlfrescoIdBySharedUrl', () => {
+    const env = process.env;
+
+    beforeEach(() => {
+      process.env = {
+        ...env,
+        ALFRESCO_BASE_URL: 'http://alf',
+        ALFRESCO_USER: 'u',
+        ALFRESCO_PASS: 'p',
+      };
+    });
+
+    afterAll(() => {
+      process.env = env;
+    });
+
+    it('returns HTTP_ERROR_REINTENT when env is missing', async () => {
+      delete process.env.ALFRESCO_BASE_URL;
+      const result = await service.getAlfrescoIdBySharedUrl('shared-1');
+      expect(result).toEqual({ errorCode: ErrorCode.HTTP_ERROR_REINTENT });
+    });
+
+    it('returns HTTP_ERROR_REINTENT when input is empty', async () => {
+      const result = await service.getAlfrescoIdBySharedUrl('');
+      expect(result).toEqual({ errorCode: ErrorCode.HTTP_ERROR_REINTENT });
+    });
+
+    it('returns HTTP_ERROR_REINTENT when input has slashes but no shared-links segment', async () => {
+      const result = await service.getAlfrescoIdBySharedUrl('http://foo/bar/baz');
+      expect(result).toEqual({ errorCode: ErrorCode.HTTP_ERROR_REINTENT });
+      expect(axios.request).not.toHaveBeenCalled();
+    });
+
+    it('extracts sharedId from a full shared-link URL and returns the nodeId', async () => {
+      (axios.request as jest.Mock).mockResolvedValueOnce({
+        data: { entry: { id: 'shared-1', nodeId: 'node-1' } },
+      });
+
+      const fullUrl =
+        'http://181.113.129.20/alf/alfresco/api/-default-/public/alfresco/versions/1/shared-links/shared-1/content';
+      const result: any = await service.getAlfrescoIdBySharedUrl(fullUrl);
+
+      const callArg = (axios.request as jest.Mock).mock.calls[0][0];
+      expect(callArg.url).toBe(
+        'http://alf/alfresco/api/-default-/public/alfresco/versions/1/shared-links/shared-1',
+      );
+      expect(result).toEqual({
+        errorCode: ErrorCode.NONE,
+        sharedId: 'shared-1',
+        alfrescoId: 'node-1',
+        alfrescoData: { entry: { id: 'shared-1', nodeId: 'node-1' } },
+      });
+    });
+
+    it('accepts a raw sharedId (no slashes) and resolves the nodeId', async () => {
+      (axios.request as jest.Mock).mockResolvedValueOnce({
+        data: { entry: { id: 'shared-2', nodeId: 'node-2' } },
+      });
+
+      const result: any = await service.getAlfrescoIdBySharedUrl('shared-2');
+
+      expect(result.errorCode).toBe(ErrorCode.NONE);
+      expect(result.sharedId).toBe('shared-2');
+      expect(result.alfrescoId).toBe('node-2');
+    });
+
+    it('returns HTTP_ERROR_REINTENT when response has no nodeId', async () => {
+      (axios.request as jest.Mock).mockResolvedValueOnce({
+        data: { entry: { id: 'shared-1' } },
+      });
+      const result = await service.getAlfrescoIdBySharedUrl('shared-1');
+      expect(result).toEqual({ errorCode: ErrorCode.HTTP_ERROR_REINTENT });
+    });
+
+    it('returns HTTP_ERROR_REINTENT on axios error', async () => {
+      (axios.request as jest.Mock).mockRejectedValueOnce({ response: { data: {} } });
+      const result = await service.getAlfrescoIdBySharedUrl('shared-1');
+      expect(result).toEqual({ errorCode: ErrorCode.HTTP_ERROR_REINTENT });
+    });
+  });
+
   describe('remove', () => {
     it('marks the incident as deactivated when found', async () => {
       repo.findOne.mockResolvedValueOnce({ id: 1, isActivated: true });

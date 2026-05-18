@@ -430,6 +430,59 @@ export class IncidentService {
     }
   }
 
+  async getAlfrescoIdBySharedUrl(sharedUrlOrId: string): Promise<Object> {
+    try {
+      const alfrescoBaseUrl = process.env.ALFRESCO_BASE_URL;
+      const username = process.env.ALFRESCO_USER;
+      const password = process.env.ALFRESCO_PASS;
+
+      if (!alfrescoBaseUrl || !username || !password) {
+        this.logger.error('Alfresco configuration is missing in environment variables');
+        return { errorCode: ErrorCode.HTTP_ERROR_REINTENT };
+      }
+
+      const sharedId = this.extractSharedId(sharedUrlOrId);
+      if (!sharedId) {
+        return { errorCode: ErrorCode.HTTP_ERROR_REINTENT };
+      }
+
+      const config: AxiosRequestConfig = {
+        method: 'get',
+        url: `${alfrescoBaseUrl}/alfresco/api/-default-/public/alfresco/versions/1/shared-links/${sharedId}`,
+        auth: {
+          username,
+          password,
+        },
+      };
+
+      const response = await axios.request(config);
+      const { data } = response;
+
+      if (!data?.entry?.nodeId) {
+        return { errorCode: ErrorCode.HTTP_ERROR_REINTENT };
+      }
+
+      return {
+        errorCode: ErrorCode.NONE,
+        sharedId,
+        alfrescoId: data.entry.nodeId,
+        alfrescoData: data,
+      };
+    } catch (error) {
+      this.logger.error(
+        `call getAlfrescoIdBySharedUrl error.response?.data: ${JSON.stringify(error.response?.data)}`,
+      );
+      return { errorCode: ErrorCode.HTTP_ERROR_REINTENT };
+    }
+  }
+
+  private extractSharedId(input: string): string | null {
+    if (!input) return null;
+    const match = input.match(/\/shared-links\/([^\/?#]+)/);
+    if (match) return match[1];
+    return input.includes('/') ? null : input;
+  }
+
   async remove(id: number) {
     try {
       const incident = await this.incidentRepository.findOne({ where: { id } });

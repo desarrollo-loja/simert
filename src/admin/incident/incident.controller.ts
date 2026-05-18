@@ -105,6 +105,20 @@ export class IncidentController {
     return this.incidentService.getFileUrlAlfresco(alfrescoId);
   }
 
+  @ApiOperation({ summary: 'Resolve the Alfresco nodeId from a stored shared-link URL (or raw sharedId)' })
+  @Get('get-alfresco-id-by-shared:userId/:idDevice')
+  getAlfrescoIdBySharedUrl(
+    @Param('userId', ParseIntPipe) userId: number,
+    @Param('idDevice', ParseUUIDPipe) idDevice: string,
+    @Query('sharedUrl') sharedUrl: string,
+  ) {
+    if (!sharedUrl) {
+      throw new BadRequestException('Debe enviar sharedUrl como query string');
+    }
+
+    return this.incidentService.getAlfrescoIdBySharedUrl(sharedUrl);
+  }
+
   @ApiOperation({ summary: 'Delete an incident by id' })
   @AuthWithKeycloak()
   @Delete('remove/:userId/:idDevice/:id')

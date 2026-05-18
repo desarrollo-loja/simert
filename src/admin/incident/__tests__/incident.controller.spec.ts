@@ -20,6 +20,7 @@ const buildServiceMock = () => ({
   updateStatusGim: jest.fn(),
   uploadToAlfresco: jest.fn(),
   getFileUrlAlfresco: jest.fn(),
+  getAlfrescoIdBySharedUrl: jest.fn(),
   remove: jest.fn(),
   findStatistics: jest.fn(),
   findAllFractionSanction: jest.fn(),
@@ -151,6 +152,26 @@ describe('IncidentController', () => {
       const result = await controller.getFileUrlAlfresco(1, 'dev', 'node-id');
 
       expect(service.getFileUrlAlfresco).toHaveBeenCalledWith('node-id');
+      expect(result).toBe(fakeResult);
+    });
+  });
+
+  describe('getAlfrescoIdBySharedUrl', () => {
+    it('throws BadRequestException when sharedUrl is empty', () => {
+      expect(() => controller.getAlfrescoIdBySharedUrl(1, 'dev', '')).toThrow(
+        BadRequestException,
+      );
+      expect(service.getAlfrescoIdBySharedUrl).not.toHaveBeenCalled();
+    });
+
+    it('delegates to service when sharedUrl is provided', async () => {
+      service.getAlfrescoIdBySharedUrl.mockResolvedValue(fakeResult);
+
+      const sharedUrl =
+        'http://181.113.129.20/alf/alfresco/api/-default-/public/alfresco/versions/1/shared-links/abc/content';
+      const result = await controller.getAlfrescoIdBySharedUrl(1, 'dev', sharedUrl);
+
+      expect(service.getAlfrescoIdBySharedUrl).toHaveBeenCalledWith(sharedUrl);
       expect(result).toBe(fakeResult);
     });
   });
