@@ -1028,6 +1028,8 @@ export class GimService {
         },
       });
 
+      console.log('findObligations ', data)
+
       if (data && data.ok && data.bonds?.length > 0) {
         return {
           errorCode: ErrorCode.NONE,
