@@ -139,12 +139,6 @@ export class IncidentService {
 
     queryInfo += ';';
 
-    const inlinedFindAll = queryInfo.replace(/\$(\d+)/g, (_, i) => {
-      const v = parameters[Number(i) - 1];
-      return typeof v === 'string' ? `'${v.replace(/'/g, "''")}'` : String(v);
-    });
-    this.logger.debug(inlinedFindAll);
-
     try {
       const repository = this.incidentRepository;
       const incidents = await repository.query(queryInfo, parameters);
@@ -181,12 +175,6 @@ export class IncidentService {
     }
 
     queryInfo += ';';
-
-    const inlinedFindAllTotal = queryInfo.replace(/\$(\d+)/g, (_, i) => {
-      const v = parameters[Number(i) - 1];
-      return typeof v === 'string' ? `'${v.replace(/'/g, "''")}'` : String(v);
-    });
-    this.logger.debug(inlinedFindAllTotal);
 
     try {
       const result = await this.incidentRepository.query(queryInfo, parameters);
@@ -561,7 +549,8 @@ export class IncidentService {
         ` OR i."supervisorObservations" ILIKE ${addParam(like)}` +
         ` OR i."identityCard" ILIKE ${addParam(like)}` +
         ` OR i."nroTicket" ILIKE ${addParam(like)}` +
-        ` OR i."nroObligation" ILIKE ${addParam(like)})`,
+        ` OR i."nroObligation" ILIKE ${addParam(like)}` +
+        ` OR i."fullNameClient" ILIKE ${addParam(like)})`,
       );
     }
 

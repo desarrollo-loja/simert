@@ -546,6 +546,25 @@ describe('IncidentService', () => {
       expect(params).toContain('2026-01-31');
     });
 
+    it('search clause includes fullNameClient among the OR branches', async () => {
+      repo.query.mockResolvedValueOnce([{}]);
+
+      await service.findStatistics({ search: 'juan' } as any);
+
+      const [sql, params] = repo.query.mock.calls[0];
+      // All searchable columns must be part of the same OR group.
+      expect(sql).toContain('i."description" ILIKE');
+      expect(sql).toContain('i."plate" ILIKE');
+      expect(sql).toContain('i."supervisorObservations" ILIKE');
+      expect(sql).toContain('i."identityCard" ILIKE');
+      expect(sql).toContain('i."nroTicket" ILIKE');
+      expect(sql).toContain('i."nroObligation" ILIKE');
+      expect(sql).toContain('i."fullNameClient" ILIKE');
+      // Each searchable column gets its own $N placeholder bound to %juan%.
+      const likeCount = params.filter((p: any) => p === '%juan%').length;
+      expect(likeCount).toBe(7);
+    });
+
     it('uses literal "undefined" / "null" search strings as no-op', async () => {
       repo.query.mockResolvedValueOnce([{}]);
       await service.findStatistics({ search: 'undefined' } as any);
