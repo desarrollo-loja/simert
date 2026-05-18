@@ -636,12 +636,6 @@ export class IncidentService {
       query += ` LIMIT $${parameters.length + 1} OFFSET $${parameters.length + 2}`;
       parameters.push(safeLimit, safeOffset);
 
-      const inlinedQuery = query.replace(/\$(\d+)/g, (_, i) => {
-        const v = parameters[Number(i) - 1];
-        return typeof v === 'string' ? `'${v.replace(/'/g, "''")}'` : String(v);
-      });
-      this.logger.debug(inlinedQuery);
-
       const fractionSanction = await this.incidentRepository.query(query, parameters);
 
       return {
