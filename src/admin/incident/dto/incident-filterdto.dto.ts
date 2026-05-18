@@ -37,5 +37,5 @@ export class IncidentFilterDto extends FilterDto {
   @IsOptional()
   @Type(() => Number)
   @IsEnum(IncidentStatus)
-  statusIncident?: IncidentStatus;;
+  statusIncident?: IncidentStatus;
 }
