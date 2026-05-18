@@ -58,25 +58,11 @@ export class IncidentService {
   }
 
   async findAll(filterDto: IncidentFilterDto, user: JwtPayload) {
-    const { year, month } = filterDto;
-    let table = 'public.incident';
-    let isHistorical = false;
-
-    if (year && month) {
-      if (!this._isValidYearMonth(year, month)) {
-        return { incidents: [], errorCode: ErrorCode.NONE, message: 'No se encontro la tabla' };
-      }
-      const monthString = month.toString().padStart(2, '0');
-      const historicalTable = `history."${year}_${monthString}_incident"`;
-
-      if (await this._tableExists(historicalTable)) {
-        table = historicalTable;
-        isHistorical = true;
-      } else {
-        // No historical table for the requested year/month: return empty result.
-        return { incidents: [], errorCode: ErrorCode.NONE, message: 'No se encontro la tabla' };
-      }
+    const resolved = await this._resolveIncidentTable(filterDto);
+    if (resolved.empty) {
+      return { incidents: [], errorCode: ErrorCode.NONE, message: 'No se encontro la tabla' };
     }
+    const table = resolved.table;
 
     const { roles } = user;
 
@@ -167,8 +153,28 @@ export class IncidentService {
   }
 
   async findAllTotal(filterDto: IncidentFilterDto, user: JwtPayload) {
-    const table = 'public.incident';
+    const resolved = await this._resolveIncidentTable(filterDto);
+    if (resolved.empty) {
+      return { total: 0, errorCode: ErrorCode.NONE };
+    }
+    const table = resolved.table;
+
+    const { roles } = user;
+    const internalState = this._getInternalStateIncident(roles);
+
     const { conditions, parameters } = this._buildConditionsAndParametersPg(filterDto);
+
+    const addParamOutside = (value: any) => {
+      parameters.push(value);
+      return `$${parameters.length}`;
+    };
+
+    // Mirror the role-based filter from findAll so the count stays in sync
+    // with the paginated list returned by findAll.
+    if (Array.isArray(internalState) && internalState.length > 0) {
+      const placeholders = internalState.map(v => addParamOutside(v)).join(', ');
+      conditions.push(`i."internalState" IN (${placeholders})`);
+    }
 
     let queryInfo = `SELECT COUNT(*) as total FROM ${table} i`;
 
@@ -185,6 +191,33 @@ export class IncidentService {
     } catch (error) {
       handleDbExceptions(error, this.logger);
     }
+  }
+
+  // Picks the table to read incidents from (`public.incident` or the
+  // historical archive `history."YYYY_MM_incident"`) based on `year`/`month`.
+  // Returns `empty: true` when the caller asked for a year/month combination
+  // that is invalid or whose historical archive does not exist, so the caller
+  // can short-circuit with an empty payload without ever building the SQL.
+  // The table name is *never* interpolated from user input: `year`/`month` are
+  // validated as bounded integers by `_isValidYearMonth`, and the resulting
+  // identifier is additionally checked against `information_schema.tables`
+  // via `_tableExists`, which uses parameterized queries.
+  private async _resolveIncidentTable(
+    filterDto: IncidentFilterDto,
+  ): Promise<{ table: string; empty: boolean }> {
+    const { year, month } = filterDto;
+    if (!year || !month) {
+      return { table: 'public.incident', empty: false };
+    }
+    if (!this._isValidYearMonth(year, month)) {
+      return { table: 'public.incident', empty: true };
+    }
+    const monthString = month.toString().padStart(2, '0');
+    const historicalTable = `history."${year}_${monthString}_incident"`;
+    if (await this._tableExists(historicalTable)) {
+      return { table: historicalTable, empty: false };
+    }
+    return { table: 'public.incident', empty: true };
   }
 
   private _getInternalStateIncident(roles: string[]) {
