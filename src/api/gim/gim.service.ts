@@ -1027,6 +1027,7 @@ export class GimService {
           'Authorization': `Bearer ${this.getToken()}`,
         },
       });
+      
 
       if (data && data.ok && data.bonds?.length > 0) {
         return {
