@@ -623,12 +623,11 @@ export class IncidentService {
             INNER JOIN public."incident_type" it ON i."incidentTypeId" = it.id
             INNER JOIN public.zone z ON z.id = i."zoneId"
             INNER JOIN public.block b ON b.id = i."blockId"
-            INNER JOIN ${tableNameFraction} f ON f.id = i."fractionId"
-            WHERE i."fractionId" IS NOT NULL
+            LEFT JOIN ${tableNameFraction} f ON f.id = i."fractionId"
         `;
 
       if (conditions.length > 0) {
-        query += ' AND ' + conditions.join(' AND ');
+        query += ' WHERE ' + conditions.join(' AND ');
       }
       query += ' ORDER BY i.id DESC';
       // Parameterized pagination (defense-in-depth on top of DTO validation).
@@ -697,8 +696,8 @@ export class IncidentService {
       }
 
       // Use the same FROM/JOIN chain as findAllFractionSanction so the total
-      // matches the paginated list row-by-row. Any incident whose related
-      // zone/block/fraction is missing is excluded from both queries identically.
+      // matches the paginated list row-by-row. The fraction join is LEFT so
+      // incidents without an associated fraction are still counted.
       let query = `
           SELECT
             COUNT(*) as total
@@ -707,12 +706,11 @@ export class IncidentService {
             INNER JOIN public."incident_type" it ON i."incidentTypeId" = it.id
             INNER JOIN public.zone z ON z.id = i."zoneId"
             INNER JOIN public.block b ON b.id = i."blockId"
-            INNER JOIN ${tableNameFraction} f ON f.id = i."fractionId"
-            WHERE i."fractionId" IS NOT NULL
+            LEFT JOIN ${tableNameFraction} f ON f.id = i."fractionId"
        `;
 
       if (conditions.length > 0) {
-        query += ' AND ' + conditions.join(' AND ');
+        query += ' WHERE ' + conditions.join(' AND ');
       }
 
       const fractionSanction = await this.incidentRepository.query(query, parameters);
