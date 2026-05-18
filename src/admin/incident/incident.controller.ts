@@ -131,10 +131,10 @@ export class IncidentController {
   @ApiOperation({ summary: 'List fractions that have sanctions, with optional filters' })
   @Get('find-all-fraction-sanction/:userId/:idDevice/:version')
   findAllFractionSanction(
-    @Query() filterDto: FilterDto,
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
-    @Param('version', ParseIntPipe) version: number
+    @Param('version', ParseIntPipe) version: number,
+    @Query() filterDto: IncidentFilterDto,
   ) {
     return this.incidentService.findAllFractionSanction(filterDto);
   }

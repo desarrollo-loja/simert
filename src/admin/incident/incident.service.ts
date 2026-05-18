@@ -499,8 +499,7 @@ export class IncidentService {
       blockId,
       userId,
       blockOperatorId,
-      incidentCategory
-
+      incidentCategory,
     } = filterDto;
 
     const conditions: string[] = [];

@@ -1,6 +1,7 @@
 import { Type } from 'class-transformer';
-import { IsBoolean, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import { IsBoolean, IsEnum, IsNumber, IsOptional, IsString, Min } from 'class-validator';
 import { FilterDto } from 'src/common/dto/filter.dto';
+import { IncidentStatus } from 'src/common/glob/type/type_incident';
 
 export class IncidentFilterDto extends FilterDto {
   @IsOptional()
@@ -25,12 +26,6 @@ export class IncidentFilterDto extends FilterDto {
   @IsNumber()
   @Min(0)
   @Type(() => Number)
-  statusIncident?: number;
-
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  @Type(() => Number)
   blockOperatorId?: number;
 
   @IsOptional()
@@ -38,4 +33,9 @@ export class IncidentFilterDto extends FilterDto {
   @Min(0)
   @Type(() => Number)
   incidentCategory?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsEnum(IncidentStatus)
+  statusIncident?: IncidentStatus;;
 }
