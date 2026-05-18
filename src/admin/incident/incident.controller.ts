@@ -143,10 +143,10 @@ export class IncidentController {
   @AuthWithKeycloak()
   @Get('find-all-fraction-sanction-total/:userId/:idDevice/:version')
   findAllFractionSanctionTotal(
-    @Query() filterDto: FilterDto,
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
-    @Param('version', ParseIntPipe) version: number
+    @Param('version', ParseIntPipe) version: number,
+    @Query() filterDto: IncidentFilterDto,
   ) {
     return this.incidentService.findAllFractionSanctionTotal(filterDto);
   }
