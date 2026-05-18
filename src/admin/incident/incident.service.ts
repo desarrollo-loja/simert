@@ -58,11 +58,7 @@ export class IncidentService {
   }
 
   async findAll(filterDto: IncidentFilterDto, user: JwtPayload) {
-    const resolved = await this._resolveIncidentTable(filterDto);
-    if (resolved.empty) {
-      return { incidents: [], errorCode: ErrorCode.NONE, message: 'No se encontro la tabla' };
-    }
-    const table = resolved.table;
+    const table = await this._resolveIncidentTable(filterDto);
 
     const { roles } = user;
 
@@ -153,11 +149,7 @@ export class IncidentService {
   }
 
   async findAllTotal(filterDto: IncidentFilterDto, user: JwtPayload) {
-    const resolved = await this._resolveIncidentTable(filterDto);
-    if (resolved.empty) {
-      return { total: 0, errorCode: ErrorCode.NONE };
-    }
-    const table = resolved.table;
+    const table = await this._resolveIncidentTable(filterDto);
 
     const { roles } = user;
     const internalState = this._getInternalStateIncident(roles);
@@ -194,30 +186,34 @@ export class IncidentService {
   }
 
   // Picks the table to read incidents from (`public.incident` or the
-  // historical archive `history."YYYY_MM_incident"`) based on `year`/`month`.
-  // Returns `empty: true` when the caller asked for a year/month combination
-  // that is invalid or whose historical archive does not exist, so the caller
-  // can short-circuit with an empty payload without ever building the SQL.
-  // The table name is *never* interpolated from user input: `year`/`month` are
-  // validated as bounded integers by `_isValidYearMonth`, and the resulting
-  // identifier is additionally checked against `information_schema.tables`
-  // via `_tableExists`, which uses parameterized queries.
+  // historical archive `history."YYYY_MM_incident"`) based on `year`/`month`,
+  // mirroring the resolution pattern used by `findAllFractionSanction`:
+  // - No `year`/`month`            -> `public.incident`.
+  // - Invalid `year`/`month`       -> `public.incident` (defensive fallback).
+  // - Valid + archive exists       -> `history."YYYY_MM_incident"`.
+  // - Valid + archive missing yet  -> `public.incident` (e.g. the current
+  //   month has not been archived).
+  // The table name is *never* interpolated from raw user input: `year`/`month`
+  // are validated as bounded integers by `_isValidYearMonth`, and the
+  // resulting identifier is additionally verified against
+  // `information_schema.tables` via `_tableExists` (parameterized query).
   private async _resolveIncidentTable(
     filterDto: IncidentFilterDto,
-  ): Promise<{ table: string; empty: boolean }> {
+  ): Promise<string> {
     const { year, month } = filterDto;
-    if (!year || !month) {
-      return { table: 'public.incident', empty: false };
+    let tableNameIncident = 'public.incident';
+    const schema = 'history';
+
+    if (year && month && this._isValidYearMonth(year, month)) {
+      const monthString = month.toString().padStart(2, '0');
+      const tableNameIncidentAux = `${schema}."${year}_${monthString}_incident"`;
+      const tableExistsIncident = await this._tableExists(tableNameIncidentAux);
+      if (tableExistsIncident) {
+        tableNameIncident = tableNameIncidentAux;
+      }
     }
-    if (!this._isValidYearMonth(year, month)) {
-      return { table: 'public.incident', empty: true };
-    }
-    const monthString = month.toString().padStart(2, '0');
-    const historicalTable = `history."${year}_${monthString}_incident"`;
-    if (await this._tableExists(historicalTable)) {
-      return { table: historicalTable, empty: false };
-    }
-    return { table: 'public.incident', empty: true };
+
+    return tableNameIncident;
   }
 
   private _getInternalStateIncident(roles: string[]) {

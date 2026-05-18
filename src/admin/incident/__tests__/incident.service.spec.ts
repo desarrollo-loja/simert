@@ -154,18 +154,20 @@ describe('IncidentService', () => {
       expect(sql).not.toMatch(/OFFSET/);
     });
 
-    it('returns empty when year/month are invalid', async () => {
+    it('falls back to public.incident when year/month are invalid', async () => {
+      // Mirrors the resolution pattern of findAllFractionSanction: invalid
+      // year/month should not abort the query, just default to public.incident.
+      repo.query.mockResolvedValueOnce([]);
+
       const result = await service.findAll(
         { year: 1700, month: 5 } as any,
         user,
       );
 
-      expect(result).toEqual({
-        incidents: [],
-        errorCode: ErrorCode.NONE,
-        message: 'No se encontro la tabla',
-      });
-      expect(repo.query).not.toHaveBeenCalled();
+      expect(result).toEqual({ incidents: [], errorCode: ErrorCode.NONE });
+      // _tableExists is NOT called because validation fails before that step.
+      expect(repo.query).toHaveBeenCalledTimes(1);
+      expect(repo.query.mock.calls[0][0]).toContain('FROM public.incident i');
     });
 
     it('queries historical table when it exists', async () => {
@@ -183,19 +185,20 @@ describe('IncidentService', () => {
       expect(repo.query.mock.calls[1][0]).toContain('history."2026_03_incident"');
     });
 
-    it('returns empty when historical table does not exist', async () => {
-      repo.query.mockResolvedValueOnce([{ exists: false }]);
+    it('falls back to public.incident when historical table does not exist', async () => {
+      // First call: _tableExists -> false. Second call: query against public.
+      repo.query
+        .mockResolvedValueOnce([{ exists: false }])
+        .mockResolvedValueOnce([{ id: 7 }]);
 
       const result = await service.findAll(
         { year: 2026, month: 3 } as any,
         user,
       );
 
-      expect(result).toEqual({
-        incidents: [],
-        errorCode: ErrorCode.NONE,
-        message: 'No se encontro la tabla',
-      });
+      expect(result).toEqual({ incidents: [{ id: 7 }], errorCode: ErrorCode.NONE });
+      expect(repo.query.mock.calls[1][0]).toContain('FROM public.incident i');
+      expect(repo.query.mock.calls[1][0]).not.toContain('history."2026_03_incident"');
     });
 
     it('adds IN clause when roles map to internal states', async () => {
