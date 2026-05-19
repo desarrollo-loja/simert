@@ -529,6 +529,44 @@ describe('KeycloakService', () => {
     });
   });
 
+  // ─── changePasswordMunicipality ──────────────────────────────────────────
+  describe('changePasswordMunicipality', () => {
+    it('returns NOT_FOUND when inputs are empty', async () => {
+      expect((await service.changePasswordMunicipality('', '')).errorCode).toBe(ErrorCode.NOT_FOUND);
+      expect((await service.changePasswordMunicipality(undefined as any, 'pw')).errorCode).toBe(ErrorCode.NOT_FOUND);
+      expect((await service.changePasswordMunicipality('a@b.c', '')).errorCode).toBe(ErrorCode.NOT_FOUND);
+    });
+
+    it('returns NOT_FOUND when municipality token cannot be obtained', async () => {
+      commonGim.loginGimMunicipalityK.mockResolvedValueOnce({ errorCode: ErrorCode.NOT_FOUND, data: null });
+      expect((await service.changePasswordMunicipality('a@b.c', 'pw')).errorCode).toBe(ErrorCode.NOT_FOUND);
+    });
+
+    it('returns NOT_FOUND when user not found', async () => {
+      (axios.get as jest.Mock).mockResolvedValueOnce({ data: [] });
+      expect((await service.changePasswordMunicipality('a@b.c', 'pw')).errorCode).toBe(ErrorCode.NOT_FOUND);
+    });
+
+    it('returns NOT_FOUND when data is null', async () => {
+      (axios.get as jest.Mock).mockResolvedValueOnce({ data: null });
+      expect((await service.changePasswordMunicipality('a@b.c', 'pw')).errorCode).toBe(ErrorCode.NOT_FOUND);
+    });
+
+    it('returns NONE on success and propagates userId', async () => {
+      (axios.get as jest.Mock).mockResolvedValueOnce({ data: [{ id: 'uid-m' }] });
+      (axios.put as jest.Mock).mockResolvedValueOnce({});
+
+      const result = await service.changePasswordMunicipality('a@b.c', 'pw');
+      expect(result.errorCode).toBe(ErrorCode.NONE);
+      expect(result.userId).toBe('uid-m');
+    });
+
+    it('routes errors through throwKeycloakError', async () => {
+      (axios.get as jest.Mock).mockRejectedValueOnce({ response: { status: 500 } });
+      await expect(service.changePasswordMunicipality('a@b.c', 'pw')).rejects.toThrow(HttpException);
+    });
+  });
+
   // ─── findByIdentification ─────────────────────────────────────────────────
   describe('findByIdentification / Municipality', () => {
     it('returns NOT_FOUND when token unavailable', async () => {

@@ -24,6 +24,7 @@ const buildServiceMock = () => ({
   setUserPassword: jest.fn(),
   setUserPasswordMunicipality: jest.fn(),
   changePassword: jest.fn(),
+  changePasswordMunicipality: jest.fn(),
   findByIdentification: jest.fn(),
   findByIdentificationMunicipality: jest.fn(),
 });
@@ -178,6 +179,17 @@ describe('KeycloakController', () => {
       const dto = { email: 'me@x.COM', newPassword: 'pw' } as ChangePasswordDto;
       const result = await controller.changePassword(user, dto);
       expect(service.changePassword).toHaveBeenCalledWith('me@x.COM', 'pw');
+      expect(result).toBe(fakeResult);
+    });
+  });
+
+  describe('changePasswordMunicipality', () => {
+    it('delegates to service.changePasswordMunicipality with dto.email and dto.newPassword', async () => {
+      service.changePasswordMunicipality.mockResolvedValue(fakeResult);
+      const user = { email: 'me@x.com' } as any;
+      const dto = { email: 'me@x.com', newPassword: 'pw' } as ChangePasswordDto;
+      const result = await controller.changePasswordMunicipality(user, dto);
+      expect(service.changePasswordMunicipality).toHaveBeenCalledWith('me@x.com', 'pw');
       expect(result).toBe(fakeResult);
     });
   });

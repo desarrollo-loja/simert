@@ -196,10 +196,25 @@ export class KeycloakController {
     @GetUser() user: JwtPayload,
     @Body() dto: ChangePasswordDto,
   ) {
-    // if (user.email?.toLowerCase() !== dto.email.toLowerCase())
-    //   throw new ForbiddenException('Solo puedes cambiar tu propia contraseña');
-
     return this.keycloakService.changePassword(dto.email, dto.newPassword);
+  }
+
+  @ApiOperation({ summary: 'Change own password (authenticated municipal employee). Email in body must match the JWT email.' })
+  @ApiStandardResponse({
+    description: 'Password updated in Keycloak (no email sent — the user already knows it)',
+    errorCodes: [ErrorCode.NONE, ErrorCode.NOT_FOUND],
+    data: {
+      message: { type: 'string', example: 'Contraseña actualizada exitosamente' },
+      userId: { type: 'string', example: 'b1b9e0f0-1234-4aaa-9999-abcdefabcdef' },
+    },
+  })
+  @Auth()
+  @Post('change-password-municipality')
+  changePasswordMunicipality(
+    @GetUser() user: JwtPayload,
+    @Body() dto: ChangePasswordDto,
+  ) {
+    return this.keycloakService.changePasswordMunicipality(dto.email, dto.newPassword);
   }
 
   // GET api/keycloak/find-by-identification?identification=...

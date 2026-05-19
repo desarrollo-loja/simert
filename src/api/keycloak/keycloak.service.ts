@@ -456,6 +456,42 @@ export class KeycloakService {
     }
   }
 
+  async changePasswordMunicipality(email: string, newPassword: string) {
+    email = email?.trim();
+    if (!email || !newPassword)
+      return { errorCode: ErrorCode.NOT_FOUND, message: 'email y newPassword son requeridos' };
+
+    const token = await this.getTokenMunicipalityK();
+    if (!token)
+      return { errorCode: ErrorCode.NOT_FOUND, message: 'No se pudo obtener el token de Keycloak Municipal' };
+
+    try {
+      const { data } = await axios.get(this.usersUrlMunicipality(), {
+        headers: this.authHeaders(token),
+        params: { email, exact: true },
+      });
+
+      if (!data || data.length === 0)
+        return { errorCode: ErrorCode.NOT_FOUND, message: 'Usuario no encontrado' };
+
+      const userId = data[0].id;
+
+      await axios.put(
+        `${this.usersUrlMunicipality(userId)}/reset-password`,
+        { type: 'password', value: newPassword, temporary: false },
+        { headers: this.authHeaders(token) },
+      );
+
+      return {
+        errorCode: ErrorCode.NONE,
+        message: 'Contraseña actualizada exitosamente',
+        userId,
+      };
+    } catch (error: any) {
+      return this.throwKeycloakError('changePasswordMunicipality', error);
+    }
+  }
+
   private async _sendPasswordEmail(fullName: string, email: string, password: string, phone?: string): Promise<boolean> {
     if (!this.dominioAuth) {
       this.logger.warn('DOMINIO_AUTH not configured, password recovery email cannot be dispatched');
