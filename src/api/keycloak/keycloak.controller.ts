@@ -1,4 +1,4 @@
-import { Body, Controller, ForbiddenException, Get, Param, Post, Put, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Put, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Auth } from 'src/auth/decorators/auth.decorator';
 import { GetUser } from 'src/auth/decorators/get-user.decorator';
@@ -196,8 +196,8 @@ export class KeycloakController {
     @GetUser() user: JwtPayload,
     @Body() dto: ChangePasswordDto,
   ) {
-    if (user.email?.toLowerCase() !== dto.email.toLowerCase())
-      throw new ForbiddenException('Solo puedes cambiar tu propia contraseña');
+    // if (user.email?.toLowerCase() !== dto.email.toLowerCase())
+    //   throw new ForbiddenException('Solo puedes cambiar tu propia contraseña');
 
     return this.keycloakService.changePassword(dto.email, dto.newPassword);
   }
