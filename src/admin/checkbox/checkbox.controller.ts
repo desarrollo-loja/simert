@@ -25,6 +25,16 @@ export class CheckboxController {
     return this.checkboxService.findAll(filterDto);
   }
 
+  @ApiOperation({ summary: 'List checkboxes filtered by transactionIds (id, transactionId, statusIncident, onResponseExternal)' })
+  @AuthWithKeycloak()
+  @Patch('findAllByTransactionId/:userId/:idDevice/:version')
+  findAllByTransactionId(
+    @GetUser() user: JwtPayload,
+    @Body() filterDto: FilterDto,
+  ) {
+    return this.checkboxService.findAllByTransactionId(filterDto);
+  }
+
   // ─── Internal endpoints consumed by CommonCheckboxService ─────────────
 
   @ApiOperation({ summary: 'List paid checkboxes with no linked incident (statusIncident = NULL)' })

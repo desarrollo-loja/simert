@@ -99,6 +99,64 @@ export class CheckboxService {
     return `This action returns all checkbox`;
   }
 
+  async findAllByTransactionId(filterDto: FilterDto) {
+    const { transactionIds, year, month, dateFrom, dateTo } = filterDto;
+
+    if (!Array.isArray(transactionIds) || transactionIds.length === 0) {
+      return { errorCode: ErrorCode.NONE, checkbox: [] };
+    }
+
+    try {
+      let tableName = 'checkbox';
+      let tableExists = false;
+      const y = Number(year);
+      const m = Number(month);
+      const validYearMonth =
+        Number.isInteger(y) && y >= 2000 && y <= 2100 &&
+        Number.isInteger(m) && m >= 1 && m <= 12;
+      if (year && month && validYearMonth) {
+        const mm = String(m).padStart(2, '0');
+        tableName = `${y}_${mm}_checkbox`;
+        tableExists = await this._tableExists(tableName);
+      } else if (year || month) {
+        return { checkbox: [] };
+      }
+
+      if (tableExists || (!year && !month)) {
+        const parameters: any[] = [];
+        const conditions: string[] = [];
+
+        const placeholders = transactionIds.map((id) => {
+          parameters.push(id);
+          return `$${parameters.length}`;
+        }).join(', ');
+        conditions.push(`c."transactionId" IN (${placeholders})`);
+
+        if (dateFrom && dateTo) {
+          parameters.push(dateFrom, dateTo);
+          conditions.push(
+            `DATE(c.register) BETWEEN $${parameters.length - 1} AND $${parameters.length}`,
+          );
+        }
+
+        const query = `
+          SELECT c.id, c."transactionId", c."statusIncident", c."onResponseExternal"
+          FROM ${tableName} c
+          WHERE ${conditions.join(' AND ')}
+          ORDER BY c.id DESC;
+        `;
+
+        const checkbox = await this.checkboxRepository.query(query, parameters);
+
+        return { errorCode: ErrorCode.NONE, checkbox };
+      } else {
+        return { errorCode: ErrorCode.NONE, checkbox: [] };
+      }
+    } catch (error) {
+      handleDbExceptions(error, this.logger);
+    }
+  }
+
   private async _tableExists(tableName: string): Promise<boolean> {
     const query = `
     SELECT EXISTS (

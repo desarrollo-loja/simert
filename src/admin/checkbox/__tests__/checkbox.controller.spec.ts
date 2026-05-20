@@ -6,6 +6,7 @@ import { CheckboxService } from '../checkbox.service';
 // Direct instantiation avoids pulling the Nest DI graph (guards/JwtService).
 const buildServiceMock = () => ({
   findAll: jest.fn(),
+  findAllByTransactionId: jest.fn(),
   findPaidWithoutIncident: jest.fn(),
   findPaidWithPendingIncident: jest.fn(),
   updateCheckboxById: jest.fn(),
@@ -36,6 +37,18 @@ describe('CheckboxController', () => {
       const result = await controller.findAll(user, 1, 'dev', 1, filter);
 
       expect(service.findAll).toHaveBeenCalledWith(filter);
+      expect(result).toBe(fakeResult);
+    });
+  });
+
+  describe('findAllByTransactionId', () => {
+    it('delegates to service.findAllByTransactionId with the filter dto', async () => {
+      service.findAllByTransactionId.mockResolvedValue(fakeResult);
+      const filter = { transactionIds: ['a', 'b'] } as FilterDto;
+
+      const result = await controller.findAllByTransactionId(user, filter);
+
+      expect(service.findAllByTransactionId).toHaveBeenCalledWith(filter);
       expect(result).toBe(fakeResult);
     });
   });

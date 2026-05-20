@@ -148,6 +148,120 @@ describe('CheckboxService', () => {
     });
   });
 
+  describe('findAllByTransactionId', () => {
+    it('returns empty when transactionIds is missing', async () => {
+      const result = await service.findAllByTransactionId({} as any);
+      expect(result).toEqual({ checkbox: [] });
+      expect(repo.query).not.toHaveBeenCalled();
+    });
+
+    it('returns empty when transactionIds is empty array', async () => {
+      const result = await service.findAllByTransactionId({ transactionIds: [] } as any);
+      expect(result).toEqual({ checkbox: [] });
+      expect(repo.query).not.toHaveBeenCalled();
+    });
+
+    it('queries main table with IN clause when year/month omitted', async () => {
+      repo.query.mockResolvedValueOnce([
+        { id: 1, transactionId: 'a', statusIncident: 100, onResponseExternal: null },
+      ]);
+
+      const result: any = await service.findAllByTransactionId({
+        transactionIds: ['a', 'b'],
+      } as any);
+
+      expect(result).toEqual({
+        checkbox: [{ id: 1, transactionId: 'a', statusIncident: 100, onResponseExternal: null }],
+      });
+      const [sql, params] = repo.query.mock.calls[0];
+      expect(sql).toContain('FROM checkbox c');
+      expect(sql).toContain('c."transactionId" IN ($1, $2)');
+      expect(sql).toContain('c."statusIncident"');
+      expect(sql).toContain('c."onResponseExternal"');
+      expect(params).toEqual(['a', 'b']);
+    });
+
+    it('appends date range condition when dateFrom and dateTo are provided', async () => {
+      repo.query.mockResolvedValueOnce([]);
+
+      await service.findAllByTransactionId({
+        transactionIds: ['a'],
+        dateFrom: '2026-01-01',
+        dateTo: '2026-01-31',
+      } as any);
+
+      const [sql, params] = repo.query.mock.calls[0];
+      expect(sql).toContain('DATE(c.register) BETWEEN $2 AND $3');
+      expect(params).toEqual(['a', '2026-01-01', '2026-01-31']);
+    });
+
+    it('returns empty when only one of year/month is provided', async () => {
+      const result = await service.findAllByTransactionId({
+        transactionIds: ['a'],
+        year: 2026,
+      } as any);
+      expect(result).toEqual({ checkbox: [] });
+      expect(repo.query).not.toHaveBeenCalled();
+    });
+
+    it('returns empty when year/month are out of range', async () => {
+      const result = await service.findAllByTransactionId({
+        transactionIds: ['a'],
+        year: 1999,
+        month: 13,
+      } as any);
+      expect(result).toEqual({ checkbox: [] });
+      expect(repo.query).not.toHaveBeenCalled();
+    });
+
+    it('queries historical table when it exists', async () => {
+      repo.query
+        .mockResolvedValueOnce([{ exists: true }])
+        .mockResolvedValueOnce([{ id: 9, transactionId: 'a', statusIncident: 500, onResponseExternal: [] }]);
+
+      const result: any = await service.findAllByTransactionId({
+        transactionIds: ['a'],
+        year: 2026,
+        month: 3,
+      } as any);
+
+      expect(result.checkbox).toEqual([
+        { id: 9, transactionId: 'a', statusIncident: 500, onResponseExternal: [] },
+      ]);
+      expect(repo.query.mock.calls[1][0]).toContain('FROM 2026_03_checkbox c');
+    });
+
+    it('returns empty when historical table does not exist', async () => {
+      repo.query.mockResolvedValueOnce([{ exists: false }]);
+
+      const result = await service.findAllByTransactionId({
+        transactionIds: ['a'],
+        year: 2026,
+        month: 3,
+      } as any);
+
+      expect(result).toEqual({ checkbox: [] });
+    });
+
+    it('routes DB errors through handleDbExceptions', async () => {
+      repo.query.mockRejectedValueOnce(new Error('boom'));
+
+      await expect(
+        service.findAllByTransactionId({ transactionIds: ['a'] } as any),
+      ).rejects.toThrow('boom');
+      expect(handleDbExceptions).toHaveBeenCalled();
+    });
+
+    it('falls through to fallback empty result when handleDbExceptions swallows the error', async () => {
+      repo.query.mockRejectedValueOnce(new Error('soft'));
+      (handleDbExceptions as unknown as jest.Mock).mockImplementationOnce(() => undefined);
+
+      const result = await service.findAllByTransactionId({ transactionIds: ['a'] } as any);
+
+      expect(result).toEqual({ checkbox: [] });
+    });
+  });
+
   describe('_tableExists (private)', () => {
     it('returns the exists flag from information_schema', async () => {
       repo.query.mockResolvedValueOnce([{ exists: true }]);
