@@ -59,7 +59,7 @@ describe('DinardapAntService', () => {
 
       expect(result.errorCode).toBe(ErrorCode.SYSTEM_INACTIVE);
       expect(result.data).toBeNull();
-      expect((result as any).message).toMatch(/fuera de servicio/i);
+      expect((result as any).message).toMatch(/no configurado/i);
     });
 
     it('returns UNAUTHORIZED when token is unavailable', async () => {
@@ -218,7 +218,7 @@ describe('DinardapAntService', () => {
       const result = await service.getUserDataByPlateAnt('ABC');
 
       expect(result.errorCode).toBe(ErrorCode.HTTP_ERROR_REINTENT);
-      expect((result as any).message).toMatch(/Tiempo de espera/i);
+      expect((result as any).message).toMatch(/no se pudo establecer comunicación con la ant/i);
     });
 
     it('falls back to SYSTEM_INACTIVE when axios throws without response payload', async () => {
