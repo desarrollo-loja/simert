@@ -589,7 +589,7 @@ export class IncidentService {
     let typePaymentResponsibility: TypePaymentResponsibility;
 
     try {
-      let concept = `Pago de incidente`;
+      let concept = `Pago de multa`;
 
       if (optionalData) {
         const conceptElement = optionalData.find(element => element.key === 'concept');
