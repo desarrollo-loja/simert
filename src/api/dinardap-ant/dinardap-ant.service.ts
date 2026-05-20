@@ -131,8 +131,8 @@ export class DinardapAntService {
     };
 
     try {
-      // TODO: QUITAR — forzado temporal para probar el mapeo del catch (mensaje genérico por defecto)
-      throw new Error('forced error for testing');
+      // TODO: QUITAR — forzado temporal para probar el mapeo del catch (simula respuesta 401)
+      throw { response: { status: 401, data: { msg: 'forced unauthorized for testing' } } };
 
       const { data } = await axios.request<any>(config);
 
