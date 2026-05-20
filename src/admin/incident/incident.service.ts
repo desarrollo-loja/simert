@@ -582,6 +582,8 @@ export class IncidentService {
       userId,
       blockOperatorId,
       incidentCategory,
+      controllerId,
+
     } = filterDto;
 
     const conditions: string[] = [];
@@ -624,6 +626,10 @@ export class IncidentService {
     }
     if (userId) {
       conditions.push(`i."controllerId" = ${addParam(userId)}`);
+    }
+
+    if (controllerId) {
+      conditions.push(`i."controllerId" = ${addParam(controllerId)}`);
     }
 
     if (blockOperatorId) {

@@ -35,7 +35,8 @@ export class IncidentFilterDto extends FilterDto {
   incidentCategory?: number;
 
   @IsOptional()
+  @IsNumber()
+  @Min(0)
   @Type(() => Number)
-  @IsEnum(IncidentStatus)
-  statusIncident?: IncidentStatus;
+  controllerId?: number;
 }
