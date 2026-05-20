@@ -646,6 +646,41 @@ describe('IncidentService', () => {
       expect(likeCount).toBe(7);
     });
 
+    it('builds i."controllerId" condition when controllerId is provided', async () => {
+      repo.query.mockResolvedValueOnce([{}]);
+
+      await service.findStatistics({ controllerId: 42 } as any);
+
+      const [sql, params] = repo.query.mock.calls[0];
+      expect(sql).toContain('i."controllerId" =');
+      expect(params).toContain(42);
+    });
+
+    it('controllerId condition fires even when userId is absent', async () => {
+      repo.query.mockResolvedValueOnce([{}]);
+
+      await service.findStatistics({ controllerId: 99 } as any);
+
+      const [sql, params] = repo.query.mock.calls[0];
+      expect(sql).toContain('i."controllerId" =');
+      expect(params).toContain(99);
+      // userId was not supplied so only one controllerId condition should appear.
+      const matches = (sql.match(/i\."controllerId" =/g) || []).length;
+      expect(matches).toBe(1);
+    });
+
+    it('adds two i."controllerId" conditions when both userId and controllerId are supplied', async () => {
+      repo.query.mockResolvedValueOnce([{}]);
+
+      await service.findStatistics({ userId: 5, controllerId: 10 } as any);
+
+      const [sql, params] = repo.query.mock.calls[0];
+      const matches = (sql.match(/i\."controllerId" =/g) || []).length;
+      expect(matches).toBe(2);
+      expect(params).toContain(5);
+      expect(params).toContain(10);
+    });
+
     it('uses literal "undefined" / "null" search strings as no-op', async () => {
       repo.query.mockResolvedValueOnce([{}]);
       await service.findStatistics({ search: 'undefined' } as any);
