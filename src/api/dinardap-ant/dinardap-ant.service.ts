@@ -131,9 +131,6 @@ export class DinardapAntService {
     };
 
     try {
-      // TODO: QUITAR — forzado temporal para probar el mapeo del catch (simula respuesta 401)
-      throw { response: { status: 401, data: { msg: 'forced unauthorized for testing' } } };
-
       const { data } = await axios.request<any>(config);
 
       // Estructura: paquete.entidades.entidad[0].filas.fila[0].columnas.columna[]
