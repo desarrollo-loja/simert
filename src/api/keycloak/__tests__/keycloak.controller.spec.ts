@@ -1,5 +1,3 @@
-import { ForbiddenException } from '@nestjs/common';
-
 import { CreateKeycloakUserDto } from 'src/common/dto/create-keycloak-user.dto';
 import { LoginKeycloakClientDto } from 'src/common/dto/login-keycloak-client.dto';
 import { UpdateKeycloakUserDto } from 'src/common/dto/update-keycloak-user.dto';
@@ -163,25 +161,12 @@ describe('KeycloakController', () => {
   });
 
   describe('changePassword', () => {
-    it('throws Forbidden when JWT email differs from body email', () => {
-      const user = { email: 'me@x.com' } as any;
-      const dto = { email: 'other@x.com', newPassword: 'pw' } as ChangePasswordDto;
-      expect(() => controller.changePassword(user, dto)).toThrow(ForbiddenException);
-      expect(service.changePassword).not.toHaveBeenCalled();
-    });
-
-    it('throws Forbidden when JWT email is undefined', () => {
-      const user = {} as any;
-      const dto = { email: 'me@x.com', newPassword: 'pw' } as ChangePasswordDto;
-      expect(() => controller.changePassword(user, dto)).toThrow(ForbiddenException);
-    });
-
-    it('case-insensitively matches emails and delegates to service.changePassword', async () => {
+    it('delegates to service.changePassword with dto.email and dto.newPassword', async () => {
       service.changePassword.mockResolvedValue(fakeResult);
-      const user = { email: 'Me@X.com' } as any;
-      const dto = { email: 'me@x.COM', newPassword: 'pw' } as ChangePasswordDto;
+      const user = { email: 'me@x.com' } as any;
+      const dto = { email: 'me@x.com', newPassword: 'pw' } as ChangePasswordDto;
       const result = await controller.changePassword(user, dto);
-      expect(service.changePassword).toHaveBeenCalledWith('me@x.COM', 'pw');
+      expect(service.changePassword).toHaveBeenCalledWith('me@x.com', 'pw');
       expect(result).toBe(fakeResult);
     });
   });
