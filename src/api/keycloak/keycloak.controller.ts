@@ -295,8 +295,8 @@ export class KeycloakController {
     return this.keycloakService.findByIdentificationMunicipality(identification);
   }
 
-  // PATCH api/keycloak/set-status/:id
-  @ApiOperation({ summary: 'Enable or disable a ServiceHub user account in Keycloak' })
+  // PATCH api/keycloak/set-status
+  @ApiOperation({ summary: 'Enable or disable a ServiceHub user account in Keycloak (id travels in the body)' })
   @ApiStandardResponse({
     description: 'Account status updated in Keycloak (enabled = true habilita, false deshabilita)',
     errorCodes: [ErrorCode.NONE, ErrorCode.NOT_FOUND],
@@ -305,13 +305,13 @@ export class KeycloakController {
       enabled: { type: 'boolean', example: false },
     },
   })
-  @Patch('set-status/:id')
-  setUserStatus(@Param('id') id: string, @Body() dto: SetUserStatusDto) {
-    return this.keycloakService.setUserStatus(id, dto.enabled);
+  @Patch('set-status')
+  setUserStatus(@Body() dto: SetUserStatusDto) {
+    return this.keycloakService.setUserStatus(dto.id, dto.enabled);
   }
 
-  // PATCH api/keycloak/set-status-municipality/:id
-  @ApiOperation({ summary: 'Enable or disable a municipal employee account in Keycloak' })
+  // PATCH api/keycloak/set-status-municipality
+  @ApiOperation({ summary: 'Enable or disable a municipal employee account in Keycloak (id travels in the body)' })
   @ApiStandardResponse({
     description: 'Account status updated in Keycloak (enabled = true habilita, false deshabilita)',
     errorCodes: [ErrorCode.NONE, ErrorCode.NOT_FOUND],
@@ -320,9 +320,9 @@ export class KeycloakController {
       enabled: { type: 'boolean', example: false },
     },
   })
-  @Patch('set-status-municipality/:id')
-  setUserStatusMunicipality(@Param('id') id: string, @Body() dto: SetUserStatusDto) {
-    return this.keycloakService.setUserStatusMunicipality(id, dto.enabled);
+  @Patch('set-status-municipality')
+  setUserStatusMunicipality(@Body() dto: SetUserStatusDto) {
+    return this.keycloakService.setUserStatusMunicipality(dto.id, dto.enabled);
   }
 
 }
