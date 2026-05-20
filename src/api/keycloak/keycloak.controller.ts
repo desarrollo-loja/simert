@@ -305,7 +305,7 @@ export class KeycloakController {
       enabled: { type: 'boolean', example: false },
     },
   })
-  @Patch('set-status')
+  @Patch('set-status/:id')
   setUserStatus(@Param('id') id: string, @Body() dto: SetUserStatusDto) {
     return this.keycloakService.setUserStatus(id, dto.enabled);
   }
@@ -320,7 +320,7 @@ export class KeycloakController {
       enabled: { type: 'boolean', example: false },
     },
   })
-  @Patch('set-status-municipality')
+  @Patch('set-status-municipality/:id')
   setUserStatusMunicipality(@Param('id') id: string, @Body() dto: SetUserStatusDto) {
     return this.keycloakService.setUserStatusMunicipality(id, dto.enabled);
   }
