@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Put, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Put, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Auth } from 'src/auth/decorators/auth.decorator';
 import { GetUser } from 'src/auth/decorators/get-user.decorator';
@@ -11,6 +11,7 @@ import { ErrorCode } from 'src/common/glob/error';
 
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { SetUserStatusDto } from './dto/set-user-status.dto';
 import { KeycloakService } from './keycloak.service';
 @ApiTags('Api - Keycloak')
 @ApiBearerAuth('keycloak')
@@ -292,6 +293,36 @@ export class KeycloakController {
   @Get('find-by-identification-municipality')
   findByIdentificationMunicipality(@Query('identification') identification: string) {
     return this.keycloakService.findByIdentificationMunicipality(identification);
+  }
+
+  // PATCH api/keycloak/set-status/:id
+  @ApiOperation({ summary: 'Enable or disable a ServiceHub user account in Keycloak' })
+  @ApiStandardResponse({
+    description: 'Account status updated in Keycloak (enabled = true habilita, false deshabilita)',
+    errorCodes: [ErrorCode.NONE, ErrorCode.NOT_FOUND],
+    data: {
+      message: { type: 'string', example: 'Cuenta deshabilitada exitosamente' },
+      enabled: { type: 'boolean', example: false },
+    },
+  })
+  @Patch('set-status')
+  setUserStatus(@Param('id') id: string, @Body() dto: SetUserStatusDto) {
+    return this.keycloakService.setUserStatus(id, dto.enabled);
+  }
+
+  // PATCH api/keycloak/set-status-municipality/:id
+  @ApiOperation({ summary: 'Enable or disable a municipal employee account in Keycloak' })
+  @ApiStandardResponse({
+    description: 'Account status updated in Keycloak (enabled = true habilita, false deshabilita)',
+    errorCodes: [ErrorCode.NONE, ErrorCode.NOT_FOUND],
+    data: {
+      message: { type: 'string', example: 'Cuenta deshabilitada exitosamente' },
+      enabled: { type: 'boolean', example: false },
+    },
+  })
+  @Patch('set-status-municipality')
+  setUserStatusMunicipality(@Param('id') id: string, @Body() dto: SetUserStatusDto) {
+    return this.keycloakService.setUserStatusMunicipality(id, dto.enabled);
   }
 
 }

@@ -216,6 +216,85 @@ describe('KeycloakService', () => {
     });
   });
 
+  // ─── setUserStatus ────────────────────────────────────────────────────────
+  describe('setUserStatus', () => {
+    it('returns NOT_FOUND when token is unavailable', async () => {
+      commonGim.loginGimServiceHub.mockResolvedValueOnce({ errorCode: ErrorCode.NOT_FOUND, data: null });
+      const result = await service.setUserStatus('id', false);
+      expect(result.errorCode).toBe(ErrorCode.NOT_FOUND);
+    });
+
+    it('disables the account and returns NONE with the deshabilitada message', async () => {
+      (axios.put as jest.Mock).mockResolvedValueOnce({});
+      const result = await service.setUserStatus('id', false);
+      expect(result.errorCode).toBe(ErrorCode.NONE);
+      expect(result.enabled).toBe(false);
+      expect(result.message).toBe('Cuenta deshabilitada exitosamente');
+    });
+
+    it('enables the account and returns NONE with the habilitada message', async () => {
+      (axios.put as jest.Mock).mockResolvedValueOnce({});
+      const result = await service.setUserStatus('id', true);
+      expect(result.errorCode).toBe(ErrorCode.NONE);
+      expect(result.enabled).toBe(true);
+      expect(result.message).toBe('Cuenta habilitada exitosamente');
+    });
+
+    it('sends only the enabled flag to the ServiceHub realm URL', async () => {
+      (axios.put as jest.Mock).mockResolvedValueOnce({});
+      await service.setUserStatus('uid-1', false);
+      expect(axios.put).toHaveBeenCalledWith(
+        'http://kc.test/admin/realms/service-hub/users/uid-1',
+        { enabled: false },
+        expect.objectContaining({ headers: expect.any(Object) }),
+      );
+    });
+
+    it('routes errors through throwKeycloakError', async () => {
+      (axios.put as jest.Mock).mockRejectedValueOnce({ response: { status: 500 } });
+      await expect(service.setUserStatus('id', false)).rejects.toThrow(HttpException);
+    });
+  });
+
+  describe('setUserStatusMunicipality', () => {
+    it('returns NOT_FOUND when municipality token is unavailable', async () => {
+      commonGim.loginGimMunicipalityK.mockResolvedValueOnce({ errorCode: ErrorCode.NOT_FOUND, data: null });
+      const result = await service.setUserStatusMunicipality('id', false);
+      expect(result.errorCode).toBe(ErrorCode.NOT_FOUND);
+    });
+
+    it('disables the account and returns NONE with the deshabilitada message', async () => {
+      (axios.put as jest.Mock).mockResolvedValueOnce({});
+      const result = await service.setUserStatusMunicipality('id', false);
+      expect(result.errorCode).toBe(ErrorCode.NONE);
+      expect(result.enabled).toBe(false);
+      expect(result.message).toBe('Cuenta deshabilitada exitosamente');
+    });
+
+    it('enables the account and returns NONE with the habilitada message', async () => {
+      (axios.put as jest.Mock).mockResolvedValueOnce({});
+      const result = await service.setUserStatusMunicipality('id', true);
+      expect(result.errorCode).toBe(ErrorCode.NONE);
+      expect(result.enabled).toBe(true);
+      expect(result.message).toBe('Cuenta habilitada exitosamente');
+    });
+
+    it('sends only the enabled flag to the Municipality realm URL', async () => {
+      (axios.put as jest.Mock).mockResolvedValueOnce({});
+      await service.setUserStatusMunicipality('uid-9', true);
+      expect(axios.put).toHaveBeenCalledWith(
+        'http://kc.test/admin/realms/municipio/users/uid-9',
+        { enabled: true },
+        expect.objectContaining({ headers: expect.any(Object) }),
+      );
+    });
+
+    it('routes errors through throwKeycloakError', async () => {
+      (axios.put as jest.Mock).mockRejectedValueOnce(new Error('net'));
+      await expect(service.setUserStatusMunicipality('id', false)).rejects.toThrow(HttpException);
+    });
+  });
+
   // ─── findByUsername ───────────────────────────────────────────────────────
   describe('findByUsername / Municipality', () => {
     it('returns NOT_FOUND when token missing (servicehub)', async () => {

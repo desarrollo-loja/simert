@@ -216,6 +216,52 @@ export class KeycloakService {
     }
   }
 
+  /**
+   * Habilita o deshabilita una cuenta de ciudadano (realm ServiceHub).
+   * Envía solo el campo `enabled`; Keycloak hace un merge parcial, así que
+   * el resto de datos del usuario (nombre, email, atributos) no se tocan.
+   */
+  async setUserStatus(id: string, enabled: boolean) {
+    const token = await this.getToken();
+    if (!token)
+      return { errorCode: ErrorCode.NOT_FOUND, message: 'No se pudo obtener el token de Keycloak ServiceHub' };
+
+    try {
+      await axios.put(this.usersUrl(id), { enabled }, {
+        headers: this.authHeaders(token),
+      });
+      return {
+        errorCode: ErrorCode.NONE,
+        message: enabled ? 'Cuenta habilitada exitosamente' : 'Cuenta deshabilitada exitosamente',
+        enabled,
+      };
+    } catch (error: any) {
+      return this.throwKeycloakError('setUserStatus', error);
+    }
+  }
+
+  /**
+   * Habilita o deshabilita una cuenta de empleado municipal (realm Municipio K).
+   */
+  async setUserStatusMunicipality(id: string, enabled: boolean) {
+    const token = await this.getTokenMunicipalityK();
+    if (!token)
+      return { errorCode: ErrorCode.NOT_FOUND, message: 'No se pudo obtener el token de Keycloak Municipal' };
+
+    try {
+      await axios.put(this.usersUrlMunicipality(id), { enabled }, {
+        headers: this.authHeaders(token),
+      });
+      return {
+        errorCode: ErrorCode.NONE,
+        message: enabled ? 'Cuenta habilitada exitosamente' : 'Cuenta deshabilitada exitosamente',
+        enabled,
+      };
+    } catch (error: any) {
+      return this.throwKeycloakError('setUserStatusMunicipality', error);
+    }
+  }
+
   async findByUsername(username: string) {
     const token = await this.getToken();
     if (!token)

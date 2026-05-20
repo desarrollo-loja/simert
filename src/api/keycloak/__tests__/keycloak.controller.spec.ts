@@ -6,6 +6,7 @@ import { UpdateKeycloakUserDto } from 'src/common/dto/update-keycloak-user.dto';
 
 import { ChangePasswordDto } from '../dto/change-password.dto';
 import { ResetPasswordDto } from '../dto/reset-password.dto';
+import { SetUserStatusDto } from '../dto/set-user-status.dto';
 import { KeycloakController } from '../keycloak.controller';
 import { KeycloakService } from '../keycloak.service';
 
@@ -27,6 +28,8 @@ const buildServiceMock = () => ({
   changePasswordMunicipality: jest.fn(),
   findByIdentification: jest.fn(),
   findByIdentificationMunicipality: jest.fn(),
+  setUserStatus: jest.fn(),
+  setUserStatusMunicipality: jest.fn(),
 });
 
 describe('KeycloakController', () => {
@@ -208,6 +211,42 @@ describe('KeycloakController', () => {
       service.findByIdentificationMunicipality.mockResolvedValue(fakeResult);
       const result = await controller.findByIdentificationMunicipality('1104187768');
       expect(service.findByIdentificationMunicipality).toHaveBeenCalledWith('1104187768');
+      expect(result).toBe(fakeResult);
+    });
+  });
+
+  describe('setUserStatus', () => {
+    it('delegates to service.setUserStatus with id and dto.enabled (disable)', async () => {
+      service.setUserStatus.mockResolvedValue(fakeResult);
+      const dto = { enabled: false } as SetUserStatusDto;
+      const result = await controller.setUserStatus('abc', dto);
+      expect(service.setUserStatus).toHaveBeenCalledWith('abc', false);
+      expect(result).toBe(fakeResult);
+    });
+
+    it('delegates to service.setUserStatus with id and dto.enabled (enable)', async () => {
+      service.setUserStatus.mockResolvedValue(fakeResult);
+      const dto = { enabled: true } as SetUserStatusDto;
+      const result = await controller.setUserStatus('abc', dto);
+      expect(service.setUserStatus).toHaveBeenCalledWith('abc', true);
+      expect(result).toBe(fakeResult);
+    });
+  });
+
+  describe('setUserStatusMunicipality', () => {
+    it('delegates to service.setUserStatusMunicipality with id and dto.enabled (disable)', async () => {
+      service.setUserStatusMunicipality.mockResolvedValue(fakeResult);
+      const dto = { enabled: false } as SetUserStatusDto;
+      const result = await controller.setUserStatusMunicipality('abc', dto);
+      expect(service.setUserStatusMunicipality).toHaveBeenCalledWith('abc', false);
+      expect(result).toBe(fakeResult);
+    });
+
+    it('delegates to service.setUserStatusMunicipality with id and dto.enabled (enable)', async () => {
+      service.setUserStatusMunicipality.mockResolvedValue(fakeResult);
+      const dto = { enabled: true } as SetUserStatusDto;
+      const result = await controller.setUserStatusMunicipality('abc', dto);
+      expect(service.setUserStatusMunicipality).toHaveBeenCalledWith('abc', true);
       expect(result).toBe(fakeResult);
     });
   });
