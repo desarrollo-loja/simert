@@ -27,7 +27,7 @@ export class CheckboxController {
 
   @ApiOperation({ summary: 'List checkboxes filtered by transactionIds (id, transactionId, statusIncident, onResponseExternal)' })
   @AuthWithKeycloak()
-  @Patch('findAllByTransactionId/:userId/:idDevice/:version')
+  @Patch('find-all-by-transaction-id/:userId/:idDevice/:version')
   findAllByTransactionId(
     @GetUser() user: JwtPayload,
     @Body() filterDto: FilterDto,
