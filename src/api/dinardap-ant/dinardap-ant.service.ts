@@ -131,6 +131,9 @@ export class DinardapAntService {
     };
 
     try {
+      // TODO: QUITAR — forzado temporal para probar el mapeo del catch (mensaje genérico por defecto)
+      throw new Error('forced error for testing');
+
       const { data } = await axios.request<any>(config);
 
       // Estructura: paquete.entidades.entidad[0].filas.fila[0].columnas.columna[]
