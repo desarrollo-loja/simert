@@ -146,11 +146,11 @@ export class CheckboxService {
           ORDER BY c.id DESC;
         `;
 
-        const checkbox = await this.checkboxRepository.query(query, parameters);
+        const checkboxes = await this.checkboxRepository.query(query, parameters);
 
-        return { errorCode: ErrorCode.NONE, checkbox };
+        return { errorCode: ErrorCode.NONE, checkboxes };
       } else {
-        return { errorCode: ErrorCode.NONE, checkbox: [] };
+        return { errorCode: ErrorCode.NONE, checkboxes: [] };
       }
     } catch (error) {
       handleDbExceptions(error, this.logger);
