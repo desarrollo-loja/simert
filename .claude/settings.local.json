@@ -17,7 +17,8 @@
       "Bash(xargs ls *)",
       "PowerShell(npx tsc --noEmit -p tsconfig.build.json)",
       "PowerShell(if \\($?\\) { \"TypeScript OK\" })",
-      "PowerShell(npx jest --testPathPattern=keycloak 2>&1)"
+      "PowerShell(npx jest --testPathPattern=keycloak 2>&1)",
+      "Bash(npx --no-install jest --testPathPattern=dinardap-ant.service)"
     ]
   }
 }

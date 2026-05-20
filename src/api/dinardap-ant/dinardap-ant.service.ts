@@ -24,17 +24,57 @@ export class DinardapAntService {
   }
 
   async getUserDataByPlateAnt(plate: string): Promise<AntLookupResult> {
-    const antData = await this._getAntDataByPlate(plate);
+    const { data, errorCode, message } = await this._getAntDataByPlate(plate);
 
-    if (!antData) {
+    if (errorCode !== ErrorCode.NONE || !data) {
       return {
-        errorCode: ErrorCode.NOT_FOUND,
+        errorCode: errorCode === ErrorCode.NONE ? ErrorCode.NOT_FOUND : errorCode,
         data: null,
-        message: 'No se encontró información del vehículo',
+        message: message || 'No se encontró información del vehículo',
       };
     }
 
-    return { errorCode: ErrorCode.NONE, data: antData };
+    return { errorCode: ErrorCode.NONE, data };
+  }
+
+  /**
+   * Traduce un error de axios al consumir el recurso DINARDAP/ANT a un
+   * mensaje legible para el cliente. Si el error trae status HTTP conocido
+   * devuelve un mensaje específico (401, 403, 404, 5xx…); caso contrario
+   * cae al mensaje genérico de servicio fuera de línea.
+   */
+  private _buildAntErrorMessage(error: any): { errorCode: ErrorCode; message: string } {
+    const fallback = {
+      errorCode: ErrorCode.SYSTEM_INACTIVE,
+      message: 'El sistema de la ANT se encuentra fuera de servicio, por favor inténtalo más tarde',
+    };
+
+    const status: number | undefined = error?.response?.status;
+    const code: string | undefined = error?.code;
+
+    if (status === 400) {
+      return { errorCode: ErrorCode.UNKNOWN, message: '400 Solicitud incorrecta hacia el servicio de la ANT' };
+    }
+    if (status === 401) {
+      return { errorCode: ErrorCode.UNAUTHORIZED, message: '401 No autorizado para consumir el recurso de la ANT' };
+    }
+    if (status === 403) {
+      return { errorCode: ErrorCode.UNAUTHORIZED, message: '403 Acceso prohibido al recurso de la ANT' };
+    }
+    if (status === 404) {
+      return { errorCode: ErrorCode.NOT_FOUND, message: '404 Recurso no encontrado en la ANT' };
+    }
+    if (status === 408 || code === 'ECONNABORTED' || code === 'ETIMEDOUT') {
+      return { errorCode: ErrorCode.HTTP_ERROR_REINTENT, message: 'No se pudo establecer comunicación con la ANT, inténtalo más tarde' };
+    }
+    if (status === 429) {
+      return { errorCode: ErrorCode.UNKNOWN, message: '429 Demasiadas solicitudes a la ANT, inténtalo más tarde' };
+    }
+    if (status && status >= 500) {
+      return fallback;
+    }
+
+    return fallback;
   }
 
   /**
@@ -49,10 +89,18 @@ export class DinardapAntService {
     return result;
   }
 
-  private async _getAntDataByPlate(plate: string): Promise<AntResponse | null> {
+  private async _getAntDataByPlate(plate: string): Promise<{
+    data: AntResponse | null;
+    errorCode: ErrorCode;
+    message: string;
+  }> {
     if (!this.dinardapAntBaseUrl) {
       this.logger.error('DINARDAP_ANT_BASE_URL no configurado');
-      return null;
+      return {
+        data: null,
+        errorCode: ErrorCode.SYSTEM_INACTIVE,
+        message: 'Enlace del sistema de la ANT no configurado, por favor comuníquese con soporte técnico',
+      };
     }
 
     this.token = this.commonGimService.getTokenGim2();
@@ -60,7 +108,11 @@ export class DinardapAntService {
 
     if (!accessToken) {
       this.logger.error('Token GIM2 no disponible para DINARDAP ANT');
-      return null;
+      return {
+        data: null,
+        errorCode: ErrorCode.UNAUTHORIZED,
+        message: 'No autorizado para consumir el recurso de la ANT',
+      };
     }
 
     // URL-encode plate to prevent path traversal / URL injection if a caller
@@ -89,7 +141,11 @@ export class DinardapAntService {
 
       if (!entidadRaw) {
         this.logger.warn(`No se encontró entidad para la placa ${plate}`);
-        return null;
+        return {
+          data: null,
+          errorCode: ErrorCode.NOT_FOUND,
+          message: 'No se encontró información del vehículo en el sistema de la ANT',
+        };
       }
 
       // Extraer primera fila y aplanar columnas a objeto plano { campo: valor }
@@ -127,36 +183,49 @@ export class DinardapAntService {
 
       if (!fullName && !identityCard && !email) {
         this.logger.warn(`La respuesta vino sin datos útiles para la placa ${plate}`);
-        return null;
+        return {
+          data: null,
+          errorCode: ErrorCode.NOT_FOUND,
+          message: 'La respuesta del sistema ANT no contiene datos útiles para esta placa',
+        };
       }
 
       return {
-        fullName,
-        firstName,
-        lastName,
-        identityCard,
-        email,
-        phone,
-        address,
-        brand,
-        model,
-        year,
-        color,
-        chassis,
-        motor,
-        vehicleType,
-        serviceType,
-        fuelType,
-        passengers,
-        matriculaYear,
-        matriculaDate,
-        expirationDate,
+        data: {
+          fullName,
+          firstName,
+          lastName,
+          identityCard,
+          email,
+          phone,
+          address,
+          brand,
+          model,
+          year,
+          color,
+          chassis,
+          motor,
+          vehicleType,
+          serviceType,
+          fuelType,
+          passengers,
+          matriculaYear,
+          matriculaDate,
+          expirationDate,
+        },
+        errorCode: ErrorCode.NONE,
+        message: '',
       };
     } catch (error: any) {
       this.logger.error(
         `DINARDAP ANT lookup failed plate=${plate}: ${error?.response?.data ? JSON.stringify(error.response.data) : error?.message ?? error}`,
       );
-      return null;
+      const mapped = this._buildAntErrorMessage(error);
+      return {
+        data: null,
+        errorCode: mapped.errorCode,
+        message: mapped.message,
+      };
     }
   }
 

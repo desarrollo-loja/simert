@@ -51,24 +51,26 @@ describe('DinardapAntService', () => {
   });
 
   describe('getUserDataByPlateAnt', () => {
-    it('returns NOT_FOUND when base URL is missing', async () => {
+    it('returns SYSTEM_INACTIVE when base URL is missing', async () => {
       service = new DinardapAntService(buildConfigMock(undefined) as any, gim as any);
       (service as any).logger = { error: jest.fn() };
 
       const result = await service.getUserDataByPlateAnt('ABC');
 
-      expect(result.errorCode).toBe(ErrorCode.NOT_FOUND);
+      expect(result.errorCode).toBe(ErrorCode.SYSTEM_INACTIVE);
       expect(result.data).toBeNull();
+      expect((result as any).message).toMatch(/fuera de servicio/i);
     });
 
-    it('returns NOT_FOUND when token is unavailable', async () => {
+    it('returns UNAUTHORIZED when token is unavailable', async () => {
       gim = buildGimMock(null);
       service = new DinardapAntService(buildConfigMock('http://dinardap.test') as any, gim as any);
       (service as any).logger = { error: jest.fn() };
 
       const result = await service.getUserDataByPlateAnt('ABC');
 
-      expect(result.errorCode).toBe(ErrorCode.NOT_FOUND);
+      expect(result.errorCode).toBe(ErrorCode.UNAUTHORIZED);
+      expect((result as any).message).toMatch(/No autorizado/i);
     });
 
     it('URL-encodes the plate when calling DINARDAP', async () => {
@@ -176,22 +178,56 @@ describe('DinardapAntService', () => {
       expect(result.errorCode).toBe(ErrorCode.NONE);
     });
 
-    it('returns NOT_FOUND when axios throws', async () => {
+    it('maps 401 from axios to UNAUTHORIZED with a specific message', async () => {
       (axios.request as jest.Mock).mockRejectedValueOnce({
-        response: { data: { msg: 'fail' } },
+        response: { status: 401, data: { msg: 'unauth' } },
+      });
+
+      const result = await service.getUserDataByPlateAnt('ABC');
+
+      expect(result.errorCode).toBe(ErrorCode.UNAUTHORIZED);
+      expect((result as any).message).toMatch(/401/);
+      expect((result as any).message).toMatch(/No autorizado/i);
+    });
+
+    it('maps 404 from axios to NOT_FOUND with a specific message', async () => {
+      (axios.request as jest.Mock).mockRejectedValueOnce({
+        response: { status: 404, data: { msg: 'missing' } },
       });
 
       const result = await service.getUserDataByPlateAnt('ABC');
 
       expect(result.errorCode).toBe(ErrorCode.NOT_FOUND);
+      expect((result as any).message).toMatch(/404/);
     });
 
-    it('returns NOT_FOUND when axios throws without response payload', async () => {
+    it('maps 5xx from axios to SYSTEM_INACTIVE with the generic message', async () => {
+      (axios.request as jest.Mock).mockRejectedValueOnce({
+        response: { status: 503, data: { msg: 'down' } },
+      });
+
+      const result = await service.getUserDataByPlateAnt('ABC');
+
+      expect(result.errorCode).toBe(ErrorCode.SYSTEM_INACTIVE);
+      expect((result as any).message).toMatch(/fuera de servicio/i);
+    });
+
+    it('maps timeout (ECONNABORTED) to HTTP_ERROR_REINTENT', async () => {
+      (axios.request as jest.Mock).mockRejectedValueOnce({ code: 'ECONNABORTED', message: 'timeout' });
+
+      const result = await service.getUserDataByPlateAnt('ABC');
+
+      expect(result.errorCode).toBe(ErrorCode.HTTP_ERROR_REINTENT);
+      expect((result as any).message).toMatch(/Tiempo de espera/i);
+    });
+
+    it('falls back to SYSTEM_INACTIVE when axios throws without response payload', async () => {
       (axios.request as jest.Mock).mockRejectedValueOnce(new Error('net'));
 
       const result = await service.getUserDataByPlateAnt('ABC');
 
-      expect(result.errorCode).toBe(ErrorCode.NOT_FOUND);
+      expect(result.errorCode).toBe(ErrorCode.SYSTEM_INACTIVE);
+      expect((result as any).message).toMatch(/fuera de servicio/i);
     });
   });
 });
