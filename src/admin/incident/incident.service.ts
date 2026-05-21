@@ -64,7 +64,7 @@ export class IncidentService {
     }
   }
 
-  async findAll(filterDto: IncidentFilterDto, _user?: any) {
+  async findAll(filterDto: IncidentFilterDto) {
     const table = await this._resolveIncidentTable(filterDto);
 
     const { conditions, parameters } = this._buildConditionsAndParametersPg(filterDto);
@@ -145,7 +145,7 @@ export class IncidentService {
     }
   }
 
-  async findAllTotal(filterDto: IncidentFilterDto, _user?: any) {
+  async findAllTotal(filterDto: IncidentFilterDto) {
     const table = await this._resolveIncidentTable(filterDto);
 
     const { conditions, parameters } = this._buildConditionsAndParametersPg(filterDto);

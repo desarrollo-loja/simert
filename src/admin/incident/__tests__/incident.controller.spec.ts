@@ -63,12 +63,12 @@ describe('IncidentController', () => {
   });
 
   describe('findAll', () => {
-    it('passes filter and user to service.findAll', async () => {
+    it('passes filter to service.findAll', async () => {
       service.findAll.mockResolvedValue(fakeResult);
 
-      const result = await controller.findAll(user, 1, 'dev-uuid', filterDto);
+      const result = await controller.findAll(1, 'dev-uuid', filterDto);
 
-      expect(service.findAll).toHaveBeenCalledWith(filterDto, user);
+      expect(service.findAll).toHaveBeenCalledWith(filterDto);
       expect(result).toBe(fakeResult);
     });
   });
@@ -77,9 +77,9 @@ describe('IncidentController', () => {
     it('delegates to service.findAllTotal', async () => {
       service.findAllTotal.mockResolvedValue(fakeResult);
 
-      const result = await controller.findAllTotal(user, 1, 'dev-uuid', filterDto);
+      const result = await controller.findAllTotal(1, 'dev-uuid', filterDto);
 
-      expect(service.findAllTotal).toHaveBeenCalledWith(filterDto, user);
+      expect(service.findAllTotal).toHaveBeenCalledWith(filterDto);
       expect(result).toBe(fakeResult);
     });
   });
@@ -102,7 +102,7 @@ describe('IncidentController', () => {
 
       const result = await controller.update(1, 'dev', '10', 1, dto);
 
-      expect(service.update).toHaveBeenCalledWith(10, dto, 1);
+      expect(service.update).toHaveBeenCalledWith(10, dto, 1, 1);
       expect(result).toBe(fakeResult);
     });
   });
@@ -114,7 +114,7 @@ describe('IncidentController', () => {
 
       const result = await controller.updateStatusGim(1, 'dev', '7', dto);
 
-      expect(service.updateStatusGim).toHaveBeenCalledWith(7, dto);
+      expect(service.updateStatusGim).toHaveBeenCalledWith(7, dto, 1);
       expect(result).toBe(fakeResult);
     });
   });

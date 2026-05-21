@@ -28,22 +28,20 @@ export class IncidentController {
   @AuthWithKeycloak(TypeRol.ADMIN)
   @Patch('find-all/:userId/:idDevice')
   findAll(
-    @GetUser() user: JwtPayload,
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
     @Body() filterDto: IncidentFilterDto) {
-    return this.incidentService.findAll(filterDto, user);
+    return this.incidentService.findAll(filterDto);
   }
 
   @ApiOperation({ summary: 'Count total incidents matching filters (admin role required)' })
   @AuthWithKeycloak(TypeRol.ADMIN)
   @Patch('find-all-total/:userId/:idDevice')
   findAllTotal(
-    @GetUser() user: JwtPayload,
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
     @Body() filterDto: IncidentFilterDto) {
-    return this.incidentService.findAllTotal(filterDto, user);
+    return this.incidentService.findAllTotal(filterDto);
   }
 
   @ApiOperation({ summary: 'Get a single incident by id' })
@@ -60,17 +58,17 @@ export class IncidentController {
     @Param('id') id: string,
     @Param('isTransacional', ParseIntPipe) isTransacional: number,
     @Body() updateIncidentDto: UpdateIncidentDto) {
-    return this.incidentService.update(+id, updateIncidentDto, isTransacional);
+    return this.incidentService.update(+id, updateIncidentDto, isTransacional, userId);
   }
 
   @ApiOperation({ summary: 'Update incident GIM sync status after external emission' })
   @Patch('update-status-gim/:userId/:idDevice/:id')
   updateStatusGim(
-    @Param('userId', ParseIntPipe) _userId: number,
-    @Param('idDevice', ParseUUIDPipe) _idDevice: string,
+    @Param('userId', ParseIntPipe) userId: number,
+    @Param('idDevice', ParseUUIDPipe) idDevice: string,
     @Param('id') id: string,
     @Body() updateIncidentDto: UpdateIncidentDto) {
-    return this.incidentService.updateStatusGim(+id, updateIncidentDto);
+    return this.incidentService.updateStatusGim(+id, updateIncidentDto, userId);
   }
 
   @ApiOperation({ summary: 'Upload an incident evidence file to Alfresco (multipart form-data, key: file)' })
