@@ -24,7 +24,17 @@ export class DinardapAntService {
   }
 
   async getUserDataByPlateAnt(plate: string): Promise<AntLookupResult> {
-    const { data, errorCode, message } = await this._getAntDataByPlate(plate);
+    const normalizedPlate = (plate ?? '').trim().toUpperCase();
+    if (!this._isValidPlate(normalizedPlate)) {
+      this.logger.warn(`Placa inválida recibida: "${plate}"`);
+      return {
+        errorCode: ErrorCode.NOT_VALID,
+        data: null,
+        message: 'La placa ingresada no es válida, verifica el formato e inténtalo nuevamente',
+      };
+    }
+
+    const { data, errorCode, message } = await this._getAntDataByPlate(normalizedPlate);
 
     if (errorCode !== ErrorCode.NONE || !data) {
       return {
@@ -35,6 +45,10 @@ export class DinardapAntService {
     }
 
     return { errorCode: ErrorCode.NONE, data };
+  }
+
+  private _isValidPlate(plate: string): boolean {
+    return /^[A-Z0-9]{5,8}$/.test(plate);
   }
 
   /**

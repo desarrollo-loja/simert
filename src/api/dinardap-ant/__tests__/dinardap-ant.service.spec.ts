@@ -51,6 +51,22 @@ describe('DinardapAntService', () => {
   });
 
   describe('getUserDataByPlateAnt', () => {
+    it.each([
+      ['empty string', ''],
+      ['whitespace only', '   '],
+      ['too short', 'AB12'],
+      ['too long', 'ABC123456'],
+      ['contains symbols', 'ABC-12'],
+      ['undefined', undefined as unknown as string],
+    ])('returns NOT_VALID for invalid plate (%s)', async (_label, plate) => {
+      const result = await service.getUserDataByPlateAnt(plate);
+
+      expect(result.errorCode).toBe(ErrorCode.NOT_VALID);
+      expect(result.data).toBeNull();
+      expect((result as any).message).toMatch(/placa.*no es v[aá]lida/i);
+      expect(axios.request).not.toHaveBeenCalled();
+    });
+
     it('returns SYSTEM_INACTIVE when base URL is missing', async () => {
       service = new DinardapAntService(buildConfigMock(undefined) as any, gim as any);
       (service as any).logger = { error: jest.fn() };
