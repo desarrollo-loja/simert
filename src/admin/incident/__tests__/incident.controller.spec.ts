@@ -15,6 +15,7 @@ const buildServiceMock = () => ({
   create: jest.fn(),
   findAll: jest.fn(),
   findAllTotal: jest.fn(),
+  findAllByTransactionId: jest.fn(),
   findOne: jest.fn(),
   update: jest.fn(),
   updateStatusGim: jest.fn(),
@@ -80,6 +81,17 @@ describe('IncidentController', () => {
       const result = await controller.findAllTotal(1, 'dev-uuid', filterDto);
 
       expect(service.findAllTotal).toHaveBeenCalledWith(filterDto);
+      expect(result).toBe(fakeResult);
+    });
+  });
+
+  describe('findAllByTransactionId', () => {
+    it('delegates to service.findAllByTransactionId with the filter', async () => {
+      service.findAllByTransactionId.mockResolvedValue(fakeResult);
+
+      const result = await controller.findAllByTransactionId(user, filterDto);
+
+      expect(service.findAllByTransactionId).toHaveBeenCalledWith(filterDto);
       expect(result).toBe(fakeResult);
     });
   });

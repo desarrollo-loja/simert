@@ -211,6 +211,112 @@ describe('IncidentService', () => {
     });
   });
 
+  describe('findAllByTransactionId', () => {
+    it('returns empty when transactionIds is missing', async () => {
+      const result = await service.findAllByTransactionId({} as any);
+
+      expect(result).toEqual({ errorCode: ErrorCode.NONE, incidents: [] });
+      expect(repo.query).not.toHaveBeenCalled();
+    });
+
+    it('returns empty when transactionIds is an empty array', async () => {
+      const result = await service.findAllByTransactionId({ transactionIds: [] } as any);
+
+      expect(result).toEqual({ errorCode: ErrorCode.NONE, incidents: [] });
+      expect(repo.query).not.toHaveBeenCalled();
+    });
+
+    it('queries public.incident with an IN clause when year/month omitted', async () => {
+      repo.query.mockResolvedValueOnce([
+        { id: 1, transactionId: 'a', statusIncident: 100, onResponseExternal: null },
+      ]);
+
+      const result: any = await service.findAllByTransactionId({
+        transactionIds: ['a', 'b'],
+      } as any);
+
+      expect(result).toEqual({
+        errorCode: ErrorCode.NONE,
+        incidents: [{ id: 1, transactionId: 'a', statusIncident: 100, onResponseExternal: null }],
+      });
+      const [sql, params] = repo.query.mock.calls[0];
+      expect(sql).toContain('FROM public.incident i');
+      expect(sql).toContain('i."transactionId" IN ($1, $2)');
+      expect(sql).toContain('i."statusIncident"');
+      expect(sql).toContain('i."onResponseExternal"');
+      expect(params).toEqual(['a', 'b']);
+    });
+
+    it('appends date range condition when dateFrom and dateTo are provided', async () => {
+      repo.query.mockResolvedValueOnce([]);
+
+      await service.findAllByTransactionId({
+        transactionIds: ['a'],
+        dateFrom: '2026-01-01',
+        dateTo: '2026-01-31',
+      } as any);
+
+      const [sql, params] = repo.query.mock.calls[0];
+      expect(sql).toContain('DATE(i.register) BETWEEN $2 AND $3');
+      expect(params).toEqual(['a', '2026-01-01', '2026-01-31']);
+    });
+
+    it('queries the historical table when it exists', async () => {
+      repo.query
+        .mockResolvedValueOnce([{ exists: true }])
+        .mockResolvedValueOnce([{ id: 9, transactionId: 'a', statusIncident: 500, onResponseExternal: [] }]);
+
+      const result: any = await service.findAllByTransactionId({
+        transactionIds: ['a'],
+        year: 2026,
+        month: 3,
+      } as any);
+
+      expect(result.incidents).toEqual([
+        { id: 9, transactionId: 'a', statusIncident: 500, onResponseExternal: [] },
+      ]);
+      expect(repo.query.mock.calls[1][0]).toContain('history."2026_03_incident"');
+    });
+
+    it('falls back to public.incident when the historical table does not exist', async () => {
+      repo.query
+        .mockResolvedValueOnce([{ exists: false }])
+        .mockResolvedValueOnce([]);
+
+      await service.findAllByTransactionId({
+        transactionIds: ['a'],
+        year: 2026,
+        month: 3,
+      } as any);
+
+      expect(repo.query.mock.calls[1][0]).toContain('FROM public.incident i');
+      expect(repo.query.mock.calls[1][0]).not.toContain('history."2026_03_incident"');
+    });
+
+    it('falls back to public.incident when year/month are invalid (SQL-injection guard)', async () => {
+      repo.query.mockResolvedValueOnce([]);
+
+      await service.findAllByTransactionId({
+        transactionIds: ['a'],
+        year: 1700,
+        month: 13,
+      } as any);
+
+      // No _tableExists lookup is issued; only the data query runs.
+      expect(repo.query).toHaveBeenCalledTimes(1);
+      expect(repo.query.mock.calls[0][0]).toContain('FROM public.incident i');
+    });
+
+    it('routes DB errors through handleDbExceptions', async () => {
+      repo.query.mockRejectedValueOnce(new Error('boom'));
+
+      await expect(
+        service.findAllByTransactionId({ transactionIds: ['a'] } as any),
+      ).rejects.toThrow('boom');
+      expect(handleDbExceptions).toHaveBeenCalled();
+    });
+  });
+
   describe('findOne', () => {
     it('returns the incident wrapped with NONE error code', async () => {
       repo.findOne.mockResolvedValueOnce({ id: 1 });
