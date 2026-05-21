@@ -21,6 +21,16 @@ export class L {
     @Column({ default: 0, type: 'decimal', precision: 10, scale: 6, comment: 'Longitude coordinate of the user current position' })
     longitude: number;
 
+    // Zone the user current position falls into (references Zone.id)
+    @Column('int', { default: null, nullable: true, comment: 'Identifier of the zone the user current position falls into (references Zone.id, null when outside any zone or not yet computed for existing tracking rows)' })
+    @Index()
+    zoneId: number;
+
+    // Block (sector) the user current position falls into (references Block.id)
+    @Column('int', { default: null, nullable: true, comment: 'Identifier of the block/sector the user current position falls into (references Block.id, null when outside any block or not yet computed for existing tracking rows)' })
+    @Index()
+    blockId: number;
+
     // Heading: direction the device is moving, in degrees (0-360)
     @Column({ default: 0, type: 'decimal', precision: 10, scale: 2, comment: 'Direction of movement in degrees (0-360, where 0=North)' })
     heading: number;
