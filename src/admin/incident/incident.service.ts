@@ -298,16 +298,7 @@ export class IncidentService {
         return { incident: null, errorCode: ErrorCode.NONE };
       }
 
-      const result = await this.incidentRepository
-        .createQueryBuilder()
-        .update(table)
-        .set(fieldsToUpdate)
-        .where('id = :id', { id })
-        .returning('*')
-        .execute();
-
-      const incident = result.raw?.[0] ?? null;
-
+      const incident = await this._updateHistoricalRow(table, fieldsToUpdate, id);
       return { incident, errorCode: ErrorCode.NONE };
     } catch (error) {
       handleDbExceptions(error, this.logger);
@@ -845,6 +836,30 @@ export class IncidentService {
     }
   }
 
+  // Runs a parameterized UPDATE on a historical table (schema."name") and
+  // returns the updated row via RETURNING *, or null if no row matched.
+  // Uses raw SQL because TypeORM's QueryBuilder mishandles quoted schema+table
+  // identifiers in the UPDATE target, producing zero-length identifier errors.
+  private async _updateHistoricalRow(
+    table: string,
+    fields: Record<string, any>,
+    id: number,
+  ): Promise<Record<string, any> | null> {
+    const keys = Object.keys(fields);
+    if (keys.length === 0) return null;
+
+    const params: any[] = [];
+    const setClauses = keys.map(key => {
+      params.push(fields[key]);
+      return `"${key}" = $${params.length}`;
+    });
+    params.push(id);
+
+    const sql = `UPDATE ${table} SET ${setClauses.join(', ')} WHERE id = $${params.length} RETURNING *`;
+    const rows = await this.incidentRepository.query(sql, params);
+    return rows?.[0] ?? null;
+  }
+
   // Verifies the existence of a fully-qualified schema-prefixed table via
   // information_schema. Returns false (and logs) if the name has no schema.
   private async _tableExists(tableName: string): Promise<boolean> {
@@ -1207,15 +1222,7 @@ export class IncidentService {
       return { incident: null, errorCode: ErrorCode.NOT_FOUND, message: 'No se encontro la incidencia para actualizar' };
     }
 
-    const result = await this.incidentRepository
-      .createQueryBuilder()
-      .update(table)
-      .set(fieldsToUpdate)
-      .where('id = :id', { id: incidentId })
-      .returning('*')
-      .execute();
-
-    const incident = result.raw?.[0] ?? null;
+    const incident = await this._updateHistoricalRow(table, fieldsToUpdate, incidentId);
 
     if (!incident) {
       return { incident: null, errorCode: ErrorCode.NOT_FOUND, message: 'No se encontro la incidencia para actualizar' };
