@@ -283,7 +283,7 @@ export class CheckboxService implements OnModuleInit {
         const date = this.commonService.getDate();
 
         try {
-            let concept = `Compra de ${createCheckboxDto.checkboxes} casilleros | Simert Loja - ${date}`;
+            let concept = `Compra de ${createCheckboxDto.checkboxes} casilleros | Simert Loja`;
 
             if (optionalData) {
                 const conceptElement = optionalData.find(element => element.key === 'concept');
