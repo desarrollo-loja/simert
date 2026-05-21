@@ -60,17 +60,17 @@ export class IncidentController {
     @Param('id') id: string,
     @Param('isTransacional', ParseIntPipe) isTransacional: number,
     @Body() updateIncidentDto: UpdateIncidentDto) {
-    return this.incidentService.update(+id, updateIncidentDto, isTransacional, userId);
+    return this.incidentService.update(+id, updateIncidentDto, isTransacional);
   }
 
   @ApiOperation({ summary: 'Update incident GIM sync status after external emission' })
   @Patch('update-status-gim/:userId/:idDevice/:id')
   updateStatusGim(
-    @Param('userId', ParseIntPipe) userId: number,
-    @Param('idDevice', ParseUUIDPipe) idDevice: string,
+    @Param('userId', ParseIntPipe) _userId: number,
+    @Param('idDevice', ParseUUIDPipe) _idDevice: string,
     @Param('id') id: string,
     @Body() updateIncidentDto: UpdateIncidentDto) {
-    return this.incidentService.updateStatusGim(+id, updateIncidentDto, userId);
+    return this.incidentService.updateStatusGim(+id, updateIncidentDto);
   }
 
   @ApiOperation({ summary: 'Upload an incident evidence file to Alfresco (multipart form-data, key: file)' })
