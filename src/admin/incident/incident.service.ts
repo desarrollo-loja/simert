@@ -1175,7 +1175,10 @@ export class IncidentService {
       const monthStr = String(incidentDto.month).padStart(2, '0');
       table = `history."${incidentDto.year}_${monthStr}_incident"`;
     } else if (incidentDto.createdAt) {
-      const date = new Date(incidentDto.createdAt);
+      // Normalize "YYYY-MM-DD HH:mm:ss" (space separator) to ISO format so
+      // Date parsing is consistent across all JS environments.
+      const normalized = incidentDto.createdAt.replace(' ', 'T');
+      const date = new Date(normalized);
       if (!isNaN(date.getTime())) {
         const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, '0');
