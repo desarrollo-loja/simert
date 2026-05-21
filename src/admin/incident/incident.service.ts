@@ -814,7 +814,8 @@ export class IncidentService {
 
     const params: any[] = [];
     const setClauses = keys.map(key => {
-      params.push(fields[key]);
+      const value = fields[key];
+      params.push(value !== null && typeof value === 'object' ? JSON.stringify(value) : value);
       return `"${key}" = $${params.length}`;
     });
     params.push(id);
