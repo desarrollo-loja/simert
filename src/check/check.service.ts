@@ -338,6 +338,8 @@ export class CheckService {
             quantity: 1,
         };
 
+        this.logger.log(`_emitCreditCard: enviando emisión checkbox ${checkbox.id} con entryCode=${emisionCreditCard.entryCode} | payload=${JSON.stringify(emisionCreditCard)}`);
+
         const emision = await this.gimService.emissionTitleCreditCard(emisionCreditCard);
 
         if (emision.errorCode !== ErrorCode.NONE) {
