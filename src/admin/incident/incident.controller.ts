@@ -28,22 +28,20 @@ export class IncidentController {
   @AuthWithKeycloak(TypeRol.ADMIN)
   @Patch('find-all/:userId/:idDevice')
   findAll(
-    @GetUser() user: JwtPayload,
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
     @Body() filterDto: IncidentFilterDto) {
-    return this.incidentService.findAll(filterDto, user);
+    return this.incidentService.findAll(filterDto);
   }
 
   @ApiOperation({ summary: 'Count total incidents matching filters (admin role required)' })
   @AuthWithKeycloak(TypeRol.ADMIN)
   @Patch('find-all-total/:userId/:idDevice')
   findAllTotal(
-    @GetUser() user: JwtPayload,
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
     @Body() filterDto: IncidentFilterDto) {
-    return this.incidentService.findAllTotal(filterDto, user);
+    return this.incidentService.findAllTotal(filterDto);
   }
 
   @ApiOperation({ summary: 'Get a single incident by id' })

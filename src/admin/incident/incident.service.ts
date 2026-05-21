@@ -1,7 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import axios, { AxiosRequestConfig } from 'axios';
-import { JwtPayload } from 'src/auth/interfaces';
 import { CommonGimService } from 'src/common/common.gim.service';
 import { FilterDto } from 'src/common/dto/filter.dto';
 import handleDbExceptions from 'src/common/exceptions/error.db.exception';
@@ -9,7 +8,6 @@ import { ErrorCode } from 'src/common/glob/error';
 import { IncidentStatus } from 'src/common/glob/type/type_incident';
 import { InternalStateIncident } from 'src/common/glob/type/type_internal_state_incident';
 import { TypeOperation } from 'src/common/glob/type/type_operation';
-import { TypeRol } from 'src/common/glob/type/type_rol';
 import { LoggerService } from 'src/common/logger.service.ts';
 import { Repository } from 'typeorm';
 
@@ -66,12 +64,8 @@ export class IncidentService {
     }
   }
 
-  async findAll(filterDto: IncidentFilterDto, user: JwtPayload) {
+  async findAll(filterDto: IncidentFilterDto) {
     const table = await this._resolveIncidentTable(filterDto);
-
-    const { roles } = user;
-
-    const internalState = this._getInternalStateIncident(roles);
 
     const { conditions, parameters } = this._buildConditionsAndParametersPg(filterDto);
 
@@ -80,12 +74,6 @@ export class IncidentService {
       parameters.push(value);
       return `$${parameters.length}`;
     };
-
-    // Filter incidents by the internal state(s) derived from the caller roles.
-    if (Array.isArray(internalState) && internalState.length > 0) {
-      const placeholders = internalState.map(v => addParamOutside(v)).join(', ');
-      conditions.push(`i."internalState" IN (${placeholders})`);
-    }
 
     let queryInfo = `
     SELECT
@@ -157,11 +145,8 @@ export class IncidentService {
     }
   }
 
-  async findAllTotal(filterDto: IncidentFilterDto, user: JwtPayload) {
+  async findAllTotal(filterDto: IncidentFilterDto) {
     const table = await this._resolveIncidentTable(filterDto);
-
-    const { roles } = user;
-    const internalState = this._getInternalStateIncident(roles);
 
     const { conditions, parameters } = this._buildConditionsAndParametersPg(filterDto);
 
@@ -169,13 +154,6 @@ export class IncidentService {
       parameters.push(value);
       return `$${parameters.length}`;
     };
-
-    // Mirror the role-based filter from findAll so the count stays in sync
-    // with the paginated list returned by findAll.
-    if (Array.isArray(internalState) && internalState.length > 0) {
-      const placeholders = internalState.map(v => addParamOutside(v)).join(', ');
-      conditions.push(`i."internalState" IN (${placeholders})`);
-    }
 
     let queryInfo = `SELECT COUNT(*) as total FROM ${table} i`;
 
@@ -223,20 +201,6 @@ export class IncidentService {
     }
 
     return tableNameIncident;
-  }
-
-  private _getInternalStateIncident(roles: string[]) {
-    const roleStateMap: Partial<Record<TypeRol, InternalStateIncident>> = {
-      [TypeRol.SIMERT_ADMINISTRATION]: InternalStateIncident.SIMERT_ADMINISTRATION,
-      [TypeRol.TRAFFIC_POLICE_STATION]: InternalStateIncident.TRAFFIC_POLICE_STATION,
-      [TypeRol.REVENUE_DEPARTMENT]: InternalStateIncident.REVENUE_DEPARTMENT,
-    };
-
-    const internalState: InternalStateIncident[] = roles
-      .filter(role => roleStateMap[role] !== undefined)
-      .map(role => roleStateMap[role]!);
-
-    return internalState;
   }
 
   async findOne(id: number) {

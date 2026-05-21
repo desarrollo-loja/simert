@@ -2,7 +2,6 @@
 import { ErrorCode } from 'src/common/glob/error';
 import { IncidentStatus } from 'src/common/glob/type/type_incident';
 import { InternalStateIncident } from 'src/common/glob/type/type_internal_state_incident';
-import { TypeRol } from 'src/common/glob/type/type_rol';
 
 // Mock axios at module level (used inside Alfresco helpers).
 jest.mock('axios', () => ({
@@ -122,14 +121,11 @@ describe('IncidentService', () => {
   });
 
   describe('findAll', () => {
-    const user: any = { roles: [TypeRol.ADMIN] };
-
     it('queries main table and applies parameterized LIMIT/OFFSET', async () => {
       repo.query.mockResolvedValueOnce([{ id: 1 }]);
 
       const result = await service.findAll(
         { search: 'foo', incidentTypeId: 2, limit: 5, offset: 10 } as any,
-        user,
       );
 
       expect(result).toEqual({ incidents: [{ id: 1 }], errorCode: ErrorCode.NONE });
@@ -137,7 +133,6 @@ describe('IncidentService', () => {
       expect(sql).toContain('FROM public.incident i');
       expect(sql).toMatch(/LIMIT \$\d+/);
       expect(sql).toMatch(/OFFSET \$\d+/);
-      // Last two params should be the safe limit and offset values.
       expect(params[params.length - 2]).toBe(5);
       expect(params[params.length - 1]).toBe(10);
     });
@@ -145,10 +140,7 @@ describe('IncidentService', () => {
     it('skips LIMIT/OFFSET when filter values are invalid (defense-in-depth)', async () => {
       repo.query.mockResolvedValueOnce([]);
 
-      await service.findAll(
-        { limit: -1, offset: -1 } as any,
-        user,
-      );
+      await service.findAll({ limit: -1, offset: -1 } as any);
 
       const [sql] = repo.query.mock.calls[0];
       expect(sql).not.toMatch(/LIMIT/);
@@ -156,69 +148,42 @@ describe('IncidentService', () => {
     });
 
     it('falls back to public.incident when year/month are invalid', async () => {
-      // Mirrors the resolution pattern of findAllFractionSanction: invalid
-      // year/month should not abort the query, just default to public.incident.
       repo.query.mockResolvedValueOnce([]);
 
-      const result = await service.findAll(
-        { year: 1700, month: 5 } as any,
-        user,
-      );
+      const result = await service.findAll({ year: 1700, month: 5 } as any);
 
       expect(result).toEqual({ incidents: [], errorCode: ErrorCode.NONE });
-      // _tableExists is NOT called because validation fails before that step.
       expect(repo.query).toHaveBeenCalledTimes(1);
       expect(repo.query.mock.calls[0][0]).toContain('FROM public.incident i');
     });
 
     it('queries historical table when it exists', async () => {
-      // First call: _tableExists -> true. Second call: actual incident query.
       repo.query
         .mockResolvedValueOnce([{ exists: true }])
         .mockResolvedValueOnce([{ id: 9 }]);
 
-      const result = await service.findAll(
-        { year: 2026, month: 3 } as any,
-        user,
-      );
+      const result = await service.findAll({ year: 2026, month: 3 } as any);
 
       expect(result.incidents).toEqual([{ id: 9 }]);
       expect(repo.query.mock.calls[1][0]).toContain('history."2026_03_incident"');
     });
 
     it('falls back to public.incident when historical table does not exist', async () => {
-      // First call: _tableExists -> false. Second call: query against public.
       repo.query
         .mockResolvedValueOnce([{ exists: false }])
         .mockResolvedValueOnce([{ id: 7 }]);
 
-      const result = await service.findAll(
-        { year: 2026, month: 3 } as any,
-        user,
-      );
+      const result = await service.findAll({ year: 2026, month: 3 } as any);
 
       expect(result).toEqual({ incidents: [{ id: 7 }], errorCode: ErrorCode.NONE });
       expect(repo.query.mock.calls[1][0]).toContain('FROM public.incident i');
       expect(repo.query.mock.calls[1][0]).not.toContain('history."2026_03_incident"');
     });
 
-    it('adds IN clause when roles map to internal states', async () => {
-      repo.query.mockResolvedValueOnce([]);
-
-      await service.findAll({} as any, {
-        roles: [TypeRol.SIMERT_ADMINISTRATION, TypeRol.TRAFFIC_POLICE_STATION],
-      } as any);
-
-      const [sql, params] = repo.query.mock.calls[0];
-      expect(sql).toContain('i."internalState" IN');
-      expect(params).toContain(InternalStateIncident.SIMERT_ADMINISTRATION);
-      expect(params).toContain(InternalStateIncident.TRAFFIC_POLICE_STATION);
-    });
-
     it('propagates DB errors through handleDbExceptions', async () => {
       repo.query.mockRejectedValueOnce(new Error('db fail'));
 
-      await expect(service.findAll({} as any, user)).rejects.toThrow('db fail');
+      await expect(service.findAll({} as any)).rejects.toThrow('db fail');
       expect(handleDbExceptions).toHaveBeenCalled();
     });
   });
@@ -227,7 +192,7 @@ describe('IncidentService', () => {
     it('returns total count as number', async () => {
       repo.query.mockResolvedValueOnce([{ total: '42' }]);
 
-      const result = await service.findAllTotal({ search: 'x' } as any, { roles: [] } as any);
+      const result = await service.findAllTotal({ search: 'x' } as any);
 
       expect(result).toEqual({ total: 42, errorCode: ErrorCode.NONE });
     });
@@ -235,14 +200,14 @@ describe('IncidentService', () => {
     it('returns 0 when query returns nothing', async () => {
       repo.query.mockResolvedValueOnce([]);
 
-      const result = await service.findAllTotal({} as any, { roles: [] } as any);
+      const result = await service.findAllTotal({} as any);
 
       expect(result).toEqual({ total: 0, errorCode: ErrorCode.NONE });
     });
 
     it('handles DB errors', async () => {
       repo.query.mockRejectedValueOnce(new Error('x'));
-      await expect(service.findAllTotal({} as any, { roles: [] } as any)).rejects.toThrow('x');
+      await expect(service.findAllTotal({} as any)).rejects.toThrow('x');
     });
   });
 
