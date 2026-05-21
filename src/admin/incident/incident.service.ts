@@ -8,6 +8,7 @@ import handleDbExceptions from 'src/common/exceptions/error.db.exception';
 import { ErrorCode } from 'src/common/glob/error';
 import { IncidentStatus } from 'src/common/glob/type/type_incident';
 import { InternalStateIncident } from 'src/common/glob/type/type_internal_state_incident';
+import { TypeOperation } from 'src/common/glob/type/type_operation';
 import { TypeRol } from 'src/common/glob/type/type_rol';
 import { LoggerService } from 'src/common/logger.service.ts';
 import { Repository } from 'typeorm';
@@ -47,10 +48,18 @@ export class IncidentService {
     );
   }
 
-  async create(createIncidentDto: CreateIncidentDto) {
+  async create(createIncidentDto: CreateIncidentDto, userId?: number) {
     try {
       const incident = this.incidentRepository.create({ ...createIncidentDto });
       const savedIncident = await this.incidentRepository.save(incident);
+
+      this.loggerService.saveIncidentLogger({
+        id: savedIncident.id,
+        userId: userId ?? savedIncident.controllerId,
+        typeOperation: TypeOperation.CREATE,
+        incident: savedIncident,
+      });
+
       return { incident: savedIncident, errorCode: ErrorCode.NONE };
     } catch (error) {
       handleDbExceptions(error, this.logger);
@@ -239,6 +248,7 @@ export class IncidentService {
     id: number,
     updateIncidentDto: UpdateIncidentDto,
     isTransacional: number,
+    userId?: number,
   ) {
     try {
       // Case 1: transactional flag set => update the main `public.incident` table.
@@ -253,6 +263,14 @@ export class IncidentService {
         }
 
         await this.incidentRepository.save(incident);
+
+        this.loggerService.saveIncidentLogger({
+          id: incident.id,
+          userId,
+          typeOperation: TypeOperation.UPDATE,
+          incident,
+        });
+
         return { incident, errorCode: ErrorCode.NONE };
       }
 
@@ -291,13 +309,22 @@ export class IncidentService {
 
       const incident = result.raw?.[0] ?? null;
 
+      if (incident) {
+        this.loggerService.saveIncidentLogger({
+          id,
+          userId,
+          typeOperation: TypeOperation.UPDATE,
+          incident,
+        });
+      }
+
       return { incident, errorCode: ErrorCode.NONE };
     } catch (error) {
       handleDbExceptions(error, this.logger);
     }
   }
 
-  async updateStatusGim(id: number, updateIncidentDto: UpdateIncidentDto) {
+  async updateStatusGim(id: number, updateIncidentDto: UpdateIncidentDto, userId?: number) {
     try {
       const incident = await this.incidentRepository.preload({
         id: id,
@@ -306,6 +333,14 @@ export class IncidentService {
 
       if (incident) {
         await this.incidentRepository.save(incident);
+
+        this.loggerService.saveIncidentLogger({
+          id: incident.id,
+          userId,
+          typeOperation: TypeOperation.UPDATE,
+          incident,
+        });
+
         return { incident, errorCode: ErrorCode.NONE };
       }
     } catch (error) {
@@ -483,13 +518,21 @@ export class IncidentService {
     return input.includes('/') ? null : input;
   }
 
-  async remove(id: number) {
+  async remove(id: number, userId?: number) {
     try {
       const incident = await this.incidentRepository.findOne({ where: { id } });
       if (incident) {
         // Soft-delete: business rule is to deactivate, not physically remove.
         incident.isActivated = false;
         await this.incidentRepository.save(incident);
+
+        this.loggerService.saveIncidentLogger({
+          id: incident.id,
+          userId,
+          typeOperation: TypeOperation.DELETE,
+          incident,
+        });
+
         return { incident, errorCode: ErrorCode.NONE };
       }
     } catch (error) {
@@ -1133,6 +1176,14 @@ export class IncidentService {
       }
 
       await this.incidentRepository.save(incident);
+
+      this.loggerService.saveIncidentLogger({
+        id: incident.id,
+        userId,
+        typeOperation: TypeOperation.UPDATE,
+        incident,
+      });
+
       return { incident, errorCode: ErrorCode.NONE };
     }
 
@@ -1171,6 +1222,13 @@ export class IncidentService {
     if (!incident) {
       return { incident: null, errorCode: ErrorCode.NOT_FOUND, message: 'No se encontro la incidencia para actualizar' };
     }
+
+    this.loggerService.saveIncidentLogger({
+      id: incidentDto.id,
+      userId,
+      typeOperation: TypeOperation.UPDATE,
+      incident,
+    });
 
     return { incident, errorCode: ErrorCode.NONE };
 

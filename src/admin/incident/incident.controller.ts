@@ -60,7 +60,7 @@ export class IncidentController {
     @Param('id') id: string,
     @Param('isTransacional', ParseIntPipe) isTransacional: number,
     @Body() updateIncidentDto: UpdateIncidentDto) {
-    return this.incidentService.update(+id, updateIncidentDto, isTransacional);
+    return this.incidentService.update(+id, updateIncidentDto, isTransacional, userId);
   }
 
   @ApiOperation({ summary: 'Update incident GIM sync status after external emission' })
@@ -70,7 +70,7 @@ export class IncidentController {
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
     @Param('id') id: string,
     @Body() updateIncidentDto: UpdateIncidentDto) {
-    return this.incidentService.updateStatusGim(+id, updateIncidentDto);
+    return this.incidentService.updateStatusGim(+id, updateIncidentDto, userId);
   }
 
   @ApiOperation({ summary: 'Upload an incident evidence file to Alfresco (multipart form-data, key: file)' })
@@ -127,7 +127,7 @@ export class IncidentController {
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
     @Param('id') id: string) {
-    return this.incidentService.remove(+id);
+    return this.incidentService.remove(+id, userId);
   }
 
   @ApiOperation({ summary: 'Aggregate incident statistics by date range and filters' })
