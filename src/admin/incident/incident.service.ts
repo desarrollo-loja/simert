@@ -251,72 +251,62 @@ export class IncidentService {
     userId?: number,
   ) {
     try {
-      // Case 1: transactional flag set => update the main `public.incident` table.
-      if (isTransacional) {
-        const incident = await this.incidentRepository.preload({
-          id,
-          ...updateIncidentDto,
-        });
+      // Strip routing-only fields before writing to any table.
+      const { year: dtoYear, month: dtoMonth, ...fieldsToUpdate } = updateIncidentDto;
 
-        if (!incident) {
+      // Case 1: transactional flag set => update the main `public.incident` table.
+      // Uses update() directly to avoid TypeORM's dirty-checking skipping json
+      // column changes (e.g. optionalData) due to object-reference comparison.
+      if (isTransacional) {
+        const exists = await this.incidentRepository.findOne({ where: { id } });
+        if (!exists) {
           return { incident: null, errorCode: ErrorCode.NOT_FOUND };
         }
-
-        await this.incidentRepository.save(incident);
-
-        this.loggerService.saveIncidentLogger({
-          id: incident.id,
-          userId,
-          typeOperation: TypeOperation.UPDATE,
-          incident,
-        });
-
+        await this.incidentRepository.update(id, fieldsToUpdate as any);
+        const incident = await this.incidentRepository.findOne({ where: { id } });
         return { incident, errorCode: ErrorCode.NONE };
       }
 
-      // Case 2: historical update. Read createdAt to derive the target year/month
-      // table; identifier is built from DB-owned data, not user input.
-      const current = await this.incidentRepository.findOne({
-        where: { id },
-        select: ['id', 'createdAt'],
-      });
+      // Case 2: historical update.
+      // Path A: caller supplies year/month — build the historical table directly
+      // without querying public.incident. Needed when the incident has been
+      // archived and removed from the main table.
+      // Path B: backward-compat — derive year/month from createdAt in public.incident.
+      let table: string;
 
-      if (!current?.createdAt) {
-        return { incident: null, errorCode: ErrorCode.NOT_FOUND };
+      if (dtoYear && dtoMonth && this._isValidYearMonth(dtoYear, dtoMonth)) {
+        const monthStr = String(dtoMonth).padStart(2, '0');
+        table = `history."${dtoYear}_${monthStr}_incident"`;
+      } else {
+        const current = await this.incidentRepository.findOne({
+          where: { id },
+          select: ['id', 'createdAt'],
+        });
+
+        if (!current?.createdAt) {
+          return { incident: null, errorCode: ErrorCode.NOT_FOUND };
+        }
+
+        const date = new Date(current.createdAt);
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        table = `history."${year}_${month}_incident"`;
       }
-
-      const date = new Date(current.createdAt);
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-
-      const table = `history."${year}_${month}_incident"`;
 
       const exists = await this._tableExists(table);
       if (!exists) {
-        // Same policy as findAll: no fallback to main table when historical
-        // table is missing.
         return { incident: null, errorCode: ErrorCode.NONE };
       }
 
-      // Direct UPDATE on the historical table.
       const result = await this.incidentRepository
         .createQueryBuilder()
         .update(table)
-        .set(updateIncidentDto)
+        .set(fieldsToUpdate)
         .where('id = :id', { id })
         .returning('*')
         .execute();
 
       const incident = result.raw?.[0] ?? null;
-
-      if (incident) {
-        this.loggerService.saveIncidentLogger({
-          id,
-          userId,
-          typeOperation: TypeOperation.UPDATE,
-          incident,
-        });
-      }
 
       return { incident, errorCode: ErrorCode.NONE };
     } catch (error) {
@@ -326,23 +316,23 @@ export class IncidentService {
 
   async updateStatusGim(id: number, updateIncidentDto: UpdateIncidentDto, userId?: number) {
     try {
-      const incident = await this.incidentRepository.preload({
-        id: id,
-        ...updateIncidentDto,
+      const exists = await this.incidentRepository.findOne({ where: { id } });
+      if (!exists) {
+        return { incident: null, errorCode: ErrorCode.NOT_FOUND };
+      }
+
+      const { year: _y, month: _m, ...fieldsToUpdate } = updateIncidentDto;
+      await this.incidentRepository.update(id, fieldsToUpdate as any);
+      const incident = await this.incidentRepository.findOne({ where: { id } });
+
+      this.loggerService.saveIncidentLogger({
+        id: incident.id,
+        userId,
+        typeOperation: TypeOperation.UPDATE,
+        incident,
       });
 
-      if (incident) {
-        await this.incidentRepository.save(incident);
-
-        this.loggerService.saveIncidentLogger({
-          id: incident.id,
-          userId,
-          typeOperation: TypeOperation.UPDATE,
-          incident,
-        });
-
-        return { incident, errorCode: ErrorCode.NONE };
-      }
+      return { incident, errorCode: ErrorCode.NONE };
     } catch (error) {
       handleDbExceptions(error, this.logger);
     }
@@ -1160,49 +1150,45 @@ export class IncidentService {
       }
     }
 
-    const updateIncidentDto = {
-      internalState,
-    }
+    const fieldsToUpdate = { internalState };
+    const incidentId = incidentDto.id;
 
     // Case 1: transactional flag set => update the main `public.incident` table.
     if (isTransacional) {
-      const incident = await this.incidentRepository.preload({
-        id: incidentDto.id,
-        ...updateIncidentDto,
-      });
-
-      if (!incident) {
+      const exists = await this.incidentRepository.findOne({ where: { id: incidentId } });
+      if (!exists) {
         return { incident: null, errorCode: ErrorCode.NOT_FOUND, message: 'No se encontro la incidencia para actualizar' };
       }
 
       await this.incidentRepository.save(incident);
-
-      this.loggerService.saveIncidentLogger({
-        id: incident.id,
-        userId,
-        typeOperation: TypeOperation.UPDATE,
-        incident,
-      });
-
       return { incident, errorCode: ErrorCode.NONE };
     }
 
-    // Case 2: historical update. Read createdAt to derive the target year/month
-    // table; identifier is built from DB-owned data, not user input.
-    const current = await this.incidentRepository.findOne({
-      where: { id: incidentDto.id },
-      select: ['id', 'createdAt'],
-    });
+    // Case 2: historical update.
+    // Path A: caller supplies year/month — build the historical table directly
+    // without querying public.incident. Needed when the incident has been
+    // archived and removed from the main table.
+    // Path B: backward-compat — derive year/month from createdAt in public.incident.
+    let table: string;
 
-    if (!current?.createdAt) {
-      return { incident: null, errorCode: ErrorCode.NOT_FOUND, message: 'No se encontro la incidencia para actualizar' };
+    if (incidentDto.year && incidentDto.month && this._isValidYearMonth(incidentDto.year, incidentDto.month)) {
+      const monthStr = String(incidentDto.month).padStart(2, '0');
+      table = `history."${incidentDto.year}_${monthStr}_incident"`;
+    } else {
+      const current = await this.incidentRepository.findOne({
+        where: { id: incidentId },
+        select: ['id', 'createdAt'],
+      });
+
+      if (!current?.createdAt) {
+        return { incident: null, errorCode: ErrorCode.NOT_FOUND, message: 'No se encontro la incidencia para actualizar' };
+      }
+
+      const date = new Date(current.createdAt);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      table = `history."${year}_${month}_incident"`;
     }
-
-    const date = new Date(current.createdAt);
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-
-    const table = `history."${year}_${month}_incident"`;
 
     const exists = await this._tableExists(table);
     if (!exists) {
@@ -1212,8 +1198,8 @@ export class IncidentService {
     const result = await this.incidentRepository
       .createQueryBuilder()
       .update(table)
-      .set(updateIncidentDto)
-      .where('id = :id', { id: incidentDto.id })
+      .set(fieldsToUpdate)
+      .where('id = :id', { id: incidentId })
       .returning('*')
       .execute();
 
