@@ -415,7 +415,9 @@ export class CheckboxService implements OnModuleInit {
             entryCode,
             description,
             optionalData: [
+                // GIM revenue code (entryCode) used when issuing the credit title
                 { key: 'rubro', value: entryCode },
+                // Human-readable description associated with the revenue code
                 { key: 'description', value: description },
             ],
         };

@@ -97,7 +97,9 @@ export class CheckService {
             entryCode,
             description,
             optionalData: [
+                // GIM revenue code (entryCode) used when issuing the credit title
                 { key: 'rubro', value: entryCode },
+                // Human-readable description associated with the revenue code
                 { key: 'description', value: description },
             ],
         };
@@ -337,8 +339,6 @@ export class CheckService {
             reference: transactionId,
             quantity: 1,
         };
-
-        this.logger.log(`_emitCreditCard: enviando emisión checkbox ${checkbox.id} con entryCode=${emisionCreditCard.entryCode} | payload=${JSON.stringify(emisionCreditCard)}`);
 
         const emision = await this.gimService.emissionTitleCreditCard(emisionCreditCard);
 
