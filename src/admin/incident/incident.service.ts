@@ -1153,29 +1153,37 @@ export class IncidentService {
     const fieldsToUpdate = { internalState };
     const incidentId = incidentDto.id;
 
-    // Case 1: transactional flag set => update the main `public.incident` table.
+    // Case 1: transactional flag set => try main `public.incident` table first,
+    // then fall through to historical if not found there.
     if (isTransacional) {
       const exists = await this.incidentRepository.findOne({ where: { id: incidentId } });
-      if (!exists) {
-        return { incident: null, errorCode: ErrorCode.NOT_FOUND, message: 'No se encontro la incidencia para actualizar' };
+      if (exists) {
+        await this.incidentRepository.update(incidentId, fieldsToUpdate);
+        const incident = await this.incidentRepository.findOne({ where: { id: incidentId } });
+        return { incident, errorCode: ErrorCode.NONE };
       }
-
-      await this.incidentRepository.update(incidentId, fieldsToUpdate);
-      const incident = await this.incidentRepository.findOne({ where: { id: incidentId } });
-      return { incident, errorCode: ErrorCode.NONE };
+      // Not in public.incident — fall through to historical resolution below.
     }
 
-    // Case 2: historical update.
-    // Path A: caller supplies year/month — build the historical table directly
-    // without querying public.incident. Needed when the incident has been
-    // archived and removed from the main table.
-    // Path B: backward-compat — derive year/month from createdAt in public.incident.
+    // Historical update.
+    // Path A: caller supplies year/month — build the historical table directly.
+    // Path B: derive year/month from createdAt in the body (incidentDto.createdAt).
+    // Path C (Case 1 fallback only): last resort — no date available at all.
     let table: string;
 
     if (incidentDto.year && incidentDto.month && this._isValidYearMonth(incidentDto.year, incidentDto.month)) {
       const monthStr = String(incidentDto.month).padStart(2, '0');
       table = `history."${incidentDto.year}_${monthStr}_incident"`;
-    } else {
+    } else if (incidentDto.createdAt) {
+      const date = new Date(incidentDto.createdAt);
+      if (!isNaN(date.getTime())) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        table = `history."${year}_${month}_incident"`;
+      }
+    }
+
+    if (!table) {
       const current = await this.incidentRepository.findOne({
         where: { id: incidentId },
         select: ['id', 'createdAt'],
@@ -1193,7 +1201,7 @@ export class IncidentService {
 
     const exists = await this._tableExists(table);
     if (!exists) {
-      return { incident: null, errorCode: ErrorCode.NONE, message: 'No se encontro la incidencia para actualizar' };
+      return { incident: null, errorCode: ErrorCode.NOT_FOUND, message: 'No se encontro la incidencia para actualizar' };
     }
 
     const result = await this.incidentRepository
