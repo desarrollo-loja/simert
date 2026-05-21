@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BlockOperator } from 'src/admin/block_operator/entities/block_operator.entity';
+import { Catalog } from 'src/admin/catalog/entities/catalog.entity';
 import { Checkbox } from 'src/admin/checkbox/entities/checkbox.entity';
 import { Fraction } from 'src/admin/fraction/entities/fraction.entity';
 import { AuthModule } from 'src/auth/auth.module';
@@ -12,6 +13,6 @@ import { CheckService } from './check.service';
 
 @Module({
   providers: [CheckService],
-  imports: [TypeOrmModule.forFeature([Fraction, Checkbox, BlockOperator]), CommonModule, AuthModule, GimModule, CommonCacheModule]
+  imports: [TypeOrmModule.forFeature([Fraction, Checkbox, BlockOperator, Catalog]), CommonModule, AuthModule, GimModule, CommonCacheModule]
 })
 export class CheckModule { }

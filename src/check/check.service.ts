@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { BlockOperator } from 'src/admin/block_operator/entities/block_operator.entity';
+import { Catalog } from 'src/admin/catalog/entities/catalog.entity';
 import { Checkbox } from 'src/admin/checkbox/entities/checkbox.entity';
 import { Fraction } from 'src/admin/fraction/entities/fraction.entity';
 import { GimService } from 'src/api/gim/gim.service';
@@ -14,6 +15,7 @@ import { RegisterDepositGimDto } from 'src/common/dto/register-deposit-gim.dto';
 import { ErrorCode } from 'src/common/glob/error';
 import { StatusFraction } from 'src/common/glob/status/status_fraction';
 import { StatusPayment } from 'src/common/glob/status/status_payment';
+import { CatalogType } from 'src/common/glob/type/type_catalog';
 import { IncidentStatus } from 'src/common/glob/type/type_incident';
 import { TypeNotification } from 'src/common/glob/type/type_notification';
 import { DataSource, IsNull, Repository } from 'typeorm';
@@ -31,6 +33,9 @@ export class CheckService {
         @InjectRepository(BlockOperator)
         private readonly blockOperatorRepository: Repository<BlockOperator>,
 
+        @InjectRepository(Catalog)
+        private readonly catalogRepository: Repository<Catalog>,
+
         private readonly dataSource: DataSource,
 
         @Inject(CommonService)
@@ -47,19 +52,55 @@ export class CheckService {
     ) { }
 
     private readonly logger = new Logger('CheckService');
-    private readonly codeEntryEmisionCard: string = process.env.CODE_ENTRY_EMISION_CARD || '573';
     private readonly intervalTransferCheck: number = parseInt(process.env.INTERVAL_TRANSFER_CHECK_MS || '') || 1000 * 60 * 1; //por defecto un minuto
     private readonly intervalValidateCheckbox: number = parseInt(process.env.INTERVAL_VALIDATE_CHECKBOX_MS || '') || 1000 * 60 * 2; //por defecto 3 minutos
     private readonly timeCacheBlockOperator = 60 * (Number(process.env.TIME_CACHE_BLOCK_OPERATOR) || 5);
+    private readonly catalogs: Map<string, any> = new Map();
 
     async onModuleInit() {
         this.logger.verbose('start call onModuleInit');
+
+        try {
+            const all = await this.catalogRepository.find();
+            for (const catalog of all) {
+                this.catalogs.set(catalog.name, catalog.data);
+            }
+            this.logger.log(`Catalogs loaded in memory: ${this.catalogs.size}`);
+        } catch (error) {
+            this.logger.error(`onModuleInit: error loading catalogs - ${error.message}`);
+        }
 
         //Validaras las fracciones que estan por vencerse
         setInterval(() => this._transferCheck(), this.intervalTransferCheck);
 
         //Validaras los checkboxes que estan por vencerse que se hayan pagado internamnete pero no en el municipio
         setInterval(() => this._validateCheckboxToEmitAndPay(), this.intervalValidateCheckbox);
+    }
+
+    private _buildRubroOptionalData(): {
+        entryCode: string;
+        description: string;
+        optionalData: { key: string; value: string | Object }[];
+    } {
+        const rubroCatalog = this.catalogs.get(CatalogType.TypeRubroCard);
+        let entryCode: string;
+        let description: string;
+        if (Array.isArray(rubroCatalog) && rubroCatalog.length > 0) {
+            const first = rubroCatalog[0];
+            entryCode = String(first.key);
+            description = first.valor;
+        } else {
+            entryCode = process.env.CODE_ENTRY_EMISION_CARD || '573';
+            description = process.env.CODE_ENTRY_EMISION_CARD_DESCRIPTION || 'Compra de tarjeta simert | Loja';
+        }
+        return {
+            entryCode,
+            description,
+            optionalData: [
+                { key: 'rubro', value: entryCode },
+                { key: 'description', value: description },
+            ],
+        };
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -288,8 +329,9 @@ export class CheckService {
         }
 
         // 4) Emitir el título de crédito
+        const { entryCode } = this._buildRubroOptionalData();
         const emisionCreditCard: EmissionCreditCardDto = {
-            entryCode: this.codeEntryEmisionCard,
+            entryCode,
             residentId,
             description: 'Compra de Tarjeta de parking',
             reference: transactionId,

@@ -1,6 +1,7 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Card } from 'src/admin/card/entities/card.entity';
+import { Catalog } from 'src/admin/catalog/entities/catalog.entity';
 import { Checkbox } from 'src/admin/checkbox/entities/checkbox.entity';
 import { CheckboxUser } from 'src/admin/checkbox-user/entities/checkbox-user.entity';
 import { GimService } from 'src/api/gim/gim.service';
@@ -21,6 +22,7 @@ import { ErrorCode } from 'src/common/glob/error';
 import { IdTransactionReason } from 'src/common/glob/id/id_transaction_reason';
 import { StatusMoment } from 'src/common/glob/status/status_moment';
 import { StatusPayment } from 'src/common/glob/status/status_payment';
+import { CatalogType } from 'src/common/glob/type/type_catalog';
 import { IncidentStatus } from 'src/common/glob/type/type_incident';
 import { TypeNotification } from 'src/common/glob/type/type_notification';
 import { TypePaymentMethod } from 'src/common/glob/type/type_payment_method';
@@ -32,12 +34,13 @@ import { v4 as uuidv4 } from 'uuid';
 import { CreateCheckboxDto } from './dto/create-checkbox.dto';
 
 @Injectable()
-export class CheckboxService {
+export class CheckboxService implements OnModuleInit {
 
     private readonly logger = new Logger('CheckboxService');
     private readonly domainSimert: string = process.env.DOMINIO_SIMERT;
     private readonly timerMinuteDeuna: number = 1000 * 60 * Number(process.env.TIMER_MINUTE_DEUNA || 5);
     private readonly timerMinutePlaceToPay: number = 1000 * 60 * Number(process.env.TIMER_MINUTE_PLACE_TO_PAY || 6);
+    private readonly catalogs: Map<string, any> = new Map();
 
     constructor(
         @InjectRepository(Checkbox)
@@ -48,6 +51,9 @@ export class CheckboxService {
 
         @InjectRepository(Card)
         private readonly cardRepository: Repository<Card>,
+
+        @InjectRepository(Catalog)
+        private readonly catalogRepository: Repository<Catalog>,
 
         @Inject(CommonService)
         private readonly commonService: CommonService,
@@ -66,6 +72,18 @@ export class CheckboxService {
 
         private readonly dataSource: DataSource
     ) { }
+
+    async onModuleInit() {
+        try {
+            const all = await this.catalogRepository.find();
+            for (const catalog of all) {
+                this.catalogs.set(catalog.name, catalog.data);
+            }
+            this.logger.log(`Catalogs loaded in memory: ${this.catalogs.size}`);
+        } catch (error) {
+            this.logger.error(`onModuleInit: error loading catalogs - ${error.message}`);
+        }
+    }
 
     async getTransactions(userId: number, getTransactionDto: GetTransactionDto, paginationDto: PaginationDto) {
         const { limit = 10, offset = 0 } = paginationDto;
@@ -377,14 +395,41 @@ export class CheckboxService {
         }
     }
 
+    private _buildRubroOptionalData(): {
+        entryCode: string;
+        description: string;
+        optionalData: { key: string; value: string | Object }[];
+    } {
+        const rubroCatalog = this.catalogs.get(CatalogType.TypeRubroCard);
+        let entryCode: string;
+        let description: string;
+        if (Array.isArray(rubroCatalog) && rubroCatalog.length > 0) {
+            const first = rubroCatalog[0];
+            entryCode = String(first.key);
+            description = first.valor;
+        } else {
+            entryCode = process.env.CODE_ENTRY_EMISION_CARD || '573';
+            description = process.env.CODE_ENTRY_EMISION_CARD_DESCRIPTION || 'Compra de tarjeta simert | Loja';
+        }
+        return {
+            entryCode,
+            description,
+            optionalData: [
+                { key: 'rubro', value: entryCode },
+                { key: 'description', value: description },
+            ],
+        };
+    }
+
     async _saveResponsePay(idDevice: string, checkbox: Checkbox, moment: StatusMoment, statusPayment: StatusPayment) {
+        const { entryCode, optionalData } = this._buildRubroOptionalData();
         if (statusPayment === StatusPayment.PAID) {
             try {
                 const { userId } = checkbox;
 
                 // Emitimos el título de crédito en el GIM
                 // const emisionResult = await this._resolveResidentIdAndEmitCreditCard(idDevice, checkbox);
-                const emisionResult = await this.commonCheckboxService.resolveResidentIdAndEmitCreditCard(idDevice, checkbox);
+                const emisionResult = await this.commonCheckboxService.resolveResidentIdAndEmitCreditCard(idDevice, checkbox, entryCode);
 
                 if (emisionResult && emisionResult.errorCode !== ErrorCode.NONE) {
                     this.logger.error(`_saveResponsePay: no se pudo emitir título de crédito para checkbox ${checkbox.id}`);
@@ -419,11 +464,12 @@ export class CheckboxService {
 
                 }
 
-                // actualizamos el checkbox con sus nuevos estados 
+                // actualizamos el checkbox con sus nuevos estados
                 const updateData = {
                     onResponseExternal: checkbox.onResponseExternal,
                     statusIncident: checkbox.statusIncident,
                     statusPayment: statusPayment,
+                    optionalData,
                     // moment: moment,
                 }
                 const updateResponseCheck = await this.checkboxRepository.update(checkbox.id, updateData);
@@ -448,6 +494,7 @@ export class CheckboxService {
         }
         checkbox.moment = moment;
         checkbox.statusPayment = statusPayment;
+        checkbox.optionalData = optionalData;
         await this.checkboxRepository.save(checkbox);
     }
 
