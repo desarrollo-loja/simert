@@ -49,6 +49,7 @@ const buildRepoMock = () => {
   return {
     create: jest.fn((dto: any) => dto),
     save: jest.fn(async (e: any) => e),
+    update: jest.fn(),
     findOne: jest.fn(),
     preload: jest.fn(),
     query: jest.fn(),
@@ -70,7 +71,7 @@ describe('IncidentService', () => {
 
   beforeEach(() => {
     repo = buildRepoMock();
-    logger = { error: jest.fn(), log: jest.fn(), warn: jest.fn(), debug: jest.fn() };
+    logger = { error: jest.fn(), log: jest.fn(), warn: jest.fn(), debug: jest.fn(), saveIncidentLogger: jest.fn() };
     gim = buildGimMock();
     service = new IncidentService(repo as any, logger as any, gim as any);
     // Silence the internal Logger so test output stays clean.
@@ -257,17 +258,21 @@ describe('IncidentService', () => {
   });
 
   describe('update', () => {
-    it('transactional path saves preloaded entity', async () => {
-      repo.preload.mockResolvedValueOnce({ id: 1, description: 'x' });
+    it('transactional path updates and returns the incident', async () => {
+      const saved = { id: 1, description: 'x' };
+      repo.findOne
+        .mockResolvedValueOnce(saved)
+        .mockResolvedValueOnce(saved);
+      repo.update.mockResolvedValueOnce(undefined);
 
       const result = await service.update(1, { description: 'x' } as any, 1);
 
-      expect(repo.save).toHaveBeenCalled();
-      expect(result.errorCode).toBe(ErrorCode.NONE);
+      expect(repo.update).toHaveBeenCalledWith(1, { description: 'x' });
+      expect(result).toEqual({ incident: saved, errorCode: ErrorCode.NONE });
     });
 
-    it('transactional path returns NOT_FOUND when preload yields nothing', async () => {
-      repo.preload.mockResolvedValueOnce(undefined);
+    it('transactional path returns NOT_FOUND when row missing', async () => {
+      repo.findOne.mockResolvedValueOnce(null);
 
       const result = await service.update(1, {} as any, 1);
 
@@ -291,52 +296,74 @@ describe('IncidentService', () => {
       expect(result).toEqual({ incident: null, errorCode: ErrorCode.NONE });
     });
 
-    it('historical path: runs update on the historical table when it exists', async () => {
+    it('historical path: runs raw UPDATE on the historical table when it exists', async () => {
       repo.findOne.mockResolvedValueOnce({ id: 1, createdAt: new Date('2026-03-15') });
+      // _tableExists call
       repo.query.mockResolvedValueOnce([{ exists: true }]);
-      repo.__qb.execute.mockResolvedValueOnce({ raw: [{ id: 1, internalState: 200 }] });
+      // _updateHistoricalRow raw SQL call
+      repo.query.mockResolvedValueOnce([{ id: 1, description: 'y' }]);
 
       const result = await service.update(1, { description: 'y' } as any, 0);
 
-      expect(repo.createQueryBuilder).toHaveBeenCalled();
-      expect(repo.__qb.update).toHaveBeenCalledWith('history."2026_03_incident"');
-      expect(result).toEqual({ incident: { id: 1, internalState: 200 }, errorCode: ErrorCode.NONE });
+      expect(result).toEqual({ incident: { id: 1, description: 'y' }, errorCode: ErrorCode.NONE });
+      const updateSql: string = repo.query.mock.calls[1][0];
+      expect(updateSql).toContain('UPDATE history."2026_03_incident"');
+      expect(updateSql).toContain('"description" = $1');
+      expect(updateSql).toContain('RETURNING *');
+      expect(repo.query.mock.calls[1][1]).toEqual(['y', 1]);
     });
 
-    it('historical path: returns null incident when nothing was updated', async () => {
+    it('historical path: uses year/month from DTO when supplied (Path A)', async () => {
+      // _tableExists
+      repo.query.mockResolvedValueOnce([{ exists: true }]);
+      // _updateHistoricalRow
+      repo.query.mockResolvedValueOnce([{ id: 5, description: 'z' }]);
+
+      const result = await service.update(5, { description: 'z', year: 2026, month: 1 } as any, 0);
+
+      expect(result).toEqual({ incident: { id: 5, description: 'z' }, errorCode: ErrorCode.NONE });
+      const updateSql: string = repo.query.mock.calls[1][0];
+      expect(updateSql).toContain('UPDATE history."2026_01_incident"');
+    });
+
+    it('historical path: returns null incident when _updateHistoricalRow finds nothing', async () => {
       repo.findOne.mockResolvedValueOnce({ id: 1, createdAt: new Date('2026-03-15') });
       repo.query.mockResolvedValueOnce([{ exists: true }]);
-      repo.__qb.execute.mockResolvedValueOnce({ raw: [] });
+      repo.query.mockResolvedValueOnce([]);  // no row returned
 
-      const result = await service.update(1, {} as any, 0);
+      const result = await service.update(1, { description: 'y' } as any, 0);
 
       expect(result).toEqual({ incident: null, errorCode: ErrorCode.NONE });
     });
 
     it('routes errors through handleDbExceptions', async () => {
-      repo.preload.mockRejectedValueOnce(new Error('p'));
+      repo.findOne.mockRejectedValueOnce(new Error('p'));
       await expect(service.update(1, {} as any, 1)).rejects.toThrow('p');
     });
   });
 
   describe('updateStatusGim', () => {
-    it('saves preloaded entity when found', async () => {
-      repo.preload.mockResolvedValueOnce({ id: 1 });
+    it('updates and returns the incident when found', async () => {
+      const saved = { id: 1, description: 'x' };
+      repo.findOne
+        .mockResolvedValueOnce(saved)
+        .mockResolvedValueOnce(saved);
+      repo.update.mockResolvedValueOnce(undefined);
 
       const result = await service.updateStatusGim(1, {} as any);
 
-      expect(repo.save).toHaveBeenCalled();
-      expect(result).toEqual({ incident: { id: 1 }, errorCode: ErrorCode.NONE });
+      expect(repo.update).toHaveBeenCalledWith(1, {});
+      expect(result).toEqual({ incident: saved, errorCode: ErrorCode.NONE });
     });
 
-    it('returns undefined when preload yields nothing', async () => {
-      repo.preload.mockResolvedValueOnce(undefined);
+    it('returns NOT_FOUND when row missing', async () => {
+      repo.findOne.mockResolvedValueOnce(null);
       const result = await service.updateStatusGim(1, {} as any);
-      expect(result).toBeUndefined();
+      expect(result).toEqual({ incident: null, errorCode: ErrorCode.NOT_FOUND });
     });
 
     it('handles errors', async () => {
-      repo.preload.mockRejectedValueOnce(new Error('e'));
+      repo.findOne.mockRejectedValueOnce(new Error('e'));
       await expect(service.updateStatusGim(1, {} as any)).rejects.toThrow('e');
     });
   });
@@ -1055,6 +1082,13 @@ describe('IncidentService', () => {
   });
 
   describe('advanceNextProcess', () => {
+    const baseDto = (internalState: InternalStateIncident) => ({
+      id: 1,
+      identityCard: 'X',
+      nroTicket: 'T',
+      internalState,
+    });
+
     it('returns NOT_FOUND when identityCard missing', async () => {
       const result = await service.advanceNextProcess(1, 'dev', { nroTicket: 'T' } as any, 1);
       expect(result.errorCode).toBe(ErrorCode.NOT_FOUND);
@@ -1065,148 +1099,147 @@ describe('IncidentService', () => {
       expect(result.errorCode).toBe(ErrorCode.NOT_FOUND);
     });
 
-    it('SIMERT_ADMINISTRATION -> TRAFFIC_POLICE_STATION', async () => {
+    it('SIMERT_ADMINISTRATION -> TRAFFIC_POLICE_STATION (transactional)', async () => {
+      const row = { id: 1, internalState: InternalStateIncident.SIMERT_ADMINISTRATION };
       gim.findObligationsByCitation.mockResolvedValueOnce({ errorCode: ErrorCode.NOT_FOUND, data: [] });
-      repo.preload.mockImplementationOnce(async (e: any) => e);
+      repo.findOne.mockResolvedValueOnce(row).mockResolvedValueOnce({ ...row, internalState: InternalStateIncident.TRAFFIC_POLICE_STATION });
+      repo.update.mockResolvedValueOnce(undefined);
 
-      const result = await service.advanceNextProcess(1, 'dev', {
-        id: 1,
-        identityCard: 'X',
-        nroTicket: 'T',
-        internalState: InternalStateIncident.SIMERT_ADMINISTRATION,
-      } as any, 1);
+      const result = await service.advanceNextProcess(1, 'dev', baseDto(InternalStateIncident.SIMERT_ADMINISTRATION) as any, 1);
 
-      expect(repo.save).toHaveBeenCalledWith(expect.objectContaining({
-        internalState: InternalStateIncident.TRAFFIC_POLICE_STATION,
-      }));
+      expect(repo.update).toHaveBeenCalledWith(1, { internalState: InternalStateIncident.TRAFFIC_POLICE_STATION });
       expect(result.errorCode).toBe(ErrorCode.NONE);
     });
 
-    it('TRAFFIC_POLICE_STATION -> REVENUE_DEPARTMENT', async () => {
+    it('TRAFFIC_POLICE_STATION -> REVENUE_DEPARTMENT (transactional)', async () => {
+      const row = { id: 1, internalState: InternalStateIncident.TRAFFIC_POLICE_STATION };
       gim.findObligationsByCitation.mockResolvedValueOnce({ errorCode: ErrorCode.NOT_FOUND, data: [] });
-      repo.preload.mockImplementationOnce(async (e: any) => e);
+      repo.findOne.mockResolvedValueOnce(row).mockResolvedValueOnce({ ...row, internalState: InternalStateIncident.REVENUE_DEPARTMENT });
+      repo.update.mockResolvedValueOnce(undefined);
 
-      const result = await service.advanceNextProcess(1, 'dev', {
-        id: 1,
-        identityCard: 'X',
-        nroTicket: 'T',
-        internalState: InternalStateIncident.TRAFFIC_POLICE_STATION,
-      } as any, 1);
+      const result = await service.advanceNextProcess(1, 'dev', baseDto(InternalStateIncident.TRAFFIC_POLICE_STATION) as any, 1);
 
-      expect(repo.save).toHaveBeenCalledWith(expect.objectContaining({
-        internalState: InternalStateIncident.REVENUE_DEPARTMENT,
-      }));
+      expect(repo.update).toHaveBeenCalledWith(1, { internalState: InternalStateIncident.REVENUE_DEPARTMENT });
       expect(result.errorCode).toBe(ErrorCode.NONE);
     });
 
-    it('REVENUE_DEPARTMENT -> REVENUE_DEPARTMENT (terminal)', async () => {
+    it('REVENUE_DEPARTMENT stays terminal (transactional)', async () => {
+      const row = { id: 1, internalState: InternalStateIncident.REVENUE_DEPARTMENT };
       gim.findObligationsByCitation.mockResolvedValueOnce({ errorCode: ErrorCode.NOT_FOUND, data: [] });
-      repo.preload.mockImplementationOnce(async (e: any) => e);
+      repo.findOne.mockResolvedValueOnce(row).mockResolvedValueOnce(row);
+      repo.update.mockResolvedValueOnce(undefined);
 
-      const result = await service.advanceNextProcess(1, 'dev', {
-        id: 1,
-        identityCard: 'X',
-        nroTicket: 'T',
-        internalState: InternalStateIncident.REVENUE_DEPARTMENT,
-      } as any, 1);
+      const result = await service.advanceNextProcess(1, 'dev', baseDto(InternalStateIncident.REVENUE_DEPARTMENT) as any, 1);
 
-      expect(repo.save).toHaveBeenCalledWith(expect.objectContaining({
-        internalState: InternalStateIncident.REVENUE_DEPARTMENT,
-      }));
+      expect(repo.update).toHaveBeenCalledWith(1, { internalState: InternalStateIncident.REVENUE_DEPARTMENT });
       expect(result.errorCode).toBe(ErrorCode.NONE);
     });
 
-    it('GIM returns existing obligation -> jumps to REVENUE_DEPARTMENT', async () => {
+    it('GIM existing obligation -> jumps to REVENUE_DEPARTMENT (transactional)', async () => {
+      const row = { id: 1, internalState: InternalStateIncident.SIMERT_ADMINISTRATION };
       gim.findObligationsByCitation.mockResolvedValueOnce({ errorCode: ErrorCode.NONE, data: [{ x: 1 }] });
-      repo.preload.mockImplementationOnce(async (e: any) => e);
+      repo.findOne.mockResolvedValueOnce(row).mockResolvedValueOnce({ ...row, internalState: InternalStateIncident.REVENUE_DEPARTMENT });
+      repo.update.mockResolvedValueOnce(undefined);
 
-      const result = await service.advanceNextProcess(1, 'dev', {
-        id: 1,
-        identityCard: 'X',
-        nroTicket: 'T',
-        internalState: InternalStateIncident.SIMERT_ADMINISTRATION,
-      } as any, 1);
+      const result = await service.advanceNextProcess(1, 'dev', baseDto(InternalStateIncident.SIMERT_ADMINISTRATION) as any, 1);
 
-      expect(repo.save).toHaveBeenCalledWith(expect.objectContaining({
-        internalState: InternalStateIncident.REVENUE_DEPARTMENT,
-      }));
+      expect(repo.update).toHaveBeenCalledWith(1, { internalState: InternalStateIncident.REVENUE_DEPARTMENT });
       expect(result.errorCode).toBe(ErrorCode.NONE);
     });
 
-    it('transactional path returns NOT_FOUND when preload yields nothing', async () => {
+    it('transactional: NOT_FOUND when row not in public.incident and no createdAt in body', async () => {
       gim.findObligationsByCitation.mockResolvedValueOnce({ errorCode: ErrorCode.NOT_FOUND, data: [] });
-      repo.preload.mockResolvedValueOnce(undefined);
+      // findOne for public.incident -> null (not found), then fallback findOne -> null (no createdAt)
+      repo.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
 
-      const result = await service.advanceNextProcess(1, 'dev', {
-        id: 1,
-        identityCard: 'X',
-        nroTicket: 'T',
-        internalState: InternalStateIncident.SIMERT_ADMINISTRATION,
-      } as any, 1);
+      const result = await service.advanceNextProcess(1, 'dev', baseDto(InternalStateIncident.SIMERT_ADMINISTRATION) as any, 1);
 
       expect(result.errorCode).toBe(ErrorCode.NOT_FOUND);
     });
 
-    it('historical path: NOT_FOUND when current row missing', async () => {
+    it('transactional: falls back to historical when row archived (createdAt in body)', async () => {
       gim.findObligationsByCitation.mockResolvedValueOnce({ errorCode: ErrorCode.NOT_FOUND, data: [] });
-      repo.findOne.mockResolvedValueOnce(null);
+      repo.findOne.mockResolvedValueOnce(null);                    // not in public.incident
+      repo.query.mockResolvedValueOnce([{ exists: true }]);        // _tableExists -> true
+      repo.query.mockResolvedValueOnce([{ id: 1, internalState: InternalStateIncident.TRAFFIC_POLICE_STATION }]); // _updateHistoricalRow
 
       const result = await service.advanceNextProcess(1, 'dev', {
-        id: 1,
-        identityCard: 'X',
-        nroTicket: 'T',
-        internalState: InternalStateIncident.SIMERT_ADMINISTRATION,
+        ...baseDto(InternalStateIncident.SIMERT_ADMINISTRATION),
+        createdAt: '2026-03-15 10:00:00',
+      } as any, 1);
+
+      expect(result.errorCode).toBe(ErrorCode.NONE);
+      const updateSql: string = repo.query.mock.calls[1][0];
+      expect(updateSql).toContain('UPDATE history."2026_03_incident"');
+    });
+
+    it('historical path (isTransacional=0): uses createdAt from body (space-separated date)', async () => {
+      gim.findObligationsByCitation.mockResolvedValueOnce({ errorCode: ErrorCode.NOT_FOUND, data: [] });
+      repo.query.mockResolvedValueOnce([{ exists: true }]);
+      repo.query.mockResolvedValueOnce([{ id: 1, internalState: InternalStateIncident.TRAFFIC_POLICE_STATION }]);
+
+      const result = await service.advanceNextProcess(1, 'dev', {
+        ...baseDto(InternalStateIncident.SIMERT_ADMINISTRATION),
+        createdAt: '2026-05-12 16:18:36',
       } as any, 0);
 
-      expect(result.errorCode).toBe(ErrorCode.NOT_FOUND);
+      expect(result.errorCode).toBe(ErrorCode.NONE);
+      const updateSql: string = repo.query.mock.calls[1][0];
+      expect(updateSql).toContain('UPDATE history."2026_05_incident"');
     });
 
-    it('historical path: NONE when historical table does not exist', async () => {
+    it('historical path: NOT_FOUND when table does not exist', async () => {
       gim.findObligationsByCitation.mockResolvedValueOnce({ errorCode: ErrorCode.NOT_FOUND, data: [] });
-      repo.findOne.mockResolvedValueOnce({ id: 1, createdAt: new Date('2026-03-15') });
       repo.query.mockResolvedValueOnce([{ exists: false }]);
 
       const result = await service.advanceNextProcess(1, 'dev', {
-        id: 1,
-        identityCard: 'X',
-        nroTicket: 'T',
-        internalState: InternalStateIncident.SIMERT_ADMINISTRATION,
-      } as any, 0);
-
-      expect(result.errorCode).toBe(ErrorCode.NONE);
-    });
-
-    it('historical path: updates and returns NONE when row found', async () => {
-      gim.findObligationsByCitation.mockResolvedValueOnce({ errorCode: ErrorCode.NOT_FOUND, data: [] });
-      repo.findOne.mockResolvedValueOnce({ id: 1, createdAt: new Date('2026-03-15') });
-      repo.query.mockResolvedValueOnce([{ exists: true }]);
-      repo.__qb.execute.mockResolvedValueOnce({ raw: [{ id: 1, internalState: 200 }] });
-
-      const result = await service.advanceNextProcess(1, 'dev', {
-        id: 1,
-        identityCard: 'X',
-        nroTicket: 'T',
-        internalState: InternalStateIncident.SIMERT_ADMINISTRATION,
-      } as any, 0);
-
-      expect(result.errorCode).toBe(ErrorCode.NONE);
-      expect(repo.__qb.update).toHaveBeenCalledWith('history."2026_03_incident"');
-    });
-
-    it('historical path: NOT_FOUND when update returns no rows', async () => {
-      gim.findObligationsByCitation.mockResolvedValueOnce({ errorCode: ErrorCode.NOT_FOUND, data: [] });
-      repo.findOne.mockResolvedValueOnce({ id: 1, createdAt: new Date('2026-03-15') });
-      repo.query.mockResolvedValueOnce([{ exists: true }]);
-      repo.__qb.execute.mockResolvedValueOnce({ raw: [] });
-
-      const result = await service.advanceNextProcess(1, 'dev', {
-        id: 1,
-        identityCard: 'X',
-        nroTicket: 'T',
-        internalState: InternalStateIncident.SIMERT_ADMINISTRATION,
+        ...baseDto(InternalStateIncident.SIMERT_ADMINISTRATION),
+        createdAt: '2026-03-15 10:00:00',
       } as any, 0);
 
       expect(result.errorCode).toBe(ErrorCode.NOT_FOUND);
+    });
+
+    it('historical path: NOT_FOUND when _updateHistoricalRow returns no row', async () => {
+      gim.findObligationsByCitation.mockResolvedValueOnce({ errorCode: ErrorCode.NOT_FOUND, data: [] });
+      repo.query.mockResolvedValueOnce([{ exists: true }]);
+      repo.query.mockResolvedValueOnce([]);  // no row updated
+
+      const result = await service.advanceNextProcess(1, 'dev', {
+        ...baseDto(InternalStateIncident.SIMERT_ADMINISTRATION),
+        createdAt: '2026-03-15 10:00:00',
+      } as any, 0);
+
+      expect(result.errorCode).toBe(ErrorCode.NOT_FOUND);
+    });
+
+    it('historical path: uses year/month from body when provided (Path A)', async () => {
+      gim.findObligationsByCitation.mockResolvedValueOnce({ errorCode: ErrorCode.NOT_FOUND, data: [] });
+      repo.query.mockResolvedValueOnce([{ exists: true }]);
+      repo.query.mockResolvedValueOnce([{ id: 1, internalState: InternalStateIncident.TRAFFIC_POLICE_STATION }]);
+
+      const result = await service.advanceNextProcess(1, 'dev', {
+        ...baseDto(InternalStateIncident.SIMERT_ADMINISTRATION),
+        year: 2026,
+        month: 1,
+      } as any, 0);
+
+      expect(result.errorCode).toBe(ErrorCode.NONE);
+      const updateSql: string = repo.query.mock.calls[1][0];
+      expect(updateSql).toContain('UPDATE history."2026_01_incident"');
+    });
+
+    it('historical path (no date info): falls back to public.incident findOne', async () => {
+      gim.findObligationsByCitation.mockResolvedValueOnce({ errorCode: ErrorCode.NOT_FOUND, data: [] });
+      repo.findOne.mockResolvedValueOnce({ id: 1, createdAt: new Date('2026-03-15') });
+      repo.query.mockResolvedValueOnce([{ exists: true }]);
+      repo.query.mockResolvedValueOnce([{ id: 1, internalState: InternalStateIncident.TRAFFIC_POLICE_STATION }]);
+
+      const result = await service.advanceNextProcess(1, 'dev', baseDto(InternalStateIncident.SIMERT_ADMINISTRATION) as any, 0);
+
+      expect(result.errorCode).toBe(ErrorCode.NONE);
+      const updateSql: string = repo.query.mock.calls[1][0];
+      expect(updateSql).toContain('UPDATE history."2026_03_incident"');
     });
   });
 });
