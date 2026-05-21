@@ -1160,7 +1160,8 @@ export class IncidentService {
         return { incident: null, errorCode: ErrorCode.NOT_FOUND, message: 'No se encontro la incidencia para actualizar' };
       }
 
-      await this.incidentRepository.save(incident);
+      await this.incidentRepository.update(incidentId, fieldsToUpdate);
+      const incident = await this.incidentRepository.findOne({ where: { id: incidentId } });
       return { incident, errorCode: ErrorCode.NONE };
     }
 
