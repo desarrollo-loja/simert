@@ -563,6 +563,7 @@ export class IncidentService {
       search = '',
       incidentTypeId,
       statusIncident,
+      internalState,
       dateFrom,
       dateTo,
       zoneId,
@@ -612,6 +613,11 @@ export class IncidentService {
     if (statusIncident) {
       conditions.push(`i."statusIncident" = ${addParam(statusIncident)}`);
     }
+
+    if (internalState) {
+      conditions.push(`i."internalState" = ${addParam(internalState)}`);
+    }
+
     if (userId) {
       conditions.push(`i."controllerId" = ${addParam(userId)}`);
     }
