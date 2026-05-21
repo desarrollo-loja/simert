@@ -151,13 +151,13 @@ describe('CheckboxService', () => {
   describe('findAllByTransactionId', () => {
     it('returns empty when transactionIds is missing', async () => {
       const result = await service.findAllByTransactionId({} as any);
-      expect(result).toEqual({ checkbox: [] });
+      expect(result).toEqual({ errorCode: ErrorCode.NONE, checkbox: [] });
       expect(repo.query).not.toHaveBeenCalled();
     });
 
     it('returns empty when transactionIds is empty array', async () => {
       const result = await service.findAllByTransactionId({ transactionIds: [] } as any);
-      expect(result).toEqual({ checkbox: [] });
+      expect(result).toEqual({ errorCode: ErrorCode.NONE, checkbox: [] });
       expect(repo.query).not.toHaveBeenCalled();
     });
 
@@ -171,7 +171,8 @@ describe('CheckboxService', () => {
       } as any);
 
       expect(result).toEqual({
-        checkbox: [{ id: 1, transactionId: 'a', statusIncident: 100, onResponseExternal: null }],
+        errorCode: ErrorCode.NONE,
+        checkboxes: [{ id: 1, transactionId: 'a', statusIncident: 100, onResponseExternal: null }],
       });
       const [sql, params] = repo.query.mock.calls[0];
       expect(sql).toContain('FROM checkbox c');
@@ -225,7 +226,7 @@ describe('CheckboxService', () => {
         month: 3,
       } as any);
 
-      expect(result.checkbox).toEqual([
+      expect(result.checkboxes).toEqual([
         { id: 9, transactionId: 'a', statusIncident: 500, onResponseExternal: [] },
       ]);
       expect(repo.query.mock.calls[1][0]).toContain('FROM 2026_03_checkbox c');
@@ -240,7 +241,7 @@ describe('CheckboxService', () => {
         month: 3,
       } as any);
 
-      expect(result).toEqual({ checkbox: [] });
+      expect(result).toEqual({ errorCode: ErrorCode.NONE, checkboxes: [] });
     });
 
     it('routes DB errors through handleDbExceptions', async () => {
@@ -252,13 +253,13 @@ describe('CheckboxService', () => {
       expect(handleDbExceptions).toHaveBeenCalled();
     });
 
-    it('falls through to fallback empty result when handleDbExceptions swallows the error', async () => {
+    it('returns undefined when handleDbExceptions swallows the error', async () => {
       repo.query.mockRejectedValueOnce(new Error('soft'));
       (handleDbExceptions as unknown as jest.Mock).mockImplementationOnce(() => undefined);
 
       const result = await service.findAllByTransactionId({ transactionIds: ['a'] } as any);
 
-      expect(result).toEqual({ checkbox: [] });
+      expect(result).toBeUndefined();
     });
   });
 
