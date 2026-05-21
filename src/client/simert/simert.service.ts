@@ -458,7 +458,8 @@ export class SimertService {
     // ***************************************
 
     try {
-      let tableNameFraction = 'public.fraction';
+      const publicTable = 'public.fraction';
+      let historicalTable = '';
       let tableExistsFraction = false;
       const schema = 'history';
 
@@ -475,7 +476,7 @@ export class SimertService {
         tableExistsFraction = await this._tableExists(tableNameFractionAux);
 
         if (tableExistsFraction) {
-          tableNameFraction = tableNameFractionAux;
+          historicalTable = tableNameFractionAux;
         }
       }
 
@@ -524,15 +525,18 @@ export class SimertService {
 
       // historical (if it exists)
       if (tableExistsFraction) {
-        queryParts.push(buildSelect(tableNameFraction, false));
+        queryParts.push(buildSelect(historicalTable, false));
       }
 
-      // currentMonth or day 1 -> current table filtered by year/month
+      // currentMonth or day 1 -> public.fraction filtered by year/month.
+      // Always hit public.fraction here: when the historical archive for the
+      // current month already exists (the daily cron creates it T-2), recent
+      // rows still live in public.fraction and would otherwise be missed.
       const currentDate = new Date();
       const currentDay = currentDate.getDate();
 
       if (currentMonth || currentDay === 1) {
-        queryParts.push(buildSelect(tableNameFraction, true));
+        queryParts.push(buildSelect(publicTable, true));
       }
 
       // If nothing was added, avoid an empty query

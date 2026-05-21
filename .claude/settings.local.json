@@ -19,7 +19,8 @@
       "PowerShell(if \\($?\\) { \"TypeScript OK\" })",
       "PowerShell(npx jest --testPathPattern=keycloak 2>&1)",
       "Bash(npx --no-install jest --testPathPattern=dinardap-ant.service)",
-      "PowerShell(npx jest --testPathPattern=\"keycloak/__tests__\" 2>&1)"
+      "PowerShell(npx jest --testPathPattern=\"keycloak/__tests__\" 2>&1)",
+      "Bash(node -e ' *)"
     ]
   }
 }
