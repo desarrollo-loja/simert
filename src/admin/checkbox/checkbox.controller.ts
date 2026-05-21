@@ -12,7 +12,6 @@ export class CheckboxController {
   constructor(private readonly checkboxService: CheckboxService) { }
 
   @ApiOperation({ summary: 'List all checkboxes with optional filters (admin)' })
-  // @Auth()
   @AuthWithKeycloak()
   @Get(':userId/:idDevice/:version')
   findAll(

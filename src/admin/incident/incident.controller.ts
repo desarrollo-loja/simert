@@ -44,6 +44,16 @@ export class IncidentController {
     return this.incidentService.findAllTotal(filterDto);
   }
 
+  @ApiOperation({ summary: 'List incidents filtered by transactionIds (id, transactionId, statusIncident, onResponseExternal)' })
+  @AuthWithKeycloak()
+  @Patch('find-all-by-transaction-id/:userId/:idDevice/:version')
+  findAllByTransactionId(
+    @GetUser() user: JwtPayload,
+    @Body() filterDto: IncidentFilterDto,
+  ) {
+    return this.incidentService.findAllByTransactionId(filterDto);
+  }
+
   @ApiOperation({ summary: 'Get a single incident by id' })
   @Get(':id')
   findOne(@Param('id') id: string) {

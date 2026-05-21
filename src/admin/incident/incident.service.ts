@@ -172,6 +172,65 @@ export class IncidentService {
     }
   }
 
+  // Returns incidents filtered by a list of transactionIds.
+  //
+  // It mirrors `CheckboxService.findAllByTransactionId`: the only differences
+  // are the queried table and the way that table name is resolved. The source
+  // table (`public.incident` or the historical archive
+  // `history."YYYY_MM_incident"`) is resolved through `_resolveIncidentTable`,
+  // exactly as `findAll` does. No extra business logic is applied here.
+  //
+  // SQL-injection safety:
+  // - The table name is never built from raw input: `_resolveIncidentTable`
+  //   validates `year`/`month` as bounded integers and verifies the resulting
+  //   identifier against `information_schema` before it is used.
+  // - Every `transactionId` and date value is bound as a `$N` parameter.
+  async findAllByTransactionId(filterDto: IncidentFilterDto) {
+    const { transactionIds, dateFrom, dateTo } = filterDto;
+
+    // Nothing to look up without at least one transactionId.
+    if (!Array.isArray(transactionIds) || transactionIds.length === 0) {
+      return { errorCode: ErrorCode.NONE, incidents: [] };
+    }
+
+    try {
+      // Resolve the source table the same way `findAll` does
+      // (`public.incident` or the `history."YYYY_MM_incident"` archive).
+      const table = await this._resolveIncidentTable(filterDto);
+
+      const parameters: any[] = [];
+      const conditions: string[] = [];
+
+      // Bind each transactionId to its own `$N` placeholder (copied from
+      // `CheckboxService.findAllByTransactionId`) to prevent SQL injection.
+      const placeholders = transactionIds.map((id) => {
+        parameters.push(id);
+        return `$${parameters.length}`;
+      }).join(', ');
+      conditions.push(`i."transactionId" IN (${placeholders})`);
+
+      if (dateFrom && dateTo) {
+        parameters.push(dateFrom, dateTo);
+        conditions.push(
+          `DATE(i.register) BETWEEN $${parameters.length - 1} AND $${parameters.length}`,
+        );
+      }
+
+      const query = `
+        SELECT i.id, i."transactionId", i."statusIncident", i."onResponseExternal"
+        FROM ${table} i
+        WHERE ${conditions.join(' AND ')}
+        ORDER BY i.id DESC;
+      `;
+
+      const incidents = await this.incidentRepository.query(query, parameters);
+
+      return { errorCode: ErrorCode.NONE, incidents };
+    } catch (error) {
+      handleDbExceptions(error, this.logger);
+    }
+  }
+
   // Picks the table to read incidents from (`public.incident` or the
   // historical archive `history."YYYY_MM_incident"`) based on `year`/`month`,
   // mirroring the resolution pattern used by `findAllFractionSanction`:
