@@ -228,6 +228,14 @@ export class IncidentService {
         }
         await this.incidentRepository.update(id, fieldsToUpdate as any);
         const incident = await this.incidentRepository.findOne({ where: { id } });
+
+        this.loggerService.saveIncidentLogger({
+          id,
+          userId,
+          typeOperation: TypeOperation.UPDATE,
+          incident,
+        });
+
         return { incident, errorCode: ErrorCode.NONE };
       }
 
@@ -263,6 +271,16 @@ export class IncidentService {
       }
 
       const incident = await this._updateHistoricalRow(table, fieldsToUpdate, id);
+
+      if (incident) {
+        this.loggerService.saveIncidentLogger({
+          id,
+          userId,
+          typeOperation: TypeOperation.UPDATE,
+          incident,
+        });
+      }
+
       return { incident, errorCode: ErrorCode.NONE };
     } catch (error) {
       handleDbExceptions(error, this.logger);
@@ -1146,6 +1164,14 @@ export class IncidentService {
       if (exists) {
         await this.incidentRepository.update(incidentId, fieldsToUpdate);
         const incident = await this.incidentRepository.findOne({ where: { id: incidentId } });
+
+        this.loggerService.saveIncidentLogger({
+          id: incidentId,
+          userId,
+          typeOperation: TypeOperation.UPDATE,
+          incident,
+        });
+
         return { incident, errorCode: ErrorCode.NONE };
       }
       // Not in public.incident — fall through to historical resolution below.
