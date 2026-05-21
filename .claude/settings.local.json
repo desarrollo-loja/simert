@@ -21,7 +21,8 @@
       "Bash(npx --no-install jest --testPathPattern=dinardap-ant.service)",
       "PowerShell(npx jest --testPathPattern=\"keycloak/__tests__\" 2>&1)",
       "Bash(node -e ' *)",
-      "Bash(npx jest *)"
+      "Bash(npx jest *)",
+      "Bash(npx rimraf *)"
     ]
   }
 }

@@ -93,7 +93,9 @@ export class CheckboxService implements OnModuleInit {
         const currentDay = currentDate.getDate();
 
         try {
-            let schema = 'public';
+            // Historical checkbox tables are created in the `history` schema
+            // by the archival cron (see data.service._pasarHistoricas).
+            const schema = 'history';
             let tableName = 'checkbox';
             let tableExists = false;
 
@@ -105,7 +107,10 @@ export class CheckboxService implements OnModuleInit {
             const safeMonth = Number.isInteger(Number(month)) && Number(month) >= 1 && Number(month) <= 12 ? Number(month) : null;
 
             if (safeYear && safeMonth) {
-                tableName = `"${safeYear}_${safeMonth}_${tableName}"`;
+                // Archival cron names tables with a zero-padded month
+                // (`to_char(..., 'YYYY_MM')`), so the lookup must match.
+                const mm = String(safeMonth).padStart(2, '0');
+                tableName = `"${safeYear}_${mm}_${tableName}"`;
                 tableName = `${schema}.${tableName}`;
                 tableExists = await this._tableExists(tableName);
             }
@@ -127,15 +132,21 @@ export class CheckboxService implements OnModuleInit {
                 return { checkboxs: [] };
 
             if (currentMonth) {
-                // Parameterize month to prevent SQL injection in EXTRACT comparison.
+                // Parameterize year/month to prevent SQL injection in EXTRACT
+                // comparisons. Filtering by year as well as month avoids
+                // mixing same-month rows from different years (e.g., May 2024
+                // and May 2026) when the historical table for the requested
+                // period does not (yet) exist.
                 query += `
                 ${tableExists ? 'UNION ALL' : ''}
                 SELECT
                 cb.id, cb.amount, cb.checkboxes, cb."statusPayment", TO_CHAR(cb."createdAt" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD HH24:MI:SS') AS "createdAt"
                 FROM checkbox cb
-                WHERE cb."userId" = $${idx++} AND EXTRACT(MONTH FROM cb."createdAt") = $${idx++}
+                WHERE cb."userId" = $${idx++}
+                  AND EXTRACT(YEAR FROM cb."createdAt") = $${idx++}
+                  AND EXTRACT(MONTH FROM cb."createdAt") = $${idx++}
                 `;
-                params.push(userId, safeMonth ?? 0);
+                params.push(userId, safeYear ?? 0, safeMonth ?? 0);
             }
 
             // On day 1 of the current month, also fetch records from the
@@ -148,9 +159,11 @@ export class CheckboxService implements OnModuleInit {
                 SELECT
                 cb.id, cb.amount, cb.checkboxes, cb."statusPayment", TO_CHAR(cb."createdAt" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD HH24:MI:SS') AS "createdAt"
                 FROM checkbox cb
-                WHERE cb."userId" = $${idx++} AND EXTRACT(MONTH FROM cb."createdAt") = $${idx++}
+                WHERE cb."userId" = $${idx++}
+                  AND EXTRACT(YEAR FROM cb."createdAt") = $${idx++}
+                  AND EXTRACT(MONTH FROM cb."createdAt") = $${idx++}
                 `;
-                params.push(userId, safeMonth ?? 0);
+                params.push(userId, safeYear ?? 0, safeMonth ?? 0);
             }
 
             query += `

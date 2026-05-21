@@ -112,9 +112,11 @@ describe('CheckboxService', () => {
       const result = await service.getTransactions(1, { year: 2025, month: 5, currentMonth: false } as any, {} as any);
 
       expect(checkboxRepo.query).toHaveBeenCalledTimes(2);
-      // Confirm the table name used the safe interpolated values.
+      // Confirm the table name used the safe interpolated values: history
+      // schema (where the archival cron creates the table) and a zero-padded
+      // month to match the cron's `to_char(..., 'YYYY_MM')` naming.
       const dataQuery = (checkboxRepo.query as jest.Mock).mock.calls[1][0];
-      expect(dataQuery).toContain('public."2025_5_checkbox"');
+      expect(dataQuery).toContain('history."2025_05_checkbox"');
       expect(result).toEqual({ errorCode: ErrorCode.NONE, checkboxs: [{ id: 1 }] });
     });
 
@@ -129,7 +131,8 @@ describe('CheckboxService', () => {
     });
 
     it('rejects out-of-range year/month and falls back to current-month branch', async () => {
-      // year out of range -> safeYear=null, skips history; currentMonth=true uses month=0
+      // year out of range -> safeYear=null, month out of range -> safeMonth=null;
+      // skips history; currentMonth=true filters by year=0 and month=0 (fallback).
       checkboxRepo.query.mockResolvedValueOnce([{ amount: 1 }]);
 
       const result = await service.getTransactions(
@@ -140,8 +143,8 @@ describe('CheckboxService', () => {
 
       const [sql, params] = (checkboxRepo.query as jest.Mock).mock.calls[0];
       expect(sql).toContain('FROM checkbox cb');
-      // Parameterized month should be 0 (fallback).
-      expect(params).toEqual([1, 0, 5, 0]);
+      // Parameter order: userId, safeYear ?? 0, safeMonth ?? 0, limit, offset.
+      expect(params).toEqual([1, 0, 0, 5, 0]);
       expect(result.errorCode).toBe(ErrorCode.NONE);
     });
 

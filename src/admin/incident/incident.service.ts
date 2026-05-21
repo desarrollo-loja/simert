@@ -899,7 +899,12 @@ export class IncidentService {
           tableNameIncident = tableNameIncidentAux;
         }
 
-        if (tableExistsFraction) {
+        // Only route the fraction join to the historical table when BOTH the
+        // incident and the fraction archive exist for the requested period.
+        // Mixing historical incidents with public fractions (or vice versa)
+        // can leave rows orphaned by the INNER JOIN once fractions are purged
+        // from public.fraction after monthly archival.
+        if (tableExistsIncident && tableExistsFraction) {
           tableNameFraction = tableNameFractionAux;
         }
       }
@@ -961,7 +966,12 @@ export class IncidentService {
           tableNameIncident = tableNameIncidentAux;
         }
 
-        if (tableExistsFraction) {
+        // Only route the fraction join to the historical table when BOTH the
+        // incident and the fraction archive exist for the requested period.
+        // Mixing historical incidents with public fractions (or vice versa)
+        // can leave rows orphaned by the INNER JOIN once fractions are purged
+        // from public.fraction after monthly archival.
+        if (tableExistsIncident && tableExistsFraction) {
           tableNameFraction = tableNameFractionAux;
         }
       }
