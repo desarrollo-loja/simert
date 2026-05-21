@@ -38,7 +38,6 @@ export class CheckboxService {
     private readonly domainSimert: string = process.env.DOMINIO_SIMERT;
     private readonly timerMinuteDeuna: number = 1000 * 60 * Number(process.env.TIMER_MINUTE_DEUNA || 5);
     private readonly timerMinutePlaceToPay: number = 1000 * 60 * Number(process.env.TIMER_MINUTE_PLACE_TO_PAY || 6);
-    private readonly codeEntryEmisionCard: string = process.env.CODE_ENTRY_EMISION_CARD || '573';
 
     constructor(
         @InjectRepository(Checkbox)

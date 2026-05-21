@@ -6,6 +6,7 @@ import { StatusMoment } from "src/common/glob/status/status_moment";
 import { StatusPayment } from "src/common/glob/status/status_payment";
 import { IncidentStatus } from "src/common/glob/type/type_incident";
 import { TypePaymentMethod } from "src/common/glob/type/type_payment_method";
+import { OptionalDataInterface } from "src/common/intefaces/optional-data.interface";
 import { Column, Entity, Index, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 
 @Entity()
@@ -95,6 +96,10 @@ export class Checkbox {
     @ApiPropertyOptional({ type: 'array', items: { type: 'object' }, description: 'Array of raw response objects received from the GIM external system during the payment lifecycle' })
     @Column("json", { nullable: true, comment: 'Array of raw response objects received from the GIM external system during the payment lifecycle' })
     onResponseExternal: any[];
+
+    @ApiPropertyOptional({ description: 'Extra key-value pairs for session data not covered by explicit columns', type: 'array' })
+    @Column("json", { nullable: true, comment: 'Extra key-value pairs for session data not covered by explicit columns' })
+    optionalData: OptionalDataInterface[];
 
     @ApiProperty({ type: String, format: 'date-time', description: 'Creation timestamp' })
     @Column({ type: "timestamp", default: () => "now()", comment: 'Timestamp when the record was created' })
