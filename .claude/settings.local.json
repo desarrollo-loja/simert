@@ -37,7 +37,8 @@
       "Bash(echo \"ESLINT\\(errors-only\\) EXIT: $?\")",
       "Bash(npm run *)",
       "Bash(echo \"BUILD EXIT: $?\")",
-      "Read(//tmp/**)"
+      "Read(//tmp/**)",
+      "Bash(npx nest *)"
     ]
   }
 }

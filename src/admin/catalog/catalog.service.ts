@@ -57,17 +57,19 @@ export class CatalogService {
                 ])
                 .addSelect(`TO_CHAR(c."createdAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`, 'createdAt')
                 .addSelect(`TO_CHAR(c."updatedAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`, 'updatedAt')
-                .orderBy('c.id', 'DESC')
-                .limit(take)
-                .offset(skip);
+                .orderBy('c.id', 'DESC');
 
             if (search) {
-                query.andWhere('c.name ILIKE :search', { search: `%${search}%` });
+                query.andWhere('(c.name ILIKE :search OR c.description ILIKE :search)', {
+                    search: `%${search}%`,
+                });
             }
 
-            const catalog = await query.getRawMany();
+            const total = await query.getCount();
 
-            return { errorCode: ErrorCode.NONE, catalog, offset: skip, limit: take };
+            const catalog = await query.limit(take).offset(skip).getRawMany();
+
+            return { errorCode: ErrorCode.NONE, catalog, total, offset: skip, limit: take };
         } catch (error) {
             handleDbExceptions(error, this.logger);
         }
