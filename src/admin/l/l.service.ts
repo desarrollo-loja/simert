@@ -23,7 +23,7 @@ export class LService {
     try {
       const query = this.lRepository.createQueryBuilder('l')
         .select([
-          'l.userId', 'l.longitude', 'l.latitude'
+          'l.userId', 'l.longitude', 'l.latitude', 'l.zoneId', 'l.blockId'
         ]);
 
       query.where('l.userId = :userId', { userId });
@@ -45,7 +45,7 @@ export class LService {
 
       const query = this.lRepository.createQueryBuilder('l')
         .select([
-          'l.userId', 'l.longitude', 'l.latitude', 'l.timestamp'
+          'l.userId', 'l.longitude', 'l.latitude', 'l.timestamp', 'l.zoneId', 'l.blockId'
         ]);
 
       query.where('l.userId IN (:...userIds)', { userIds: userIdsArray });
