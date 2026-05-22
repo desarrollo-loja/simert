@@ -68,9 +68,6 @@ export class TrakingService {
 
     const { p, l: polyline, t: travels, zoneId, blockId } = plotLocationDto;
 
-    // TEMP DEBUG: confirm whether zoneId/blockId actually arrive in the body. Remove after diagnosing.
-    this.logger.debug(`plot debug -> keys=${JSON.stringify(Object.keys(plotLocationDto))} zoneId=${zoneId} blockId=${blockId} p=${p}`);
-
     if (!p) return;
 
     try {
