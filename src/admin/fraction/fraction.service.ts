@@ -287,20 +287,23 @@ export class FractionService {
 
         // Compute slot total.
         let queryTotalSlot = `SELECT COUNT(*) AS total FROM slot`;
-        let parametersSlot = [];
+        const parametersSlot: number[] = [];
         const conditionsSlot: string[] = [];
 
+        const addSlotParam = (value: number) => {
+          parametersSlot.push(value);
+          return `$${parametersSlot.length}`;
+        };
+
         if (zoneId) {
-          conditionsSlot.push(`"zoneId" = $1`);
-          parametersSlot.push(zoneId);
+          conditionsSlot.push(`"zoneId" = ${addSlotParam(zoneId)}`);
         }
         if (blockId) {
-          conditionsSlot.push(`"blockId" = $1`);
-          parametersSlot.push(blockId);
+          conditionsSlot.push(`"blockId" = ${addSlotParam(blockId)}`);
         }
         if (slotId) {
-          conditionsSlot.push(`"slotId" = $1`);
-          parametersSlot.push(slotId);
+          // The slot table's primary key is "id"; "slotId" only exists on the fraction table.
+          conditionsSlot.push(`"id" = ${addSlotParam(slotId)}`);
         }
 
         if (conditionsSlot.length > 0) {

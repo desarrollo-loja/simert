@@ -39,7 +39,8 @@
       "Bash(echo \"BUILD EXIT: $?\")",
       "Read(//tmp/**)",
       "Bash(npx nest *)",
-      "Read(//private/tmp/**)"
+      "Read(//private/tmp/**)",
+      "Bash(echo \"ESLINT EXIT: $?\")"
     ]
   }
 }
