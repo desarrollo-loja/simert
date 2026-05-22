@@ -37,12 +37,12 @@ export class TrakingService {
 
     try {
       const schema = 'public';
-      let table = `${year}_${month <= 9 ? `0${month}` : month}_tracking`;
+      let table = `${year}_${month <= 9 ? `0${month}` : month}_traking`;
       table = `"${table}"`
       table = `${schema}.${table}`
 
       if (table !== this.tableTracking) {
-        await this.dataSource.query(` CREATE TABLE IF NOT EXISTS ${table} (LIKE ${schema}."tracking" INCLUDING ALL) `);
+        await this.dataSource.query(` CREATE TABLE IF NOT EXISTS ${table} (LIKE ${schema}."traking" INCLUDING ALL) `);
         this.tableTracking = table;
       }
 
@@ -66,7 +66,7 @@ export class TrakingService {
 
   async plot(userId: number, plotLocationDto: PlotLocationDto) {
 
-    const { p, l: polyline, t: travels, zoneId, blockId } = plotLocationDto;
+    const { p, l: polyline, t: travels } = plotLocationDto;
 
     if (!p) return;
 
@@ -100,18 +100,16 @@ export class TrakingService {
       const updateResult = await this.locationRepository.query(
         `
           UPDATE public.l
-          SET
+          SET 
             latitude = $1,
             longitude = $2,
             heading = $3,
             taken = $4,
             polyline = $5,
-            "zoneId" = $6,
-            "blockId" = $7,
             "timestamp" = NOW()
-          WHERE "userId" = $8
+          WHERE "userId" = $6
         `,
-        [latitude, longitude, heading, taken, polyline, zoneId, blockId, userId]
+        [latitude, longitude, heading, taken, polyline, userId]
       );
 
       // updateResult[1] is the affected rows count on MySQL
@@ -121,11 +119,11 @@ export class TrakingService {
         await this.locationRepository.query(
           `
           INSERT INTO public.l
-            ("userId", latitude, longitude, heading, taken, polyline, "zoneId", "blockId", "timestamp")
+            ("userId", latitude, longitude, heading, taken, polyline, "timestamp")
           VALUES
-            ($1, $2, $3, $4, $5, $6, $7, $8, NOW());
+            ($1, $2, $3, $4, $5, $6, NOW());
           `,
-          [userId, latitude, longitude, heading, taken, polyline, zoneId, blockId]
+          [userId, latitude, longitude, heading, taken, polyline]
         );
       }
 
