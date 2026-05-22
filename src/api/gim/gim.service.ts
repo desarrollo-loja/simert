@@ -58,6 +58,44 @@ export class GimService {
     return this.token;
   }
 
+  /**
+   * Builds the standard headers for authenticated JSON requests to GIM:
+   * a JSON content type plus a fresh Bearer token obtained from
+   * `CommonGimService`. Centralizing this avoids repeating the header
+   * literal on every outbound call.
+   *
+   * @returns Headers object ready to pass to axios.
+   */
+  private _authJsonHeaders(): Record<string, string> {
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${this.getToken()}`,
+    };
+  }
+
+  /**
+   * Strips diacritics (accents) from a string and trims it. Matches the
+   * normalization GIM expects for person names and address fields.
+   *
+   * @param text Input text; defaults to an empty string when undefined.
+   * @returns The accent-free, trimmed text.
+   */
+  private _removeAccents(text: string = ''): string {
+    return text.normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+  }
+
+  /**
+   * Normalizes an Ecuadorian phone number: keeps digits only and ensures a
+   * leading zero, as required by the GIM person registration endpoints.
+   *
+   * @param rawPhone Raw phone value (may contain separators or be empty).
+   * @returns The digit-only phone number prefixed with a leading zero.
+   */
+  private _normalizeEcuadorPhone(rawPhone: unknown): string {
+    const digits = String(rawPhone || '').replace(/\D/g, '');
+    return digits.startsWith('0') ? digits : '0' + digits;
+  }
+
   async issueIncidentGim(createGimDto: CreateGimDto, incidentId: number, isTransacional: number): Promise<{ errorCode: number, data: CreateGimDto | null | any, message?: string }> {
     try {
 
@@ -241,12 +279,8 @@ export class GimService {
       };
 
       const { data } = await axios.post<FindTaxPayerResponse>(url, body, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.getToken()}`,
-        },
+        headers: this._authJsonHeaders(),
       });
-
 
       if (data.ok && +data.code === 200) {
         return {
@@ -282,16 +316,13 @@ export class GimService {
 
       let body = null;
 
-      const removeAccents = (text: string = '') =>
-        text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
-
       if (user.errorCode !== ErrorCode.NONE) {
 
         body = {
           identificationType: mapIdentificationTypeToGim(IdentificationType.DNI),
           identificationNumber: createClientGimDto.identityCard?.trim(),
-          firstName: removeAccents(createClientGimDto.firstName || 'Usuario'),
-          lastName: removeAccents(createClientGimDto.firstName || 'Usuario'),
+          firstName: this._removeAccents(createClientGimDto.firstName || 'Usuario'),
+          lastName: this._removeAccents(createClientGimDto.firstName || 'Usuario'),
           country: consts.COUNTRY_GIM,
           city: consts.CITY_GIM,
           neighborhood: '',
@@ -314,20 +345,17 @@ export class GimService {
         // };
       } else {
 
-        const phoneRaw = String(user.data[0].phone || '').replace(/\D/g, '');
-        const phoneNumber = phoneRaw.startsWith('0')
-          ? phoneRaw
-          : '0' + phoneRaw;
+        const phoneNumber = this._normalizeEcuadorPhone(user.data[0].phone);
 
         body = {
           identificationType: mapIdentificationTypeToGim(user.data[0].identificationType),
           identificationNumber: createClientGimDto.identityCard?.trim(),
-          firstName: removeAccents(user.data[0].firstName),
-          lastName: removeAccents(user.data[0].lastName),
+          firstName: this._removeAccents(user.data[0].firstName),
+          lastName: this._removeAccents(user.data[0].lastName),
           country: consts.COUNTRY_GIM,
           city: consts.CITY_GIM,
-          neighborhood: removeAccents(user.data[0].neighborhood),
-          address: removeAccents(user.data[0].address),
+          neighborhood: this._removeAccents(user.data[0].neighborhood),
+          address: this._removeAccents(user.data[0].address),
           email: user.data[0].email?.trim().toLowerCase(),
           phoneNumber,
           isForeigner: !!user.data[0].isForeigner,
@@ -340,10 +368,7 @@ export class GimService {
       }
 
       const { data } = await axios.post<CreateNaturalPersonResponse>(url, body, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.getToken()}`,
-        },
+        headers: this._authJsonHeaders(),
       });
 
       if (user && user.errorCode === ErrorCode.NONE)
@@ -385,23 +410,17 @@ export class GimService {
     try {
       const url = `${this.gimBaseUrl}/api/external/createNewNaturalPerson`;
 
-      const phoneRaw = String(createClientGimNotExistDto.phoneNumber || '').replace(/\D/g, '');
-      const phoneNumber = phoneRaw.startsWith('0')
-        ? phoneRaw
-        : '0' + phoneRaw;
-
-      const removeAccents = (text: string = '') =>
-        text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+      const phoneNumber = this._normalizeEcuadorPhone(createClientGimNotExistDto.phoneNumber);
 
       const body = {
         identificationType: mapIdentificationTypeToGim(createClientGimNotExistDto.identificationType),
         identificationNumber: createClientGimNotExistDto.identificationNumber?.trim(),
-        firstName: removeAccents(createClientGimNotExistDto.firstName || 'Usuario'),
-        lastName: removeAccents(createClientGimNotExistDto.lastName || createClientGimNotExistDto.firstName || 'Usuario'),
+        firstName: this._removeAccents(createClientGimNotExistDto.firstName || 'Usuario'),
+        lastName: this._removeAccents(createClientGimNotExistDto.lastName || createClientGimNotExistDto.firstName || 'Usuario'),
         country: consts.COUNTRY_GIM,
         city: consts.CITY_GIM,
-        neighborhood: removeAccents(createClientGimNotExistDto.neighborhood),
-        address: removeAccents(createClientGimNotExistDto.address || consts.CITY_GIM),
+        neighborhood: this._removeAccents(createClientGimNotExistDto.neighborhood),
+        address: this._removeAccents(createClientGimNotExistDto.address || consts.CITY_GIM),
         email: createClientGimNotExistDto.email?.trim().toLowerCase(),
         phoneNumber,
         isForeigner: !!createClientGimNotExistDto.isForeigner,
@@ -413,10 +432,7 @@ export class GimService {
       };
 
       const { data } = await axios.post<CreateNaturalPersonResponse>(url, body, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.getToken()}`,
-        },
+        headers: this._authJsonHeaders(),
       });
 
       if (data.ok && +data.code === 200) {
@@ -528,10 +544,7 @@ export class GimService {
         url,
         body,
         {
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${this.getToken()}`,
-          },
+          headers: this._authJsonHeaders(),
         }
       );
 
@@ -633,10 +646,7 @@ export class GimService {
         identificationNumber: identityCard // Cédula
       };
       const { data } = await axios.post<ObligationsResponse>(url, body, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.getToken()}`,
-        },
+        headers: this._authJsonHeaders(),
       });
       // si me viene sin obligacioens significa que no esta emitida 
       if (data && data.ok && +data.code === ResponseCodeGim.SUCCESS && data.obligations && data.obligations.length > 0) {
@@ -673,10 +683,7 @@ export class GimService {
         licensePlate: licensePlate
       };
       const { data } = await axios.post<ObligationsResponse>(url, body, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.getToken()}`,
-        },
+        headers: this._authJsonHeaders(),
       });
       // si me viene sin obligaciones significa que no esta emitida
       if (data && data.ok && +data.code === ResponseCodeGim.SUCCESS && data.obligations && data.obligations.length > 0) {
@@ -819,10 +826,7 @@ export class GimService {
         url,
         {},
         {
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${this.getToken()}`,
-          },
+          headers: this._authJsonHeaders(),
           //timeout: 10000,
         },
       );
@@ -939,10 +943,7 @@ export class GimService {
       const body = {}; // Body vacio segun requerimiento
 
       const { data } = await axios.post<VehicleTypesGimResponse>(url, body, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.getToken()}`,
-        },
+        headers: this._authJsonHeaders(),
       });
 
       // RESPONSE EJEMPLO
@@ -991,10 +992,7 @@ export class GimService {
       };
 
       const { data } = await axios.post<EmisionTitleCreditCardResponse>(url, body, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.getToken()}`,
-        },
+        headers: this._authJsonHeaders(),
       });
 
       if (data && data.ok && +data.code === 200) {
@@ -1026,10 +1024,7 @@ export class GimService {
       const body = { ...registerDepositGimDto, amount: Number(registerDepositGimDto.amount) }
 
       const { data } = await axios.post<DepositResponse>(url, body, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.getToken()}`,
-        },
+        headers: this._authJsonHeaders(),
       });
 
       if (data && data.ok && data.reference && data.total) {
@@ -1062,12 +1057,8 @@ export class GimService {
       const body = { identificationNumber: getClientGimDto.identificationNumber };
 
       const { data } = await axios.post<ObligationsClientResponse>(url, body, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.getToken()}`,
-        },
+        headers: this._authJsonHeaders(),
       });
-      
 
       if (data && data.ok && data.bonds?.length > 0) {
         return {
@@ -1107,10 +1098,7 @@ export class GimService {
       };
 
       const { data } = await axios.post<EmitInfractionSimertResponse>(url, body, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.getToken()}`,
-        },
+        headers: this._authJsonHeaders(),
       });
 
       if (data && data.ok && data.code === '200') {

@@ -23,7 +23,10 @@
       "Bash(node -e ' *)",
       "Bash(npx jest *)",
       "Bash(npx rimraf *)",
-      "Bash(git stash *)"
+      "Bash(git stash *)",
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(perl -0pi -e \"s/\\(?<!\\\\.\\)\\\\bremoveAccents\\\\\\(/this._removeAccents\\(/g\" src/api/gim/gim.service.ts)",
+      "Bash(perl -0pi -e \"s/headers:\\\\s*\\\\{\\\\s*'Content-Type':\\\\s*'application\\\\/json',\\\\s*'Authorization':\\\\s*\\\\`Bearer \\\\\\\\\\\\$\\\\{this\\\\.getToken\\\\\\(\\\\\\)\\\\}\\\\`,\\\\s*\\\\}/headers: this._authJsonHeaders\\(\\)/g\" src/api/gim/gim.service.ts)"
     ]
   }
 }

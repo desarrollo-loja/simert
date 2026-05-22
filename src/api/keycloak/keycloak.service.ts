@@ -302,19 +302,36 @@ export class KeycloakService {
     }
   }
 
-  async loginClient(dto: LoginKeycloakClientDto) {
+  /**
+   * Performs a Keycloak password-grant login against the given token endpoint
+   * and returns the token envelope. Shared by the ServiceHub and Municipality
+   * login flows, which differ only in client credentials, realm URL and the
+   * warning message logged on failure.
+   *
+   * @param clientId Keycloak client id for the target realm.
+   * @param clientSecret Keycloak client secret for the target realm.
+   * @param tokenUrl Fully built `openid-connect/token` endpoint.
+   * @param dto Username/password supplied by the caller.
+   * @param warnMessage Message logged when the login fails.
+   * @returns Token envelope on success; otherwise `throwKeycloakError` rethrows.
+   */
+  private async _passwordGrantLogin(
+    clientId: string,
+    clientSecret: string,
+    tokenUrl: string,
+    dto: LoginKeycloakClientDto,
+    warnMessage: string,
+  ) {
     try {
-
       const params = new URLSearchParams({
         grant_type: 'password',
-        client_id: this.configService.get<string>('GIM_CLIENT_ID_SERVICE_HUB'),
-        client_secret: this.configService.get<string>('GIM_CLIENT_SECRET_SERVICE_HUB'),
+        client_id: clientId,
+        client_secret: clientSecret,
         username: dto.username,
         password: dto.password,
       });
 
-      const url = `${this.gimBaseUrlLogin}/realms/${this.gim2RealmServiceHub}/protocol/openid-connect/token`;
-      const { data } = await axios.post(url, params.toString(), {
+      const { data } = await axios.post(tokenUrl, params.toString(), {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       });
 
@@ -326,38 +343,31 @@ export class KeycloakService {
         refresh_expires_in: data.refresh_expires_in,
       };
     } catch (error: any) {
-      this.logger.warn('Error logging into Keycloak');
+      this.logger.warn(warnMessage);
       return this.throwKeycloakError('loginClient', error);
     }
   }
 
+  async loginClient(dto: LoginKeycloakClientDto) {
+    const tokenUrl = `${this.gimBaseUrlLogin}/realms/${this.gim2RealmServiceHub}/protocol/openid-connect/token`;
+    return this._passwordGrantLogin(
+      this.configService.get<string>('GIM_CLIENT_ID_SERVICE_HUB'),
+      this.configService.get<string>('GIM_CLIENT_SECRET_SERVICE_HUB'),
+      tokenUrl,
+      dto,
+      'Error logging into Keycloak',
+    );
+  }
+
   async loginClientMunicipality(dto: LoginKeycloakClientDto) {
-    try {
-
-      const params = new URLSearchParams({
-        grant_type: 'password',
-        client_id: this.configService.get<string>('GIM_CLIENT_ID_K'),
-        client_secret: this.configService.get<string>('GIM_CLIENT_SECRET_K'),
-        username: dto.username,
-        password: dto.password,
-      });
-
-      const url = `${this.gimBaseUrlLoginMunicipality}/realms/${this.gim2RealmMunicipality}/protocol/openid-connect/token`;
-      const { data } = await axios.post(url, params.toString(), {
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      });
-
-      return {
-        errorCode: ErrorCode.NONE,
-        access_token: data.access_token,
-        refresh_token: data.refresh_token,
-        expires_in: data.expires_in,
-        refresh_expires_in: data.refresh_expires_in,
-      };
-    } catch (error: any) {
-      this.logger.warn('Error logging into Keycloak (municipal employees)');
-      return this.throwKeycloakError('loginClient', error);
-    }
+    const tokenUrl = `${this.gimBaseUrlLoginMunicipality}/realms/${this.gim2RealmMunicipality}/protocol/openid-connect/token`;
+    return this._passwordGrantLogin(
+      this.configService.get<string>('GIM_CLIENT_ID_K'),
+      this.configService.get<string>('GIM_CLIENT_SECRET_K'),
+      tokenUrl,
+      dto,
+      'Error logging into Keycloak (municipal employees)',
+    );
   }
 
   async findByEmail(email: string) {

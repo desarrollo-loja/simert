@@ -16,7 +16,7 @@ import { StatusSlot } from 'src/common/glob/status/status_slot';
 import { TypeFraction } from 'src/common/glob/type/type_fraction';
 import { TypeNotification } from 'src/common/glob/type/type_notification';
 import { TypeTimeZone } from 'src/common/glob/type/type_time_zone';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, QueryRunner, Repository } from 'typeorm';
 
 import { CreateSimertDto } from './dto/create-simert.dto';
 import { IncrementSimertDto } from './dto/increment-simert.dto';
@@ -133,25 +133,7 @@ export class SimertService {
     await queryRunner.startTransaction();
 
     try {
-      // Lock the "checkbox" column in CheckboxUser to prevent concurrent duplicate sales
-      const checkboxUser = await queryRunner.manager
-        .createQueryBuilder()
-        .select("checkboxUser")
-        .from(CheckboxUser, "checkboxUser")
-        .where("checkboxUser.userId = :userId", { userId })
-        .setLock("pessimistic_write") // Write lock
-        .getOne();
-
-      if (!checkboxUser) {
-        this.logger.error('CheckboxUser not found');
-        throw new Error("CheckboxUser not found");
-      }
-
-      const availableCheckboxes = checkboxUser.checkboxes;
-      if (checkboxes > availableCheckboxes) {
-        this.logger.error('Not enough checkboxes available');
-        throw new Error("Not enough checkboxes available");
-      }
+      const checkboxUser = await this._lockCheckboxUserOrThrow(queryRunner, userId, checkboxes);
 
       const fraction = this.fractionRepository.create({
         register,
@@ -260,25 +242,7 @@ export class SimertService {
       await queryRunner.connect();
       await queryRunner.startTransaction();
 
-      // Lock the "checkbox" column in CheckboxUser to prevent concurrent duplicate sales
-      const checkboxUser = await queryRunner.manager
-        .createQueryBuilder()
-        .select("checkboxUser")
-        .from(CheckboxUser, "checkboxUser")
-        .where("checkboxUser.userId = :userId", { userId })
-        .setLock("pessimistic_write") // Write lock
-        .getOne();
-
-      if (!checkboxUser) {
-        this.logger.error('CheckboxUser not found');
-        throw new Error("CheckboxUser not found");
-      }
-
-      const availableCheckboxes = checkboxUser.checkboxes;
-      if (checkboxes > availableCheckboxes) {
-        this.logger.error('Not enough checkboxes available');
-        throw new Error("Not enough checkboxes available");
-      }
+      const checkboxUser = await this._lockCheckboxUserOrThrow(queryRunner, userId, checkboxes);
 
       const currentDate = new Date();
 
@@ -371,12 +335,51 @@ export class SimertService {
     }
   }
 
+  /**
+   * Locks the caller's CheckboxUser row with a pessimistic write lock inside
+   * the supplied transaction and verifies it has enough available checkboxes.
+   * Centralizes the guard shared by `parking` and `incrementTime`, preventing
+   * concurrent duplicate sales.
+   *
+   * @param queryRunner Active query runner owning the open transaction.
+   * @param userId Owner of the CheckboxUser balance.
+   * @param requiredCheckboxes Amount of checkboxes the operation needs.
+   * @returns The locked CheckboxUser entity.
+   * @throws Error when the CheckboxUser is missing or the balance is insufficient.
+   */
+  private async _lockCheckboxUserOrThrow(
+    queryRunner: QueryRunner,
+    userId: number,
+    requiredCheckboxes: number,
+  ): Promise<CheckboxUser> {
+    // Lock the "checkbox" column in CheckboxUser to prevent concurrent duplicate sales
+    const checkboxUser = await queryRunner.manager
+      .createQueryBuilder()
+      .select("checkboxUser")
+      .from(CheckboxUser, "checkboxUser")
+      .where("checkboxUser.userId = :userId", { userId })
+      .setLock("pessimistic_write") // Write lock
+      .getOne();
+
+    if (!checkboxUser) {
+      this.logger.error('CheckboxUser not found');
+      throw new Error("CheckboxUser not found");
+    }
+
+    const availableCheckboxes = checkboxUser.checkboxes;
+    if (requiredCheckboxes > availableCheckboxes) {
+      this.logger.error('Not enough checkboxes available');
+      throw new Error("Not enough checkboxes available");
+    }
+
+    return checkboxUser;
+  }
+
   private async _saveStatus(fraction: Fraction, statusId: number, moment: number) {
     // Check whether a record already exists for the given status and fractionId
     const existingFractionStatus = await this.fractionSatusRepository.findOne({
       where: { fraction: { id: fraction.id }, status: { id: statusId }, },
     });
-
 
     if (existingFractionStatus) {
       existingFractionStatus.moment = moment;
@@ -385,7 +388,7 @@ export class SimertService {
     else {
       // Always persist the fraction status
       const fractionSatus = this.fractionSatusRepository.create({ fraction, moment, status: { id: statusId } });
-      const a = await this.fractionSatusRepository.save(fractionSatus);
+      await this.fractionSatusRepository.save(fractionSatus);
     }
 
     await this.fractionRepository.save({ ...fraction, status: { id: statusId } });
@@ -394,7 +397,6 @@ export class SimertService {
   private async _notifyBlockOperators(blockId: number, statusFraction: StatusFraction, fractionId: number) {
     const cacheKey = `BLOCK_OPERATORS:${blockId}`;
     const secondsCache = this.timeCacheBlockOperator;
-
 
     let blockOperators: BlockOperator[] = await this.commonCacheService.get(cacheKey) as BlockOperator[];
 
@@ -407,9 +409,7 @@ export class SimertService {
         .where('bo.blockId = :blockId', { blockId })
         .andWhere(`bo.from <= (NOW() AT TIME ZONE 'America/Guayaquil') AND bo.to >= (NOW() AT TIME ZONE 'America/Guayaquil')`);
 
-
       blockOperators = await qb.getMany();
-
 
       await this.commonCacheService.set(cacheKey, blockOperators, secondsCache);
     }

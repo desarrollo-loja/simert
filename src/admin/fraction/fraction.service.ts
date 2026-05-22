@@ -4,11 +4,10 @@ import { FilterDto } from 'src/common/dto/filter.dto';
 import handleDbExceptions from 'src/common/exceptions/error.db.exception';
 import { ErrorCode } from 'src/common/glob/error';
 import { StatusFraction } from 'src/common/glob/status/status_fraction';
+import { TypeSizeVehicle } from 'src/common/glob/type/type_size_vehicle';
 import { Repository } from 'typeorm';
 
 import { Fraction } from './entities/fraction.entity';
-import { TypeSizeVehicle } from 'src/common/glob/type/type_size_vehicle';
-import { TypeTimeZone } from 'src/common/glob/type/type_time_zone';
 
 @Injectable()
 export class FractionService {
@@ -215,16 +214,9 @@ export class FractionService {
 
     const { year, month } = filterDto;
     try {
-      let tableName = 'fraction';
-      let tableExists = false;
-      if (year && month) {
-        if (!this._isValidYearMonth(year, month)) {
-          return { fractions: [] };
-        }
-        const monthString = month.toString().padStart(2, '0')
-        tableName = `${year}_${monthString}_fraction`;
-        tableName = `${tableName}`;
-        tableExists = await this._tableExists(tableName);
+      const { tableName, tableExists, invalid } = await this._resolveStatisticsFractionTable(year, month);
+      if (invalid) {
+        return { fractions: [] };
       }
       if (tableExists || (!year && !month)) {
         const { parameters, conditions } = this.buildParametersConditions(filterDto);
@@ -260,16 +252,9 @@ export class FractionService {
 
     const { year, month, zoneId, blockId, slotId } = filterDto;
     try {
-      let tableName = 'fraction';
-      let tableExists = false;
-      if (year && month) {
-        if (!this._isValidYearMonth(year, month)) {
-          return { fractions: [] };
-        }
-        const monthString = month.toString().padStart(2, '0')
-        tableName = `${year}_${monthString}_fraction`;
-        tableName = `${tableName}`;
-        tableExists = await this._tableExists(tableName);
+      const { tableName, tableExists, invalid } = await this._resolveStatisticsFractionTable(year, month);
+      if (invalid) {
+        return { fractions: [] };
       }
       if (tableExists || (!year && !month)) {
 
@@ -333,16 +318,9 @@ export class FractionService {
   async findAllStatistics(filterDto: FilterDto) {
     const { year, month } = filterDto;
     try {
-      let tableName = 'fraction';
-      let tableExists = false;
-      if (year && month) {
-        if (!this._isValidYearMonth(year, month)) {
-          return { fractions: [] };
-        }
-        const monthString = month.toString().padStart(2, '0')
-        tableName = `${year}_${monthString}_fraction`;
-        tableName = `${tableName}`;
-        tableExists = await this._tableExists(tableName);
+      const { tableName, tableExists, invalid } = await this._resolveStatisticsFractionTable(year, month);
+      if (invalid) {
+        return { fractions: [] };
       }
 
       if (tableExists || (!year && !month)) {
@@ -389,6 +367,41 @@ export class FractionService {
       month >= 1 &&
       month <= 12
     );
+  }
+
+  /**
+   * Resolves the fraction source table for the statistics reports that do not
+   * qualify the historical table with a schema (`findAllTotalVehicleClientTime`,
+   * `findAllTotalOccupationRotationParking`, `findAllStatistics`).
+   *
+   * NOTE: the historical name is intentionally built WITHOUT a schema prefix,
+   * so `_tableExists` (which requires a schema) reports `false` for any
+   * requested period. This preserves the long-standing behavior of these
+   * reports: a valid year/month falls through to an empty result, and only the
+   * live `fraction` table (no period requested) yields data.
+   *
+   * @param year Requested year (optional period filter).
+   * @param month Requested month (optional period filter).
+   * @returns The resolved table name, whether the historical table exists, and
+   *   whether the supplied year/month failed validation.
+   */
+  private async _resolveStatisticsFractionTable(
+    year: number,
+    month: number,
+  ): Promise<{ tableName: string; tableExists: boolean; invalid: boolean }> {
+    let tableName = 'fraction';
+    let tableExists = false;
+
+    if (year && month) {
+      if (!this._isValidYearMonth(year, month)) {
+        return { tableName, tableExists, invalid: true };
+      }
+      const monthString = month.toString().padStart(2, '0');
+      tableName = `${year}_${monthString}_fraction`;
+      tableExists = await this._tableExists(tableName);
+    }
+
+    return { tableName, tableExists, invalid: false };
   }
 
   private async _tableExists(tableName: string): Promise<boolean> {

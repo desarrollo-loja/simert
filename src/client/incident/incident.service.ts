@@ -328,7 +328,6 @@ export class IncidentService {
       const openTill = await this.gimService.validateOpenTill();
       if (openTill.errorCode !== ErrorCode.NONE) return openTill;
 
-
       const tableName = 'public.incident';
       const currentDate = new Date();
 
@@ -748,6 +747,69 @@ export class IncidentService {
     }
   }
 
+  /**
+   * Schedules the deferred verification that reverses a payment when the
+   * provider never confirms it. After `timerMinuteDeuna` it re-reads the
+   * payments tied to `referenceId`: if all are already PAID nothing changes,
+   * otherwise the payments are marked as ERROR and the client is notified.
+   *
+   * Shared by every payment-provider flow (DeUna, Ahorita, PlaceToPay); the
+   * only per-provider differences are the success log message and whether an
+   * empty payments list short-circuits the check.
+   *
+   * @param referenceId Reference grouping the payments to verify.
+   * @param userId Owner of the payments, used for the status notification.
+   * @param amount Total amount, forwarded to the notification.
+   * @param typePaymentMethod Provider used, forwarded to the notification.
+   * @param paidLogMessage Message logged when the payment was confirmed in time.
+   * @param returnIfEmpty When true, an empty payments list aborts the check
+   *   (PlaceToPay behavior); when false the empty list is treated as PAID
+   *   (DeUna/Ahorita behavior). Preserves each flow's original semantics.
+   */
+  private _scheduleUnconfirmedPaymentReversal(
+    referenceId: string,
+    userId: number,
+    amount: string,
+    typePaymentMethod: TypePaymentMethod,
+    paidLogMessage: string,
+    returnIfEmpty: boolean,
+  ): void {
+    setTimeout(async () => {
+      const incidentPayments = await this.incidentPaymentRepository.find({ where: { referenceId: referenceId } });
+      if (!incidentPayments) return;
+      if (returnIfEmpty && incidentPayments.length === 0) return;
+      if (incidentPayments.every(incidentPayment => incidentPayment.statusPayment === StatusPayment.PAID)) {
+        return this.logger.log(paidLogMessage);
+      }
+      this.logger.warn('No se pago en 5 minutos se liberaron los checkbox');
+      this._saveResponsePay(incidentPayments, StatusMoment.RESPONSE, StatusPayment.ERROR);
+      this._notifyChageStatus(userId, StatusPayment.ERROR, referenceId, amount, typePaymentMethod);
+    }, this.timerMinuteDeuna);
+  }
+
+  /**
+   * Handles an unsuccessful provider response: flags every payment tied to
+   * `referenceId` as ERROR and notifies the client. Shared by all payment
+   * provider flows.
+   *
+   * @param referenceId Reference grouping the failed payments.
+   * @param userId Owner of the payments.
+   * @param amount Total amount, forwarded to the notification.
+   * @param typePaymentMethod Provider used, forwarded to the notification.
+   * @returns The standard RESPONSE error envelope.
+   */
+  private async _handleProviderPaymentFailure(
+    referenceId: string,
+    userId: number,
+    amount: string,
+    typePaymentMethod: TypePaymentMethod,
+  ): Promise<{ errorCode: number }> {
+    const incidentPayments = await this.incidentPaymentRepository.find({ where: { referenceId: referenceId } });
+    this._saveResponsePay(incidentPayments, StatusMoment.RESPONSE, StatusPayment.ERROR);
+    this._notifyChageStatus(userId, StatusPayment.ERROR, referenceId, amount, typePaymentMethod);
+    return { errorCode: ErrorCode.RESPONSE };
+  }
+
   private async _payDeunaV2(idDevice: string, debitAmounDto: DebitAmounDto, payIncidentDto: PayIncidentDto, typePaymentResponsibility: TypePaymentResponsibility, referenceId: string) {
 
     const { userId, typePaymentMethod, credentialId, amount
@@ -779,23 +841,13 @@ export class IncidentService {
     if (response && response['errorCode'] === ErrorCode.NONE) {
       // Wait 3 minutes to verify whether the PAYMENT happened. If it occurred earlier in response to the
       // webhook the client was already notified; otherwise we verify the transaction before reversing.
-
-      setTimeout(async () => {
-        const incidentPayments = await this.incidentPaymentRepository.find({ where: { referenceId: referenceId } });
-        if (!incidentPayments) return;
-        if (incidentPayments.every(incidentPayment => incidentPayment.statusPayment === StatusPayment.PAID)) {
-          return this.logger.log('Se pago correctamente con de una en menos de 3 minutos');
-        }
-        this.logger.warn('No se pago en 5 minutos se liberaron los checkbox');
-        this._saveResponsePay(incidentPayments, StatusMoment.RESPONSE, StatusPayment.ERROR);
-        this._notifyChageStatus(userId, StatusPayment.ERROR, referenceId, amount, typePaymentMethod);
-      }, this.timerMinuteDeuna)
+      this._scheduleUnconfirmedPaymentReversal(
+        referenceId, userId, amount, typePaymentMethod,
+        'Se pago correctamente con de una en menos de 3 minutos', false,
+      );
       return { errorCode: ErrorCode.NONE, deeplink: response['deeplink'] };
     } else {
-      const incidentPayments = await this.incidentPaymentRepository.find({ where: { referenceId: referenceId } });
-      this._saveResponsePay(incidentPayments, StatusMoment.RESPONSE, StatusPayment.ERROR);
-      this._notifyChageStatus(userId, StatusPayment.ERROR, referenceId, amount, typePaymentMethod);
-      return { errorCode: ErrorCode.RESPONSE };
+      return this._handleProviderPaymentFailure(referenceId, userId, amount, typePaymentMethod);
     }
   }
 
@@ -828,23 +880,13 @@ export class IncidentService {
     if (response && response['errorCode'] === ErrorCode.NONE) {
       // Wait 3 minutes to verify whether the PAYMENT happened. If it occurred earlier in response to the
       // webhook the client was already notified; otherwise we verify the transaction before reversing.
-
-      setTimeout(async () => {
-        const incidentPayments = await this.incidentPaymentRepository.find({ where: { referenceId: referenceId } });
-        if (!incidentPayments) return;
-        if (incidentPayments.every(incidentPayment => incidentPayment.statusPayment === StatusPayment.PAID)) {
-          return this.logger.log('Se pago correctamente con ahorita en menos de 3 minutos');
-        }
-        this.logger.warn('No se pago en 5 minutos se liberaron los checkbox');
-        this._saveResponsePay(incidentPayments, StatusMoment.RESPONSE, StatusPayment.ERROR);
-        this._notifyChageStatus(userId, StatusPayment.ERROR, referenceId, amount, typePaymentMethod);
-      }, this.timerMinuteDeuna)
+      this._scheduleUnconfirmedPaymentReversal(
+        referenceId, userId, amount, typePaymentMethod,
+        'Se pago correctamente con ahorita en menos de 3 minutos', false,
+      );
       return { errorCode: ErrorCode.NONE, deeplink: response['deeplink'] };
     } else {
-      const incidentPayments = await this.incidentPaymentRepository.find({ where: { referenceId: referenceId } });
-      this._saveResponsePay(incidentPayments, StatusMoment.RESPONSE, StatusPayment.ERROR);
-      this._notifyChageStatus(userId, StatusPayment.ERROR, referenceId, amount, typePaymentMethod);
-      return { errorCode: ErrorCode.RESPONSE };
+      return this._handleProviderPaymentFailure(referenceId, userId, amount, typePaymentMethod);
     }
   }
 
@@ -879,22 +921,13 @@ export class IncidentService {
     if (response && response['errorCode'] === ErrorCode.NONE) {
       // Wait 3 minutes to verify whether the PAYMENT happened. If it occurred earlier in response to the
       // webhook the client was already notified; otherwise we verify the transaction before reversing.
-      setTimeout(async () => {
-        const incidentPayments = await this.incidentPaymentRepository.find({ where: { referenceId: referenceId } });
-        if (!incidentPayments || incidentPayments.length === 0) return;
-        if (incidentPayments.every(incidentPayment => incidentPayment.statusPayment === StatusPayment.PAID)) {
-          return this.logger.log('Se pago correctamente con place to pay en menos de 3 minutos');
-        }
-        this.logger.warn('No se pago en 5 minutos se liberaron los checkbox');
-        this._saveResponsePay(incidentPayments, StatusMoment.RESPONSE, StatusPayment.ERROR);
-        this._notifyChageStatus(userId, StatusPayment.ERROR, referenceId, amount, typePaymentMethod);
-      }, this.timerMinuteDeuna)
+      this._scheduleUnconfirmedPaymentReversal(
+        referenceId, userId, amount, typePaymentMethod,
+        'Se pago correctamente con place to pay en menos de 3 minutos', true,
+      );
       return { errorCode: ErrorCode.NONE, deeplink: response['deeplink'] };
     } else {
-      const incidentPayments = await this.incidentPaymentRepository.find({ where: { referenceId: referenceId } });
-      this._saveResponsePay(incidentPayments, StatusMoment.RESPONSE, StatusPayment.ERROR);
-      this._notifyChageStatus(userId, StatusPayment.ERROR, referenceId, amount, typePaymentMethod);
-      return { errorCode: ErrorCode.RESPONSE };
+      return this._handleProviderPaymentFailure(referenceId, userId, amount, typePaymentMethod);
     }
   }
 
@@ -954,7 +987,6 @@ export class IncidentService {
           );
         }
 
-
       } catch (error) {
         this.logger.error(`call _saveResponsePay error.message ${error.message} StatusMoment.CORRECTLY_PAID_UNASSIGNED`);
 
@@ -993,7 +1025,6 @@ export class IncidentService {
   async onResponsePay(idDevice: string, userId: number, referenceId: string, typePaymentMethod: TypePaymentMethod, register: string, typePaymentResponsibility: TypePaymentResponsibility) {
 
     const incidentPayments = await this.incidentPaymentRepository.find({ where: { referenceId: referenceId } });
-
 
     if (!incidentPayments || incidentPayments.length === 0) {
       return { errorCode: ErrorCode.NOT_FOUND }
@@ -1065,7 +1096,6 @@ export class IncidentService {
         AND table_name = $2
     ) AS "exists";
   `;
-
 
     const result = await this.incidentRepository.query(query, [table_schema, table_name]);
     return !!result[0]?.exists;

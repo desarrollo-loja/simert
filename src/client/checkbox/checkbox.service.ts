@@ -219,7 +219,6 @@ export class CheckboxService implements OnModuleInit {
 
     async getCardsAndCheckboxes(userId: number) {
 
-
         try {
             const [cards, checkboxes] = await Promise.all(
                 [
@@ -233,8 +232,6 @@ export class CheckboxService implements OnModuleInit {
                         .where('cb.userId = :userId', { userId })
                         .getOne()
                 ]);
-
-
 
             return { errorCode: ErrorCode.NONE, cards, checkboxes: checkboxes ? checkboxes.checkboxes : 0 };
         } catch (error) {
@@ -311,7 +308,6 @@ export class CheckboxService implements OnModuleInit {
 
                 checkbox = await queryRunner.manager.save(checkbox);
 
-
                 switch (typePaymentMethod) {
 
                     case TypePaymentMethod.DEUNAV2:
@@ -332,7 +328,6 @@ export class CheckboxService implements OnModuleInit {
                     case TypePaymentMethod.PLACE_TO_PAY:
 
                         const responsePlaceToPay = await this._payPlaceToPay(idDevice, checkbox, debitAmounDto, createCheckboxDto, typePaymentResponsibility);
-
 
                         urlPlaceToPay = responsePlaceToPay['deeplink'];
                         checkbox.url = urlPlaceToPay;
@@ -530,6 +525,59 @@ export class CheckboxService implements OnModuleInit {
         this.commonService.notify(notification);
     }
 
+    /**
+     * Schedules the deferred verification that reverses a checkbox purchase
+     * when the provider never confirms the payment. After `timerMs` it
+     * re-reads the checkbox: if it is already PAID nothing changes, otherwise
+     * it is flagged as ERROR and the buyer is notified.
+     *
+     * Shared by every payment-provider flow; the only differences are the
+     * success log message and the wait timer (DeUna/Ahorita vs PlaceToPay).
+     *
+     * @param idDevice Device identifier propagated to `_saveResponsePay`.
+     * @param checkbox Checkbox purchase being verified.
+     * @param userId Buyer id, used for the status notification.
+     * @param paidLogMessage Message logged when the payment was confirmed in time.
+     * @param timerMs Delay before running the verification.
+     */
+    private _scheduleUnconfirmedCheckboxReversal(
+        idDevice: string,
+        checkbox: Checkbox,
+        userId: number,
+        paidLogMessage: string,
+        timerMs: number,
+    ): void {
+        setTimeout(async () => {
+            const checkboxCheck = await this.checkboxRepository.findOne({ where: { id: checkbox.id } });
+            if (!checkboxCheck) return;
+            if (checkboxCheck.statusPayment === StatusPayment.PAID) {
+                return this.logger.log(paidLogMessage);
+            }
+            this.logger.warn('No se pago en 5 minutos se liberaron los checkbox');
+            this._saveResponsePay(idDevice, checkbox, StatusMoment.RESPONSE, StatusPayment.ERROR);
+            this._notifyChageStatus(userId, StatusPayment.ERROR, checkbox);
+        }, timerMs);
+    }
+
+    /**
+     * Handles an unsuccessful provider response for a checkbox purchase: flags
+     * the checkbox as ERROR and notifies the buyer. Shared by all provider flows.
+     *
+     * @param idDevice Device identifier propagated to `_saveResponsePay`.
+     * @param checkbox Checkbox purchase that failed.
+     * @param userId Buyer id.
+     * @returns The standard RESPONSE error envelope.
+     */
+    private _handleCheckboxPaymentFailure(
+        idDevice: string,
+        checkbox: Checkbox,
+        userId: number,
+    ): { errorCode: number } {
+        this._saveResponsePay(idDevice, checkbox, StatusMoment.RESPONSE, StatusPayment.ERROR);
+        this._notifyChageStatus(userId, StatusPayment.ERROR, checkbox);
+        return { errorCode: ErrorCode.RESPONSE };
+    }
+
     private async _payDeunaV2(idDevice: string, checkbox: Checkbox, debitAmounDto: DebitAmounDto, createCheckboxDto: CreateCheckboxDto, typePaymentResponsibility: TypePaymentResponsibility) {
 
         const { userId, typePaymentMethod, credentialId, } = createCheckboxDto;
@@ -556,29 +604,15 @@ export class CheckboxService implements OnModuleInit {
 
         //Cuando el provehedor responde el estado correcto
         if (response && response['errorCode'] === ErrorCode.NONE) {
-
-
-            // Esperamos 5 minutos para verificar si se realizo el PAGO, si el pago se hizo antes en respuesta al 
-            // webhook ya se responde al cliente antes, caso contrario se verifica la transaccion antes de reversar 
-            setTimeout(async () => {
-                const checkboxCheck = await this.checkboxRepository.findOne({ where: { id: checkbox.id } });
-                if (!checkboxCheck) return;
-                if (checkboxCheck.statusPayment === StatusPayment.PAID) {
-                    return this.logger.log('Se pago correctamente con deuna en menos de 5 minutos');
-                }
-                this.logger.warn('No se pago en 5 minutos se liberara la tarjeta');
-                //Se llamar al recurso del Gim para anular una emisión (EN DESARROLLO)
-                //const response = await this.commonGimService.cancelIssue();
-
-                this._saveResponsePay(idDevice, checkbox, StatusMoment.RESPONSE, StatusPayment.ERROR);
-                this._notifyChageStatus(userId, StatusPayment.ERROR, checkbox);
-            }, this.timerMinuteDeuna);
+            // Esperamos 5 minutos para verificar si se realizo el PAGO, si el pago se hizo antes en respuesta al
+            // webhook ya se responde al cliente antes, caso contrario se verifica la transaccion antes de reversar
+            this._scheduleUnconfirmedCheckboxReversal(
+                idDevice, checkbox, userId,
+                'Se pago correctamente con deuna en menos de 5 minutos', this.timerMinuteDeuna,
+            );
             return { errorCode: ErrorCode.NONE, deeplink: response['deeplink'] };
         } else {
-            //this._returnAvailableTickets(showLocality.id, ticket, createCheckboxDto);
-            this._saveResponsePay(idDevice, checkbox, StatusMoment.RESPONSE, StatusPayment.ERROR);
-            this._notifyChageStatus(userId, StatusPayment.ERROR, checkbox);
-            return { errorCode: ErrorCode.RESPONSE };
+            return this._handleCheckboxPaymentFailure(idDevice, checkbox, userId);
         }
     }
 
@@ -611,21 +645,13 @@ export class CheckboxService implements OnModuleInit {
         if (response && response['errorCode'] === ErrorCode.NONE) {
             // Esperamos 3 minutos para verificar si se realizo el PAGO, si el pago se hizo antes en respuesta al
             // webhook ya se responde al cliente antes, caso contrario se verifica la transaccion antes de reversar
-            setTimeout(async () => {
-                const checkboxCheck = await this.checkboxRepository.findOne({ where: { id: checkbox.id } });
-                if (!checkboxCheck) return;
-                if (checkboxCheck.statusPayment === StatusPayment.PAID) {
-                    return this.logger.log('Se pago correctamente con ahorita en menos de 3 minutos');
-                }
-                this.logger.warn('No se pago en 5 minutos se liberaron los checkbox');
-                this._saveResponsePay(idDevice, checkbox, StatusMoment.RESPONSE, StatusPayment.ERROR);
-                this._notifyChageStatus(userId, StatusPayment.ERROR, checkbox);
-            }, this.timerMinuteDeuna);
+            this._scheduleUnconfirmedCheckboxReversal(
+                idDevice, checkbox, userId,
+                'Se pago correctamente con ahorita en menos de 3 minutos', this.timerMinuteDeuna,
+            );
             return { errorCode: ErrorCode.NONE, deeplink: response['deeplink'] };
         } else {
-            this._saveResponsePay(idDevice, checkbox, StatusMoment.RESPONSE, StatusPayment.ERROR);
-            this._notifyChageStatus(userId, StatusPayment.ERROR, checkbox);
-            return { errorCode: ErrorCode.RESPONSE };
+            return this._handleCheckboxPaymentFailure(idDevice, checkbox, userId);
         }
     }
 

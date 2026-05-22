@@ -262,6 +262,57 @@ export class IncidentService {
     return tableNameIncident;
   }
 
+  /**
+   * Resolves the incident and fraction source tables for the sanction
+   * reports that JOIN both entities (`findAllFractionSanction`,
+   * `findAllFractionSanctionTotal`, `findAllTotalVehicleClientTime`,
+   * `findAllStatisticsFractionSanction`).
+   *
+   * Routing rules (identical across all callers):
+   * - No/invalid `year`/`month` -> `public.incident` + `public.fraction`.
+   * - Valid period + incident archive exists -> historical incident table.
+   * - Valid period + BOTH archives exist -> historical fraction table too.
+   *   The fraction join is only routed to history when both archives are
+   *   present, otherwise the INNER JOIN can orphan rows once fractions are
+   *   purged from `public.fraction` after monthly archival.
+   *
+   * The table names are never interpolated from raw input: `year`/`month`
+   * are validated by `_isValidYearMonth` and each resulting identifier is
+   * verified against `information_schema` through `_tableExists`.
+   *
+   * @param filterDto Filter carrying the optional `year`/`month` period.
+   * @returns The resolved incident and fraction table identifiers.
+   */
+  private async _resolveSanctionTables(
+    filterDto: { year?: number; month?: number },
+  ): Promise<{ tableNameIncident: string; tableNameFraction: string }> {
+    const { year, month } = filterDto;
+    const schema = 'history';
+
+    let tableNameIncident = 'public.incident';
+    let tableNameFraction = 'public.fraction';
+
+    if (year && month && this._isValidYearMonth(year, month)) {
+      const monthString = month.toString().padStart(2, '0');
+
+      const tableNameIncidentAux = `${schema}."${year}_${monthString}_incident"`;
+      const tableNameFractionAux = `${schema}."${year}_${monthString}_fraction"`;
+
+      const tableExistsIncident = await this._tableExists(tableNameIncidentAux);
+      const tableExistsFraction = await this._tableExists(tableNameFractionAux);
+
+      if (tableExistsIncident) {
+        tableNameIncident = tableNameIncidentAux;
+      }
+
+      if (tableExistsIncident && tableExistsFraction) {
+        tableNameFraction = tableNameFractionAux;
+      }
+    }
+
+    return { tableNameIncident, tableNameFraction };
+  }
+
   async findOne(id: number) {
     const incident = await this.incidentRepository.findOne({ where: { id } });
     return { incident, errorCode: ErrorCode.NONE };
@@ -727,38 +778,9 @@ export class IncidentService {
   async findAllFractionSanction(filterDto: FilterDto) {
 
     try {
-      const { year, month, limit = 10, offset = 0, typeFractionId } = filterDto;
+      const { limit = 10, offset = 0, typeFractionId } = filterDto;
 
-      let tableNameIncident = 'public.incident';
-      let tableNameFraction = 'public.fraction';
-      let tableExistsIncident = false;
-      let tableExistsFraction = false;
-      let schema = 'history';
-
-      if (year && month && this._isValidYearMonth(year, month)) {
-        const monthString = month.toString().padStart(2, '0')
-
-        let tableNameIncidentAux = `"${year}_${monthString}_incident"`;
-        tableNameIncidentAux = `${schema}.${tableNameIncidentAux}`;
-        tableExistsIncident = await this._tableExists(tableNameIncidentAux);
-
-        let tableNameFractionAux = `"${year}_${monthString}_fraction"`;
-        tableNameFractionAux = `${schema}.${tableNameFractionAux}`;
-        tableExistsFraction = await this._tableExists(tableNameFractionAux);
-
-        if (tableExistsIncident) {
-          tableNameIncident = tableNameIncidentAux;
-        }
-
-        // Only route the fraction join to the historical table when BOTH the
-        // incident and the fraction archive exist for the requested period.
-        // Mixing historical incidents with public fractions (or vice versa)
-        // can leave rows orphaned by the INNER JOIN once fractions are purged
-        // from public.fraction after monthly archival.
-        if (tableExistsIncident && tableExistsFraction) {
-          tableNameFraction = tableNameFractionAux;
-        }
-      }
+      const { tableNameIncident, tableNameFraction } = await this._resolveSanctionTables(filterDto);
 
       const { parameters, conditions } = this._buildConditionsAndParametersPg(filterDto);
 
@@ -812,35 +834,9 @@ export class IncidentService {
   async findAllFractionSanctionTotal(filterDto: FilterDto) {
 
     try {
-      const { year, month, typeFractionId } = filterDto;
+      const { typeFractionId } = filterDto;
 
-      let tableNameIncident = 'public.incident';
-      let tableNameFraction = 'public.fraction';
-      let tableExistsIncident = false;
-      let tableExistsFraction = false;
-      let schema = 'history';
-
-      if (year && month && this._isValidYearMonth(year, month)) {
-        const monthString = month.toString().padStart(2, '0')
-
-        let tableNameIncidentAux = `"${year}_${monthString}_incident"`;
-        tableNameIncidentAux = `${schema}.${tableNameIncidentAux}`;
-        tableExistsIncident = await this._tableExists(tableNameIncidentAux);
-
-        let tableNameFractionAux = `"${year}_${monthString}_fraction"`;
-        tableNameFractionAux = `${schema}.${tableNameFractionAux}`;
-        tableExistsFraction = await this._tableExists(tableNameFractionAux);
-
-        if (tableExistsIncident) {
-          tableNameIncident = tableNameIncidentAux;
-        }
-
-        // Mirror the list query in findAllFractionSanction: only route to the
-        // historical fraction table when both archives exist for the period.
-        if (tableExistsIncident && tableExistsFraction) {
-          tableNameFraction = tableNameFractionAux;
-        }
-      }
+      const { tableNameIncident, tableNameFraction } = await this._resolveSanctionTables(filterDto);
 
       const { parameters, conditions } = this._buildConditionsAndParametersPg(filterDto);
 
@@ -935,38 +931,9 @@ export class IncidentService {
 
   async findAllTotalVehicleClientTime(filterDto: FilterDto) {
     try {
-      const { year, month, dateFrom, dateTo, typeFractionId } = filterDto;
+      const { typeFractionId } = filterDto;
 
-      let tableNameIncident = 'public.incident';
-      let tableNameFraction = 'public.fraction';
-      let tableExistsIncident = false;
-      let tableExistsFraction = false;
-      let schema = 'history';
-
-      if (year && month && this._isValidYearMonth(year, month)) {
-        const monthString = month.toString().padStart(2, '0')
-
-        let tableNameIncidentAux = `"${year}_${monthString}_incident"`;
-        tableNameIncidentAux = `${schema}.${tableNameIncidentAux}`;
-        tableExistsIncident = await this._tableExists(tableNameIncidentAux);
-
-        let tableNameFractionAux = `"${year}_${monthString}_fraction"`;
-        tableNameFractionAux = `${schema}.${tableNameFractionAux}`;
-        tableExistsFraction = await this._tableExists(tableNameFractionAux);
-
-        if (tableExistsIncident) {
-          tableNameIncident = tableNameIncidentAux;
-        }
-
-        // Only route the fraction join to the historical table when BOTH the
-        // incident and the fraction archive exist for the requested period.
-        // Mixing historical incidents with public fractions (or vice versa)
-        // can leave rows orphaned by the INNER JOIN once fractions are purged
-        // from public.fraction after monthly archival.
-        if (tableExistsIncident && tableExistsFraction) {
-          tableNameFraction = tableNameFractionAux;
-        }
-      }
+      const { tableNameIncident, tableNameFraction } = await this._resolveSanctionTables(filterDto);
 
       const { parameters, conditions } = this._buildConditionsAndParametersPg(filterDto);
 
@@ -1002,38 +969,9 @@ export class IncidentService {
   }
 
   async findAllStatisticsFractionSanction(filterDto: FilterDto) {
-    const { year, month, typeFractionId } = filterDto;
+    const { typeFractionId } = filterDto;
     try {
-      let tableNameIncident = 'public.incident';
-      let tableNameFraction = 'public.fraction';
-      let tableExistsIncident = false;
-      let tableExistsFraction = false;
-      let schema = 'history';
-
-      if (year && month && this._isValidYearMonth(year, month)) {
-        const monthString = month.toString().padStart(2, '0')
-
-        let tableNameIncidentAux = `"${year}_${monthString}_incident"`;
-        tableNameIncidentAux = `${schema}.${tableNameIncidentAux}`;
-        tableExistsIncident = await this._tableExists(tableNameIncidentAux);
-
-        let tableNameFractionAux = `"${year}_${monthString}_fraction"`;
-        tableNameFractionAux = `${schema}.${tableNameFractionAux}`;
-        tableExistsFraction = await this._tableExists(tableNameFractionAux);
-
-        if (tableExistsIncident) {
-          tableNameIncident = tableNameIncidentAux;
-        }
-
-        // Only route the fraction join to the historical table when BOTH the
-        // incident and the fraction archive exist for the requested period.
-        // Mixing historical incidents with public fractions (or vice versa)
-        // can leave rows orphaned by the INNER JOIN once fractions are purged
-        // from public.fraction after monthly archival.
-        if (tableExistsIncident && tableExistsFraction) {
-          tableNameFraction = tableNameFractionAux;
-        }
-      }
+      const { tableNameIncident, tableNameFraction } = await this._resolveSanctionTables(filterDto);
 
       const { parameters, conditions } = this._buildConditionsAndParametersPg(filterDto);
 
