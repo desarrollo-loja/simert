@@ -77,7 +77,12 @@ export class RangeSalePointTransactionService {
         const table = 'public.range_sale_point_transaction';
         const { conditions, parameters } = this._buildConditionsAndParameters(filterDto);
 
-        let queryInfo = `SELECT COUNT(*) as total FROM ${table} rspt`;
+        // Mismos joins que findAll: el builder de condiciones puede referenciar el
+        // alias `rsp` (p. ej. filtro salePointId), por lo que debe existir en el FROM.
+        // Mantiene además el conteo consistente con el listado.
+        let queryInfo = `SELECT COUNT(*) as total FROM ${table} rspt
+            INNER JOIN public.range_sale_point rsp ON rsp.id = rspt."rangeSalePointId"
+            INNER JOIN public.sale_point sp ON sp.id = rsp."salePointId"`;
 
         if (conditions.length > 0) {
             queryInfo += ' WHERE ' + conditions.join(' AND ');
