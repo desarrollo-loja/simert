@@ -47,7 +47,7 @@ export class LService {
   }
 
   async findByUsers(filterDto: FilterDto) {
-    const { userIds, dateFrom, dateTo } = filterDto;
+    const { userIds, dateFrom, dateTo, zoneId, blockId } = filterDto;
     try {
       const userIdsArray = userIds
         .split(',')
@@ -72,6 +72,14 @@ export class LService {
           dateFrom,
           dateTo,
         });
+      }
+
+      if (zoneId) {
+        query.andWhere('l.zoneId = :zoneId', { zoneId });
+      }
+
+      if (blockId) {
+        query.andWhere('l.blockId = :blockId', { blockId });
       }
 
       const { entities, raw } = await query.getRawAndEntities();
