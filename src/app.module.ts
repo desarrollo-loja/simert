@@ -103,7 +103,7 @@ import { CatalogModule } from './admin/catalog/catalog.module';
     }),
 
     TypeOrmModule.forRoot({
-      name: 'traking',
+      name: 'tracking',
       type: 'postgres', // Cambia el tipo de base de datos a MySQL
       host: process.env.DB_HOST_TRAKING,
       port: +process.env.DB_PORT_TRAKING,

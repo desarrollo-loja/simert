@@ -37,12 +37,12 @@ export class TrakingService {
 
     try {
       const schema = 'public';
-      let table = `${year}_${month <= 9 ? `0${month}` : month}_traking`;
+      let table = `${year}_${month <= 9 ? `0${month}` : month}_tracking`;
       table = `"${table}"`
       table = `${schema}.${table}`
 
       if (table !== this.tableTracking) {
-        await this.dataSource.query(` CREATE TABLE IF NOT EXISTS ${table} (LIKE ${schema}."traking" INCLUDING ALL) `);
+        await this.dataSource.query(` CREATE TABLE IF NOT EXISTS ${table} (LIKE ${schema}."tracking" INCLUDING ALL) `);
         this.tableTracking = table;
       }
 
