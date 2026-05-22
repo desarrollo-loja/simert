@@ -53,7 +53,7 @@ export class PhysicsService {
           z.name AS "zoneName",
           b.name AS "blockName",
           b.id AS "blockId",
-          s.name AS "slotName",
+          s.slot AS "slotName",
           s.id AS "slotId"
         FROM "physic" p
         INNER JOIN "zone" z ON z."id" = p."zoneId"
