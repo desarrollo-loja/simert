@@ -578,6 +578,31 @@ export class CheckboxService implements OnModuleInit {
         return { errorCode: ErrorCode.RESPONSE };
     }
 
+    /**
+     * Builds the asynchronous payment-confirmation webhook URL invoked by every
+     * provider (DeUna, Ahorita, PlaceToPay) for a checkbox purchase. The path is
+     * identical across providers, so centralizing it removes the repeated
+     * template literal from each flow.
+     *
+     * @param idDevice Device identifier originating the purchase.
+     * @param userId Buyer id.
+     * @param checkboxId Checkbox purchase id.
+     * @param typePaymentMethod Provider used.
+     * @param register Transaction register timestamp.
+     * @param typePaymentResponsibility Who assumes the payment commission.
+     * @returns The fully qualified webhook URL.
+     */
+    private _buildCheckboxResponseWebhook(
+        idDevice: string,
+        userId: number,
+        checkboxId: number,
+        typePaymentMethod: TypePaymentMethod,
+        register: string,
+        typePaymentResponsibility: TypePaymentResponsibility,
+    ): string {
+        return `${this.domainSimert}api/simert/client/checkbox/on-response-pay/${idDevice}/${userId}/${checkboxId}/${typePaymentMethod}/${register}/${typePaymentResponsibility}`;
+    }
+
     private async _payDeunaV2(idDevice: string, checkbox: Checkbox, debitAmounDto: DebitAmounDto, createCheckboxDto: CreateCheckboxDto, typePaymentResponsibility: TypePaymentResponsibility) {
 
         const { userId, typePaymentMethod, credentialId, } = createCheckboxDto;
@@ -597,7 +622,7 @@ export class CheckboxService implements OnModuleInit {
             billing_data: debitAmounDto.billing_data,
             transactionId: debitAmounDto.transactionId,
             userId,
-            webhook: `${this.domainSimert}api/simert/client/checkbox/on-response-pay/${idDevice}/${userId}/${checkbox.id}/${typePaymentMethod}/${register}/${typePaymentResponsibility}`,
+            webhook: this._buildCheckboxResponseWebhook(idDevice, userId, checkbox.id, typePaymentMethod, register, typePaymentResponsibility),
         });
 
         const response = await this.commonService.payDeUnaV2(idDevice, registerDeunaDto);
@@ -636,7 +661,7 @@ export class CheckboxService implements OnModuleInit {
             billing_data: debitAmounDto.billing_data,
             transactionId: debitAmounDto.transactionId,
             userId,
-            webhook: `${this.domainSimert}api/simert/client/checkbox/on-response-pay/${idDevice}/${userId}/${checkbox.id}/${typePaymentMethod}/${register}/${typePaymentResponsibility}`,
+            webhook: this._buildCheckboxResponseWebhook(idDevice, userId, checkbox.id, typePaymentMethod, register, typePaymentResponsibility),
         });
 
         const response = await this.commonService.payAhorita(idDevice, registerAhoritaDto);
@@ -678,7 +703,7 @@ export class CheckboxService implements OnModuleInit {
             billing_data: debitAmounDto.billing_data,
             transactionId: debitAmounDto.transactionId,
             userId,
-            webhook: `${this.domainSimert}api/simert/client/checkbox/on-response-pay/${idDevice}/${userId}/${checkbox.id}/${typePaymentMethod}/${register}/${typePaymentResponsibility}`,
+            webhook: this._buildCheckboxResponseWebhook(idDevice, userId, checkbox.id, typePaymentMethod, register, typePaymentResponsibility),
         });
 
         const response = await this.commonService.payPlaceToPay(idDevice, referenceId, registerPlaceToPayDto);
@@ -687,21 +712,13 @@ export class CheckboxService implements OnModuleInit {
         if (response && response['errorCode'] === ErrorCode.NONE) {
             // Esperamos 3 minutos para verificar si se realizo el PAGO, si el pago se hizo antes en respuesta al
             // webhook ya se responde al cliente antes, caso contrario se verifica la transaccion antes de reversar
-            setTimeout(async () => {
-                const checkboxCheck = await this.checkboxRepository.findOne({ where: { id: checkbox.id } });
-                if (!checkboxCheck) return;
-                if (checkboxCheck.statusPayment === StatusPayment.PAID) {
-                    return this.logger.log('Se pago correctamente con pay to pay 3 minutos');
-                }
-                this.logger.warn('No se pago en 5 minutos se liberaron los checkbox');
-                this._saveResponsePay(idDevice, checkbox, StatusMoment.RESPONSE, StatusPayment.ERROR);
-                this._notifyChageStatus(userId, StatusPayment.ERROR, checkbox);
-            }, this.timerMinutePlaceToPay);
+            this._scheduleUnconfirmedCheckboxReversal(
+                idDevice, checkbox, userId,
+                'Se pago correctamente con pay to pay 3 minutos', this.timerMinutePlaceToPay,
+            );
             return { errorCode: ErrorCode.NONE, deeplink: response['deeplink'] };
         } else {
-            this._saveResponsePay(idDevice, checkbox, StatusMoment.RESPONSE, StatusPayment.ERROR);
-            this._notifyChageStatus(userId, StatusPayment.ERROR, checkbox);
-            return { errorCode: ErrorCode.RESPONSE };
+            return this._handleCheckboxPaymentFailure(idDevice, checkbox, userId);
         }
     }
 

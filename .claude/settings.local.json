@@ -26,7 +26,18 @@
       "Bash(git stash *)",
       "Bash(echo \"EXIT: $?\")",
       "Bash(perl -0pi -e \"s/\\(?<!\\\\.\\)\\\\bremoveAccents\\\\\\(/this._removeAccents\\(/g\" src/api/gim/gim.service.ts)",
-      "Bash(perl -0pi -e \"s/headers:\\\\s*\\\\{\\\\s*'Content-Type':\\\\s*'application\\\\/json',\\\\s*'Authorization':\\\\s*\\\\`Bearer \\\\\\\\\\\\$\\\\{this\\\\.getToken\\\\\\(\\\\\\)\\\\}\\\\`,\\\\s*\\\\}/headers: this._authJsonHeaders\\(\\)/g\" src/api/gim/gim.service.ts)"
+      "Bash(perl -0pi -e \"s/headers:\\\\s*\\\\{\\\\s*'Content-Type':\\\\s*'application\\\\/json',\\\\s*'Authorization':\\\\s*\\\\`Bearer \\\\\\\\\\\\$\\\\{this\\\\.getToken\\\\\\(\\\\\\)\\\\}\\\\`,\\\\s*\\\\}/headers: this._authJsonHeaders\\(\\)/g\" src/api/gim/gim.service.ts)",
+      "Bash(git -C src/common checkout -- .)",
+      "Bash(git -C src/common stash drop)",
+      "Bash(git submodule *)",
+      "Bash(echo \"TSC EXIT: $?\")",
+      "Bash(sed -n '1,7p')",
+      "Bash(awk 'NR>=216 && NR<=224 {printf \"%d:%s\\\\n\", NR, $0}' src/check/check.service.ts)",
+      "Bash(npx eslint *)",
+      "Bash(echo \"ESLINT\\(errors-only\\) EXIT: $?\")",
+      "Bash(npm run *)",
+      "Bash(echo \"BUILD EXIT: $?\")",
+      "Read(//tmp/**)"
     ]
   }
 }

@@ -421,21 +421,45 @@ export class IncidentService {
     }
   }
 
+  /**
+   * Reads the Alfresco connection settings from environment variables and
+   * validates that the mandatory ones (base URL, user, password) are present.
+   * Centralizing this avoids repeating the same read-and-validate block in
+   * every Alfresco operation.
+   *
+   * @returns The Alfresco credentials, or `null` when a required variable is
+   * missing (the absence is logged so callers can simply return their error).
+   */
+  private _getAlfrescoCredentials(): {
+    alfrescoBaseUrl: string;
+    username: string;
+    password: string;
+    directory: string;
+  } | null {
+    const alfrescoBaseUrl = process.env.ALFRESCO_BASE_URL;
+    const username = process.env.ALFRESCO_USER;
+    const password = process.env.ALFRESCO_PASS;
+    const directory = process.env.ALFRESCO_DIR;
+
+    if (!alfrescoBaseUrl || !username || !password) {
+      this.logger.error('Alfresco configuration is missing in environment variables');
+      return null;
+    }
+
+    return { alfrescoBaseUrl, username, password, directory };
+  }
+
   async uploadToAlfresco(
     fileBuffer: Buffer,
     fileName: string,
     relativePath?: string,
   ): Promise<Object> {
     try {
-      const alfrescoBaseUrl = process.env.ALFRESCO_BASE_URL;
-      const username = process.env.ALFRESCO_USER;
-      const password = process.env.ALFRESCO_PASS;
-      const directory = process.env.ALFRESCO_DIR;
-
-      if (!alfrescoBaseUrl || !username || !password) {
-        this.logger.error('Alfresco configuration is missing in environment variables');
+      const credentials = this._getAlfrescoCredentials();
+      if (!credentials) {
         return { errorCode: ErrorCode.HTTP_ERROR_REINTENT };
       }
+      const { alfrescoBaseUrl, username, password, directory } = credentials;
 
       const FormData = require('form-data');
       const form = new FormData();
@@ -481,14 +505,11 @@ export class IncidentService {
 
   async getFileUrlAlfresco(alfrescoId: string): Promise<Object> {
     try {
-      const alfrescoBaseUrl = process.env.ALFRESCO_BASE_URL;
-      const username = process.env.ALFRESCO_USER;
-      const password = process.env.ALFRESCO_PASS;
-
-      if (!alfrescoBaseUrl || !username || !password) {
-        this.logger.error('Alfresco configuration is missing in environment variables');
+      const credentials = this._getAlfrescoCredentials();
+      if (!credentials) {
         return { errorCode: ErrorCode.HTTP_ERROR_REINTENT };
       }
+      const { alfrescoBaseUrl, username, password } = credentials;
 
       if (!alfrescoId) {
         return { errorCode: ErrorCode.HTTP_ERROR_REINTENT };
@@ -540,14 +561,11 @@ export class IncidentService {
 
   async getAlfrescoIdBySharedUrl(sharedUrlOrId: string): Promise<Object> {
     try {
-      const alfrescoBaseUrl = process.env.ALFRESCO_BASE_URL;
-      const username = process.env.ALFRESCO_USER;
-      const password = process.env.ALFRESCO_PASS;
-
-      if (!alfrescoBaseUrl || !username || !password) {
-        this.logger.error('Alfresco configuration is missing in environment variables');
+      const credentials = this._getAlfrescoCredentials();
+      if (!credentials) {
         return { errorCode: ErrorCode.HTTP_ERROR_REINTENT };
       }
+      const { alfrescoBaseUrl, username, password } = credentials;
 
       const sharedId = this.extractSharedId(sharedUrlOrId);
       if (!sharedId) {

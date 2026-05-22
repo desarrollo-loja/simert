@@ -810,6 +810,68 @@ export class IncidentService {
     return { errorCode: ErrorCode.RESPONSE };
   }
 
+  /**
+   * Builds the asynchronous payment-confirmation webhook URL that every
+   * provider (DeUna, Ahorita, PlaceToPay) calls back. The path is identical
+   * for all providers, so centralizing it removes the repeated, error-prone
+   * template literal from each flow.
+   *
+   * @param idDevice Device identifier originating the payment.
+   * @param userId Owner of the payment.
+   * @param referenceId Reference grouping the payments.
+   * @param typePaymentMethod Provider used.
+   * @param register Transaction register timestamp.
+   * @param typePaymentResponsibility Who assumes the payment commission.
+   * @returns The fully qualified webhook URL.
+   */
+  private _buildPaymentResponseWebhook(
+    idDevice: string,
+    userId: number,
+    referenceId: string,
+    typePaymentMethod: TypePaymentMethod,
+    register: string,
+    typePaymentResponsibility: TypePaymentResponsibility,
+  ): string {
+    return `${this.domainSimert}api/simert/client/incident/on-response-pay/${idDevice}/${userId}/${referenceId}/${typePaymentMethod}/${register}/${typePaymentResponsibility}`;
+  }
+
+  /**
+   * Resolves the outcome of a payment-provider request shared by all flows:
+   * on success it schedules the deferred reversal and returns the deeplink;
+   * on failure it flags the payments as errored and returns the RESPONSE
+   * envelope. Preserves each provider's original semantics through its
+   * `paidLogMessage` and `returnIfEmpty` arguments.
+   *
+   * @param response Raw provider response (may be null/undefined).
+   * @param referenceId Reference grouping the payments.
+   * @param userId Owner of the payments.
+   * @param amount Total amount, forwarded to scheduling/notification.
+   * @param typePaymentMethod Provider used.
+   * @param paidLogMessage Message logged when payment confirms in time.
+   * @param returnIfEmpty Empty-list semantics for the reversal check.
+   * @returns The success envelope with deeplink, or the failure envelope.
+   */
+  private async _finalizeProviderResponse(
+    response: Record<string, any>,
+    referenceId: string,
+    userId: number,
+    amount: string,
+    typePaymentMethod: TypePaymentMethod,
+    paidLogMessage: string,
+    returnIfEmpty: boolean,
+  ): Promise<{ errorCode: number; deeplink?: string }> {
+    // When the provider responds with the correct status
+    if (response && response['errorCode'] === ErrorCode.NONE) {
+      // Wait 3 minutes to verify whether the PAYMENT happened. If it occurred earlier in response to the
+      // webhook the client was already notified; otherwise we verify the transaction before reversing.
+      this._scheduleUnconfirmedPaymentReversal(
+        referenceId, userId, amount, typePaymentMethod, paidLogMessage, returnIfEmpty,
+      );
+      return { errorCode: ErrorCode.NONE, deeplink: response['deeplink'] };
+    }
+    return this._handleProviderPaymentFailure(referenceId, userId, amount, typePaymentMethod);
+  }
+
   private async _payDeunaV2(idDevice: string, debitAmounDto: DebitAmounDto, payIncidentDto: PayIncidentDto, typePaymentResponsibility: TypePaymentResponsibility, referenceId: string) {
 
     const { userId, typePaymentMethod, credentialId, amount
@@ -832,23 +894,15 @@ export class IncidentService {
       billing_data: debitAmounDto.billing_data,
       transactionId: debitAmounDto.transactionId,
       userId,
-      webhook: `${this.domainSimert}api/simert/client/incident/on-response-pay/${idDevice}/${userId}/${referenceId}/${typePaymentMethod}/${register}/${typePaymentResponsibility}`,
+      webhook: this._buildPaymentResponseWebhook(idDevice, userId, referenceId, typePaymentMethod, register, typePaymentResponsibility),
     })
 
     const response = await this.commonService.payDeUnaV2(idDevice, registerDeunaDto);
 
-    // When the provider responds with the correct status
-    if (response && response['errorCode'] === ErrorCode.NONE) {
-      // Wait 3 minutes to verify whether the PAYMENT happened. If it occurred earlier in response to the
-      // webhook the client was already notified; otherwise we verify the transaction before reversing.
-      this._scheduleUnconfirmedPaymentReversal(
-        referenceId, userId, amount, typePaymentMethod,
-        'Se pago correctamente con de una en menos de 3 minutos', false,
-      );
-      return { errorCode: ErrorCode.NONE, deeplink: response['deeplink'] };
-    } else {
-      return this._handleProviderPaymentFailure(referenceId, userId, amount, typePaymentMethod);
-    }
+    return this._finalizeProviderResponse(
+      response, referenceId, userId, amount, typePaymentMethod,
+      'Se pago correctamente con de una en menos de 3 minutos', false,
+    );
   }
 
   private async _payAhorita(idDevice: string, debitAmounDto: DebitAmounDto, payIncidentDto: PayIncidentDto, typePaymentResponsibility: TypePaymentResponsibility, referenceId: string) {
@@ -871,23 +925,15 @@ export class IncidentService {
       billing_data: debitAmounDto.billing_data,
       transactionId: debitAmounDto.transactionId,
       userId,
-      webhook: `${this.domainSimert}api/simert/client/incident/on-response-pay/${idDevice}/${userId}/${referenceId}/${typePaymentMethod}/${register}/${typePaymentResponsibility}`,
+      webhook: this._buildPaymentResponseWebhook(idDevice, userId, referenceId, typePaymentMethod, register, typePaymentResponsibility),
     })
 
     const response = await this.commonService.payAhorita(idDevice, registerAhoritaDto);
 
-    // When the provider responds with the correct status
-    if (response && response['errorCode'] === ErrorCode.NONE) {
-      // Wait 3 minutes to verify whether the PAYMENT happened. If it occurred earlier in response to the
-      // webhook the client was already notified; otherwise we verify the transaction before reversing.
-      this._scheduleUnconfirmedPaymentReversal(
-        referenceId, userId, amount, typePaymentMethod,
-        'Se pago correctamente con ahorita en menos de 3 minutos', false,
-      );
-      return { errorCode: ErrorCode.NONE, deeplink: response['deeplink'] };
-    } else {
-      return this._handleProviderPaymentFailure(referenceId, userId, amount, typePaymentMethod);
-    }
+    return this._finalizeProviderResponse(
+      response, referenceId, userId, amount, typePaymentMethod,
+      'Se pago correctamente con ahorita en menos de 3 minutos', false,
+    );
   }
 
   private async _payPlaceToPay(idDevice: string, debitAmounDto: DebitAmounDto, payIncidentDto: PayIncidentDto, typePaymentResponsibility: TypePaymentResponsibility, referenceId: string) {
@@ -911,24 +957,16 @@ export class IncidentService {
       billing_data: debitAmounDto.billing_data,
       transactionId: debitAmounDto.transactionId,
       userId,
-      webhook: `${this.domainSimert}api/simert/client/incident/on-response-pay/${idDevice}/${userId}/${referenceId}/${typePaymentMethod}/${register}/${typePaymentResponsibility}`,
+      webhook: this._buildPaymentResponseWebhook(idDevice, userId, referenceId, typePaymentMethod, register, typePaymentResponsibility),
       referenceId
     })
 
     const response = await this.commonService.payPlaceToPay(idDevice, referenceId, registerPlaceToPayDto);
 
-    // When the provider responds with the correct status
-    if (response && response['errorCode'] === ErrorCode.NONE) {
-      // Wait 3 minutes to verify whether the PAYMENT happened. If it occurred earlier in response to the
-      // webhook the client was already notified; otherwise we verify the transaction before reversing.
-      this._scheduleUnconfirmedPaymentReversal(
-        referenceId, userId, amount, typePaymentMethod,
-        'Se pago correctamente con place to pay en menos de 3 minutos', true,
-      );
-      return { errorCode: ErrorCode.NONE, deeplink: response['deeplink'] };
-    } else {
-      return this._handleProviderPaymentFailure(referenceId, userId, amount, typePaymentMethod);
-    }
+    return this._finalizeProviderResponse(
+      response, referenceId, userId, amount, typePaymentMethod,
+      'Se pago correctamente con place to pay en menos de 3 minutos', true,
+    );
   }
 
   async _saveResponsePay(incidentPayments: IncidentPayment[], moment: StatusMoment, statusPayment: StatusPayment) {

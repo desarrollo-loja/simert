@@ -400,10 +400,8 @@ export class SimertService {
 
     let blockOperators: BlockOperator[] = await this.commonCacheService.get(cacheKey) as BlockOperator[];
 
-    if (blockOperators) {
-    } else {
-      const now = new Date();
-
+    // On a cache miss, load the block's active operators and cache the result.
+    if (!blockOperators) {
       const qb = this.blockOperatorRepository.createQueryBuilder('bo')
         .select(['bo.id', 'bo.userId', 'bo.from', 'bo.to'])
         .where('bo.blockId = :blockId', { blockId })

@@ -544,21 +544,34 @@ export class OperatorService {
     return { errorCode: ErrorCode.NONE };
   }
 
+  /**
+   * Creates a new `Physic` entity from a fraction, sharing the common field
+   * mapping between the obsolete-checkbox record and the regular record so the
+   * `create({ ... })` literal is not duplicated.
+   *
+   * @param fraction Source fraction providing user, card, zone, time and block.
+   * @param checkboxes Number of checkboxes to record for this physic.
+   * @param registerAt Timestamp the physic should be registered with.
+   * @returns A transient (unsaved) `Physic` entity.
+   */
+  private _buildPhysicEntity(fraction: Fraction, checkboxes: number, registerAt: Date): Physic {
+    return this.physicRepository.create({
+      userId: fraction.userId,
+      card: fraction.card,
+      zoneId: fraction.zone.id,
+      time: fraction.time,
+      checkboxes,
+      timeByBlock: fraction.timeByBlock,
+      registerAt,
+    });
+  }
+
   private async _savePhysic(fraction: Fraction, obsolete: number, physicId: number) {
     if (obsolete > 0) {
       const registerAtMinusOneDay = new Date(fraction.registerAt);
       registerAtMinusOneDay.setDate(registerAtMinusOneDay.getDate() - 1);
 
-      const physic = this.physicRepository.create({
-        userId: fraction.userId,
-        card: fraction.card,
-        zoneId: fraction.zone.id,
-        time: fraction.time,
-        checkboxes: obsolete,
-        timeByBlock: fraction.timeByBlock,
-        registerAt: registerAtMinusOneDay,
-      });
-
+      const physic = this._buildPhysicEntity(fraction, obsolete, registerAtMinusOneDay);
       await this.physicRepository.save(physic);
     }
 
@@ -572,16 +585,7 @@ export class OperatorService {
         },
       );
     } else {
-      const physic = this.physicRepository.create({
-        userId: fraction.userId,
-        card: fraction.card,
-        zoneId: fraction.zone.id,
-        time: fraction.time,
-        checkboxes: fraction.checkboxes,
-        timeByBlock: fraction.timeByBlock,
-        registerAt: fraction.registerAt,
-      });
-
+      const physic = this._buildPhysicEntity(fraction, fraction.checkboxes, fraction.registerAt);
       await this.physicRepository.save(physic);
     }
   }

@@ -157,17 +157,15 @@ export class CheckService {
         const cacheKey = `BLOCK_OPERATORS:${blockId}`;
         const secondsCache = this.timeCacheBlockOperator;
 
-
         let blockOperators: BlockOperator[] = await this.commonCacheService.get(cacheKey) as BlockOperator[];
 
-        if (blockOperators) {
-        } else {
+        // On a cache miss, load the block's active operators and cache the result.
+        if (!blockOperators) {
             blockOperators = await this.blockOperatorRepository.createQueryBuilder('bo')
                 .select(['bo.id', 'bo.userId'])
                 .where('bo.blockId = :blockId', { blockId })
                 .andWhere(`DATE(bo.from) <= DATE(NOW() AT TIME ZONE 'America/Guayaquil') AND DATE(bo.to) >= DATE(NOW() AT TIME ZONE 'America/Guayaquil')`)
                 .getMany();
-
 
             await this.commonCacheService.set(cacheKey, blockOperators, secondsCache);
         }
@@ -218,7 +216,6 @@ export class CheckService {
 
             if (!checkboxes.length) return;
 
-
             for (const checkbox of checkboxes) {
                 try {
 
@@ -247,27 +244,13 @@ export class CheckService {
 
                             // Registrar depósito
                             const deposit = await this._registerDeposit(checkbox);
-                            //guardamos la respuesta del deposito
-                            this.addResponse(checkbox.onResponseExternal, deposit.dataDeposit);
-
-                            if (deposit.errorCode === ErrorCode.NONE) {
-                                checkbox.statusIncident = IncidentStatus.PAYED;
-                            } else {
-                                this.logger.warn(`[Depósito fallido] checkbox ${checkbox.id}: ${deposit.message}`);
-                            }
+                            this._applyDepositOutcome(checkbox, deposit);
                             break;
 
                         case IncidentStatus.SUPPLIED:
                             // Ya fue emitido → solo registrar depósito
                             const depositSupplied = await this._registerDeposit(checkbox);
-                            //guardamos la respuesta del deposito
-                            this.addResponse(checkbox.onResponseExternal, depositSupplied.dataDeposit);
-
-                            if (depositSupplied.errorCode === ErrorCode.NONE) {
-                                checkbox.statusIncident = IncidentStatus.PAYED;
-                            } else {
-                                this.logger.warn(`[Depósito fallido] checkbox ${checkbox.id}: ${depositSupplied.message}`);
-                            }
+                            this._applyDepositOutcome(checkbox, depositSupplied);
                             break;
 
                         default:
@@ -286,6 +269,30 @@ export class CheckService {
 
         } catch (error) {
             this.logger.error(`Call _validateCheckboxToEmitAndPay err: ${error.message}`);
+        }
+    }
+
+    /**
+     * Applies the outcome of a GIM deposit to a checkbox: stores the provider
+     * response in `onResponseExternal` and, on success, advances the incident
+     * status to PAYED; on failure it logs a warning. Shared by the
+     * "emit + deposit" and "deposit only" branches of
+     * `_validateCheckboxToEmitAndPay`.
+     *
+     * @param checkbox Checkbox being settled (mutated in place).
+     * @param deposit Result returned by `_registerDeposit`.
+     */
+    private _applyDepositOutcome(
+        checkbox: Checkbox,
+        deposit: { errorCode: number; dataDeposit: any; message?: string },
+    ): void {
+        //guardamos la respuesta del deposito
+        this.addResponse(checkbox.onResponseExternal, deposit.dataDeposit);
+
+        if (deposit.errorCode === ErrorCode.NONE) {
+            checkbox.statusIncident = IncidentStatus.PAYED;
+        } else {
+            this.logger.warn(`[Depósito fallido] checkbox ${checkbox.id}: ${deposit.message}`);
         }
     }
 

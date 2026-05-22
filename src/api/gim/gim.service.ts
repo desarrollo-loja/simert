@@ -96,6 +96,25 @@ export class GimService {
     return digits.startsWith('0') ? digits : '0' + digits;
   }
 
+  /**
+   * Performs an authenticated JSON POST against a GIM "external" API endpoint.
+   * Centralizes base-URL composition and Bearer-token header construction so
+   * each operation only declares the endpoint path and request body, removing
+   * the repeated `axios.post(url, body, { headers })` boilerplate.
+   *
+   * @typeParam T Expected response payload shape.
+   * @param endpointPath Path under `/api/external/` (e.g. `findTaxPayer`).
+   * @param body Request payload serialized as JSON.
+   * @returns The parsed response body returned by GIM.
+   */
+  private async _postToExternalApi<T>(endpointPath: string, body: unknown): Promise<T> {
+    const url = `${this.gimBaseUrl}/api/external/${endpointPath}`;
+    const { data } = await axios.post<T>(url, body, {
+      headers: this._authJsonHeaders(),
+    });
+    return data;
+  }
+
   async issueIncidentGim(createGimDto: CreateGimDto, incidentId: number, isTransacional: number): Promise<{ errorCode: number, data: CreateGimDto | null | any, message?: string }> {
     try {
 
@@ -272,15 +291,11 @@ export class GimService {
 
   async getUserByIdentityCardGim(identificationNumber: string): Promise<{ errorCode: number } & Partial<FindTaxPayerResponse>> {
     try {
-      const url = `${this.gimBaseUrl}/api/external/findTaxPayer`;
-
       const body = {
         identificationNumber: identificationNumber,
       };
 
-      const { data } = await axios.post<FindTaxPayerResponse>(url, body, {
-        headers: this._authJsonHeaders(),
-      });
+      const data = await this._postToExternalApi<FindTaxPayerResponse>('findTaxPayer', body);
 
       if (data.ok && +data.code === 200) {
         return {
@@ -306,9 +321,7 @@ export class GimService {
 
   async createNewNaturalPersonGim(createClientGimDto: CreateClientGimDto): Promise<{ errorCode: number, data?: any } & Partial<CreateNaturalPersonResponse>> {
     try {
-      const url = `${this.gimBaseUrl}/api/external/createNewNaturalPerson`;
-
-      // PARA PRUEBAS DE DESARROLLO 
+      // PARA PRUEBAS DE DESARROLLO
       // createGimDto.identityCard = '1104187768';
 
       //verificamos al usuario en nuestro sistema
@@ -367,9 +380,7 @@ export class GimService {
         };
       }
 
-      const { data } = await axios.post<CreateNaturalPersonResponse>(url, body, {
-        headers: this._authJsonHeaders(),
-      });
+      const data = await this._postToExternalApi<CreateNaturalPersonResponse>('createNewNaturalPerson', body);
 
       if (user && user.errorCode === ErrorCode.NONE)
         this.commonAuthService.updateResidentId(user.data[0].id, createClientGimDto.identityCard, data.residentDTO.id);
@@ -408,8 +419,6 @@ export class GimService {
 
   async createNewNaturalPersonGimNoExist(createClientGimNotExistDto: CreateClientGimNotExistDto): Promise<{ errorCode: number, data?: any } & Partial<CreateNaturalPersonResponse>> {
     try {
-      const url = `${this.gimBaseUrl}/api/external/createNewNaturalPerson`;
-
       const phoneNumber = this._normalizeEcuadorPhone(createClientGimNotExistDto.phoneNumber);
 
       const body = {
@@ -431,9 +440,7 @@ export class GimService {
         isHandicaped: !!createClientGimNotExistDto.isHandicaped,
       };
 
-      const { data } = await axios.post<CreateNaturalPersonResponse>(url, body, {
-        headers: this._authJsonHeaders(),
-      });
+      const data = await this._postToExternalApi<CreateNaturalPersonResponse>('createNewNaturalPerson', body);
 
       if (data.ok && +data.code === 200) {
         return {
@@ -536,17 +543,7 @@ export class GimService {
         address: createGimDto.address, // Placeholder
       };
 
-      // TODO: Use the correct URL from config
-      // const url = `${this.gimBaseUrl}/api/external/emitInfractionGim`;
-      const url = `${this.gimBaseUrl}/api/external/emitSimertSanction`;
-
-      const { data } = await axios.post<EmitInfractionSimertResponse>(
-        url,
-        body,
-        {
-          headers: this._authJsonHeaders(),
-        }
-      );
+      const data = await this._postToExternalApi<EmitInfractionSimertResponse>('emitSimertSanction', body);
 
       if (data && data.ok && +data.code === ResponseCodeGim.SUCCESS) {
         return { errorCode: ErrorCode.NONE, data };
@@ -640,14 +637,11 @@ export class GimService {
   // Buscar Obligación por Número de boleta y cedula (este recurso devuelve todas las deudas de la persona, es decir de todos los estados)
   async findObligationsByCitation(number: string, identityCard: string): Promise<{ errorCode: number, data: ObligationsResponse, message?: string }> {
     try {
-      const url = `${this.gimBaseUrl}/api/external/findObligationsByCitation`;
       const body = {
         citationNumber: number, // Número de boleta
         identificationNumber: identityCard // Cédula
       };
-      const { data } = await axios.post<ObligationsResponse>(url, body, {
-        headers: this._authJsonHeaders(),
-      });
+      const data = await this._postToExternalApi<ObligationsResponse>('findObligationsByCitation', body);
       // si me viene sin obligacioens significa que no esta emitida 
       if (data && data.ok && +data.code === ResponseCodeGim.SUCCESS && data.obligations && data.obligations.length > 0) {
 
@@ -678,13 +672,10 @@ export class GimService {
   // Buscar Obligación por placa (devuelve todas las deudas asociadas a la placa)
   async findObligationsByLicensePlate(licensePlate: string): Promise<{ errorCode: number, data: ObligationsResponse, message?: string }> {
     try {
-      const url = `${this.gimBaseUrl}/api/external/findObligationsByLicensePlate`;
       const body = {
         licensePlate: licensePlate
       };
-      const { data } = await axios.post<ObligationsResponse>(url, body, {
-        headers: this._authJsonHeaders(),
-      });
+      const data = await this._postToExternalApi<ObligationsResponse>('findObligationsByLicensePlate', body);
       // si me viene sin obligaciones significa que no esta emitida
       if (data && data.ok && +data.code === ResponseCodeGim.SUCCESS && data.obligations && data.obligations.length > 0) {
 
@@ -820,16 +811,7 @@ export class GimService {
   // Validar Open Till
   async validateOpenTill(): Promise<{ errorCode: number; data: any; message?: string }> {
     try {
-      const url = `${this.gimBaseUrl}/api/external/validateOpenTill`;
-
-      const { data } = await axios.post(
-        url,
-        {},
-        {
-          headers: this._authJsonHeaders(),
-          //timeout: 10000,
-        },
-      );
+      const data = await this._postToExternalApi<any>('validateOpenTill', {});
 
       if (data && data?.ok && Number(data?.code) === 200 && !data?.isOpen) {
         return {
@@ -939,12 +921,9 @@ export class GimService {
   // OBTENER LOS TIPOS DE VEHICULOS DESDE EL GIM
   async findVehicleTypesForSimert(): Promise<{ errorCode: number, data: any, message?: string }> {
     try {
-      const url = `${this.gimBaseUrl}/api/external/findVehicleTypesForSimert`;
       const body = {}; // Body vacio segun requerimiento
 
-      const { data } = await axios.post<VehicleTypesGimResponse>(url, body, {
-        headers: this._authJsonHeaders(),
-      });
+      const data = await this._postToExternalApi<VehicleTypesGimResponse>('findVehicleTypesForSimert', body);
 
       // RESPONSE EJEMPLO
       // {
@@ -982,7 +961,6 @@ export class GimService {
   // OBTENER LOS TIPOS DE VEHICULOS DESDE EL GIM
   async emissionTitleCreditCard(emissionCreditCardDto: EmissionCreditCardDto): Promise<{ errorCode: number, data: any, message?: string }> {
     try {
-      const url = `${this.gimBaseUrl}/api/external/emitSimertCard`;
       const body = {
         residentId: emissionCreditCardDto.residentId,
         description: emissionCreditCardDto.description,
@@ -991,9 +969,7 @@ export class GimService {
         quantity: emissionCreditCardDto.quantity,
       };
 
-      const { data } = await axios.post<EmisionTitleCreditCardResponse>(url, body, {
-        headers: this._authJsonHeaders(),
-      });
+      const data = await this._postToExternalApi<EmisionTitleCreditCardResponse>('emitSimertCard', body);
 
       if (data && data.ok && +data.code === 200) {
         return {
@@ -1020,12 +996,9 @@ export class GimService {
   // DEPÓSITO EN EL GIM
   async registerDeposit(registerDepositGimDto: RegisterDepositGimDto): Promise<{ errorCode: number, data: any, message?: string }> {
     try {
-      const url = `${this.gimBaseUrl}/api/external/registerDeposit`;
       const body = { ...registerDepositGimDto, amount: Number(registerDepositGimDto.amount) }
 
-      const { data } = await axios.post<DepositResponse>(url, body, {
-        headers: this._authJsonHeaders(),
-      });
+      const data = await this._postToExternalApi<DepositResponse>('registerDeposit', body);
 
       if (data && data.ok && data.reference && data.total) {
         return {
@@ -1053,12 +1026,9 @@ export class GimService {
   // Buscar obligaciones cliente
   async findObligations(getClientGimDto: GetClientGimDto): Promise<{ errorCode: number, data: any, message?: string }> {
     try {
-      const url = `${this.gimBaseUrl}/api/external/findStatement`;
       const body = { identificationNumber: getClientGimDto.identificationNumber };
 
-      const { data } = await axios.post<ObligationsClientResponse>(url, body, {
-        headers: this._authJsonHeaders(),
-      });
+      const data = await this._postToExternalApi<ObligationsClientResponse>('findStatement', body);
 
       if (data && data.ok && data.bonds?.length > 0) {
         return {
@@ -1085,7 +1055,6 @@ export class GimService {
   // Emitir sanción gim
   async emitSanction(emissionSanctionDto: EmissionSanctionDto): Promise<{ errorCode: number, data: any, message?: string }> {
     try {
-      const url = `${this.gimBaseUrl}/api/external/emitSanction`;
       const body = {
         entryCode: emissionSanctionDto.entryCode,
         residentId: emissionSanctionDto.residentId,
@@ -1097,9 +1066,7 @@ export class GimService {
         vehicleType: emissionSanctionDto.vehicleType,
       };
 
-      const { data } = await axios.post<EmitInfractionSimertResponse>(url, body, {
-        headers: this._authJsonHeaders(),
-      });
+      const data = await this._postToExternalApi<EmitInfractionSimertResponse>('emitSanction', body);
 
       if (data && data.ok && data.code === '200') {
         return {
