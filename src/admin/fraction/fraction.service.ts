@@ -31,8 +31,11 @@ export class FractionService {
           return { fractions: [] };
         }
         const monthComplite = month.toString().padStart(2, '0')
-        tableName = `history.${year}_${monthComplite}_fraction`;
-        tableExists = await this._tableExists(tableName);
+        const fractionTable = `${year}_${monthComplite}_fraction`;
+        tableExists = await this._tableExists(`history.${fractionTable}`);
+        // Quote the identifier: it starts with a digit, otherwise Postgres
+        // parses it as a numeric literal ("trailing junk after numeric literal").
+        tableName = `history."${fractionTable}"`;
       }
       if (tableExists || (!year && !month)) {
         const { parameters, conditions } = this.buildParametersConditions(filterDto);
