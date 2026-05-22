@@ -38,7 +38,8 @@
       "Bash(npm run *)",
       "Bash(echo \"BUILD EXIT: $?\")",
       "Read(//tmp/**)",
-      "Bash(npx nest *)"
+      "Bash(npx nest *)",
+      "Read(//private/tmp/**)"
     ]
   }
 }
