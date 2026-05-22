@@ -7,6 +7,10 @@ import { Repository } from 'typeorm';
 
 import { Physic } from './entities/physic.entity';
 
+/**
+ * Service handling read operations over the `physic` table (physical parking
+ * card usage records). Provides paginated listing and aggregate counters.
+ */
 @Injectable()
 export class PhysicsService {
   private readonly logger = new Logger('PhysicsService');
@@ -16,27 +20,51 @@ export class PhysicsService {
     private readonly physicRepository: Repository<Physic>
   ) { }
 
+  /**
+   * Retrieves a paginated list of physical card usage records.
+   *
+   * Runs a raw SQL query (no ORM query builder) with an INNER JOIN to the
+   * `zone` table, so only records pointing to an existing zone are returned.
+   * The selected columns and response shape are kept identical to the previous
+   * ORM-based implementation.
+   *
+   * @param filterDto Pagination (`limit`, `offset`) and optional filters
+   *   (`userId`, `zoneId`, `search`, `dateFrom`, `timeByBlock`).
+   * @returns Object with `errorCode` and the `physics` array of records.
+   */
   async findAll(filterDto: FilterDto) {
     try {
       const { limit = 20, offset = 0 } = filterDto;
 
-      const query = this.physicRepository.createQueryBuilder('p')
-        .select([
-          'p.id', 'p.userId', 'p.zoneId', 'p.card',
-          'p.time', 'p.checkboxes', 'p.timeByBlock',
-          'p.registerAt', 'p.createdAt', 'p.updatedAt'
-        ]);
+      const { whereClause, parameters } = this._buildRawFilter(filterDto);
 
-      const { conditions, parameters } = this._buildConditionsAndParameters(filterDto);
-      if (conditions.length) {
-        query.andWhere(conditions.join(' AND '), parameters);
-      }
+      const sql = `
+        SELECT
+          p."id",
+          p."userId",
+          p."zoneId",
+          p."card",
+          p."time",
+          p."checkboxes",
+          p."timeByBlock",
+          p."registerAt",
+          p."createdAt",
+          p."updatedAt",
+          z.name AS "zoneName",
+          b.name AS "blockName",
+          b.id AS "blockId",
+          s.name AS "slotName",
+          s.id AS "slotId"
+        FROM "physic" p
+        INNER JOIN "zone" z ON z."id" = p."zoneId"
+        INNER JOIN "block" b ON b."zoneId" = z."id"
+        INNER JOIN "slot" s ON s."blockId" = b."id"
+        ${whereClause}
+        ORDER BY p."id" DESC
+        LIMIT $${parameters.length + 1} OFFSET $${parameters.length + 2}
+      `;
 
-      query.orderBy('p.id', 'DESC')
-        .take(limit)
-        .skip(offset);
-
-      const physics = await query.getMany();
+      const physics = await this.physicRepository.query(sql, [...parameters, limit, offset]);
 
       return { errorCode: ErrorCode.NONE, physics };
     } catch (error) {
@@ -111,5 +139,52 @@ export class PhysicsService {
     }
 
     return { conditions, parameters };
+  }
+
+  /**
+   * Builds the `WHERE` clause and positional parameter list for the raw SQL
+   * variant of {@link findAll}.
+   *
+   * Column names are wrapped in double quotes because Postgres folds unquoted
+   * identifiers to lowercase, which would break the camelCase columns of the
+   * `physic` table (e.g. `"userId"`, `"zoneId"`).
+   *
+   * @param filterDto Optional filters (`userId`, `zoneId`, `search`,
+   *   `dateFrom`, `timeByBlock`).
+   * @returns The `whereClause` string (empty when no filters are provided) and
+   *   the ordered `parameters` array aligned with the `$1..$N` placeholders.
+   */
+  private _buildRawFilter(filterDto: FilterDto): { whereClause: string; parameters: any[] } {
+    const { userId, zoneId, search, dateFrom, timeByBlock } = filterDto;
+    const conditions: string[] = [];
+    const parameters: any[] = [];
+
+    if (userId) {
+      parameters.push(userId);
+      conditions.push(`p."userId" = $${parameters.length}`);
+    }
+
+    if (zoneId) {
+      parameters.push(zoneId);
+      conditions.push(`p."zoneId" = $${parameters.length}`);
+    }
+
+    if (search) {
+      parameters.push(`%${search}%`);
+      conditions.push(`p."card" ILIKE $${parameters.length}`);
+    }
+
+    if (dateFrom) {
+      parameters.push(dateFrom);
+      conditions.push(`DATE(p."registerAt") = $${parameters.length}`);
+    }
+
+    if (timeByBlock) {
+      parameters.push(timeByBlock);
+      conditions.push(`p."timeByBlock" = $${parameters.length}`);
+    }
+
+    const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+    return { whereClause, parameters };
   }
 }
