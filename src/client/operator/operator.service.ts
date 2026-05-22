@@ -27,6 +27,7 @@ import { SystemConfigKey } from 'src/common/glob/system-config-key';
 import { TypeFraction } from 'src/common/glob/type/type_fraction';
 import { IncidentCategory, IncidentStatus } from 'src/common/glob/type/type_incident';
 import { TypeNotification } from 'src/common/glob/type/type_notification';
+import { OptionalDataInterface } from 'src/common/intefaces/optional-data.interface';
 import { DataSource, Repository } from 'typeorm';
 
 import { CreateIncidentDto } from '../incident/dto/create-incident.dto';
@@ -563,7 +564,25 @@ export class OperatorService {
       checkboxes,
       timeByBlock: fraction.timeByBlock,
       registerAt,
+      optionalData: this._buildPhysicOptionalData(fraction),
     });
+  }
+
+  /**
+   * Builds the optionalData entries persisted on a Physic record.
+   *
+   * @param fraction Fraction holding the vehicle plate for this session.
+   * @returns Key-value pairs with the vehicle `plate` and the server-side
+   *          registration date (`register`) formatted as `YYYY-MM-DD`.
+   */
+  private _buildPhysicOptionalData(fraction: Fraction): OptionalDataInterface[] {
+    const now = new Date();
+    const register = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+    return [
+      new OptionalDataInterface({ key: 'plate', value: fraction.plate ?? '' }),
+      new OptionalDataInterface({ key: 'register', value: register }),
+    ];
   }
 
   private async _savePhysic(fraction: Fraction, obsolete: number, physicId: number) {
@@ -582,6 +601,7 @@ export class OperatorService {
           checkboxes: fraction.checkboxes,
           timeByBlock: fraction.timeByBlock,
           zoneId: fraction.zone.id,
+          optionalData: this._buildPhysicOptionalData(fraction),
         },
       );
     } else {
