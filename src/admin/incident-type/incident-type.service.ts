@@ -29,7 +29,9 @@ export class IncidentTypeService {
     });
 
     if (findIncidentTypeCode) {
-      throw new BadRequestException({ codeError: ErrorCode.NAMEUNIQUE, message: 'El código ya existe' });
+      // Código (rubro) duplicado: devolvemos 200 + errorCode (igual que el update)
+      // para que el navegador no registre un 400 en consola.
+      return { errorCode: ErrorCode.NAMEUNIQUE, message: 'El código ya existe' };
     }
 
     const findIncidentType = await this.incidentTypeRepository.findOne({
