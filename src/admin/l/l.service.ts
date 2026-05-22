@@ -45,8 +45,9 @@ export class LService {
 
       const query = this.lRepository.createQueryBuilder('l')
         .select([
-          'l.userId', 'l.longitude', 'l.latitude', 'l.timestamp', 'l.zoneId', 'l.blockId'
-        ]);
+          'l.userId', 'l.longitude', 'l.latitude', 'l.zoneId', 'l.blockId'
+        ])
+        .addSelect(`TO_CHAR(l."timestamp", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`, 'l_timestamp');
 
       query.where('l.userId IN (:...userIds)', { userIds: userIdsArray });
 
@@ -57,7 +58,11 @@ export class LService {
         });
       }
 
-      const location = await query.getMany();
+      const { entities, raw } = await query.getRawAndEntities();
+      const location = entities.map((entity, i) => ({
+        ...entity,
+        timestamp: raw[i]?.l_timestamp ?? null,
+      }));
       return { errorCode: ErrorCode.NONE, location };
     } catch (error) {
       handleDbExceptions(error, this.logger);
