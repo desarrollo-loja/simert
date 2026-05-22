@@ -40,7 +40,8 @@
       "Read(//tmp/**)",
       "Bash(npx nest *)",
       "Read(//private/tmp/**)",
-      "Bash(echo \"ESLINT EXIT: $?\")""Bash(npx nest *)"
+      "Bash(echo \"ESLINT EXIT: $?\")",
+      "Bash(npx nest *)"
     ]
   }
 }
