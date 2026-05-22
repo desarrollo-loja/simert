@@ -10,7 +10,7 @@ export class Status {
     @IsPositive()
     id: number;
 
-    @Column("varchar", { length: 20, comment: 'Human-readable name for this fraction status' })
+    @Column("varchar", { length: 40, comment: 'Human-readable name for this fraction status' })
     name: string;
 
     @Column({ type: "timestamp", default: () => "now()", comment: 'Timestamp when the record was created' })
