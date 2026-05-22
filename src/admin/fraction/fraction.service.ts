@@ -18,6 +18,29 @@ export class FractionService {
     private readonly fractionRepository: Repository<Fraction>,
   ) { }
 
+  /**
+   * Lists parking fractions with pagination, reading either from the live
+   * `public.fraction` table or from a monthly historical archive when a
+   * `year`/`month` period is requested.
+   *
+   * Source-table routing:
+   * - No `year`/`month`           -> live `fraction` table.
+   * - Valid period + archive exists -> `history."YYYY_MM_fraction"`.
+   * - Invalid period, or archive not found yet -> empty result (`{ fractions: [] }`).
+   *
+   * The historical identifier is double-quoted because names starting with a
+   * digit (e.g. `2025_05_fraction`) are invalid unquoted in PostgreSQL. The
+   * unquoted variant is used only for the `information_schema` existence check.
+   * Each filter is bound as a `$N` parameter via {@link buildParametersConditions}.
+   *
+   * @param filterDto Filters and pagination: `year`, `month`, `limit` (default 10),
+   *   `offset` (default 0), plus the conditions resolved by
+   *   {@link buildParametersConditions} (zoneId, blockId, slotId, statusId, search, etc.).
+   * @returns `{ fractions, total, limit, offset }` with the matching rows and the
+   *   total count, or `{ fractions: [] }` when the requested period is invalid or
+   *   its archive does not exist.
+   * @throws Delegates DB errors to {@link handleDbExceptions}.
+   */
   async findAll(filterDto: FilterDto) {
     const { year, month,
 
@@ -31,11 +54,12 @@ export class FractionService {
           return { fractions: [] };
         }
         const monthComplite = month.toString().padStart(2, '0')
-        const fractionTable = `${year}_${monthComplite}_fraction`;
-        tableExists = await this._tableExists(`history.${fractionTable}`);
-        // Quote the identifier: it starts with a digit, otherwise Postgres
-        // parses it as a numeric literal ("trailing junk after numeric literal").
-        tableName = `history."${fractionTable}"`;
+        // Unquoted name for the existence check (information_schema lookup splits on '.').
+        const historyTableName = `history.${year}_${monthComplite}_fraction`;
+        tableExists = await this._tableExists(historyTableName);
+        // Quoted name for the raw query: identifiers starting with a digit
+        // (e.g. "2025_05_fraction") must be double-quoted or Postgres throws a syntax error.
+        tableName = `history."${year}_${monthComplite}_fraction"`;
       }
       if (tableExists || (!year && !month)) {
         const { parameters, conditions } = this.buildParametersConditions(filterDto);
@@ -86,8 +110,8 @@ export class FractionService {
   }
 
   // para postgres
-  async findFractionHistory( filterDto: FilterDto ) {
-    const { offset = 0, limit = 10, year, month} = filterDto;
+  async findFractionHistory(filterDto: FilterDto) {
+    const { offset = 0, limit = 10, year, month } = filterDto;
 
     const { parameters, conditions } = this.buildParametersConditions(filterDto);
 
