@@ -33,6 +33,7 @@ _Plataforma robusta para la gestión inteligente del parqueo urbano — construi
 - [📡 Documentación Técnica](#-documentación-técnica)
   - [API (OpenAPI / Swagger)](#api-openapi--swagger)
   - [Redis y Estrategia de Cache](#redis-y-estrategia-de-cache)
+  - [Trabajos en Segundo Plano (Jobs)](#trabajos-en-segundo-plano-jobs)
   - [Despliegue](#despliegue)
   - [Git · Estrategia de Ramas](#git--estrategia-de-ramas)
   - [Releases y Versionado](#releases-y-versionado)
@@ -193,7 +194,7 @@ flowchart LR
     end
 
     subgraph Modules["Módulos"]
-        A["src/admin/*<br/>23 submódulos"]
+        A["src/admin/*<br/>25 submódulos"]
         C["src/client/*<br/>13 submódulos"]
         AP["src/api/*<br/>ant · dinardap-ant · gim · keycloak · portal"]
     end
@@ -236,8 +237,8 @@ graph TB
         FractionMod["FractionModule"]
         StatusMod["StatusModule"]
         ScheduleMod["ScheduleModule"]
-        BankMod["BankModule"]
         CardMod["CardModule"]
+        CatalogMod["CatalogModule"]
         CheckboxMod["CheckboxModule"]
         CheckboxUserMod["CheckboxUserModule"]
         IncidentMod["IncidentModule"]
@@ -272,6 +273,12 @@ graph TB
         PortalMod["PortalModule"]
     end
 
+    subgraph JobsLayer["Trabajos en Segundo Plano (src/check · src/data · src/incident)"]
+        CheckJob["CheckModule<br/>(vencimiento de fracciones + checkboxes)"]
+        DataJob["DataModule<br/>(archivado a tablas history.*)"]
+        IncidentJob["IncidentCheckModule<br/>(conciliación de depósitos GIM)"]
+    end
+
     subgraph CommonLayer["Capa Common (src/common)"]
         CacheMod["CommonCacheModule"]
         GimSvc["CommonGimModule"]
@@ -285,9 +292,11 @@ graph TB
     AppModule --> AdminLayer
     AppModule --> ClientLayer
     AppModule --> ApiLayer
+    AppModule --> JobsLayer
     AdminLayer --> CommonLayer
     ClientLayer --> CommonLayer
     ApiLayer --> CommonLayer
+    JobsLayer --> CommonLayer
 ```
 
 ### Diagrama de Despliegue
@@ -388,7 +397,7 @@ flowchart LR
 
 > Un diagrama por cada entidad declarada en `src/admin/<módulo>/entities/`. Refleja atributos, tipos, claves primarias, relaciones declaradas por TypeORM y métodos de instancia cuando aplican.
 
-**Entidades:** [Zone](#zone) · [Block](#block) · [Slot](#slot) · [Fraction](#fraction) · [Status](#status) · [FractionStatus](#fractionstatus) · [Schedule](#schedule) · [BlockOperator](#blockoperator) · [Bank](#bank) · [SalePoint](#salepoint) · [RangeSalePoint](#rangesalepoint) · [RangeSalePointTransaction](#rangesalepointtransaction) · [Incident](#incident) · [IncidentType](#incidenttype) · [IncidentNotification](#incidentnotification) · [IncidentPayment](#incidentpayment) · [Card](#card) · [Checkbox](#checkbox) · [CheckboxUser](#checkboxuser) · [Range](#range) · [Physic](#physic) · [AgentActivity](#agentactivity) · [SupportTicket](#supportticket) · [L](#l)
+**Entidades:** [Zone](#zone) · [Block](#block) · [Slot](#slot) · [Fraction](#fraction) · [Status](#status) · [FractionStatus](#fractionstatus) · [Schedule](#schedule) · [BlockOperator](#blockoperator) · [SalePoint](#salepoint) · [RangeSalePoint](#rangesalepoint) · [RangeSalePointTransaction](#rangesalepointtransaction) · [Incident](#incident) · [IncidentType](#incidenttype) · [IncidentNotification](#incidentnotification) · [IncidentPayment](#incidentpayment) · [Card](#card) · [Checkbox](#checkbox) · [CheckboxUser](#checkboxuser) · [Range](#range) · [Physic](#physic) · [AgentActivity](#agentactivity) · [SupportTicket](#supportticket) · [Catalog](#catalog) · [L](#l)
 
 #### Zone
 
@@ -588,25 +597,6 @@ classDiagram
     }
 ```
 
-#### Bank
-
-Archivo: [`src/admin/bank/entities/bank.entity.ts`](src/admin/bank/entities/bank.entity.ts)
-
-```mermaid
-classDiagram
-    class Bank {
-        +number id
-        +string names
-        +string code
-        +string icon
-        +boolean isActivated
-        +number priority
-        +Date createdAt
-        +Date updatedAt
-        +SalePoint[] salesPoint
-    }
-```
-
 #### SalePoint
 
 Archivo: [`src/admin/sale-point/entities/sale-point.entity.ts`](src/admin/sale-point/entities/sale-point.entity.ts)
@@ -643,7 +633,6 @@ classDiagram
         +number balanceRevenueValue
         +Date createdAt
         +Date updatedAt
-        +Bank bank
         +Zone zone
         +Block block
         +RangeSalePoint[] rangeSalePoints
@@ -946,6 +935,25 @@ classDiagram
     }
 ```
 
+#### Catalog
+
+Archivo: [`src/admin/catalog/entities/catalog.entity.ts`](src/admin/catalog/entities/catalog.entity.ts)
+
+> Tabla de configuración clave-valor. Cada fila es un catálogo nombrado (p. ej. códigos de rubro GIM) cuyo contenido se guarda como JSON. `CheckService` carga todos los catálogos en memoria en `onModuleInit`.
+
+```mermaid
+classDiagram
+    class Catalog {
+        +number id
+        +string name
+        +any data
+        +string description
+        +boolean isActivated
+        +Date createdAt
+        +Date updatedAt
+    }
+```
+
 #### L
 
 Archivo: [`src/admin/l/entities/l.entity.ts`](src/admin/l/entities/l.entity.ts)
@@ -983,7 +991,6 @@ erDiagram
     STATUS ||--o{ FRACTION_STATUS : "historial"
     FRACTION ||--o{ FRACTION_STATUS : "auditoría"
     FRACTION ||--o{ INCIDENT : "origina"
-    BANK ||--o{ SALE_POINT : "respalda"
     SALE_POINT ||--o{ RANGE_SALE_POINT : "emite"
     RANGE_SALE_POINT ||--o{ RANGE_SALE_POINT_TRANSACTION : "transfiere"
 
@@ -1113,20 +1120,8 @@ erDiagram
         timestamp updatedAt
     }
 
-    BANK {
-        int id PK
-        varchar names
-        varchar code
-        varchar icon
-        boolean isActivated
-        smallint priority
-        timestamp createdAt
-        timestamp updatedAt
-    }
-
     SALE_POINT {
         int id PK
-        int bank_id FK
         int zoneId FK
         int blockId FK
         int mode
@@ -1360,6 +1355,16 @@ erDiagram
         timestamp updatedAt
     }
 
+    CATALOG {
+        int id PK
+        varchar name UK
+        json data
+        varchar description
+        boolean isActivated
+        timestamp createdAt
+        timestamp updatedAt
+    }
+
     L {
         int userId PK
         smallint taken
@@ -1371,7 +1376,7 @@ erDiagram
     }
 ```
 
-> 📎 **Tablas sin FK ORM (relación lógica mediante columnas `*Id`):** `IncidentType`, `IncidentNotification`, `IncidentPayment`, `Card`, `Checkbox`, `CheckboxUser`, `Range`, `Physic`, `AgentActivity`, `SupportTicket`, `L`.
+> 📎 **Tablas sin FK ORM (relación lógica mediante columnas `*Id`):** `IncidentType`, `IncidentNotification`, `IncidentPayment`, `Card`, `Checkbox`, `CheckboxUser`, `Range`, `Physic`, `AgentActivity`, `SupportTicket`, `Catalog`, `L`.
 
 ### Diagramas de Secuencia
 
@@ -1989,6 +1994,7 @@ Todas las rutas cuelgan de `/api/simert/` (ver `TypePrefix.API_SIMERT`).
 | `range-sale-point-transaction` | `POST /admin/range-sale-point-transaction/create`, `GET /admin/range-sale-point-transaction/all`, `GET /admin/range-sale-point-transaction/total` |
 | `agent-activities` | `GET /admin/agent-activities`, `GET /admin/agent-activities/total` |
 | `physic` | `GET /admin/physic`, `GET /admin/physic/total` |
+| `catalog` | `POST /admin/catalog/:userId/:idDevice/:version`, `GET /admin/catalog/:userId/:idDevice/:version`, `PATCH /admin/catalog/:id/:userId/:idDevice/:version` |
 
 **👤 Client** — `src/client/` (extracto)
 
@@ -2026,6 +2032,29 @@ Redis actúa como capa de caché global para reducir latencia y evitar golpes re
 | `block:*` / `zone:*` | Catálogo estático | Largo |
 
 **Interceptores implicados:** `CacheInterceptor` y `CachePersistenceInterceptor` (en [`src/common/interceptors/`](src/common/interceptors/)) controlan invalidación y persistencia de la caché HTTP.
+
+### Trabajos en Segundo Plano (Jobs)
+
+Además de los módulos HTTP, la aplicación corre tres servicios de fondo que arrancan en `onModuleInit` y se programan con `setInterval` (no exponen endpoints). Viven en la raíz de `src/` y se registran en [`app.module.ts`](src/app.module.ts).
+
+| Servicio | Módulo (`app.module.ts`) | Disparador | Responsabilidad |
+|---|---|---|---|
+| [`CheckService`](src/check/check.service.ts) | `CheckModule` | `setInterval` | Vigila fracciones próximas a vencer y notifica al usuario; valida checkboxes pagados internamente pero aún no emitidos en el municipio. Carga todos los `Catalog` en memoria al iniciar. |
+| [`DataService`](src/data/data.service.ts) | `DataModule` | `setInterval` (solo si `MASTER_DATA_SERVICE=TRUE`) | Archiva `fraction`, `fraction_status`, `checkbox` e `incident` de hace 2 días a tablas particionadas por mes en el esquema `history.*` (`CREATE TABLE ... LIKE ... INCLUDING ALL`). |
+| [`IncidentService`](src/incident/incident.service.ts) | `IncidentCheckModule` | `setInterval` | Concilia depósitos en GIM para incidentes en estado `SUPPLIED` + `PAID`, agrupando por `identityCard` + `transactionId`. Valida primero que la caja GIM esté abierta. |
+
+**Variables de entorno asociadas:**
+
+| Variable | Servicio | Default | Descripción |
+|---|---|---|---|
+| `INTERVAL_TRANSFER_CHECK_MS` | Check | `60000` (1 min) | Frecuencia de revisión de fracciones por vencer. |
+| `INTERVAL_VALIDATE_CHECKBOX_MS` | Check | `120000` (2 min) | Frecuencia de validación de checkboxes pendientes. |
+| `INTERVAL_VALIDATE_INCIDENT_MS` | Incident | `120000` (2 min) | Frecuencia de conciliación de depósitos de incidentes. |
+| `MASTER_DATA_SERVICE` | Data | — | Si es `TRUE`, habilita el archivado a `history.*`. Debe activarse en **una sola instancia** para evitar duplicar el trabajo. |
+| `TIME_CACHE_BLOCK_OPERATOR` | Check | `5` | Minutos de caché para datos de `BlockOperator`. |
+| `CODE_ENTRY_EMISION_CARD` / `CODE_ENTRY_EMISION_CARD_DESCRIPTION` | Check | `573` / texto | Código y descripción de rubro GIM por defecto cuando el catálogo `TypeRubroCard` está vacío. |
+
+> ⚠️ En despliegue **cluster** (PM2 `-i max`), estos `setInterval` corren en **cada** worker. Para evitar ejecuciones duplicadas, ejecuta los jobs en una instancia dedicada (sin cluster) o controla la activación por variable de entorno como hace `DataService` con `MASTER_DATA_SERVICE`.
 
 ### Despliegue
 
@@ -2168,10 +2197,10 @@ parking_simert/
 │   ├── app.module.ts             # Root module (TypeORM multi-DB, Cache, módulos)
 │   ├── app.controller.ts
 │   │
-│   ├── admin/                    # Capa administrativa (23 submódulos)
+│   ├── admin/                    # Capa administrativa (25 submódulos)
 │   │   ├── zone/ block/ slot/ fraction/ fraction_status/ status/
 │   │   ├── schedule/ block_operator/ agent-activities/
-│   │   ├── bank/ card/ sale-point/
+│   │   ├── card/ sale-point/ catalog/
 │   │   ├── range/ range-sale-point/ range-sale-point-transaction/
 │   │   ├── checkbox/ checkbox-user/
 │   │   ├── incident/ incident-type/ incident-notification/ incident-payment/
@@ -2200,6 +2229,10 @@ parking_simert/
 │   │   ├── guards/
 │   │   ├── interfaces/
 │   │   └── strategies/
+│   │
+│   ├── check/                    # Job: vencimiento de fracciones + emisión/pago de checkboxes
+│   ├── data/                     # Job: archivado de fracciones/checkbox/incident a tablas history.*
+│   ├── incident/                 # Job: conciliación de depósitos GIM para incidentes pagados
 │   │
 │   └── common/                   # Infra compartida
 │       ├── common.cache.service.ts
@@ -2356,6 +2389,19 @@ Servidor disponible en `http://localhost:5002/api/simert` y Swagger en `http://l
 | `ALFRESCO_*` | Credenciales Alfresco |
 | `P2P_*` | Credenciales PlaceToPay |
 
+**⏱️ Trabajos en segundo plano**
+
+| Variable | Descripción |
+|---|---|
+| `MASTER_DATA_SERVICE` | `TRUE` habilita el archivado a `history.*` (solo una instancia) |
+| `INTERVAL_TRANSFER_CHECK_MS` | Intervalo de revisión de fracciones por vencer |
+| `INTERVAL_VALIDATE_CHECKBOX_MS` | Intervalo de validación de checkboxes pendientes |
+| `INTERVAL_VALIDATE_INCIDENT_MS` | Intervalo de conciliación de depósitos de incidentes |
+| `TIME_CACHE_BLOCK_OPERATOR` | Minutos de caché para `BlockOperator` |
+| `CODE_ENTRY_EMISION_CARD` · `CODE_ENTRY_EMISION_CARD_DESCRIPTION` | Rubro GIM por defecto para emisión de tarjetas |
+
+> 📎 Detalle completo de cada job en [Trabajos en Segundo Plano (Jobs)](#trabajos-en-segundo-plano-jobs).
+
 ---
 
 ## 🗄️ Diccionario de Datos
@@ -2467,24 +2513,12 @@ Tablas mapeadas desde entidades en [`src/admin/`](src/admin/). Los tipos indicad
 | `dateInitialized`, `dateFinalized` | `timestamp` | Marcas de turno |
 | `createdAt`, `updatedAt` | `timestamp` | Auditoría |
 
-### Bank · `bank`
-
-| Campo | Tipo | Descripción |
-|---|---|---|
-| `id` | `int` PK | Identificador |
-| `names` | `varchar` | Nombre |
-| `code` | `varchar` | Código |
-| `icon` | `varchar` | Icono |
-| `isActivated` | `boolean` | Activo |
-| `priority` | `smallint` | Orden |
-| `createdAt`, `updatedAt` | `timestamp` | Auditoría |
-
 ### SalePoint · `sale_point`
 
 | Campo | Tipo | Descripción |
 |---|---|---|
 | `id` | `int` PK | Identificador |
-| `bank_id`, `zoneId`, `blockId` | `int` FK | Relaciones |
+| `zoneId`, `blockId` | `int` FK | Relaciones (`SET NULL` on delete) |
 | `mode` | `int` | TypeModeSalePoint |
 | `type` | `int` | TypeSalePoint |
 | `lt`, `lg` | `decimal` | Coordenadas |
@@ -2660,6 +2694,17 @@ Tablas mapeadas desde entidades en [`src/admin/`](src/admin/). Los tipos indicad
 | `requestType`, `status`, `typeTicket` | `int` | Enums |
 | `message`, `emailClient` | `varchar` | Datos |
 | `image` | `varchar[]` | Evidencia |
+| `createdAt`, `updatedAt` | `timestamp` | Auditoría |
+
+### Catalog · `catalog`
+
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `id` | `int` PK | Identificador |
+| `name` | `varchar` UNIQUE | Nombre del catálogo (clave) |
+| `data` | `json` | Contenido del catálogo |
+| `description` | `varchar` | Descripción |
+| `isActivated` | `boolean` | Activo |
 | `createdAt`, `updatedAt` | `timestamp` | Auditoría |
 
 ### L · `l`
