@@ -18,6 +18,11 @@ type AntLookupResult =
   | { errorCode: ErrorCode.NONE; data: AntDataResponse }
   | { errorCode: Exclude<ErrorCode, ErrorCode.NONE>; data: null; message?: string };
 
+/**
+ * Service that integrates with the ANT (Agencia Nacional de Tránsito) SOAP
+ * web service to look up vehicle and owner data by plate number. Parses the
+ * XML response and normalises it to {@link AntDataResponse}.
+ */
 @Injectable()
 export class AntService {
   private readonly logger = new Logger('AntService');
@@ -38,7 +43,7 @@ export class AntService {
 
   async findAll() {
     try {
-      // Simulación de datos de ANT
+      // Stubbed ANT data for local development
       const data = [
         { id: 1, name: 'Simulación ANT 1', status: 'Active' },
         { id: 2, name: 'Simulación ANT 2', status: 'Inactive' },
@@ -94,7 +99,7 @@ export class AntService {
       headers: {
         'Content-Type': 'text/xml; charset=UTF-8',
         Accept: 'text/xml',
-        SOAPAction: '', // en tu WSDL está vacío, pero igual ayuda
+        SOAPAction: '', // empty in the WSDL, but included for compatibility
         username: process.env.ANT_USERNAME ?? '',
         password: process.env.ANT_PASSWORD ?? '',
       },
@@ -121,17 +126,16 @@ export class AntService {
       // Body.consultarVehiculoResponse.return.vehicle
       const payload = body?.consultarVehiculoResponse?.return ?? response;
 
-      // según tu WSDL el retorno final es responseVehiculo { code, message, vehicle }
+      // WSDL final return shape: responseVehiculo { code, message, vehicle }
       const code = Number(payload?.code ?? payload?.Code ?? 0);
       const vehicle = payload?.vehicle;
 
       if (!vehicle) return null;
 
-      // Si code != 0/200 depende de implementación (tu schema dice int)
-      // Ajusta la condición si el servicio usa 200.
+      // Non-zero / non-200 code means failure — adjust condition if the service uses 200.
       if (code && code !== 200) {
-        this.logger.warn(`ANT respondió code=${code} message=${payload?.message ?? ''}`);
-        // igual podrías retornar null o manejar diferente
+        this.logger.warn(`ANT responded code=${code} message=${payload?.message ?? ''}`);
+        // Could also return null here depending on desired behavior.
       }
 
       return this._buildAntDataResponse(vehicle);

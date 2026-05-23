@@ -8,6 +8,11 @@ import { TypeModeSalePoint } from 'src/common/glob/type/type_mode_sale_point';
 import { LoggerService } from 'src/common/logger.service.ts';
 import { Repository } from 'typeorm';
 
+/**
+ * Client-facing service for SalePoint. Provides geo-aware lookups of active
+ * sale points (fixed and mobile) used by the client app to locate where
+ * parking checkboxes can be purchased.
+ */
 @Injectable()
 export class SalePointService {
 

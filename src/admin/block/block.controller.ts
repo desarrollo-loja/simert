@@ -10,6 +10,11 @@ import { BlockService } from './block.service';
 import { CreateBlockDto } from './dto/create-block.dto';
 import { UpdateBlockDto } from './dto/update-block.dto';
 import { Block } from './entities/block.entity';
+/**
+ * REST controller for managing parking blocks (sectors).
+ *
+ * Base route: `admin/block`. Delegates all business logic to {@link BlockService}.
+ */
 @ApiTags('Admin - Block')
 @ApiBearerAuth('keycloak')
 @Controller('admin/block')

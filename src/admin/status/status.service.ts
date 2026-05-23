@@ -5,6 +5,12 @@ import { StatusFraction } from 'src/common/glob/status/status_fraction';
 import { Repository } from 'typeorm';
 
 import { Status } from './entities/status.entity';
+
+/**
+ * Service for managing Status seed records — the static lookup table that
+ * maps {@link StatusFraction} enum values to display names. Used primarily
+ * during database initialization.
+ */
 @Injectable()
 export class StatusService {
   private readonly logger = new Logger('StatusService');
@@ -12,9 +18,15 @@ export class StatusService {
   constructor(
     @InjectRepository(Status)
     private readonly statusRepository: Repository<Status>,
-
   ) { }
 
+  /**
+   * Seeds the status lookup table with all known {@link StatusFraction} values.
+   * Intended for one-time database initialization; subsequent calls are idempotent
+   * when the repository uses upsert/save semantics.
+   *
+   * @returns The first two created status entities.
+   */
   async initializeDatabase() {
     const status1 = this.statusRepository.create({ id: StatusFraction.REQUESTED, name: 'Solicitando' });
     await this.statusRepository.save(status1);
@@ -49,9 +61,14 @@ export class StatusService {
     const status11 = this.statusRepository.create({ id: StatusFraction.FINISHED_BY_CONTROLLER, name: 'Terminada OP exedido' });
     await this.statusRepository.save(status11);
 
-    return { status1, status2 }
+    return { status1, status2 };
   }
 
+  /**
+   * Returns all status records with id and name fields.
+   *
+   * @returns Object with the status array.
+   */
   async findAllByfilter() {
     try {
       const status = await this.statusRepository.createQueryBuilder('st')
@@ -62,5 +79,4 @@ export class StatusService {
       handleDbExceptions(error, this.logger);
     }
   }
-
 }

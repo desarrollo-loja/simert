@@ -1,10 +1,14 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
-
-import { DinardapAntService } from './dinardap-ant.service';
-
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ApiStandardResponse } from 'src/common/decorators/api-standard-response.decorator';
 import { ErrorCode } from 'src/common/glob/error';
+
+import { DinardapAntService } from './dinardap-ant.service';
+/**
+ * REST controller exposing DINARDAP ANT vehicle owner and vehicle data lookups by plate.
+ *
+ * Base route: `api/dinardap-ant`. Delegates all business logic to {@link DinardapAntService}.
+ */
 @ApiTags('Api - Dinardap Ant')
 @ApiBearerAuth('keycloak')
 @Controller('api/dinardap-ant')

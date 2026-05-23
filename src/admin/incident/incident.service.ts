@@ -17,6 +17,14 @@ import { IncidentFilterDto } from './dto/incident-filterdto.dto';
 import { UpdateIncidentDto } from './dto/update-incident.dto';
 import { Incident } from './entities/incident.entity';
 
+/**
+ * Service that owns the admin-side incident (sanction) lifecycle:
+ * creation, listing/filtering, status transitions, GIM synchronization
+ * and the multi-step approval/notification flow used by supervisors.
+ *
+ * Persists to `public.incident` (current) and historical monthly tables.
+ * Cooperates with {@link CommonGimService} for external obligation emission.
+ */
 @Injectable()
 export class IncidentService {
   private readonly logger = new Logger(IncidentService.name);
@@ -32,11 +40,17 @@ export class IncidentService {
     private readonly commonGimService: CommonGimService,
   ) { }
 
-  // Validates that `year` and `month` are safe integers within sensible bounds
-  // before being interpolated into a SQL identifier (historical table name).
-  // Existence of the resulting table is still verified via `_tableExists` against
-  // `information_schema`, but this guard prevents malformed identifiers reaching
-  // the query string at all.
+  /**
+   * Validates that `year` and `month` are safe integers within sensible bounds
+   * before being interpolated into a SQL identifier (historical table name).
+   * Existence of the resulting table is still verified via `_tableExists` against
+   * `information_schema`, but this guard prevents malformed identifiers reaching
+   * the query string at all.
+   *
+   * @param year  Value to validate as a year (2000–2100).
+   * @param month Value to validate as a month (1–12).
+   * @returns `true` when both values are integers within the accepted ranges.
+   */
   private _isValidYearMonth(year: any, month: any): boolean {
     const y = Number(year);
     const m = Number(month);
@@ -46,6 +60,14 @@ export class IncidentService {
     );
   }
 
+  /**
+   * Creates a new incident record, persists it, and writes an audit log entry.
+   *
+   * @param createIncidentDto Fields for the new incident.
+   * @param userId            Optional ID of the user triggering the creation;
+   *   falls back to `controllerId` from the DTO when omitted.
+   * @returns Object with the saved `incident` and `errorCode`.
+   */
   async create(createIncidentDto: CreateIncidentDto, userId?: number) {
     try {
       const incident = this.incidentRepository.create({ ...createIncidentDto });
@@ -64,13 +86,23 @@ export class IncidentService {
     }
   }
 
+  /**
+   * Returns a paginated, filtered list of incidents from the appropriate table
+   * (`public.incident` or a historical archive).
+   *
+   * Timestamps are serialized as `YYYY-MM-DD"T"HH24:MI:SS.MS` strings to avoid
+   * the UTC-`Z` suffix that JS `Date` serialization would produce.
+   *
+   * @param filterDto Filters and pagination options.
+   * @returns Object with the `incidents` array and `errorCode`.
+   */
   async findAll(filterDto: IncidentFilterDto) {
     const table = await this._resolveIncidentTable(filterDto);
 
     const { conditions, parameters } = this._buildConditionsAndParametersPg(filterDto);
 
-    // Adds an extra value to the parameters array and returns its $N placeholder.
-    const addParamOutside = (value: any) => {
+    // Appends a value to the parameters array and returns its $N placeholder.
+    const appendParam = (value: any) => {
       parameters.push(value);
       return `$${parameters.length}`;
     };
@@ -123,14 +155,14 @@ export class IncidentService {
     if (filterDto.limit !== undefined && filterDto.limit !== null) {
       const lim = Math.trunc(Number(filterDto.limit));
       if (Number.isFinite(lim) && lim > 0) {
-        queryInfo += ` LIMIT ${addParamOutside(lim)}`;
+        queryInfo += ` LIMIT ${appendParam(lim)}`;
       }
     }
 
     if (filterDto.offset !== undefined && filterDto.offset !== null) {
       const off = Math.trunc(Number(filterDto.offset));
       if (Number.isFinite(off) && off >= 0) {
-        queryInfo += ` OFFSET ${addParamOutside(off)}`;
+        queryInfo += ` OFFSET ${appendParam(off)}`;
       }
     }
 
@@ -145,12 +177,20 @@ export class IncidentService {
     }
   }
 
+  /**
+   * Returns the total count of incidents matching the given filters, without
+   * applying any pagination. Uses the same table-resolution logic as
+   * {@link findAll} so counts always reflect the correct archive.
+   *
+   * @param filterDto Filters (same shape as `findAll`, pagination ignored).
+   * @returns Object with the numeric `total` and `errorCode`.
+   */
   async findAllTotal(filterDto: IncidentFilterDto) {
     const table = await this._resolveIncidentTable(filterDto);
 
     const { conditions, parameters } = this._buildConditionsAndParametersPg(filterDto);
 
-    const addParamOutside = (value: any) => {
+    const appendParam = (value: any) => {
       parameters.push(value);
       return `$${parameters.length}`;
     };
@@ -172,37 +212,39 @@ export class IncidentService {
     }
   }
 
-  // Returns incidents filtered by a list of transactionIds.
-  //
-  // It mirrors `CheckboxService.findAllByTransactionId`: the only differences
-  // are the queried table and the way that table name is resolved. The source
-  // table (`public.incident` or the historical archive
-  // `history."YYYY_MM_incident"`) is resolved through `_resolveIncidentTable`,
-  // exactly as `findAll` does. No extra business logic is applied here.
-  //
-  // SQL-injection safety:
-  // - The table name is never built from raw input: `_resolveIncidentTable`
-  //   validates `year`/`month` as bounded integers and verifies the resulting
-  //   identifier against `information_schema` before it is used.
-  // - Every `transactionId` and date value is bound as a `$N` parameter.
+  /**
+   * Returns incidents filtered by a list of `transactionIds`.
+   *
+   * Mirrors `CheckboxService.findAllByTransactionId`: the only differences are
+   * the queried table and how its name is resolved. The source table
+   * (`public.incident` or `history."YYYY_MM_incident"`) is resolved through
+   * {@link _resolveIncidentTable}, exactly as {@link findAll} does. No extra
+   * business logic is applied here.
+   *
+   * SQL-injection safety:
+   * - The table name is never built from raw input: `_resolveIncidentTable`
+   *   validates `year`/`month` as bounded integers and verifies the resulting
+   *   identifier against `information_schema` before use.
+   * - Every `transactionId` and date value is bound as a `$N` parameter.
+   *
+   * @param filterDto Filter carrying `transactionIds`, and optionally
+   *   `dateFrom`/`dateTo` and `year`/`month` for archive routing.
+   * @returns Object with the `incidents` array and `errorCode`.
+   */
   async findAllByTransactionId(filterDto: IncidentFilterDto) {
     const { transactionIds, dateFrom, dateTo } = filterDto;
 
-    // Nothing to look up without at least one transactionId.
     if (!Array.isArray(transactionIds) || transactionIds.length === 0) {
       return { errorCode: ErrorCode.NONE, incidents: [] };
     }
 
     try {
-      // Resolve the source table the same way `findAll` does
-      // (`public.incident` or the `history."YYYY_MM_incident"` archive).
       const table = await this._resolveIncidentTable(filterDto);
 
       const parameters: any[] = [];
       const conditions: string[] = [];
 
-      // Bind each transactionId to its own `$N` placeholder (copied from
-      // `CheckboxService.findAllByTransactionId`) to prevent SQL injection.
+      // Bind each transactionId to its own $N placeholder to prevent SQL injection.
       const placeholders = transactionIds.map((id) => {
         parameters.push(id);
         return `$${parameters.length}`;
@@ -231,18 +273,24 @@ export class IncidentService {
     }
   }
 
-  // Picks the table to read incidents from (`public.incident` or the
-  // historical archive `history."YYYY_MM_incident"`) based on `year`/`month`,
-  // mirroring the resolution pattern used by `findAllFractionSanction`:
-  // - No `year`/`month`            -> `public.incident`.
-  // - Invalid `year`/`month`       -> `public.incident` (defensive fallback).
-  // - Valid + archive exists       -> `history."YYYY_MM_incident"`.
-  // - Valid + archive missing yet  -> `public.incident` (e.g. the current
-  //   month has not been archived).
-  // The table name is *never* interpolated from raw user input: `year`/`month`
-  // are validated as bounded integers by `_isValidYearMonth`, and the
-  // resulting identifier is additionally verified against
-  // `information_schema.tables` via `_tableExists` (parameterized query).
+  /**
+   * Picks the table to read incidents from (`public.incident` or the historical
+   * archive `history."YYYY_MM_incident"`) based on `year`/`month`, mirroring
+   * the resolution pattern used by {@link _resolveSanctionTables}:
+   * - No `year`/`month`            → `public.incident`.
+   * - Invalid `year`/`month`       → `public.incident` (defensive fallback).
+   * - Valid + archive exists        → `history."YYYY_MM_incident"`.
+   * - Valid + archive missing yet   → `public.incident` (e.g. the current month
+   *   has not been archived).
+   *
+   * The table name is never interpolated from raw user input: `year`/`month`
+   * are validated as bounded integers by {@link _isValidYearMonth}, and the
+   * resulting identifier is additionally verified against
+   * `information_schema.tables` via {@link _tableExists} (parameterized query).
+   *
+   * @param filterDto Filter carrying optional `year` and `month`.
+   * @returns The fully-qualified table name to query.
+   */
   private async _resolveIncidentTable(
     filterDto: IncidentFilterDto,
   ): Promise<string> {
@@ -269,16 +317,16 @@ export class IncidentService {
    * `findAllStatisticsFractionSanction`).
    *
    * Routing rules (identical across all callers):
-   * - No/invalid `year`/`month` -> `public.incident` + `public.fraction`.
-   * - Valid period + incident archive exists -> historical incident table.
-   * - Valid period + BOTH archives exist -> historical fraction table too.
+   * - No/invalid `year`/`month` → `public.incident` + `public.fraction`.
+   * - Valid period + incident archive exists → historical incident table.
+   * - Valid period + BOTH archives exist → historical fraction table too.
    *   The fraction join is only routed to history when both archives are
    *   present, otherwise the INNER JOIN can orphan rows once fractions are
    *   purged from `public.fraction` after monthly archival.
    *
    * The table names are never interpolated from raw input: `year`/`month`
-   * are validated by `_isValidYearMonth` and each resulting identifier is
-   * verified against `information_schema` through `_tableExists`.
+   * are validated by {@link _isValidYearMonth} and each resulting identifier is
+   * verified against `information_schema` through {@link _tableExists}.
    *
    * @param filterDto Filter carrying the optional `year`/`month` period.
    * @returns The resolved incident and fraction table identifiers.
@@ -313,11 +361,39 @@ export class IncidentService {
     return { tableNameIncident, tableNameFraction };
   }
 
+  /**
+   * Retrieves a single incident by its primary key.
+   *
+   * @param id The incident ID.
+   * @returns Object with the found `incident` (or `null`) and `errorCode`.
+   */
   async findOne(id: number) {
     const incident = await this.incidentRepository.findOne({ where: { id } });
     return { incident, errorCode: ErrorCode.NONE };
   }
 
+  /**
+   * Updates an incident in either the live table or a historical archive,
+   * depending on the `isTransacional` flag and the presence of `year`/`month`
+   * in the DTO.
+   *
+   * Update paths:
+   * 1. `isTransacional !== 0` → write to `public.incident`.
+   * 2. `isTransacional === 0` + caller-supplied `year`/`month` → build the
+   *    historical table name directly without touching the live table.
+   * 3. `isTransacional === 0` + no `year`/`month` → derive the archive from
+   *    `createdAt` on the live row (backward-compatible path).
+   *
+   * Uses `repository.update()` (not `save()`) to avoid TypeORM skipping JSON
+   * column changes due to object-reference comparison in dirty-checking.
+   *
+   * @param id                Incident primary key.
+   * @param updateIncidentDto Fields to apply; `year`/`month` are routing-only
+   *   and are stripped before writing.
+   * @param isTransacional    Non-zero to target `public.incident`.
+   * @param userId            Optional audit-log actor ID.
+   * @returns Object with the updated `incident` and `errorCode`.
+   */
   async update(
     id: number,
     updateIncidentDto: UpdateIncidentDto,
@@ -328,8 +404,8 @@ export class IncidentService {
       // Strip routing-only fields before writing to any table.
       const { year: dtoYear, month: dtoMonth, ...fieldsToUpdate } = updateIncidentDto;
 
-      // Case 1: transactional flag set => update the main `public.incident` table.
-      // Uses update() directly to avoid TypeORM's dirty-checking skipping json
+      // Case 1: transactional flag set — update the main `public.incident` table.
+      // Uses update() directly to avoid TypeORM's dirty-checking skipping JSON
       // column changes (e.g. optionalData) due to object-reference comparison.
       if (isTransacional) {
         const exists = await this.incidentRepository.findOne({ where: { id } });
@@ -397,6 +473,17 @@ export class IncidentService {
     }
   }
 
+  /**
+   * Updates the GIM synchronization status of an incident in `public.incident`.
+   * Unlike {@link update}, this always targets the live table and strips the
+   * routing-only `year`/`month` fields before writing.
+   *
+   * @param id                Incident primary key.
+   * @param updateIncidentDto Fields to apply (typically `statusIncident`,
+   *   `nroObligation`, `onResponseExternal`).
+   * @param userId            Optional audit-log actor ID.
+   * @returns Object with the updated `incident` and `errorCode`.
+   */
   async updateStatusGim(id: number, updateIncidentDto: UpdateIncidentDto, userId?: number) {
     try {
       const exists = await this.incidentRepository.findOne({ where: { id } });
@@ -449,6 +536,19 @@ export class IncidentService {
     return { alfrescoBaseUrl, username, password, directory };
   }
 
+  /**
+   * Uploads a file buffer to Alfresco as a multipart form POST.
+   *
+   * Uses Basic Auth with credentials from environment variables via
+   * {@link _getAlfrescoCredentials}. The optional `relativePath` is forwarded
+   * to Alfresco to place the file inside a sub-folder.
+   *
+   * @param fileBuffer   Raw file content.
+   * @param fileName     Original file name (used as the Alfresco `name` field).
+   * @param relativePath Optional sub-folder path within the Alfresco directory.
+   * @returns Object with `errorCode` and `alfrescoData` on success,
+   *   or `errorCode: HTTP_ERROR_REINTENT` on failure.
+   */
   async uploadToAlfresco(
     fileBuffer: Buffer,
     fileName: string,
@@ -503,6 +603,18 @@ export class IncidentService {
     return { errorCode: ErrorCode.HTTP_ERROR_REINTENT };
   }
 
+  /**
+   * Creates an Alfresco shared link for the given node ID and returns the
+   * public download URL.
+   *
+   * The shared-link ID is extracted from the POST response and composed into
+   * a URL using `ALFRESCO_BASE_URL_PUBLIC` so the URL is accessible without
+   * Alfresco credentials.
+   *
+   * @param alfrescoId The Alfresco node ID (UUID) to share.
+   * @returns Object with `errorCode`, `alfrescoData`, `sharedId`, and
+   *   `sharedUrl` on success, or `errorCode: HTTP_ERROR_REINTENT` on failure.
+   */
   async getFileUrlAlfresco(alfrescoId: string): Promise<Object> {
     try {
       const credentials = this._getAlfrescoCredentials();
@@ -559,6 +671,17 @@ export class IncidentService {
     }
   }
 
+  /**
+   * Resolves the Alfresco node ID from a stored shared-link URL or a raw
+   * shared-link ID by calling the Alfresco shared-links API.
+   *
+   * Delegates ID extraction to {@link extractSharedId} so callers can pass
+   * either the full URL or just the ID portion.
+   *
+   * @param sharedUrlOrId Full shared-link URL or bare shared-link ID.
+   * @returns Object with `errorCode`, `sharedId`, `alfrescoId` (node ID), and
+   *   `alfrescoData` on success, or `errorCode: HTTP_ERROR_REINTENT` on failure.
+   */
   async getAlfrescoIdBySharedUrl(sharedUrlOrId: string): Promise<Object> {
     try {
       const credentials = this._getAlfrescoCredentials();
@@ -602,6 +725,13 @@ export class IncidentService {
     }
   }
 
+  /**
+   * Extracts the shared-link ID segment from an Alfresco URL or returns the
+   * input unchanged if it appears to be a bare ID (no `/` separator).
+   *
+   * @param input Full shared-link URL or raw shared-link ID.
+   * @returns The extracted shared-link ID, or `null` when extraction fails.
+   */
   private extractSharedId(input: string): string | null {
     if (!input) return null;
     const match = input.match(/\/shared-links\/([^\/?#]+)/);
@@ -609,6 +739,14 @@ export class IncidentService {
     return input.includes('/') ? null : input;
   }
 
+  /**
+   * Soft-deletes an incident by setting `isActivated = false` and writes an
+   * audit log entry. The record is never physically removed from the database.
+   *
+   * @param id     Incident primary key.
+   * @param userId Optional audit-log actor ID.
+   * @returns Object with the deactivated `incident` and `errorCode`.
+   */
   async remove(id: number, userId?: number) {
     try {
       const incident = await this.incidentRepository.findOne({ where: { id } });
@@ -631,11 +769,21 @@ export class IncidentService {
     }
   }
 
+  /**
+   * Returns aggregate incident counts grouped by incident type, optionally
+   * restricted to a date range and other filter criteria.
+   *
+   * Always queries `public.incident` (no historical archive routing).
+   *
+   * @param filterDto Filters applied via {@link _buildConditionsAndParametersPg}.
+   * @returns Object with `errorCode`, `message`, and the `incidents` statistics
+   *   array (each row: `incidentTypeId`, `total`, `name`).
+   */
   async findStatistics(filterDto: IncidentFilterDto) {
 
     try {
 
-      let tableName = 'public.incident';
+      const tableName = 'public.incident';
 
       const { parameters, conditions } = this._buildConditionsAndParametersPg(filterDto);
 
@@ -665,11 +813,21 @@ export class IncidentService {
 
   }
 
+  /**
+   * Returns aggregate incident counts grouped by incident type, restricted to
+   * incidents that have an associated fraction (`fractionId IS NOT NULL`).
+   *
+   * Always queries `public.incident` (no historical archive routing).
+   *
+   * @param filterDto Filters applied via {@link _buildConditionsAndParametersPg}.
+   * @returns Object with `errorCode`, `message`, and the `incidents` statistics
+   *   array (each row: `incidentTypeId`, `total`, `name`).
+   */
   async findStatisticsByFraction(filterDto: IncidentFilterDto) {
 
     try {
 
-      let tableName = 'public.incident';
+      const tableName = 'public.incident';
 
       const { parameters, conditions } = this._buildConditionsAndParametersPg(filterDto);
 
@@ -700,6 +858,24 @@ export class IncidentService {
 
   }
 
+  /**
+   * Builds the parameterized WHERE conditions and positional parameter array
+   * for PostgreSQL raw queries against the incident table alias `i`.
+   *
+   * Each filter appends its value to the `parameters` array and inserts the
+   * corresponding `$N` placeholder into `conditions`. This ensures every
+   * user-supplied value is bound and never interpolated directly into SQL.
+   *
+   * Column names are double-quoted to preserve camelCase casing, which
+   * Postgres would otherwise fold to lowercase.
+   *
+   * @param filterDto     The filter bag carrying search, date range, and
+   *   entity-scoping fields.
+   * @param excludeStatus Optional pair of {@link IncidentStatus} values to
+   *   exclude via `NOT IN`. Defaults to empty (no exclusion).
+   * @returns Object with the `conditions` array and the ordered `parameters`
+   *   array aligned with their `$1..$N` placeholders.
+   */
   private _buildConditionsAndParametersPg(
     filterDto: IncidentFilterDto,
     excludeStatus = []
@@ -729,7 +905,7 @@ export class IncidentService {
       return `$${parameters.length}`;
     };
 
-    // Search guard: ignore empty/whitespace strings and literal 'undefined'/'null'
+    // Ignore empty/whitespace strings and literal 'undefined'/'null'
     // sent by clients that stringify missing values.
     if (search && search.trim() && search.trim() !== 'undefined' && search.trim() !== 'null' && search.trim() !== '') {
       const like = `%${search}%`;
@@ -793,6 +969,17 @@ export class IncidentService {
     return { conditions, parameters };
   }
 
+  /**
+   * Returns a paginated list of fractions that have associated sanctions,
+   * enriched with zone, block, and incident-type details.
+   *
+   * Routes to the correct archive via {@link _resolveSanctionTables} and
+   * applies the standard filter set through {@link _buildConditionsAndParametersPg}.
+   *
+   * @param filterDto Filters and pagination (`limit`, `offset`,
+   *   `typeFractionId`, date range, etc.).
+   * @returns Object with the `fractionSanction` rows, `limit`, and `offset`.
+   */
   async findAllFractionSanction(filterDto: FilterDto) {
 
     try {
@@ -849,6 +1036,18 @@ export class IncidentService {
     }
   }
 
+  /**
+   * Returns the total row count for the fraction-sanction list so callers can
+   * implement pagination without a full data fetch.
+   *
+   * Uses the same FROM/JOIN chain as {@link findAllFractionSanction} so the
+   * total always matches the paginated list. The fraction JOIN is `LEFT` to
+   * count incidents even when they have no associated fraction.
+   *
+   * @param filterDto Filters (same shape as `findAllFractionSanction`,
+   *   pagination ignored).
+   * @returns Object with the numeric `total`.
+   */
   async findAllFractionSanctionTotal(filterDto: FilterDto) {
 
     try {
@@ -863,9 +1062,6 @@ export class IncidentService {
         conditions.push(`f."typeFraction" = $${parameters.length}`);
       }
 
-      // Use the same FROM/JOIN chain as findAllFractionSanction so the total
-      // matches the paginated list row-by-row. The fraction join is LEFT so
-      // incidents without an associated fraction are still counted.
       let query = `
           SELECT
             COUNT(*) as total
@@ -897,10 +1093,21 @@ export class IncidentService {
     }
   }
 
-  // Runs a parameterized UPDATE on a historical table (schema."name") and
-  // returns the updated row via RETURNING *, or null if no row matched.
-  // Uses raw SQL because TypeORM's QueryBuilder mishandles quoted schema+table
-  // identifiers in the UPDATE target, producing zero-length identifier errors.
+  /**
+   * Runs a parameterized UPDATE on a historical table (`schema."name"`) and
+   * returns the updated row via `RETURNING *`, or `null` if no row matched.
+   *
+   * Uses raw SQL because TypeORM's QueryBuilder mishandles quoted
+   * `schema."table"` identifiers in the UPDATE target, producing
+   * zero-length identifier errors.
+   *
+   * @param table  Fully-qualified historical table name (e.g.
+   *   `history."2024_01_incident"`).
+   * @param fields Key/value pairs of columns to set; JSON objects are
+   *   stringified before binding.
+   * @param id     The incident primary key used in the WHERE clause.
+   * @returns The updated row object, or `null` when no row matched.
+   */
   private async _updateHistoricalRow(
     table: string,
     fields: Record<string, any>,
@@ -922,8 +1129,14 @@ export class IncidentService {
     return rows?.[0] ?? null;
   }
 
-  // Verifies the existence of a fully-qualified schema-prefixed table via
-  // information_schema. Returns false (and logs) if the name has no schema.
+  /**
+   * Verifies the existence of a fully-qualified schema-prefixed table via
+   * `information_schema.tables`. Returns `false` (and logs an error) when the
+   * name contains no schema prefix.
+   *
+   * @param tableName Fully-qualified table name in `schema."table"` form.
+   * @returns `true` when the table exists in the database.
+   */
   private async _tableExists(tableName: string): Promise<boolean> {
     const names = tableName.split('.');
     if (names.length <= 1) {
@@ -931,8 +1144,8 @@ export class IncidentService {
       return false;
     }
 
-    const table_schema = names[0].replace(/"/g, '').trim();
-    const table_name = names[1].replace(/"/g, '').trim();
+    const tableSchema = names[0].replace(/"/g, '').trim();
+    const tableName2 = names[1].replace(/"/g, '').trim();
 
     const query = `
     SELECT EXISTS(
@@ -943,10 +1156,19 @@ export class IncidentService {
     ) AS "exists";
   `;
 
-    const result = await this.incidentRepository.query(query, [table_schema, table_name]);
+    const result = await this.incidentRepository.query(query, [tableSchema, tableName2]);
     return !!result[0]?.exists;
   }
 
+  /**
+   * Returns aggregate parking metrics (distinct vehicles, distinct clients,
+   * total time) for incidents that have an associated fraction.
+   *
+   * Routes to the correct archives via {@link _resolveSanctionTables}.
+   *
+   * @param filterDto Filters applied via {@link _buildConditionsAndParametersPg}.
+   * @returns Object with the `fractionSanction` aggregate row.
+   */
   async findAllTotalVehicleClientTime(filterDto: FilterDto) {
     try {
       const { typeFractionId } = filterDto;
@@ -986,6 +1208,16 @@ export class IncidentService {
     }
   }
 
+  /**
+   * Returns fraction-sanction statistics grouped by zone, block, and parking
+   * time slot. Each result row aggregates the sanction count for the
+   * corresponding combination.
+   *
+   * Routes to the correct archives via {@link _resolveSanctionTables}.
+   *
+   * @param filterDto Filters applied via {@link _buildConditionsAndParametersPg}.
+   * @returns Object with the `fractionSanction` rows grouped by zone/block/time.
+   */
   async findAllStatisticsFractionSanction(filterDto: FilterDto) {
     const { typeFractionId } = filterDto;
     try {
@@ -1035,8 +1267,23 @@ export class IncidentService {
     }
   }
 
-  // Reads pending incidents and synchronizes their state against GIM, marking
-  // those that match an active obligation as emitted.
+  /**
+   * Reads pending incidents and synchronizes their state against GIM, marking
+   * those that match an active obligation as emitted.
+   *
+   * Skips incidents in `SUPPLIED` or `PAYED` status. For each remaining
+   * incident, calls {@link CommonGimService.findObligationsByCitation} and
+   * then {@link CommonGimService.validateStatusWithGim} to apply the GIM
+   * status. If GIM returns a non-`NONE` error code the operation short-circuits
+   * and returns that error to the caller.
+   *
+   * @param userId         Actor user ID forwarded to GIM calls.
+   * @param idDevice       Device UUID forwarded to GIM calls.
+   * @param filterDto      Filters to scope which pending incidents are fetched.
+   * @param isTransacional Non-zero to write updates inside a DB transaction.
+   * @returns Object with the synchronized `incidents` array, `errorCode`, and
+   *   a status `message`.
+   */
   async findAndSincronizeToEmit(userId: number, idDevice: string, filterDto: IncidentFilterDto, isTransacional: number) {
     const { year, month } = filterDto;
     let table = 'public.incident';
@@ -1120,6 +1367,16 @@ export class IncidentService {
     }
   }
 
+  /**
+   * Returns a lightweight, paginated list of incidents for the notification
+   * feed (`id`, `description`, `plate`, `statusIncident`, `updatedAt`).
+   *
+   * Always queries `public.incident`, ordered by most recently updated first.
+   *
+   * @param filterDto Pagination options (`limit`, `offset`); other filters are
+   *   not applied in this query.
+   * @returns Object with the `incidents` array and `errorCode`.
+   */
   async findAllNotification(filterDto: IncidentFilterDto) {
     const { limit = 30, offset = 0 } = filterDto;
     const table = 'public.incident';
@@ -1146,6 +1403,33 @@ export class IncidentService {
     }
   }
 
+  /**
+   * Advances an incident to the next step in the internal approval workflow
+   * and synchronizes its status with GIM if an active obligation is found.
+   *
+   * Workflow state machine:
+   * - `SIMERT_ADMINISTRATION` → `TRAFFIC_POLICE_STATION`
+   * - `TRAFFIC_POLICE_STATION` → `REVENUE_DEPARTMENT`
+   * - `REVENUE_DEPARTMENT` → `REVENUE_DEPARTMENT` (terminal, stays in place)
+   *
+   * When GIM already holds an obligation for the incident's citation number,
+   * the state jumps directly to `REVENUE_DEPARTMENT` regardless of the current
+   * step.
+   *
+   * Update paths (same as {@link update}):
+   * 1. `isTransacional !== 0` + row exists in `public.incident` → live table.
+   * 2. Caller-supplied `year`/`month` → build historical table directly.
+   * 3. `createdAt` on the DTO → derive archive month from the timestamp.
+   * 4. Last resort → look up `createdAt` from `public.incident`.
+   *
+   * @param userId         Actor user ID forwarded to GIM and audit log.
+   * @param idDevice       Device UUID forwarded to GIM calls.
+   * @param incidentDto    Current incident snapshot; must carry `id`,
+   *   `identityCard`, `nroTicket`, and `internalState`.
+   * @param isTransacional Non-zero to prefer the live table over the archive.
+   * @returns Object with the updated `incident`, `errorCode`, and an optional
+   *   `message` on failure.
+   */
   async advanceNextProcess(userId: number, idDevice: string, incidentDto: IncidentDto, isTransacional: number) {
     if (!incidentDto.identityCard) {
       return { errorCode: ErrorCode.NOT_FOUND, message: 'La incidencia no tiene una cedula ruc o pasaporte vinculado' };
@@ -1182,7 +1466,7 @@ export class IncidentService {
     const fieldsToUpdate = { internalState };
     const incidentId = incidentDto.id;
 
-    // Case 1: transactional flag set => try main `public.incident` table first,
+    // Case 1: transactional flag set — try main `public.incident` table first,
     // then fall through to historical if not found there.
     if (isTransacional) {
       const exists = await this.incidentRepository.findOne({ where: { id: incidentId } });

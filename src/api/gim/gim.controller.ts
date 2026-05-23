@@ -13,6 +13,12 @@ import FindBondNumberDto from './dto/find-bond-number';
 import { GetClientGimByCitationDto, GetClientGimByLicensePlateDto, GetClientGimDto } from './dto/get-client-gim.dto';
 import { ValidateStatusGimDto } from './dto/validate-status-gim.dto';
 import { GimService } from './gim.service';
+/**
+ * REST controller exposing GIM municipal-management integration operations
+ * (incidents, sanctions, clients, obligations, deposits and till validation).
+ *
+ * Base route: `api/gim`. Delegates all business logic to {@link GimService}.
+ */
 @ApiTags('Api - Gim')
 @ApiBearerAuth('keycloak')
 @Controller('api/gim')

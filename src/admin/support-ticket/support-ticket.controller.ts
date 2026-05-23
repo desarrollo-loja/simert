@@ -7,6 +7,12 @@ import { CreateSupportTicketDto } from './dto/create-support-ticket.dto';
 import { SupportTicketFilterDto } from './dto/support-ticket-filter.dto';
 import { UpdateSupportTicketDto } from './dto/update-support-ticket.dto';
 import { SupportTicketService } from './support-ticket.service';
+
+/**
+ * REST controller for managing operator support tickets from the admin console.
+ *
+ * Base route: `admin/support-ticket`. Delegates all business logic to {@link SupportTicketService}.
+ */
 @ApiTags('Admin - Support Ticket')
 @ApiBearerAuth('keycloak')
 @Controller('admin/support-ticket')
@@ -20,10 +26,8 @@ export class SupportTicketController {
   }
 
   @ApiOperation({ summary: 'List support tickets with filters' })
-  // @Auth()
   @Patch('find-all/:userId/:idDevice')
   findAll(
-    // @GetUser() user: JwtPayload,
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
     @Body() filterDto: SupportTicketFilterDto
@@ -32,10 +36,8 @@ export class SupportTicketController {
   }
 
   @ApiOperation({ summary: 'Count total support tickets matching filters' })
-  // @Auth()
   @Patch('find-all-total/:userId/:idDevice')
   findAllTotal(
-    // @GetUser() user: JwtPayload,
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
     @Body() filterDto: SupportTicketFilterDto
@@ -50,10 +52,8 @@ export class SupportTicketController {
   }
 
   @ApiOperation({ summary: 'Update a support ticket status or fields' })
-  // @Auth()
   @Patch('update/:userId/:idDevice/:id')
   update(
-    // @GetUser() user: JwtPayload,
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
     @Param('id', ParseIntPipe) id: number,
@@ -63,14 +63,14 @@ export class SupportTicketController {
   }
 
   @ApiOperation({ summary: 'Delete a support ticket by id' })
-  // @Auth()
   @AuthWithKeycloak()
   @Delete('remove/:userId/:idDevice/:id')
   remove(
     @GetUser() user: JwtPayload,
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
-    @Param('id', ParseIntPipe) id: number) {
+    @Param('id', ParseIntPipe) id: number
+  ) {
     return this.supportTicketService.remove(id);
   }
 }

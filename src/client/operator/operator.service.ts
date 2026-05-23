@@ -35,6 +35,13 @@ import { GetIncidentDto } from '../incident/dto/get-incident.dto';
 import { CreateOperatorDto } from './dto/create-operator.dto';
 import { IncrementOperatorDto } from './dto/increment-operator.dto';
 
+/**
+ * Service that drives the controller/supervisor (operator) mobile flow:
+ * plate lookup with ANT data enrichment, incident (fine) creation and the
+ * full operator session lifecycle (check-in, parking record creation,
+ * time increments and check-out). Cooperates with {@link GimService} for
+ * GIM synchronization and {@link CommonCacheService} for Redis-based locking.
+ */
 @Injectable()
 export class OperatorService {
 

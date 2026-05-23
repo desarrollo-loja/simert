@@ -72,6 +72,14 @@ export class PhysicsService {
     }
   }
 
+  /**
+   * Returns the count of distinct physical card identifiers matching the given
+   * filters (i.e. unique card numbers, not unique records).
+   *
+   * @param filterDto Optional filters (`userId`, `zoneId`, `search`,
+   *   `dateFrom`, `timeByBlock`).
+   * @returns Object with `errorCode` and the numeric `total` of unique cards.
+   */
   async findAllTotalUnique(filterDto: FilterDto) {
     try {
       const query = this.physicRepository.createQueryBuilder('p')
@@ -91,6 +99,14 @@ export class PhysicsService {
     }
   }
 
+  /**
+   * Returns the total number of physical card records matching the given
+   * filters (counts every row, not distinct cards).
+   *
+   * @param filterDto Optional filters (`userId`, `zoneId`, `search`,
+   *   `dateFrom`, `timeByBlock`).
+   * @returns Object with `errorCode` and the numeric `total`.
+   */
   async findAllTotal(filterDto: FilterDto) {
     try {
       const query = this.physicRepository.createQueryBuilder('p');
@@ -108,6 +124,18 @@ export class PhysicsService {
     }
   }
 
+  /**
+   * Builds the TypeORM QueryBuilder conditions and named-parameter map for
+   * the ORM-based query variants ({@link findAllTotalUnique},
+   * {@link findAllTotal}).
+   *
+   * Uses named parameters (`:paramName`) compatible with QueryBuilder's
+   * `andWhere` API.
+   *
+   * @param filterDto Optional filters to apply.
+   * @returns Object with the `conditions` string array and the `parameters`
+   *   named-parameter record.
+   */
   private _buildConditionsAndParameters(filterDto: FilterDto) {
     const { userId, zoneId, search, dateFrom, timeByBlock } = filterDto;
     const conditions: string[] = [];

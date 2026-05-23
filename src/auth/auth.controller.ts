@@ -1,8 +1,12 @@
 import { Controller } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
 import { AuthService } from './auth.service';
-
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+/**
+ * REST controller exposing authentication operations.
+ *
+ * Base route: `auth`. Delegates all business logic to {@link AuthService}.
+ */
 @ApiTags('Auth')
 @ApiBearerAuth('keycloak')
 @Controller('auth')

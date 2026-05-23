@@ -7,6 +7,11 @@ import { Repository } from 'typeorm';
 
 import { AgentActivity } from './entities/agent-activity.entity';
 
+/**
+ * Service that manages agent (controller/supervisor) activity records.
+ * Provides paginated listing and filtering of {@link AgentActivity} entries,
+ * enriched with block name via a raw SQL join.
+ */
 @Injectable()
 export class AgentActivitiesService {
 
@@ -17,6 +22,14 @@ export class AgentActivitiesService {
     private readonly agentActivityRepository: Repository<AgentActivity>,
   ) { }
 
+  /**
+   * Returns a paginated list of agent activity records joined with their
+   * associated block name. Applies userId and date-range filters when present.
+   *
+   * @param filterDto - Pagination and filter options (limit, offset, userId, dateFrom, dateTo).
+   * @returns Object with errorCode and the matching agentActivities rows.
+   * @throws Rethrows database errors via handleDbExceptions.
+   */
   async findAll(filterDto: FilterDto) {
     const { limit = 10, offset = 0 } = filterDto;
     try {
@@ -49,6 +62,13 @@ export class AgentActivitiesService {
     }
   }
 
+  /**
+   * Returns the total count of agent activity records matching the given filters.
+   *
+   * @param filterDto - Filter options (userId, dateFrom, dateTo).
+   * @returns Object with errorCode and the numeric total.
+   * @throws Rethrows database errors via handleDbExceptions.
+   */
   async findAllTotal(filterDto: FilterDto) {
     try {
       const { parameters, conditions } = this._buildParametersConditions(filterDto);
@@ -71,6 +91,14 @@ export class AgentActivitiesService {
     }
   }
 
+  /**
+   * Builds the SQL WHERE conditions array and the corresponding positional
+   * parameters array from the given filter DTO. Supports filtering by userId
+   * and a createdAt date range.
+   *
+   * @param filterDto - Filter options (userId, dateFrom, dateTo).
+   * @returns An object with the `parameters` array and `conditions` SQL fragments.
+   */
   private _buildParametersConditions(filterDto: FilterDto) {
     const { userId, dateFrom, dateTo } = filterDto;
     const parameters: any[] = [];

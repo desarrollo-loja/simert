@@ -12,10 +12,16 @@ import { CreateSlotDto } from './dto/create-slot.dto';
 import { UpdateSlotDto } from './dto/update-slot.dto';
 import { Slot } from './entities/slot.entity';
 
+/**
+ * Service for managing parking Slots — the leaf node in the
+ * Zone → Block → Slot hierarchy. Provides CRUD, polygon-based queries,
+ * block/zone-scoped lookups and occupancy statistics used by both the
+ * admin console and the operator/controller mobile apps.
+ */
 @Injectable()
 export class SlotService {
 
-  private readonly logger = new Logger('SlotService');
+  private readonly logger = new Logger(SlotService.name);
 
   constructor(
     @InjectRepository(Slot)
@@ -26,6 +32,11 @@ export class SlotService {
 
   ) { }
 
+  /**
+   * Seeds the database with a single sample slot (internal / development use only).
+   *
+   * @returns The created slot record.
+   */
   async initializeDatabase() {
     const slot1 = this.slotRepository.create({ slot: "1", zone: { id: 1 }, block: { id: 1 } });
     await this.slotRepository.save(slot1);
@@ -33,6 +44,13 @@ export class SlotService {
     return { slot1 }
   }
 
+  /**
+   * Creates a new parking slot and writes an audit log entry.
+   *
+   * @param userId ID of the authenticated user performing the operation.
+   * @param createSlotDto Creation payload.
+   * @returns The persisted slot entity.
+   */
   async create(userId: number, createSlotDto: CreateSlotDto) {
     try {
       const query = this.slotRepository.create({ ...createSlotDto });
@@ -44,6 +62,12 @@ export class SlotService {
     }
   }
 
+  /**
+   * Returns a paginated list of slots with their zone and block associations.
+   *
+   * @param paginationDto Pagination (`limit`, `offset`) and optional `search` filter.
+   * @returns `{ slots, total, offset, limit }`.
+   */
   async findAll(paginationDto: FilterDto) {
     const { offset, limit, search } = paginationDto;
     try {
@@ -65,6 +89,13 @@ export class SlotService {
     }
   }
 
+  /**
+   * Returns a reduced slot list (id and name) for a given block and zone.
+   *
+   * @param blockId Block identifier.
+   * @param zoneId  Zone identifier.
+   * @returns `{ slots }` with raw `id` and `name` fields.
+   */
   async findAllByfilter(blockId, zoneId) {
     try {
       const slots = await this.slotRepository.createQueryBuilder('s')
@@ -79,6 +110,14 @@ export class SlotService {
     }
   }
 
+  /**
+   * Updates an existing slot and writes an audit log entry.
+   *
+   * @param userId ID of the authenticated user performing the operation.
+   * @param id     Target slot ID.
+   * @param updateSlotDto Fields to update.
+   * @returns The updated slot entity, or `undefined` when the id is not found.
+   */
   async update(userId: number, id: number, updateSlotDto: UpdateSlotDto) {
     try {
       const slot = await this.slotRepository.preload({ id: id, ...updateSlotDto });
@@ -92,7 +131,13 @@ export class SlotService {
     }
   }
 
-  // sectors module
+  /**
+   * Returns slots for the sector module, including coordinates.
+   *
+   * @param blockId Block identifier.
+   * @param zoneId  Zone identifier.
+   * @returns `{ slots }` with raw coordinate and reference fields.
+   */
   async getSlotsByBlockByZone(blockId, zoneId) {
     try {
       const slots = await this.slotRepository.createQueryBuilder('s')
@@ -112,18 +157,24 @@ export class SlotService {
     }
   }
 
+  /**
+   * Returns slots whose location falls within the supplied WKT polygon.
+   * Checks for `simert.slot` table existence before querying.
+   *
+   * @param filterDto Filter with optional `polygon` (WKT string starting with `POLYGON`).
+   * @returns `{ slots }` — empty array when the table does not exist.
+   */
   async getSlotsByPolygon(filterDto: FilterDto) {
     try {
-      let tableSlot = 'simert.slot';
+      const tableSlot = 'simert.slot';
 
-      let tableExists = false;
-      tableExists = await this._tableExists(tableSlot);
+      const tableExists = await this._tableExists(tableSlot);
 
       if (!tableExists) {
         return { slots: [] };
       }
 
-      const { conditions, parameters } = this._buildConditionsAndParametersModuleBlockSector(filterDto);
+      const { conditions, parameters } = this._buildPolygonQueryParameters(filterDto);
 
       // ST_AsText(b.geofence) as geofence,  -- Convert to WKT
       let query = `
@@ -145,13 +196,17 @@ export class SlotService {
     }
   }
 
-  private _buildConditionsAndParametersModuleBlockSector(filterDto: FilterDto): {
+  /**
+   * Builds the WHERE conditions for the polygon-based slot query.
+   *
+   * @param filterDto Filter with optional `polygon` WKT string.
+   * @returns `{ conditions, parameters }` for the raw SQL query.
+   */
+  private _buildPolygonQueryParameters(filterDto: FilterDto): {
     conditions: string[];
     parameters: any[];
   } {
-    const {
-      polygon
-    } = filterDto;
+    const { polygon } = filterDto;
 
     const conditions: string[] = [];
     const parameters: any[] = [];
@@ -163,6 +218,14 @@ export class SlotService {
     return { conditions, parameters };
   }
 
+  /**
+   * Returns slots for the parking view, including fractions and status.
+   *
+   * @param blockId   Optional block filter.
+   * @param zoneId    Optional zone filter.
+   * @param filterDto Additional filters: `search`, `typeSlot`, `statusSlot`.
+   * @returns `{ errorCode, slot }` — `NOT_FOUND` with empty array when no rows match.
+   */
   async findAllSlotBlockParking(blockId?: number, zoneId?: number, filterDto?: FilterDto) {
     try {
       const { search, typeSlot, statusSlot } = filterDto ?? {};
@@ -209,35 +272,48 @@ export class SlotService {
     }
   }
 
+  /**
+   * Checks whether a fully-qualified schema.table identifier exists in the database.
+   *
+   * @param tableName Schema-prefixed table identifier (e.g. `simert.slot`).
+   * @returns `true` when the table exists, `false` otherwise.
+   */
   public async _tableExists(tableName: string): Promise<boolean> {
     const names = tableName.split('.');
     if (names.length <= 1) {
-      this.logger.error(`No se especifico el esquema en la tabla ${tableName}`);
+      this.logger.error(`Schema not specified for table: ${tableName}`);
       return false;
     }
-    const table_schema: string = names[0],
-      table_name: string = names[1];
-    // SQL injection fix: pass schema and table as bound parameters instead of
-    // interpolating them into the SQL string.
-    const query = `SELECT table_name
+    const tableSchema: string = names[0];
+    const tableNameOnly: string = names[1];
+    // Parameterized query — prevents SQL injection via schema/table identifiers.
+    const query = `
+      SELECT table_name
       FROM information_schema.tables
-      WHERE table_schema = $1 AND table_name = $2;`;
+      WHERE table_schema = $1 AND table_name = $2;
+    `;
 
     try {
-      const result = await this.slotRepository.query(query, [table_schema, table_name]);
+      const result = await this.slotRepository.query(query, [tableSchema, tableNameOnly]);
       return result.length > 0;
-    } catch (error) {
+    } catch {
       return false;
     }
   }
 
+  /**
+   * Returns occupancy statistics for slots grouped by status.
+   *
+   * @param filterDto Optional `zoneId` and `blockId` filters.
+   * @returns Counts per status category (available, occupied, exceeded, etc.).
+   */
   async findStatistics(filterDto: FilterDto) {
 
     try {
 
-      let tableName = 'public.slot';
+      const tableName = 'public.slot';
 
-      const { parameters, conditions } = this.buildParametersConditions(filterDto);
+      const { parameters, conditions } = this._buildStatisticsQueryParameters(filterDto);
 
       let query = `
               SELECT
@@ -267,11 +343,17 @@ export class SlotService {
 
   }
 
-  buildParametersConditions = (filterDto) => {
-    const {
-      zoneId,
-      blockId,
-    } = filterDto;
+  /**
+   * Builds the parameterized WHERE conditions for slot statistics queries.
+   *
+   * @param filterDto Filter with optional `zoneId` and `blockId`.
+   * @returns `{ parameters, conditions }` ready for raw SQL execution.
+   */
+  private _buildStatisticsQueryParameters(filterDto: FilterDto): {
+    parameters: any[];
+    conditions: string[];
+  } {
+    const { zoneId, blockId } = filterDto;
 
     const conditions: string[] = [];
     const parameters: any[] = [];
@@ -290,6 +372,6 @@ export class SlotService {
     }
 
     return { parameters, conditions };
-  };
+  }
 
 }

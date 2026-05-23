@@ -4,6 +4,11 @@ import { AuthWithKeycloak } from 'src/auth/decorators';
 
 import { AdminService } from './admin.service';
 import { CreateAdminDto } from './dto/create-admin.dto';
+/**
+ * REST controller for the admin client view over parking slots.
+ *
+ * Base route: `client/admin`. Delegates all business logic to {@link AdminService}.
+ */
 @ApiTags('Client - Admin')
 @ApiBearerAuth('keycloak')
 @Controller('client/admin')
@@ -12,7 +17,6 @@ export class AdminController {
   constructor(private readonly adminService: AdminService) { }
 
   @ApiOperation({ summary: 'List all slots near a latitude/longitude (for admin client view)' })
-  // @Auth()
   @AuthWithKeycloak()
   @Get('find-all-slots/:userId/:idDevice/:latitude/:longitude/:version')
   findAllBlocks(
@@ -25,7 +29,6 @@ export class AdminController {
   }
 
   @ApiOperation({ summary: 'Delete a slot by slotId (admin client action)' })
-  // @Auth()
   @AuthWithKeycloak()
   @Delete('delete-slot/:userId/:idDevice/:slotId/:version')
   delete(
@@ -38,7 +41,6 @@ export class AdminController {
   }
 
   @ApiOperation({ summary: 'Create a slot from the admin client view' })
-  // @Auth()
   @AuthWithKeycloak()
   @Post('slot/create/:userId/:idDevice')
   create(

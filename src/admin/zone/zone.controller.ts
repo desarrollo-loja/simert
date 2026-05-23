@@ -10,6 +10,11 @@ import { CreateZoneDto } from './dto/create-zone.dto';
 import { UpdateZoneDto } from './dto/update-zone.dto';
 import { Zone } from './entities/zone.entity';
 import { ZoneService } from './zone.service';
+/**
+ * REST controller for managing parking zones (top of the Zone → Block → Slot hierarchy).
+ *
+ * Base route: `admin/zone`. Delegates all business logic to {@link ZoneService}.
+ */
 @ApiTags('Admin - Zone')
 @ApiBearerAuth('keycloak')
 @Controller('admin/zone')

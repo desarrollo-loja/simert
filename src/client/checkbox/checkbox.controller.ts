@@ -8,6 +8,11 @@ import { SystemStatusInterceptor } from 'src/common/interceptors/system-status.i
 
 import { CheckboxService } from './checkbox.service';
 import { CreateCheckboxDto } from './dto/create-checkbox.dto';
+/**
+ * REST controller for the user balance (checkbox) transactions in the client app.
+ *
+ * Base route: `client/checkbox`. Delegates all business logic to {@link CheckboxService}.
+ */
 @ApiTags('Client - Checkbox')
 @ApiBearerAuth('keycloak')
 @Controller('client/checkbox')
@@ -15,7 +20,6 @@ export class CheckboxController {
   constructor(private readonly checkboxService: CheckboxService) { }
 
   @ApiOperation({ summary: 'List checkbox transactions for the authenticated user with date filters' })
-  // @Auth()
   @AuthWithKeycloak()
   @Post('get-transactions/:userId/:idDevice/:version')
   getTransactions(
@@ -29,7 +33,6 @@ export class CheckboxController {
   }
 
   @ApiOperation({ summary: 'Get a single checkbox transaction by its id' })
-  // @Auth()
   @AuthWithKeycloak()
   @Get('get-transactions-by-id/:userId/:idDevice/:id/:version')
   getTransactionsById(
@@ -68,10 +71,8 @@ export class CheckboxController {
   }
 
   @ApiOperation({ summary: 'Webhook: checkbox payment success callback from payment provider' })
-  // @Auth()
   @Patch('on-response-pay/:idDevice/:userId/:checkboxId/:typePaymentMethod/:register/:typePaymentResponsibility/')
   onResponse(
-    // @GetUser() user: JwtPayload,
     @Param('userId', ParseIntPipe) userId: number,
     @Param('typePaymentResponsibility', ParseIntPipe) typePaymentResponsibility: number,
     @Param('typePaymentMethod', ParseIntPipe) typePaymentMethod: number,
@@ -83,10 +84,8 @@ export class CheckboxController {
   }
 
   @ApiOperation({ summary: 'Webhook: checkbox payment error/cancellation callback from payment provider' })
-  // @Auth()
   @Delete('on-response-pay/:idDevice/:userId/:checkboxId/:typePaymentMethod/:register/:typePaymentResponsibility/')
   onResponsePayError(
-    // @GetUser() user: JwtPayload,
     @Param('userId', ParseIntPipe) userId: number,
     @Param('typePaymentResponsibility', ParseIntPipe) typePaymentResponsibility: number,
     @Param('typePaymentMethod', ParseIntPipe) typePaymentMethod: number,

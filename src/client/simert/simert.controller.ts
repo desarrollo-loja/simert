@@ -14,6 +14,11 @@ import { CreateSimertDto } from './dto/create-simert.dto';
 import { IncrementSimertDto } from './dto/increment-simert.dto';
 import { SearchFractionDto } from './dto/search-simert.dto';
 import { SimertService } from './simert.service';
+/**
+ * REST controller for the end-user Simert parking workflow (fractions, parking, time increments).
+ *
+ * Base route: `client/simert`. Delegates all business logic to {@link SimertService}.
+ */
 @ApiTags('Client - Simert')
 @ApiBearerAuth('keycloak')
 @Controller('client/simert')

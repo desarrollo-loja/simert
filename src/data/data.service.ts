@@ -3,6 +3,15 @@ import { StatusPayment } from 'src/common/glob/status/status_payment';
 import { IncidentStatus } from 'src/common/glob/type/type_incident';
 import { DataSource } from 'typeorm';
 
+/**
+ * Service that owns the periodic data-archiving job: moves closed
+ * fractions, incidents and related rows from the live tables into
+ * monthly historical partitions (`<table>_yyyy_mm`) and prunes the
+ * source tables once foreign-key constraints allow it.
+ *
+ * Run from a scheduled task; not exposed via HTTP. Activated only on
+ * the master instance via the `MASTER_DATA_SERVICE` env flag.
+ */
 @Injectable()
 export class DataService {
     constructor(private readonly dataSource: DataSource) { }
@@ -15,13 +24,13 @@ export class DataService {
             setInterval(() => {
                 const now = new Date();
                 const hourUTC = now.getUTCHours();
-                // Definir horas permitidas en UTC
+                // Define allowed hours in UTC
                 //const isPeakHour = (hourUTC >= 7 && hourUTC <= 10)
                 const isPeakHour = true
                 if (isPeakHour) {
                     this._transferData();
                 }
-            }, 1 * 60 * 1000); // Cada 2 minutos
+            }, 1 * 60 * 1000); // Every minute
         }
     }
 
@@ -50,7 +59,7 @@ export class DataService {
             const tableCheckbox = `"${table}_checkbox"`;
             const tableIncident = `"${table}_incident"`;
 
-            // ✅ CREATE TABLE LIKE versión PostgreSQL
+            // CREATE TABLE LIKE — PostgreSQL form
             await queryRunner.query(`CREATE TABLE IF NOT EXISTS history.${tableFractionStatus} (LIKE public.fraction_status INCLUDING ALL)`);
             await queryRunner.query(`CREATE TABLE IF NOT EXISTS history.${tableFraction} (LIKE public.fraction INCLUDING ALL)`);
 
@@ -58,9 +67,9 @@ export class DataService {
 
             await queryRunner.query(`CREATE TABLE IF NOT EXISTS history.${tableIncident} (LIKE public.incident INCLUDING ALL)`);
 
-            // ✅ Obtener IDs de incidents
-            // Solo transferimos incidentes en estado final (resueltos, pagados, cancelados, etc.)
-            // Filtramos solo por `to` (sin from) para capturar incidentes antiguos que recién completaron su ciclo
+            // Collect incident IDs to transfer.
+            // Only incidents in a FINAL state are moved (resolved, paid, canceled, ...).
+            // Filter only by `to` (no `from`) so older incidents that just finished their cycle are picked up too.
             const incidentIdsToTransfer = await queryRunner.query(
                 `
                 SELECT id, to_char(register, 'YYYY_MM') AS "tableSuffix"
@@ -82,9 +91,9 @@ export class DataService {
                 ]]
             );
 
-            // ✅ Obtener IDs de checkboxes
-            // SOLO PASAMOS A HISTÓRICAS LOS QUE ESTÉN PAGADOS INTERNAMENTE Y YA CONSTE EL PAGO EN EL GIM
-            // Filtramos solo por `to` (sin from) para capturar checkboxes antiguos que recién completaron su ciclo
+            // Collect checkbox IDs to transfer.
+            // Move to history ONLY those paid internally AND already settled in GIM.
+            // Filter only by `to` (no `from`) so older checkboxes that just finished their cycle are picked up too.
             const checkboxIdsToTransfer = await queryRunner.query(
                 `
                 SELECT id, to_char(register, 'YYYY_MM') AS "tableSuffix"
@@ -101,7 +110,8 @@ export class DataService {
             );
 
             // ================= INCIDENT =================
-            // Agrupar por año/mes del campo `register` para rutear a la tabla histórica correcta
+            // Group by year/month of the `register` field so each row is routed
+            // to the correct historical table.
             if (incidentIdsToTransfer.length > 0) {
 
                 const groupedByMonth = incidentIdsToTransfer.reduce(
@@ -121,7 +131,6 @@ export class DataService {
                     const incidents = await queryRunner.query(`SELECT * FROM public.incident
                         WHERE id = ANY($1)`, [ids]);
 
-
                     await queryRunner.query(
                         `INSERT INTO history.${targetTable}
                         SELECT * FROM public.incident
@@ -140,28 +149,28 @@ export class DataService {
 
             // ================= FRACTION =================
             //
-            // IMPORTANTE: este bloque DEBE ejecutarse DESPUÉS del bloque INCIDENT.
+            // IMPORTANT: this block MUST run AFTER the INCIDENT block.
             //
-            // ¿Por qué? `incident.fractionId` tiene FK contra `fraction.id`. Si intentamos
-            // borrar una fraction mientras un incident en `public.incident` aún la referencia,
-            // Postgres lanza:
+            // Why? `incident.fractionId` has an FK against `fraction.id`. If we try to
+            // delete a fraction while an incident in `public.incident` still references it,
+            // Postgres raises:
             //   "update or delete on table 'fraction' violates foreign key constraint
             //    'FK_ae7b75ff1436d9226b118e8e062' on table 'incident'".
             //
-            // Estrategia:
-            //   1) Primero corre el bloque INCIDENT y borra de `public.incident` los que
-            //      ya se movieron a histórica (estados finales: PAYED, CANCELED, etc.).
-            //   2) En este punto, `public.incident` SOLO contiene incidents "vivos"
-            //      (no aptos para histórica todavía).
-            //   3) Aquí seleccionamos fractions del rango EXCLUYENDO aquellas que aún
-            //      tengan algún incident vivo apuntándolas (NOT EXISTS). Esas fractions
-            //      quedan en `public.fraction` y se moverán en una corrida futura, cuando
-            //      su incident pase a estado final y viaje a histórica.
-            //   4) Las fractions cuyo incident ya viajó a histórica (o que nunca tuvieron
-            //      incident) sí pasan el filtro y se transfieren ahora.
+            // Strategy:
+            //   1) Run the INCIDENT block first and delete from `public.incident` all the
+            //      rows already moved to history (final states: PAYED, CANCELED, etc.).
+            //   2) At this point `public.incident` ONLY contains "live" incidents
+            //      (not yet eligible for history).
+            //   3) Here we pick fractions in the range EXCLUDING those still referenced
+            //      by any live incident (NOT EXISTS). Those fractions remain in
+            //      `public.fraction` and will be moved in a future run, once their
+            //      incident reaches a final state and travels to history.
+            //   4) Fractions whose incident already went to history (or that never had
+            //      one) pass the filter and are transferred now.
             //
-            // Todo ocurre dentro de la misma transacción, así que el SELECT ve los efectos
-            // del DELETE previo de incidents.
+            // Everything happens inside the same transaction, so the SELECT sees the
+            // effects of the previous incident DELETE.
             const fractionIdsToTransfer = await queryRunner.query(
                 `
                 SELECT f.id, to_char(f.register, 'YYYY_MM') AS "tableSuffix"
@@ -176,11 +185,11 @@ export class DataService {
                 [to]
             );
 
-            // Agrupamos por año/mes del campo `register` (igual que en el bloque INCIDENT)
-            // para enrutar cada fraction a su tabla histórica correcta
-            // (ej: history."2025_01_fraction", history."2025_03_fraction").
-            // Antes esto no se hacía y todas iban a la tabla del mes "actual - 2 días",
-            // lo cual era incorrecto cuando se reprocesaban fractions viejas.
+            // Group by year/month of the `register` field (same as the INCIDENT block)
+            // so each fraction is routed to its correct historical table
+            // (e.g. history."2025_01_fraction", history."2025_03_fraction").
+            // Previously this was not done and every row went to the table for
+            // "current month - 2 days", which was wrong when reprocessing old fractions.
             if (fractionIdsToTransfer.length > 0) {
 
                 const groupedByMonth = fractionIdsToTransfer.reduce(
@@ -196,15 +205,15 @@ export class DataService {
                     const targetFractionStatus = `"${suffix}_fraction_status"`;
                     const targetFraction = `"${suffix}_fraction"`;
 
-                    // Aseguramos que existan las tablas históricas del mes que toca.
-                    // Las del mes "actual - 2 días" ya se crearon al inicio, pero si
-                    // procesamos fractions de meses anteriores, sus tablas pueden no existir.
+                    // Make sure the historical tables for the correct month exist.
+                    // The "current - 2 days" tables were created at the top, but when
+                    // reprocessing fractions from earlier months their tables may not exist yet.
                     await queryRunner.query(`CREATE TABLE IF NOT EXISTS history.${targetFractionStatus} (LIKE public.fraction_status INCLUDING ALL)`);
                     await queryRunner.query(`CREATE TABLE IF NOT EXISTS history.${targetFraction} (LIKE public.fraction INCLUDING ALL)`);
 
-                    // Insertamos primero fraction_status y luego fraction.
-                    // El orden de INSERT no importa para FKs (ambas tablas históricas son
-                    // independientes), pero lo mantenemos consistente con el flujo.
+                    // Insert fraction_status first, then fraction.
+                    // INSERT order does not matter for FKs (both historical tables are
+                    // independent), but we keep it consistent with the rest of the flow.
                     await queryRunner.query(
                         `INSERT INTO history.${targetFractionStatus}
                         SELECT * FROM public.fraction_status
@@ -220,10 +229,10 @@ export class DataService {
                     );
                 }
 
-                // DELETE final, todos los IDs de una sola pasada.
-                // ORDEN CRÍTICO: primero fraction_status (la hija), luego fraction (la padre),
-                // porque fraction_status.fractionId tiene FK contra fraction.id.
-                // Si invertimos el orden, Postgres lanza FK violation.
+                // Final DELETE, all IDs in a single pass.
+                // CRITICAL ORDER: fraction_status (child) first, then fraction (parent),
+                // because fraction_status.fractionId has an FK against fraction.id.
+                // Inverting the order would cause an FK violation.
                 const allFractionIds = fractionIdsToTransfer.map((e: { id: number }) => e.id);
 
                 await queryRunner.query(
@@ -238,8 +247,9 @@ export class DataService {
             }
 
             // ================= CHECKBOX =================
-            // Agrupar por año/mes del campo `register` para rutear a la tabla histórica correcta
-            // ej: history."2025_01_checkbox", history."2025_03_checkbox"
+            // Group by year/month of the `register` field so each row is routed
+            // to the correct historical table
+            // (e.g. history."2025_01_checkbox", history."2025_03_checkbox").
             if (checkboxIdsToTransfer.length > 0) {
 
                 const groupedByMonth = checkboxIdsToTransfer.reduce(
@@ -254,7 +264,7 @@ export class DataService {
                 for (const [suffix, ids] of Object.entries(groupedByMonth) as [string, number[]][]) {
                     const targetTable = `"${suffix}_checkbox"`;
 
-                    // Insertar el grupo en su tabla correcta
+                    // Insert the group into its correct table
                     await queryRunner.query(
                         `INSERT INTO history.${targetTable}
                         SELECT * FROM public.checkbox
@@ -264,7 +274,7 @@ export class DataService {
 
                 }
 
-                // Borrar todos los procesados en un solo DELETE
+                // Delete every processed row in a single DELETE
                 const allCheckboxIds = checkboxIdsToTransfer.map((e: { id: number }) => e.id);
                 await queryRunner.query(
                     `DELETE FROM public.checkbox WHERE id = ANY($1)`,

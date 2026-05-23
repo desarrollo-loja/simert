@@ -5,16 +5,42 @@ import handleDbExceptions from 'src/common/exceptions/error.db.exception';
 import { Repository } from 'typeorm';
 
 import { FractionStatus } from './entities/fraction_status.entity';
+
+/**
+ * Service for querying FractionStatus records — the status history of a
+ * parking Fraction. Supports reading from both the live `fraction_status`
+ * table and monthly historical tables (e.g. `2025_03_fraction_status`).
+ */
 @Injectable()
 export class FractionStatusService {
   private readonly logger = new Logger('FractionStatusService');
+
   constructor(
     @InjectRepository(FractionStatus)
     private readonly fractionStatusRepository: Repository<FractionStatus>,
-
   ) { }
 
-  async findAllFractionState(fractionId, filterDto: FilterDto) {
+  /**
+   * Returns all status-history entries for a given fraction, optionally
+   * reading from a monthly historical table.
+   *
+   * Source-table routing:
+   * - No `year`/`month` in filterDto -> live `fraction_status` table.
+   * - Valid period supplied -> `<year>_<month>_fraction_status` (historical).
+   *   Invalid or out-of-range values are silently ignored and the live
+   *   table is used instead.
+   *
+   * The `fractionId` URL parameter is coerced to a safe integer before being
+   * bound as a positional parameter to prevent SQL injection.
+   *
+   * @param fractionId ID of the fraction whose status history to return.
+   * @param filterDto Optional filters including `year` and `month` for
+   *   historical table routing.
+   * @returns `{ fractionStatus }` array of status entries joined with the
+   *   `status` table for the human-readable label.
+   * @throws Delegates DB errors to {@link handleDbExceptions}.
+   */
+  async findAllFractionState(fractionId: number | string, filterDto: FilterDto) {
     const { year, month } = filterDto;
     try {
       let tableName = `fraction_status`;

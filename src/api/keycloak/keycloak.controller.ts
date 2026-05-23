@@ -13,6 +13,12 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { SetUserStatusDto } from './dto/set-user-status.dto';
 import { KeycloakService } from './keycloak.service';
+/**
+ * REST controller exposing Keycloak identity and user-management operations
+ * for both ServiceHub clients and municipal employees.
+ *
+ * Base route: `api/keycloak`. Delegates all business logic to {@link KeycloakService}.
+ */
 @ApiTags('Api - Keycloak')
 @ApiBearerAuth('keycloak')
 @Controller('api/keycloak')

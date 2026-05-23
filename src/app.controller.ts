@@ -1,8 +1,13 @@
 import { Controller, Get } from '@nestjs/common';
-import * as fs from 'fs';
-
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import * as fs from 'fs';
 import { ApiStandardResponse } from 'src/common/decorators/api-standard-response.decorator';
+/**
+ * REST controller exposing the application root metadata endpoint
+ * (name, version, author, architect and url read from package.json).
+ *
+ * Base route: `/` (root). Injects no service; resolves metadata inline.
+ */
 @ApiTags('App')
 @ApiBearerAuth('keycloak')
 @Controller()

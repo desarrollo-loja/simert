@@ -6,6 +6,11 @@ import { FilterDto } from 'src/common/dto/filter.dto';
 import { TypeRol } from 'src/common/glob/type/type_rol';
 
 import { IncidentPaymentService } from './incident-payment.service';
+/**
+ * REST controller for querying incident payment records.
+ *
+ * Base route: `admin/incident-payment`. Delegates all business logic to {@link IncidentPaymentService}.
+ */
 @ApiTags('Admin - Incident Payment')
 @ApiBearerAuth('keycloak')
 @Controller('admin/incident-payment')

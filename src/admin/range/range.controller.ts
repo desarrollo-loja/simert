@@ -7,6 +7,11 @@ import { FilterDto } from 'src/common/dto/filter.dto';
 import { CreateRangeDto } from './dto/create-range.dto';
 import { UpdateRangeDto } from './dto/update-range.dto';
 import { RangeService } from './range.service';
+/**
+ * REST controller for managing price ranges associated with blocks.
+ *
+ * Base route: `admin/range`. Delegates all business logic to {@link RangeService}.
+ */
 @ApiTags('Admin - Range')
 @ApiBearerAuth('keycloak')
 @Controller('admin/range')

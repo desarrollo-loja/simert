@@ -1,10 +1,14 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
-
-import { AntService } from './ant.service';
-
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ApiStandardResponse } from 'src/common/decorators/api-standard-response.decorator';
 import { ErrorCode } from 'src/common/glob/error';
+
+import { AntService } from './ant.service';
+/**
+ * REST controller exposing ANT (Agencia Nacional de Tránsito) vehicle lookups.
+ *
+ * Base route: `api/ant`. Delegates all business logic to {@link AntService}.
+ */
 @ApiTags('Api - Ant')
 @ApiBearerAuth('keycloak')
 @Controller('api/ant')

@@ -52,7 +52,7 @@ export enum IdentificationType {
   RUC = 3,
 }
 
-// RECURSO DE Buscar Obligaciones por Citación => findObligationsByCitation
+// Resource: Look up obligations by citation => findObligationsByCitation
 export interface ObligationsResponse {
   ok: boolean;
   message: string;

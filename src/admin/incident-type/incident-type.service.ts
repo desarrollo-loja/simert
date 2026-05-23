@@ -11,6 +11,11 @@ import { IncidentTypeFilterDto } from './dto/incident-type-filterdto.dto';
 import { UpdateIncidentTypeDto } from './dto/update-incident-type.dto';
 import { IncidentType } from './entities/incident-type.entity';
 
+/**
+ * Service for managing IncidentType (fine category) records. Provides full
+ * CRUD with duplicate-code validation, activation/deactivation, and audit
+ * logging via {@link LoggerService}.
+ */
 @Injectable()
 export class IncidentTypeService {
   private readonly logger = new Logger(IncidentTypeService.name);
@@ -23,34 +28,47 @@ export class IncidentTypeService {
     private readonly loggerService: LoggerService,
   ) { }
 
+  /**
+   * Creates a new incident type after validating that neither the `code` nor
+   * the `name` is already taken.
+   *
+   * - Duplicate code: returns `{ errorCode: NAMEUNIQUE }` (HTTP 200) to match
+   *   the update behavior and avoid a spurious 400 in client consoles.
+   * - Duplicate name: throws `BadRequestException` with `{ codeError: NAMEUNIQUE }`.
+   *
+   * @param userId ID of the admin user performing the operation (for audit log).
+   * @param createIncidentTypeDto Fields for the new incident type.
+   * @returns `{ incidentType, errorCode: NONE }` on success, or an error
+   *   envelope when the code/name is already taken.
+   * @throws Delegates DB errors to {@link handleDbExceptions}.
+   */
   async create(userId: number, createIncidentTypeDto: CreateIncidentTypeDto) {
-    const findIncidentTypeCode = await this.incidentTypeRepository.findOne({
+    const existingByCode = await this.incidentTypeRepository.findOne({
       where: { code: createIncidentTypeDto.code },
     });
 
-    if (findIncidentTypeCode) {
-      // Código (rubro) duplicado: devolvemos 200 + errorCode (igual que el update)
-      // para que el navegador no registre un 400 en consola.
+    if (existingByCode) {
       return { errorCode: ErrorCode.NAMEUNIQUE, message: 'El código ya existe' };
     }
 
-    const findIncidentType = await this.incidentTypeRepository.findOne({
+    const existingByName = await this.incidentTypeRepository.findOne({
       where: { name: createIncidentTypeDto.name },
     });
 
-    if (findIncidentType) {
+    if (existingByName) {
       throw new BadRequestException({ codeError: ErrorCode.NAMEUNIQUE, message: 'El nombre ya existe' });
     }
 
     try {
       const incidentType = this.incidentTypeRepository.create({ ...createIncidentTypeDto });
-      // incidentType.geofence = ... (Not applicable for IncidentType)
-
       const savedIncidentType = await this.incidentTypeRepository.save(incidentType);
 
-      // Logger specific for IncidentType is not yet implemented in LoggerService. 
-      // Assuming generic logging or skipping until Logger model is created.
-      this.loggerService.saveIncidentTypeLoggerModel({ id: savedIncidentType.id, userId, typeOperation: TypeOperation.CREATE, incidentType: savedIncidentType });
+      this.loggerService.saveIncidentTypeLoggerModel({
+        id: savedIncidentType.id,
+        userId,
+        typeOperation: TypeOperation.CREATE,
+        incidentType: savedIncidentType,
+      });
 
       return { incidentType: savedIncidentType, errorCode: ErrorCode.NONE };
     } catch (error) {
@@ -58,8 +76,16 @@ export class IncidentTypeService {
     }
   }
 
+  /**
+   * Returns a paginated list of incident types filtered by the supplied DTO.
+   * Supports free-text search on `name` (ILIKE) and date range on `createdAt`.
+   *
+   * @param filterDto Filter fields: `search`, `dateFrom`, `dateTo`.
+   * @returns `{ incidentTypes, errorCode: NONE }` with rows sorted by
+   *   `createdAt` descending.
+   * @throws Delegates DB errors to {@link handleDbExceptions}.
+   */
   async findAll(filterDto: IncidentTypeFilterDto) {
-    // const table = 'simert.incident_type';
     const table = 'public.incident_type';
 
     const { conditions, parameters } = this._buildConditionsAndParametersPg(filterDto);
@@ -84,9 +110,6 @@ export class IncidentTypeService {
     queryInfo += ' ORDER BY it."createdAt" DESC;';
 
     try {
-      // this.logger.debug(`SQL => ${queryInfo}`);
-      // this.logger.debug(`PARAMS => ${JSON.stringify(parameters)}`);
-
       const incidentTypes = await this.incidentTypeRepository.query(queryInfo, parameters);
       return { incidentTypes, errorCode: ErrorCode.NONE };
     } catch (error) {
@@ -94,23 +117,36 @@ export class IncidentTypeService {
     }
   }
 
+  /**
+   * Updates an existing incident type by id after validating uniqueness of
+   * `name` and `code` against other records.
+   *
+   * - Duplicate name among other records: throws `BadRequestException`.
+   * - Duplicate code among other records: returns `{ errorCode: NAMEUNIQUE }`.
+   * - Record not found: returns `{ errorCode: NOT_FOUND }`.
+   *
+   * @param userId ID of the admin user performing the operation (for audit log).
+   * @param id ID of the incident type to update.
+   * @param updateIncidentTypeDto Partial fields to apply.
+   * @returns `{ errorCode: NONE, incidentType }` on success, or an error
+   *   envelope otherwise.
+   * @throws Delegates DB errors to {@link handleDbExceptions}.
+   */
   async update(userId: number, id: number, updateIncidentTypeDto: UpdateIncidentTypeDto) {
     try {
-
-      const findIncidentType = await this.incidentTypeRepository.findOne({
+      const existingByName = await this.incidentTypeRepository.findOne({
         where: { name: updateIncidentTypeDto.name, id: Not(id) },
       });
 
-      if (findIncidentType) {
+      if (existingByName) {
         throw new BadRequestException({ codeError: ErrorCode.NAMEUNIQUE, message: 'El nombre ya existe' });
       }
 
-      const findIncidentTypeCode = await this.incidentTypeRepository.findOne({
+      const existingByCode = await this.incidentTypeRepository.findOne({
         where: { code: updateIncidentTypeDto.code, id: Not(id) },
       });
 
-      if (findIncidentTypeCode) {
-        // throw new BadRequestException({ codeError: ErrorCode.NAMEUNIQUE, message: 'El código ya existe' });
+      if (existingByCode) {
         return { errorCode: ErrorCode.NAMEUNIQUE, message: 'El código ya existe' };
       }
 
@@ -121,7 +157,12 @@ export class IncidentTypeService {
 
       if (incidentType) {
         await this.incidentTypeRepository.save(incidentType);
-        this.loggerService.saveIncidentTypeLoggerModel({ id: incidentType.id, userId: userId, typeOperation: TypeOperation.UPDATE, incidentType });
+        this.loggerService.saveIncidentTypeLoggerModel({
+          id: incidentType.id,
+          userId,
+          typeOperation: TypeOperation.UPDATE,
+          incidentType,
+        });
         return { errorCode: ErrorCode.NONE, incidentType };
       }
 
@@ -131,6 +172,13 @@ export class IncidentTypeService {
     }
   }
 
+  /**
+   * Fetches a single incident type by its primary key.
+   *
+   * @param id ID of the incident type to retrieve.
+   * @returns `{ incidentType, errorCode: NONE }` when found, or
+   *   `{ errorCode: NOT_FOUND, message }` otherwise.
+   */
   async getTypeIncidentById(id: number) {
     try {
       const incidentType = await this.incidentTypeRepository.findOne({ where: { id } });
@@ -144,6 +192,14 @@ export class IncidentTypeService {
     }
   }
 
+  /**
+   * Soft-deletes an incident type by setting `isActivated` to `false`.
+   *
+   * @param id ID of the incident type to deactivate.
+   * @returns `{ incidentType }` with the updated entity when found,
+   *   or `undefined` when the record does not exist.
+   * @throws Delegates DB errors to {@link handleDbExceptions}.
+   */
   async remove(id: number) {
     try {
       const incidentType = await this.incidentTypeRepository.findOne({ where: { id } });
@@ -157,10 +213,17 @@ export class IncidentTypeService {
     }
   }
 
+  /**
+   * Builds parameterized WHERE conditions for the `findAll` query.
+   *
+   * @param filterDto Filter fields: `search` (ILIKE on name), `dateFrom`,
+   *   `dateTo` (range on `createdAt`).
+   * @returns `{ conditions, parameters }` ready for a raw SQL query with
+   *   positional `$N` placeholders.
+   */
   private _buildConditionsAndParametersPg(
     filterDto: IncidentTypeFilterDto,
   ): { conditions: string[]; parameters: any[] } {
-
     const {
       search = '',
       dateFrom,
@@ -176,7 +239,8 @@ export class IncidentTypeService {
     };
 
     if (search.trim() && search.trim() !== 'undefined' && search.trim() !== 'null' && search.trim() !== '') {
-      conditions.push(`it."name" ILIKE ${addParam(`%${search}%`)}`); // ILIKE: case-insensitive match in Postgres
+      // ILIKE performs case-insensitive pattern matching in Postgres.
+      conditions.push(`it."name" ILIKE ${addParam(`%${search}%`)}`);
     }
 
     if (dateFrom && dateTo) {
@@ -185,5 +249,4 @@ export class IncidentTypeService {
 
     return { conditions, parameters };
   }
-
 }

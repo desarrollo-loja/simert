@@ -5,6 +5,11 @@ import { JwtPayload } from 'src/auth/interfaces';
 import { FilterDto } from 'src/common/dto/filter.dto';
 
 import { CheckboxService } from './checkbox.service';
+/**
+ * REST controller for querying checkbox balance records.
+ *
+ * Base route: `admin/checkbox`. Delegates all business logic to {@link CheckboxService}.
+ */
 @ApiTags('Admin - Checkbox')
 @ApiBearerAuth('keycloak')
 @Controller('admin/checkbox')

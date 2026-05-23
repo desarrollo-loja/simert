@@ -8,6 +8,12 @@ import { DataSource, Repository } from 'typeorm';
 
 import { PlotLocationDto } from './dto/plot-location.dto';
 
+/**
+ * Service for ingesting and querying real-time controller location
+ * tracking. Writes to the high-throughput `L` buffer (numeric IDs,
+ * no FKs by design — see project docs) and reads from the partitioned
+ * historical tracking tables for date-range searches.
+ */
 @Injectable()
 export class TrakingService {
 

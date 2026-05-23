@@ -10,6 +10,11 @@ import { SupportTicketFilterDto } from './dto/support-ticket-filter.dto';
 import { UpdateSupportTicketDto } from './dto/update-support-ticket.dto';
 import { SupportTicket } from './entities/support-ticket.entity';
 
+/**
+ * Admin-side service for managing SupportTicket records — user-submitted
+ * help requests. Provides creation (with automatic PENDING default), paginated
+ * listing/filtering, status transitions and deletion.
+ */
 @Injectable()
 export class SupportTicketService {
   private readonly logger = new Logger(SupportTicketService.name);
@@ -19,20 +24,22 @@ export class SupportTicketService {
     private readonly supportTicketRepository: Repository<SupportTicket>,
   ) { }
 
+  /**
+   * Creates a new support ticket. Defaults status to PENDING when not provided.
+   * Returns the saved ticket with a formatted reference number (e.g. ST-000042).
+   *
+   * @param createSupportTicketDto - DTO with ticket fields.
+   * @returns Object with errorCode, savedTicket, formatted ticketNumber, and message.
+   */
   async create(createSupportTicketDto: CreateSupportTicketDto) {
     try {
-      // If no status is provided, default to PENDING
       if (!createSupportTicketDto.status) {
         createSupportTicketDto.status = SupportTicketStatus.PENDING;
       }
 
-      const supportTicket = this.supportTicketRepository.create({
-        ...createSupportTicketDto,
-      });
-
+      const supportTicket = this.supportTicketRepository.create({ ...createSupportTicketDto });
       const savedTicket = await this.supportTicketRepository.save(supportTicket);
 
-      // Build reference ticket number
       const ticketNumber = `ST-${savedTicket.id.toString().padStart(6, '0')}`;
 
       return {
@@ -46,11 +53,18 @@ export class SupportTicketService {
     }
   }
 
+  /**
+   * Returns a paginated list of support tickets matching the given filters.
+   * Timestamps are formatted with TO_CHAR to avoid UTC-Z serialization.
+   *
+   * @param filterDto - Filters (userId, requestType, status, emailClient,
+   *   typeTicket, search, dateFrom/dateTo, limit, offset).
+   * @returns Object with errorCode and the supportTickets array.
+   */
   async findAll(filterDto: SupportTicketFilterDto) {
-    const table = 'public.support_ticket';
-    const { conditions, parameters } = this._buildConditionsAndParametersPg(filterDto);
+    const { conditions, parameters } = this._buildSqlConditions(filterDto);
 
-    let queryInfo = `
+    let sql = `
     SELECT
       st."id",
       st."userId",
@@ -61,53 +75,57 @@ export class SupportTicketService {
       TO_CHAR(st."createdAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS') AS "createdAt",
       TO_CHAR(st."updatedAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS') AS "updatedAt",
       st."typeTicket"
-    FROM ${table} st
+    FROM public.support_ticket st
     `;
 
     if (conditions.length > 0) {
-      queryInfo += ' WHERE ' + conditions.join(' AND ');
+      sql += ' WHERE ' + conditions.join(' AND ');
     }
 
-    queryInfo += ' ORDER BY st."createdAt" DESC';
+    sql += ' ORDER BY st."createdAt" DESC';
 
-    // SQL injection fix: parameterize LIMIT/OFFSET via $N placeholders and
-    // coerce to safe non-negative integers instead of interpolating raw values.
+    // Parameterize LIMIT/OFFSET to prevent SQL injection.
     const safeLimit = Math.trunc(Number(filterDto.limit));
     if (Number.isFinite(safeLimit) && safeLimit > 0) {
       parameters.push(safeLimit);
-      queryInfo += ` LIMIT $${parameters.length}`;
+      sql += ` LIMIT $${parameters.length}`;
     }
 
     const safeOffset = Math.trunc(Number(filterDto.offset));
     if (Number.isFinite(safeOffset) && safeOffset > 0) {
       parameters.push(safeOffset);
-      queryInfo += ` OFFSET $${parameters.length}`;
+      sql += ` OFFSET $${parameters.length}`;
     }
 
-    queryInfo += ';';
+    sql += ';';
 
     try {
-      const supportTickets = await this.supportTicketRepository.query(queryInfo, parameters);
+      const supportTickets = await this.supportTicketRepository.query(sql, parameters);
       return { supportTickets, errorCode: ErrorCode.NONE };
     } catch (error) {
       handleDbExceptions(error, this.logger);
     }
   }
 
+  /**
+   * Returns the total count of support tickets matching the given filters.
+   *
+   * @param filterDto - Same filter options as findAll (pagination fields ignored).
+   * @returns Object with total count and errorCode.
+   */
   async findAllTotal(filterDto: SupportTicketFilterDto) {
-    const table = 'public.support_ticket';
-    const { conditions, parameters } = this._buildConditionsAndParametersPg(filterDto);
+    const { conditions, parameters } = this._buildSqlConditions(filterDto);
 
-    let queryInfo = `SELECT COUNT(*) as total FROM ${table} st`;
+    let sql = `SELECT COUNT(*) as total FROM public.support_ticket st`;
 
     if (conditions.length > 0) {
-      queryInfo += ' WHERE ' + conditions.join(' AND ');
+      sql += ' WHERE ' + conditions.join(' AND ');
     }
 
-    queryInfo += ';';
+    sql += ';';
 
     try {
-      const result = await this.supportTicketRepository.query(queryInfo, parameters);
+      const result = await this.supportTicketRepository.query(sql, parameters);
       const total = result[0]?.total || 0;
       return { total: Number(total), errorCode: ErrorCode.NONE };
     } catch (error) {
@@ -115,6 +133,12 @@ export class SupportTicketService {
     }
   }
 
+  /**
+   * Returns a single support ticket by id, or NOT_FOUND if absent.
+   *
+   * @param id - Numeric ID of the ticket.
+   * @returns Object with errorCode and the supportTicket (or null).
+   */
   async findOne(id: number) {
     try {
       const supportTicket = await this.supportTicketRepository.findOne({ where: { id } });
@@ -127,12 +151,16 @@ export class SupportTicketService {
     }
   }
 
+  /**
+   * Updates a support ticket by id with the supplied fields.
+   *
+   * @param id - Numeric ID of the ticket to update.
+   * @param updateSupportTicketDto - Partial DTO with updated fields.
+   * @returns Object with errorCode and the updated supportTicket (or NOT_FOUND).
+   */
   async update(id: number, updateSupportTicketDto: UpdateSupportTicketDto) {
     try {
-      const supportTicket = await this.supportTicketRepository.preload({
-        id: id,
-        ...updateSupportTicketDto,
-      });
+      const supportTicket = await this.supportTicketRepository.preload({ id, ...updateSupportTicketDto });
 
       if (supportTicket) {
         await this.supportTicketRepository.save(supportTicket);
@@ -145,11 +173,16 @@ export class SupportTicketService {
     }
   }
 
+  /**
+   * Soft-deletes a support ticket by setting its status to REJECTED.
+   *
+   * @param id - Numeric ID of the ticket to remove.
+   * @returns Object with errorCode and the updated supportTicket (or NOT_FOUND).
+   */
   async remove(id: number) {
     try {
       const supportTicket = await this.supportTicketRepository.findOne({ where: { id } });
       if (supportTicket) {
-        // Soft delete: mark status as REJECTED
         supportTicket.status = SupportTicketStatus.REJECTED;
         await this.supportTicketRepository.save(supportTicket);
         return { supportTicket, errorCode: ErrorCode.NONE };
@@ -160,7 +193,14 @@ export class SupportTicketService {
     }
   }
 
-  private _buildConditionsAndParametersPg(
+  /**
+   * Builds a positional-parameter SQL WHERE fragment from the filter DTO.
+   * Used by both {@link findAll} and {@link findAllTotal}.
+   *
+   * @param filterDto - Filter options to translate into SQL conditions.
+   * @returns Object with conditions array and positional parameters array.
+   */
+  private _buildSqlConditions(
     filterDto: SupportTicketFilterDto,
   ): { conditions: string[]; parameters: any[] } {
     const {
@@ -177,7 +217,7 @@ export class SupportTicketService {
     const conditions: string[] = [];
     const parameters: any[] = [];
 
-    const addParam = (value: any) => {
+    const addParam = (value: any): string => {
       parameters.push(value);
       return `$${parameters.length}`;
     };
@@ -202,7 +242,10 @@ export class SupportTicketService {
       conditions.push(`st."typeTicket" = ${addParam(typeTicket)}`);
     }
 
-    if (search && search.trim() && search.trim() !== 'undefined' && search.trim() !== 'null' && search.trim() !== '') {
+    // Guard on the trimmed value, but keep the raw `search` in the ILIKE
+    // pattern to preserve the original matching behavior for whitespace.
+    const trimmedSearch = search?.trim();
+    if (trimmedSearch && trimmedSearch !== 'undefined' && trimmedSearch !== 'null') {
       conditions.push(`(st."message" ILIKE ${addParam(`%${search}%`)} OR st."emailClient" ILIKE ${addParam(`%${search}%`)})`);
     }
 

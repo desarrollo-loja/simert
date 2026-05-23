@@ -22,6 +22,13 @@ import { CreateSimertDto } from './dto/create-simert.dto';
 import { IncrementSimertDto } from './dto/increment-simert.dto';
 import { SearchFractionDto } from './dto/search-simert.dto';
 
+/**
+ * Core parking session service for the Simert mobile client. Manages the
+ * full lifecycle of a parking Fraction: slot search, session start (`parking`),
+ * time increment (`incrementTime`) and session termination. Enforces
+ * pessimistic-write locks on {@link CheckboxUser} balance to prevent races
+ * and dispatches push notifications at each state transition.
+ */
 @Injectable()
 export class SimertService {
 

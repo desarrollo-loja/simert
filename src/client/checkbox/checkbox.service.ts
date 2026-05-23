@@ -33,10 +33,18 @@ import { v4 as uuidv4 } from 'uuid';
 
 import { CreateCheckboxDto } from './dto/create-checkbox.dto';
 
+/**
+ * Service that handles the client-facing checkbox (prepaid balance) flow:
+ * purchases, payment-provider dispatch (DeUna / Ahorita / PlaceToPay),
+ * webhook responses, balance reservation/release timers and integration
+ * with the user wallet tracked in `CheckboxUser`.
+ *
+ * Implements {@link OnModuleInit} to bootstrap pending-state recovery on startup.
+ */
 @Injectable()
 export class CheckboxService implements OnModuleInit {
 
-    private readonly logger = new Logger('CheckboxService');
+    private readonly logger = new Logger(CheckboxService.name);
     private readonly domainSimert: string = process.env.DOMINIO_SIMERT;
     private readonly timerMinuteDeuna: number = 1000 * 60 * Number(process.env.TIMER_MINUTE_DEUNA || 5);
     private readonly timerMinutePlaceToPay: number = 1000 * 60 * Number(process.env.TIMER_MINUTE_PLACE_TO_PAY || 6);
@@ -73,6 +81,10 @@ export class CheckboxService implements OnModuleInit {
         private readonly dataSource: DataSource
     ) { }
 
+    /**
+     * Loads all catalog entries into the in-memory map on module startup.
+     * Logs an error without throwing if the DB is unavailable.
+     */
     async onModuleInit() {
         try {
             const all = await this.catalogRepository.find();
@@ -85,6 +97,15 @@ export class CheckboxService implements OnModuleInit {
         }
     }
 
+    /**
+     * Returns paginated checkbox transaction history for a user, combining
+     * current-month rows from the live table with historical archive partitions.
+     *
+     * @param userId Owner of the transactions.
+     * @param getTransactionDto Year/month filter and currentMonth flag.
+     * @param paginationDto Pagination controls (limit/offset).
+     * @returns Error-code envelope with the `checkboxs` array.
+     */
     async getTransactions(userId: number, getTransactionDto: GetTransactionDto, paginationDto: PaginationDto) {
         const { limit = 10, offset = 0 } = paginationDto;
         const { year, month, currentMonth } = getTransactionDto;
@@ -183,6 +204,13 @@ export class CheckboxService implements OnModuleInit {
         }
     }
 
+    /**
+     * Returns a single checkbox transaction by its id, scoped to the given user.
+     *
+     * @param userId Owner of the transaction.
+     * @param id Primary key of the checkbox transaction.
+     * @returns Error-code envelope with the matched checkbox or an empty object.
+     */
     async getTransactionsById(userId: number, id: number) {
 
         try {
@@ -217,6 +245,12 @@ export class CheckboxService implements OnModuleInit {
         }
     }
 
+    /**
+     * Returns all active card options alongside the user's current checkbox balance.
+     *
+     * @param userId Owner whose balance is to be retrieved.
+     * @returns Error-code envelope with `cards` array and `checkboxes` count.
+     */
     async getCardsAndCheckboxes(userId: number) {
 
         try {
@@ -235,14 +269,22 @@ export class CheckboxService implements OnModuleInit {
 
             return { errorCode: ErrorCode.NONE, cards, checkboxes: checkboxes ? checkboxes.checkboxes : 0 };
         } catch (error) {
-            this.logger.error('error en getCardsAndCheckboxes', error);
+            this.logger.error('getCardsAndCheckboxes failed', error);
             handleDbExceptions(error, this.logger);
         }
     }
 
+    /**
+     * Initiates a checkbox purchase via the configured payment provider (DeUna V2,
+     * Ahorita or PlaceToPay) and returns the provider deeplink.
+     *
+     * @param idDevice Device identifier originating the purchase.
+     * @param createCheckboxDto Purchase payload including amount, payment method and billing data.
+     * @returns Error-code envelope. On success returns `AWAITS_RESPONSE` with the checkbox record.
+     */
     async buyCheckboxs(idDevice: string, createCheckboxDto: CreateCheckboxDto) {
 
-        //validamos que caja este abierta
+        // Validate that the cashier window is open in GIM
         const openTill = await this.gimService.validateOpenTill();
         if (openTill.errorCode !== ErrorCode.NONE) return openTill;
 
@@ -274,7 +316,7 @@ export class CheckboxService implements OnModuleInit {
             urlPlaceToPay = response['url'];
         }
 
-        // Buscamos si el usuario tiene una transaccion previa
+        // Check whether the user already has a previous transaction
         let checkboxCheck = await this.checkboxRepository.findOne({ where: { userId, transactionId } });
 
         if (checkboxCheck) return { errorCode: ErrorCode.TRANSACTION_REPIT };
@@ -290,7 +332,7 @@ export class CheckboxService implements OnModuleInit {
                 concept = `${conceptElement ? conceptElement.value + ' | ' + concept : concept}`;
             }
 
-            //Mapeamos las propiedades de createCheckboxDto a debitAmounDto
+            // Map createCheckboxDto properties into debitAmounDto
             const debitAmounDto = await this._parseDebitAmounDto(concept, createCheckboxDto);
 
             const queryRunner = this.dataSource.createQueryRunner();
@@ -437,23 +479,23 @@ export class CheckboxService implements OnModuleInit {
             try {
                 const { userId } = checkbox;
 
-                // Emitimos el título de crédito en el GIM
+                // Issue the credit title in GIM
                 // const emisionResult = await this._resolveResidentIdAndEmitCreditCard(idDevice, checkbox);
                 const emisionResult = await this.commonCheckboxService.resolveResidentIdAndEmitCreditCard(idDevice, checkbox, entryCode);
 
                 if (emisionResult && emisionResult.errorCode !== ErrorCode.NONE) {
-                    this.logger.error(`_saveResponsePay: no se pudo emitir título de crédito para checkbox ${checkbox.id}`);
-                    // Guardamos la emisión en el checkbox
+                    this.logger.error(`_saveResponsePay: failed to issue credit title for checkbox ${checkbox.id}`);
+                    // Persist the issuance attempt on the checkbox
                     if (emisionResult.dataEmision)
                         checkbox.onResponseExternal.push(emisionResult.dataEmision);
 
                 } else {
-                    // Guardamos la emisión en el checkbox
+                    // Persist the issuance result on the checkbox
                     if (emisionResult.dataEmision)
                         checkbox.onResponseExternal.push(emisionResult.dataEmision);
                     checkbox.statusIncident = IncidentStatus.SUPPLIED;
 
-                    // Hacemos el depósito en el GIM
+                    // Register the deposit in GIM
                     // const depositResult = await this._registerDepositGim(idDevice, checkbox);
                     const depositResult = await this.commonCheckboxService.registerDepositGim(idDevice, checkbox);
 
@@ -464,9 +506,9 @@ export class CheckboxService implements OnModuleInit {
                             checkbox.onResponseExternal.push(depositResult.dataDeposit);
                         checkbox.statusIncident = IncidentStatus.SUPPLIED;
 
-                        this.logger.error(`_saveResponsePay: no se pudo hacer el depósito para checkbox ${checkbox.id}`);
+                        this.logger.error(`_saveResponsePay: failed to register deposit for checkbox ${checkbox.id}`);
                     } else {
-                        // Guardamos el depósito en el checkbox
+                        // Persist the deposit result on the checkbox
                         if (depositResult.dataDeposit)
                             checkbox.onResponseExternal.push(depositResult.dataDeposit);
                         checkbox.statusIncident = IncidentStatus.PAYED;
@@ -474,7 +516,7 @@ export class CheckboxService implements OnModuleInit {
 
                 }
 
-                // actualizamos el checkbox con sus nuevos estados
+                // Update the checkbox with the new status fields
                 const updateData = {
                     onResponseExternal: checkbox.onResponseExternal,
                     statusIncident: checkbox.statusIncident,
@@ -484,10 +526,10 @@ export class CheckboxService implements OnModuleInit {
                 }
                 const updateResponseCheck = await this.checkboxRepository.update(checkbox.id, updateData);
 
-                // Buscamos si el usuario tiene checkboxUser para aumentar alli sus checkboxes
+                // Check whether the user already has a checkboxUser to increment their balance
                 let checkboxUser = await this.checkboxUserRepository.findOne({ where: { userId } });
                 if (!checkboxUser) {
-                    //Le creamos una checkboxUser al usuario al que le vamos a asignar el checkboxes
+                    // Create a checkboxUser row for the recipient user
                     checkboxUser = this.checkboxUserRepository.create({ userId, checkboxes: checkbox.checkboxes });
                     await this.checkboxUserRepository.save(checkboxUser);
                 } else {
@@ -627,10 +669,11 @@ export class CheckboxService implements OnModuleInit {
 
         const response = await this.commonService.payDeUnaV2(idDevice, registerDeunaDto);
 
-        //Cuando el provehedor responde el estado correcto
+        // Provider acknowledged with the expected success status
         if (response && response['errorCode'] === ErrorCode.NONE) {
-            // Esperamos 5 minutos para verificar si se realizo el PAGO, si el pago se hizo antes en respuesta al
-            // webhook ya se responde al cliente antes, caso contrario se verifica la transaccion antes de reversar
+            // Wait 5 minutes to confirm the PAYMENT actually happened. If the webhook arrives
+            // first the client is already notified there; otherwise we verify the transaction
+            // before reversing it.
             this._scheduleUnconfirmedCheckboxReversal(
                 idDevice, checkbox, userId,
                 'Se pago correctamente con deuna en menos de 5 minutos', this.timerMinuteDeuna,
@@ -666,10 +709,11 @@ export class CheckboxService implements OnModuleInit {
 
         const response = await this.commonService.payAhorita(idDevice, registerAhoritaDto);
 
-        //Cuando el provehedor responde el estado correcto
+        // Provider acknowledged with the expected success status
         if (response && response['errorCode'] === ErrorCode.NONE) {
-            // Esperamos 3 minutos para verificar si se realizo el PAGO, si el pago se hizo antes en respuesta al
-            // webhook ya se responde al cliente antes, caso contrario se verifica la transaccion antes de reversar
+            // Wait 3 minutes to confirm the PAYMENT actually happened. If the webhook arrives
+            // first the client is already notified there; otherwise we verify the transaction
+            // before reversing it.
             this._scheduleUnconfirmedCheckboxReversal(
                 idDevice, checkbox, userId,
                 'Se pago correctamente con ahorita en menos de 3 minutos', this.timerMinuteDeuna,
@@ -708,10 +752,11 @@ export class CheckboxService implements OnModuleInit {
 
         const response = await this.commonService.payPlaceToPay(idDevice, referenceId, registerPlaceToPayDto);
 
-        //Cuando el provehedor responde el estado correcto
+        // Provider acknowledged with the expected success status
         if (response && response['errorCode'] === ErrorCode.NONE) {
-            // Esperamos 3 minutos para verificar si se realizo el PAGO, si el pago se hizo antes en respuesta al
-            // webhook ya se responde al cliente antes, caso contrario se verifica la transaccion antes de reversar
+            // Wait 3 minutes to confirm the PAYMENT actually happened. If the webhook arrives
+            // first the client is already notified there; otherwise we verify the transaction
+            // before reversing it.
             this._scheduleUnconfirmedCheckboxReversal(
                 idDevice, checkbox, userId,
                 'Se pago correctamente con pay to pay 3 minutos', this.timerMinutePlaceToPay,
@@ -722,6 +767,18 @@ export class CheckboxService implements OnModuleInit {
         }
     }
 
+    /**
+     * Payment-provider success webhook. Marks the checkbox as PAID and notifies
+     * the buyer. Idempotent: only processes if the checkbox is still in WAITING state.
+     *
+     * @param idDevice Device that originated the purchase.
+     * @param userId Buyer id.
+     * @param checkboxId Primary key of the checkbox being confirmed.
+     * @param typePaymentMethod Provider that called back.
+     * @param register Original register timestamp.
+     * @param typePaymentResponsibility Commission responsibility type.
+     * @returns Standard error-code envelope.
+     */
     async onResponsePay(idDevice: string, userId: number, checkboxId: number, typePaymentMethod: number, register: string, typePaymentResponsibility: TypePaymentResponsibility) {
 
         let checkbox = await this.checkboxRepository.findOne({ where: { id: checkboxId } });
@@ -740,6 +797,18 @@ export class CheckboxService implements OnModuleInit {
         return { errorCode: ErrorCode.NOT_FOUND };
     }
 
+    /**
+     * Payment-provider error/cancellation webhook. Marks the checkbox as ERROR
+     * and notifies the buyer.
+     *
+     * @param idDevice Device that originated the purchase.
+     * @param userId Buyer id.
+     * @param checkboxId Primary key of the checkbox that failed.
+     * @param typePaymentMethod Provider that called back.
+     * @param register Original register timestamp.
+     * @param typePaymentResponsibility Commission responsibility type.
+     * @returns Standard error-code envelope.
+     */
     async onResponsePayError(idDevice: string, userId: number, checkboxId: number, typePaymentMethod: number, register: string, typePaymentResponsibility: TypePaymentResponsibility) {
 
         const checkbox = await this.checkboxRepository.findOne({ where: { id: checkboxId } });
