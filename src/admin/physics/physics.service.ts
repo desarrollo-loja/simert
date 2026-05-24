@@ -23,10 +23,14 @@ export class PhysicsService {
   /**
    * Retrieves a paginated list of physical card usage records.
    *
-   * Runs a raw SQL query (no ORM query builder) with an INNER JOIN to the
-   * `zone` table, so only records pointing to an existing zone are returned.
-   * The selected columns and response shape are kept identical to the previous
-   * ORM-based implementation.
+   * Runs a raw SQL query (no ORM query builder) with INNER JOINs to `zone`,
+   * `block` and `slot`. Because the `physic` table only stores `zoneId` (no
+   * `blockId`/`slotId`), the block/slot joins are made through the zone, which
+   * naturally fans the rows out (one `physic` × N blocks × M slots). To return
+   * one row per `physic`, the query uses `SELECT DISTINCT ON (p."id")` and the
+   * `ORDER BY` picks the lowest `block.id` and `slot.id` as the representative
+   * row. The reported `blockName`/`slotName` are therefore arbitrary and do not
+   * necessarily reflect where the user actually parked.
    *
    * @param filterDto Pagination (`limit`, `offset`) and optional filters
    *   (`userId`, `zoneId`, `search`, `dateFrom`, `timeByBlock`).
@@ -39,7 +43,7 @@ export class PhysicsService {
       const { whereClause, parameters } = this._buildRawFilter(filterDto);
 
       const sql = `
-        SELECT
+        SELECT DISTINCT ON (p."id")
           p."id",
           p."userId",
           p."zoneId",
@@ -60,7 +64,7 @@ export class PhysicsService {
         INNER JOIN "block" b ON b."zoneId" = z."id"
         INNER JOIN "slot" s ON s."blockId" = b."id"
         ${whereClause}
-        ORDER BY p."id" DESC
+        ORDER BY p."id" DESC, b."id" ASC, s."id" ASC
         LIMIT $${parameters.length + 1} OFFSET $${parameters.length + 2}
       `;
 
