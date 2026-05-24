@@ -82,7 +82,7 @@ export class RangeService {
    */
   async findAll(filterDto: FilterDto) {
     try {
-      const { limit = 10, offset = 0, search } = filterDto;
+      const { limit = 10, offset = 0, search, statusId } = filterDto;
       const query = this.rangeRepository.createQueryBuilder('range')
         .select([
           'range.id', 'range.from', 'range.to', 'range.isActivated',
@@ -92,6 +92,10 @@ export class RangeService {
 
       if (search) {
         query.andWhere('range.description ILIKE :search', { search: `%${search}%` });
+      }
+
+      if (statusId) {
+        query.andWhere('range.status = :statusId', { statusId });
       }
 
       query.take(limit).skip(offset).orderBy('range.id', 'DESC');
