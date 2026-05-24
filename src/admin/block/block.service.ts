@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { FilterDto } from 'src/common/dto/filter.dto';
 import handleDbExceptions from 'src/common/exceptions/error.db.exception';
@@ -308,6 +308,11 @@ export class BlockService {
    * @returns `{ block }` — the persisted block entity.
    */
   async createBlockSector(userId: number, createBlockDto: CreateBlockDto) {
+    await this._ensureUniqueSectorFields(
+      createBlockDto.zone?.id,
+      createBlockDto.name,
+      createBlockDto.acronym,
+    );
     try {
       const blockEntity = this.blockRepository.create({ ...createBlockDto });
 
@@ -333,6 +338,13 @@ export class BlockService {
    * @returns `{ block }` — the updated block entity, or `undefined` when the id is not found.
    */
   async updateBlockSector(userId: number, id: number, updateBlockDto: UpdateBlockDto) {
+    const zoneId = updateBlockDto.zone?.id ?? (await this._resolveZoneId(id));
+    await this._ensureUniqueSectorFields(
+      zoneId,
+      updateBlockDto.name,
+      updateBlockDto.acronym,
+      id,
+    );
     try {
       const block = await this.blockRepository.preload({ id, ...updateBlockDto });
       if (block) {
@@ -346,6 +358,67 @@ export class BlockService {
       }
     } catch (error) {
       handleDbExceptions(error, this.logger);
+    }
+  }
+
+  /**
+   * Resolves the zone id of an existing block. Used on update when the payload
+   * omits the zone, so the uniqueness check can still be scoped to the right zone.
+   *
+   * @param id Target block ID.
+   * @returns The zone id, or `undefined` when the block does not exist.
+   */
+  private async _resolveZoneId(id: number): Promise<number | undefined> {
+    const raw = await this.blockRepository.createQueryBuilder('b')
+      .select('b."zoneId"', 'zoneId')
+      .where('b.id = :id', { id })
+      .getRawOne<{ zoneId: number }>();
+    return raw ? Number(raw.zoneId) : undefined;
+  }
+
+  /**
+   * Guarantees that a sector's name and acronym are unique within its zone,
+   * mirroring the `(zone, name)` uniqueness rule for the acronym field.
+   * Throws a 400 carrying a distinguishable `errorCode` so the client can show
+   * the precise message (NAMEUNIQUE vs ACRONYMUNIQUE).
+   *
+   * @param zoneId    Zone the sector belongs to. When falsy the check is skipped.
+   * @param name      Sector name to validate (skipped when absent).
+   * @param acronym   Sector acronym to validate (skipped when absent).
+   * @param excludeId Block id to ignore — the record being updated.
+   */
+  private async _ensureUniqueSectorFields(
+    zoneId: number | undefined,
+    name?: string,
+    acronym?: string,
+    excludeId?: number,
+  ): Promise<void> {
+    if (!zoneId) return;
+
+    if (name) {
+      const nameQb = this.blockRepository.createQueryBuilder('b')
+        .where('b.zoneId = :zoneId', { zoneId })
+        .andWhere('b.name = :name', { name });
+      if (excludeId) nameQb.andWhere('b.id != :excludeId', { excludeId });
+      if (await nameQb.getCount() > 0) {
+        throw new BadRequestException({
+          codeError: ErrorCode.NAMEUNIQUE,
+          message: 'El nombre del sector ya está en uso en esta zona.',
+        });
+      }
+    }
+
+    if (acronym) {
+      const acronymQb = this.blockRepository.createQueryBuilder('b')
+        .where('b.zoneId = :zoneId', { zoneId })
+        .andWhere('b.acronym = :acronym', { acronym });
+      if (excludeId) acronymQb.andWhere('b.id != :excludeId', { excludeId });
+      if (await acronymQb.getCount() > 0) {
+        throw new BadRequestException({
+          codeError: ErrorCode.ACRONYMUNIQUE,
+          message: 'El acrónimo del sector ya está en uso en esta zona.',
+        });
+      }
     }
   }
 
