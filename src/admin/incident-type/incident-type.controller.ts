@@ -1,13 +1,17 @@
 import { Body, Controller, Delete, Get, Param, ParseIntPipe, ParseUUIDPipe, Patch, Post } from '@nestjs/common';
-import { Auth, AuthWithKeycloak, GetUser } from 'src/auth/decorators';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { AuthWithKeycloak, GetUser } from 'src/auth/decorators';
 import { JwtPayload } from 'src/auth/interfaces';
 
 import { CreateIncidentTypeDto } from './dto/create-incident-type.dto';
 import { IncidentTypeFilterDto } from './dto/incident-type-filterdto.dto';
 import { UpdateIncidentTypeDto } from './dto/update-incident-type.dto';
 import { IncidentTypeService } from './incident-type.service';
-
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+/**
+ * REST controller for managing incident types.
+ *
+ * Base route: `admin/incident-type`. Delegates all business logic to {@link IncidentTypeService}.
+ */
 @ApiTags('Admin - Incident Type')
 @ApiBearerAuth('keycloak')
 @Controller('admin/incident-type')

@@ -9,6 +9,11 @@ import { ErrorCode } from 'src/common/glob/error';
 import { parseGeoJsonMultiPolygon } from 'src/common/glob/utilities/funtions';
 import { Repository } from 'typeorm';
 
+/**
+ * Service that provides geospatial mapping data for the mobile client:
+ * active zones with GeoJSON multi-polygon boundaries, blocks inside a zone,
+ * and slot-level geometry for map rendering.
+ */
 @Injectable()
 export class MappingService {
 

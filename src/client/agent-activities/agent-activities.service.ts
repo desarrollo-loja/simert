@@ -15,9 +15,15 @@ import { Repository } from 'typeorm';
 import { CreateAgentActivityDto } from './dto/create-agent-activity.dto';
 import { UpdateAgentActivityDto } from './dto/update-agent-activity.dto';
 
+/**
+ * Client-facing service for agent activity tracking. Manages creation of
+ * {@link AgentActivity} entries (check-in / check-out / incidents) and
+ * maintains the {@link BlockOperator} active-session state. Provides
+ * paginated listing filtered by user, block and activity type.
+ */
 @Injectable()
 export class AgentActivitiesService {
-  private readonly logger = new Logger('AgentActivitiesService');
+  private readonly logger = new Logger(AgentActivitiesService.name);
 
   constructor(
     @InjectRepository(AgentActivity)
@@ -31,6 +37,13 @@ export class AgentActivitiesService {
 
   ) { }
 
+  /**
+   * Creates an agent activity entry and updates the related BlockOperator session state.
+   *
+   * @param userId Authenticated user id performing the activity.
+   * @param createAgentActivityDto Activity payload including type and location.
+   * @returns Error-code envelope with the persisted {@link AgentActivity}.
+   */
   async create(userId: number, createAgentActivityDto: CreateAgentActivityDto) {
     try {
       const dataBlockOperator = await this.findOneByBlockOperatorId({ blockOperatorId: createAgentActivityDto.blockOperatorId });
@@ -82,6 +95,12 @@ export class AgentActivitiesService {
     }
   }
 
+  /**
+   * Finds a single BlockOperator by its primary key.
+   *
+   * @param filterDto Filter containing the `blockOperatorId` to look up.
+   * @returns Error-code envelope with the matching {@link BlockOperator} or undefined.
+   */
   async findOneByBlockOperatorId(filterDto: FilterDto) {
     const { blockOperatorId } = filterDto;
     try {
@@ -101,6 +120,14 @@ export class AgentActivitiesService {
     }
   }
 
+  /**
+   * Updates an existing agent activity entry.
+   *
+   * @param userId Authenticated user id performing the update.
+   * @param id Primary key of the activity to update.
+   * @param updateAgentActivityDto Partial activity payload.
+   * @returns Error-code envelope with the updated {@link AgentActivity}.
+   */
   async update(userId: number, id: number, updateAgentActivityDto: UpdateAgentActivityDto) {
     try {
       const agentActivity = await this.agentActivityRepository.preload({ id, ...updateAgentActivityDto });

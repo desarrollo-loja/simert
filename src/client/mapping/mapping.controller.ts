@@ -10,6 +10,11 @@ import { FilterDto } from 'src/common/dto/filter.dto';
 import { ErrorCode } from 'src/common/glob/error';
 
 import { MappingService } from './mapping.service';
+/**
+ * REST controller serving zone/block/slot map data to the client app.
+ *
+ * Base route: `client/mapping`. Delegates all business logic to {@link MappingService}.
+ */
 @ApiTags('Client - Mapping')
 @ApiBearerAuth('keycloak')
 @Controller('client/mapping')

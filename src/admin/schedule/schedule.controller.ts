@@ -6,6 +6,11 @@ import { JwtPayload } from 'src/auth/interfaces';
 import { CreateScheduleDto } from './dto/create-schedule.dto';
 import { UpdateScheduleDto } from './dto/update-schedule.dto';
 import { ScheduleService } from './schedule.service';
+/**
+ * REST controller for managing parking schedules associated with blocks.
+ *
+ * Base route: `admin/schedule`. Delegates all business logic to {@link ScheduleService}.
+ */
 @ApiTags('Admin - Schedule')
 @ApiBearerAuth('keycloak')
 @Controller('admin/schedule')

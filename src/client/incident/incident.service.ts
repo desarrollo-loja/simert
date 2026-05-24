@@ -48,6 +48,14 @@ import { GetIncidentDto } from './dto/get-incident.dto';
 import { PayIncidentDto } from './dto/pay-incident.dto';
 import { UpdateIncidentDto } from './dto/update-incident.dto';
 
+/**
+ * Service that drives the client-facing incident (sanction) flow:
+ * lookup by plate or identity card, fines payment dispatching to the
+ * external providers (DeUna / Ahorita / PlaceToPay) and post-payment
+ * synchronization with GIM.
+ *
+ * Persists to `public.incident` and `public.incident_payment`.
+ */
 @Injectable()
 export class IncidentService {
   private readonly logger = new Logger(IncidentService.name);
@@ -98,6 +106,15 @@ export class IncidentService {
     private readonly commonAuthService: CommonAuthService,
   ) { }
 
+  /**
+   * Creates a new incident record, enriching it with ANT vehicle data when a plate
+   * is provided, and transitions the linked fraction to SANCTIONED status.
+   *
+   * @param userId Authenticated user id creating the incident.
+   * @param idDevice Device identifier.
+   * @param createIncidentDto Incident payload including type, plate and location.
+   * @returns Error-code envelope with the persisted {@link Incident}.
+   */
   async create(userId: number, idDevice: string, createIncidentDto: CreateIncidentDto) {
     try {
       const { fractionId, incidentCategory, incidentTypeId } = createIncidentDto;
@@ -223,6 +240,14 @@ export class IncidentService {
     }
   }
 
+  /**
+   * Queries GIM for outstanding fines matching the given plate or identity card.
+   *
+   * @param plate Vehicle plate number (optional if identityCard is provided).
+   * @param identityCard Owner's identity card number (optional if plate is provided).
+   * @returns Outstanding fines summary with totals.
+   * @throws BadRequestException when neither plate nor identityCard is supplied.
+   */
   async checkMyFractionsOutstanding(plate?: string, identityCard?: string,): Promise<FinesResponse> {
 
     if (!plate && !identityCard) {
@@ -304,6 +329,12 @@ export class IncidentService {
     }
   }
 
+  /**
+   * Returns all sanctions recorded against a given fraction.
+   *
+   * @param fractionId Primary key of the fraction to look up.
+   * @returns Error-code envelope with `factionSanctions` raw rows and `currentDate`.
+   */
   async findSanctionByFraction(fractionId: number) {
 
     try {
@@ -320,6 +351,16 @@ export class IncidentService {
     }
   }
 
+  /**
+   * Finds pending sanctions by identity card, synchronizes them with GIM
+   * (emitting obligations when not yet registered) and returns the updated list.
+   *
+   * @param userId Authenticated user id.
+   * @param idDevice Device identifier used for GIM integration calls.
+   * @param identityCard Owner's identity card to look up.
+   * @param getIncidentDto Optional date-range filter.
+   * @returns Error-code envelope with `incidents` and `currentDate`.
+   */
   async findSanctionByIdentityCard(userId: number, idDevice: string, identityCard: string, getIncidentDto: GetIncidentDto) {
 
     try {
@@ -423,7 +464,7 @@ export class IncidentService {
         dto.reference = incident.reference;
 
         const emitResult = await this.gimService.emitInfractionGim(dto);
-        this.logger.debug('Intentando emitir en simert ', emitResult)
+        this.logger.debug('GIM obligation emission result', emitResult)
         if (emitResult.errorCode === ErrorCode.NONE) {
           issued.push({ incidenId: incident.id, nroTicket: incident.nroTicket, identityCard: identityCard });
           const onResponseExternal = this._formatOnExternalResponse(incident.onResponseExternal, emitResult.data);
@@ -541,6 +582,15 @@ export class IncidentService {
     return { residentId };
   }
 
+  /**
+   * Initiates payment for one or more incidents via the configured provider.
+   * Creates an {@link IncidentPayment} batch, dispatches to the provider and
+   * returns the provider deeplink.
+   *
+   * @param idDevice Device identifier originating the payment.
+   * @param payIncidentDto Payment payload including incident ids, amount and billing data.
+   * @returns Error-code envelope. On success returns `AWAITS_RESPONSE` with the payment record.
+   */
   async pay(idDevice: string, payIncidentDto: PayIncidentDto) {
 
     // Validate that the till is open
@@ -1060,6 +1110,18 @@ export class IncidentService {
     this.commonService.notify(notification);
   }
 
+  /**
+   * Payment-provider success webhook. Marks all payments in the reference batch as PAID,
+   * registers the deposit in GIM and notifies the owner.
+   *
+   * @param idDevice Device that originated the payment.
+   * @param userId Owner of the payments.
+   * @param referenceId Reference grouping all affected incident payments.
+   * @param typePaymentMethod Provider that called back.
+   * @param register Original register timestamp.
+   * @param typePaymentResponsibility Commission responsibility type.
+   * @returns Standard error-code envelope.
+   */
   async onResponsePay(idDevice: string, userId: number, referenceId: string, typePaymentMethod: TypePaymentMethod, register: string, typePaymentResponsibility: TypePaymentResponsibility) {
 
     const incidentPayments = await this.incidentPaymentRepository.find({ where: { referenceId: referenceId } });
@@ -1083,6 +1145,17 @@ export class IncidentService {
     return { errorCode: ErrorCode.NOT_FOUND }
   }
 
+  /**
+   * Payment-provider error/cancellation webhook. Marks all payments in the
+   * reference batch as ERROR and notifies the owner.
+   *
+   * @param idDevice Device that originated the payment.
+   * @param userId Owner of the payments.
+   * @param referenceId Reference grouping all affected incident payments.
+   * @param typePaymentMethod Provider that called back.
+   * @param register Original register timestamp.
+   * @param typePaymentResponsibility Commission responsibility type.
+   */
   async onResponsePayError(idDevice: string, userId: number, referenceId: string, typePaymentMethod: TypePaymentMethod, register: string, typePaymentResponsibility: number) {
 
     const incidentPayments = await this.incidentPaymentRepository.find({ where: { referenceId: referenceId } });
@@ -1098,6 +1171,13 @@ export class IncidentService {
 
   }
 
+  /**
+   * Returns the payment record for a given reference id, scoped to the user.
+   *
+   * @param userId Owner of the payment.
+   * @param referenceId Reference grouping the incident payments.
+   * @returns Error-code envelope with the matching payment record or an empty object.
+   */
   async getTransactionsByReference(userId: number, referenceId: string) {
 
     try {
@@ -1119,7 +1199,7 @@ export class IncidentService {
   private async _tableExists(tableName: string): Promise<boolean> {
     const names = tableName.split('.');
     if (names.length <= 1) {
-      this.logger.error(`No se especificó el esquema en la tabla ${tableName}`);
+      this.logger.error(`Schema not specified for table ${tableName}`);
       return false;
     }
 

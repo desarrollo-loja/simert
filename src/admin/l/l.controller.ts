@@ -1,10 +1,15 @@
 import { Body, Controller, Get, Param, ParseIntPipe, ParseUUIDPipe, Post, Query } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Auth } from 'src/auth/decorators';
 import { FilterDto } from 'src/common/dto/filter.dto';
 
 import { LService } from './l.service';
-import { Auth } from 'src/auth/decorators';
 
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+/**
+ * REST controller for querying real-time tracking location records (entity `L`).
+ *
+ * Base route: `admin/l`. Delegates all business logic to {@link LService}.
+ */
 @ApiTags('Admin - L')
 @ApiBearerAuth('keycloak')
 @Controller('admin/l')

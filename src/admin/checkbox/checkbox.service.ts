@@ -9,6 +9,12 @@ import { StatusPayment } from '../../common/glob/status/status_payment';
 import { IncidentStatus } from '../../common/glob/type/type_incident';
 import { Checkbox } from './entities/checkbox.entity';
 
+/**
+ * Service that exposes admin-side queries and maintenance operations on
+ * checkbox records: list/filter (current and historical tables by
+ * year/month), find inconsistencies (paid without incident, paid with
+ * pending incident), patch single records and archive to history.
+ */
 @Injectable()
 export class CheckboxService {
   private readonly logger = new Logger('CheckboxService');
@@ -34,23 +40,12 @@ export class CheckboxService {
       ? Math.trunc(Number(rawOffset))
       : 0;
     try {
-      let tableName = 'checkbox';
-      let tableExists = false;
-      // Only treat year/month as usable when both are integers in a sane range.
-      // This blocks SQL injection via interpolation of `${year}_${month}_checkbox`.
-      const y = Number(year);
-      const m = Number(month);
-      const validYearMonth =
-        Number.isInteger(y) && y >= 2000 && y <= 2100 &&
-        Number.isInteger(m) && m >= 1 && m <= 12;
-      if (year && month && validYearMonth) {
-        const mm = String(m).padStart(2, '0');
-        tableName = `${y}_${mm}_checkbox`;
-        tableExists = await this._tableExists(tableName);
-      } else if (year || month) {
-        // Invalid year/month supplied: deny historical lookup.
+      const resolved = await this._resolveYearMonthTable(year, month);
+      // Invalid year/month supplied: deny historical lookup (preserves prior contract).
+      if (resolved === null) {
         return { checkbox: [] };
       }
+      const { tableName, tableExists } = resolved;
 
       const { conditions, parameters } = this._buildConditionsAndParameters(filterDto);
 
@@ -107,20 +102,11 @@ export class CheckboxService {
     }
 
     try {
-      let tableName = 'checkbox';
-      let tableExists = false;
-      const y = Number(year);
-      const m = Number(month);
-      const validYearMonth =
-        Number.isInteger(y) && y >= 2000 && y <= 2100 &&
-        Number.isInteger(m) && m >= 1 && m <= 12;
-      if (year && month && validYearMonth) {
-        const mm = String(m).padStart(2, '0');
-        tableName = `${y}_${mm}_checkbox`;
-        tableExists = await this._tableExists(tableName);
-      } else if (year || month) {
+      const resolved = await this._resolveYearMonthTable(year, month);
+      if (resolved === null) {
         return { checkbox: [] };
       }
+      const { tableName, tableExists } = resolved;
 
       if (tableExists || (!year && !month)) {
         const parameters: any[] = [];
@@ -155,6 +141,51 @@ export class CheckboxService {
     } catch (error) {
       handleDbExceptions(error, this.logger);
     }
+  }
+
+  /**
+   * Resolves the checkbox source table for a list query, validating the
+   * optional year/month period in the process.
+   *
+   * Behavior — preserves the original inlined logic:
+   *  - No year nor month supplied → use the live `checkbox` table.
+   *  - Both year and month supplied AND in a sane range (2000 ≤ year ≤ 2100,
+   *    1 ≤ month ≤ 12) → use the historical table `<yyyy>_<mm>_checkbox`
+   *    and check whether it actually exists.
+   *  - Otherwise (invalid year/month, or only one of the two supplied) →
+   *    return `null` so the caller can deny the historical lookup.
+   *
+   * Numeric validation also blocks SQL injection through the interpolated
+   * table name `${year}_${month}_checkbox`.
+   *
+   * @param year  Optional year from the filter DTO.
+   * @param month Optional month from the filter DTO.
+   * @returns The resolved `tableName` and whether it exists, or `null` when
+   *          the period is malformed.
+   */
+  private async _resolveYearMonthTable(
+    year: number | string | undefined,
+    month: number | string | undefined,
+  ): Promise<{ tableName: string; tableExists: boolean } | null> {
+    const y = Number(year);
+    const m = Number(month);
+    const validYearMonth =
+      Number.isInteger(y) && y >= 2000 && y <= 2100 &&
+      Number.isInteger(m) && m >= 1 && m <= 12;
+
+    if (year && month && validYearMonth) {
+      const mm = String(m).padStart(2, '0');
+      const tableName = `${y}_${mm}_checkbox`;
+      const tableExists = await this._tableExists(tableName);
+      return { tableName, tableExists };
+    }
+
+    if (year || month) {
+      // Invalid year/month supplied: deny historical lookup.
+      return null;
+    }
+
+    return { tableName: 'checkbox', tableExists: false };
   }
 
   private async _tableExists(tableName: string): Promise<boolean> {

@@ -1,9 +1,14 @@
 import { Controller, Get, Param } from '@nestjs/common';
-
-import { PortalService } from './portal.service';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ApiStandardResponse } from 'src/common/decorators/api-standard-response.decorator';
-// AQUI DEBEMOS AGREGAR LOS ENDPOINT PARA EL PORTAL Y VERIFICAR SI EL USUARIO YA FUE REGISTRADO O NO
+
+import { PortalService } from './portal.service';
+// TODO: ADD THE PORTAL ENDPOINTS HERE AND VERIFY WHETHER THE USER HAS ALREADY BEEN REGISTERED OR NOT
+/**
+ * REST controller exposing portal entry operations.
+ *
+ * Base route: `portal`. Delegates all business logic to {@link PortalService}.
+ */
 @ApiTags('Api - Portal')
 @ApiBearerAuth('keycloak')
 @Controller('portal')

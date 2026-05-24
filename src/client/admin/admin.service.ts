@@ -7,16 +7,27 @@ import { Repository } from 'typeorm';
 
 import { CreateAdminDto } from './dto/create-admin.dto';
 
+/**
+ * Internal admin utility service used by the client layer. Currently exposes
+ * Slot deletion and creation helpers consumed by admin console flows that
+ * operate in the client context.
+ */
 @Injectable()
 export class AdminService {
 
-  private readonly logger = new Logger('AdminService');
+  private readonly logger = new Logger(AdminService.name);
 
   constructor(
     @InjectRepository(Slot)
     private readonly slotRepository: Repository<Slot>,
   ) { }
 
+  /**
+   * Deletes a slot by its primary key.
+   *
+   * @param slotId Numeric id of the slot to delete.
+   * @returns Standard error-code envelope.
+   */
   async delete(slotId: number) {
     try {
       await this.slotRepository.delete(slotId);
@@ -26,16 +37,29 @@ export class AdminService {
     }
   }
 
+  /**
+   * Creates a new slot from the provided DTO.
+   *
+   * @param createAdminDto Slot creation payload.
+   * @returns Error-code envelope containing the persisted slot.
+   */
   async create(createAdminDto: CreateAdminDto) {
     try {
-      const query = this.slotRepository.create({ ...createAdminDto });
-      const slot = await this.slotRepository.save(query);
+      const newSlot = this.slotRepository.create({ ...createAdminDto });
+      const slot = await this.slotRepository.save(newSlot);
       return { errorCode: ErrorCode.NONE, slot };
     } catch (error) {
       handleDbExceptions(error, this.logger);
     }
   }
 
+  /**
+   * Returns up to 100 slots ordered by distance from the given coordinates.
+   *
+   * @param latitude Reference latitude (WGS-84).
+   * @param longitude Reference longitude (WGS-84).
+   * @returns Error-code envelope containing the nearest slots.
+   */
   async findAllSlots(latitude: number, longitude: number) {
     try {
       const slots = await this.slotRepository.createQueryBuilder('sl')

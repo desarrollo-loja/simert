@@ -1,11 +1,15 @@
 import { Controller, Get, Param, ParseIntPipe, ParseUUIDPipe, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { SalePoint } from 'src/admin/sale-point/entities/sale-point.entity';
 import { ApiStandardResponse } from 'src/common/decorators/api-standard-response.decorator';
 import { FilterDto } from 'src/common/dto/filter.dto';
 import { ErrorCode } from 'src/common/glob/error';
 
 import { SalePointService } from './sale-point.service';
+/**
+ * REST controller listing fixed and mobile sale points for the client app.
+ *
+ * Base route: `client/sale-point`. Delegates all business logic to {@link SalePointService}.
+ */
 @ApiTags('Client - Sale Point')
 @ApiBearerAuth('keycloak')
 @Controller('client/sale-point')

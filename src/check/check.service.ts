@@ -20,6 +20,14 @@ import { IncidentStatus } from 'src/common/glob/type/type_incident';
 import { TypeNotification } from 'src/common/glob/type/type_notification';
 import { DataSource, IsNull, Repository } from 'typeorm';
 
+/**
+ * Background-job service that periodically reconciles state across the
+ * parking domain: scans soon-to-expire fractions to notify users,
+ * validates pending checkboxes against payment providers and emits
+ * remediating actions (refund, finalize, escalate).
+ *
+ * Triggered by the schedule registered in CheckModule.
+ */
 @Injectable()
 export class CheckService {
 
@@ -70,10 +78,10 @@ export class CheckService {
             this.logger.error(`onModuleInit: error loading catalogs - ${error.message}`);
         }
 
-        //Validaras las fracciones que estan por vencerse
+        // Watch fractions that are about to expire and notify the user
         setInterval(() => this._transferCheck(), this.intervalTransferCheck);
 
-        //Validaras los checkboxes que estan por vencerse que se hayan pagado internamnete pero no en el municipio
+        // Watch checkboxes that are about to expire — paid internally but not yet at the municipality
         setInterval(() => this._validateCheckboxToEmitAndPay(), this.intervalValidateCheckbox);
     }
 
@@ -106,7 +114,7 @@ export class CheckService {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Monitorea fracciones próximas a caducar y notifica al usuario
+    // Watch fractions approaching expiration and notify the user
     // ─────────────────────────────────────────────────────────────────────────
     private async _transferCheck(): Promise<void> {
         try {
@@ -187,23 +195,23 @@ export class CheckService {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Job cada 10 min: completa el ciclo GIM de checkboxes con pago PAID
+    // Job every 10 min: completes the GIM cycle for checkboxes with PAID payment.
     //
-    // statusIncident null | ENTERED → emitir título de crédito + registrar depósito
-    // statusIncident SUPPLIED       → solo registrar depósito
-    // cualquier otro estado         → marcar statusPayment = ERROR
+    // statusIncident null | ENTERED → emit credit title + register deposit
+    // statusIncident SUPPLIED       → only register deposit
+    // any other state               → mark statusPayment = ERROR
     //
-    // Siempre se guarda onResponseExternal al finalizar cada checkbox.
+    // `onResponseExternal` is always persisted at the end of each checkbox.
     // ─────────────────────────────────────────────────────────────────────────
     private async _validateCheckboxToEmitAndPay() {
 
-        //validamos que caja este abierta
+        // Validate that the cashier window is open in GIM
         const openTill = await this.gimService.validateOpenTill();
         if (openTill.errorCode !== ErrorCode.NONE) return openTill;
 
         try {
 
-            //Buscamos todas las pagadas y los estados de la incidencia pendintes
+            // Load every paid checkbox whose incident status is still pending
             const checkboxes: Checkbox[] = await this.checkboxRepository.find({
                 where: [
                     { statusPayment: StatusPayment.PAID, statusIncident: IsNull() },
@@ -224,14 +232,14 @@ export class CheckService {
 
                     switch (statusIncident) {
 
-                        //no se emitio ni se registro deposito
+                        // Title not yet issued and deposit not yet registered
                         case null:
                         case IncidentStatus.ENTERED:
                         case IncidentStatus.APPROVED:
-                            // Emitir título de crédito
+                            // Issue the credit title
                             const emision = await this._emitCreditCard(checkbox);
 
-                            //guardamos la respuesta de la emision
+                            // Persist the issuance response
                             this.addResponse(checkbox.onResponseExternal, emision.dataEmision);
 
                             if (emision.errorCode !== ErrorCode.NONE) {
@@ -242,19 +250,19 @@ export class CheckService {
 
                             checkbox.statusIncident = IncidentStatus.SUPPLIED;
 
-                            // Registrar depósito
+                            // Register the deposit
                             const deposit = await this._registerDeposit(checkbox);
                             this._applyDepositOutcome(checkbox, deposit);
                             break;
 
                         case IncidentStatus.SUPPLIED:
-                            // Ya fue emitido → solo registrar depósito
+                            // Title already issued → only register the deposit
                             const depositSupplied = await this._registerDeposit(checkbox);
                             this._applyDepositOutcome(checkbox, depositSupplied);
                             break;
 
                         default:
-                            // Estado inesperado → marcar como error
+                            // Unexpected state → flag as error
                             this.logger.warn(`[Estado inválido] checkbox ${checkbox.id} statusIncident=${statusIncident}`);
                             // checkbox.statusPayment = StatusPayment.ERROR;
                             break;
@@ -286,7 +294,7 @@ export class CheckService {
         checkbox: Checkbox,
         deposit: { errorCode: number; dataDeposit: any; message?: string },
     ): void {
-        //guardamos la respuesta del deposito
+        // Persist the deposit response
         this.addResponse(checkbox.onResponseExternal, deposit.dataDeposit);
 
         if (deposit.errorCode === ErrorCode.NONE) {
@@ -297,19 +305,19 @@ export class CheckService {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Resuelve el residentId del cliente en el GIM y emite el título de crédito
+    // Resolve the client's residentId in GIM and issue the credit title
     // ─────────────────────────────────────────────────────────────────────────
     private async _emitCreditCard(checkbox: Checkbox) {
         const { userId, identityCard, transactionId } = checkbox;
         let residentId: number = null;
 
-        // 1) Buscar residentId en nuestra BD
+        // 1) Look up residentId in our DB
         const user = await this.commonAuthService.filterByIdentityCard(userId, identityCard);
         if (user.errorCode === ErrorCode.NONE) {
             residentId = user.data?.residentId ?? null;
         }
 
-        // 2) Si no está en nuestra BD, buscar en el GIM
+        // 2) If not in our DB, query GIM
         if (!residentId) {
             const userGim = await this.gimService.getUserByIdentityCardGim(identityCard);
             if (userGim.errorCode === ErrorCode.NONE) {
@@ -317,7 +325,7 @@ export class CheckService {
             }
         }
 
-        // 3) Si no existe en el GIM, crear el cliente
+        // 3) If GIM does not know the client either, create them there
         if (!residentId) {
             const createClientGimDto: CreateClientGimDto = {
                 controllerId: userId,
@@ -337,7 +345,7 @@ export class CheckService {
             return { errorCode: ErrorCode.NOT_VALID, dataEmision: null, message: 'No se pudo verificar la información del cliente en el GIM' };
         }
 
-        // 4) Emitir el título de crédito
+        // 4) Issue the credit title
         const { entryCode } = this._buildRubroOptionalData();
         const emisionCreditCard: EmissionCreditCardDto = {
             entryCode,
@@ -358,7 +366,7 @@ export class CheckService {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Registra el depósito en el GIM usando el bondId de la emisión previa
+    // Register the deposit in GIM using the bondId from the previous issuance
     // ─────────────────────────────────────────────────────────────────────────
     private async _registerDeposit(checkbox: Checkbox) {
         const { amount, identityCard, transactionId } = checkbox;
@@ -394,7 +402,7 @@ export class CheckService {
     private addResponse(list: any[], item: any) {
         if (!item) return;
 
-        //verificamos si no existe una respesta igual
+        // Replace if an identical response already exists, append otherwise
         const itemKey = JSON.stringify(item);
         const existingIndex = list.findIndex(existing => JSON.stringify(existing) === itemKey);
         if (existingIndex >= 0) {

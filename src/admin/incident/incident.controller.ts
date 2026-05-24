@@ -12,6 +12,11 @@ import { IncidentDto } from './dto/incident.dto';
 import { IncidentFilterDto } from './dto/incident-filterdto.dto';
 import { UpdateIncidentDto } from './dto/update-incident.dto';
 import { IncidentService } from './incident.service';
+/**
+ * REST controller for managing parking incidents (sanctions) and their GIM synchronization.
+ *
+ * Base route: `admin/incident`. Delegates all business logic to {@link IncidentService}.
+ */
 @ApiTags('Admin - Incident')
 @ApiBearerAuth('keycloak')
 @Controller('admin/incident')

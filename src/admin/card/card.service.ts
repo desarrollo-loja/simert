@@ -10,6 +10,11 @@ import { CreateCardDto } from './dto/create-card.dto';
 import { UpdateCardDto } from './dto/update-card.dto';
 import { Card } from './entities/card.entity';
 
+/**
+ * Service for managing physical parking Cards — the leaf entity in the
+ * Bank → Card hierarchy. Provides CRUD operations and audit logging via
+ * {@link LoggerService}.
+ */
 @Injectable()
 export class CardService {
   private readonly logger = new Logger('CardService');
@@ -22,6 +27,14 @@ export class CardService {
     private readonly loggerService: LoggerService,
   ) { }
 
+  /**
+   * Creates a new card record and writes a CREATE audit log entry.
+   *
+   * @param userId - ID of the user performing the action (for audit logging).
+   * @param createCardDto - Payload with card name, price, commission and checkbox count.
+   * @returns Object containing the newly created card.
+   * @throws Rethrows database errors via handleDbExceptions.
+   */
   async create(userId: number, createCardDto: CreateCardDto) {
     try {
       let card = this.cardRepository.create({ ...createCardDto });
@@ -38,10 +51,21 @@ export class CardService {
     }
   }
 
+  /**
+   * Returns a paginated list of card records, optionally filtered by name
+   * using a case-insensitive partial match.
+   *
+   * Limit and offset are coerced to numbers to avoid TypeORM SQL syntax errors
+   * when the query-string values arrive as strings.
+   *
+   * @param filterDto - Filter and pagination options: search, limit, offset.
+   * @returns Object with the cards array and the applied offset/limit values.
+   * @throws Rethrows database errors via handleDbExceptions.
+   */
   async findAll(filterDto: FilterDto) {
     const { search } = filterDto;
 
-    // Asegura números para paginación (evita "syntax error at or near '3'")
+    // Coerce to numbers for pagination (prevents "syntax error at or near '3'")
     const take = Number(filterDto.limit) || 20;
     const skip = Number(filterDto.offset) || 0;
 
@@ -72,6 +96,14 @@ export class CardService {
     }
   }
 
+  /**
+   * Returns the total count of card records, optionally filtered by name using
+   * a case-insensitive partial match.
+   *
+   * @param filterDto - Filter options: search.
+   * @returns Object containing the numeric total count.
+   * @throws Rethrows database errors via handleDbExceptions.
+   */
   async findAllTotal(filterDto: FilterDto) {
     const { search } = filterDto;
 
@@ -89,6 +121,15 @@ export class CardService {
     }
   }
 
+  /**
+   * Applies a partial update to an existing card record and writes an UPDATE
+   * audit log entry.
+   *
+   * @param id - Primary key of the card to update.
+   * @param updateCardDto - Fields to update on the card record.
+   * @returns Object containing the updated card, or undefined if the record was not found.
+   * @throws Rethrows database errors via handleDbExceptions.
+   */
   async update(id: number, updateCardDto: UpdateCardDto) {
     try {
       const card = await this.cardRepository.preload({ id, ...updateCardDto });

@@ -1,10 +1,14 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { CreateIncidentNotificationDto } from './dto/create-incident-notification.dto';
 import { UpdateIncidentNotificationDto } from './dto/update-incident-notification.dto';
 import { IncidentNotificationService } from './incident-notification.service';
-
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+/**
+ * REST controller for managing incident notifications.
+ *
+ * Base route: `admin/incident-notification`. Delegates all business logic to {@link IncidentNotificationService}.
+ */
 @ApiTags('Admin - Incident Notification')
 @ApiBearerAuth('keycloak')
 @Controller('admin/incident-notification')

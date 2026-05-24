@@ -5,6 +5,11 @@ import { FilterDto } from 'src/common/dto/filter.dto';
 import { CreateRangeSalePointDto } from './dto/create-range-sale-point.dto';
 import { UpdateRangeSalePointDto } from './dto/update-range-sale-point.dto';
 import { RangeSalePointService } from './range-sale-point.service';
+/**
+ * REST controller for managing range sale point assignments.
+ *
+ * Base route: `admin/range-sale-point`. Delegates all business logic to {@link RangeSalePointService}.
+ */
 @ApiTags('Admin - Range Sale Point')
 @ApiBearerAuth('keycloak')
 @Controller('admin/range-sale-point')
@@ -59,9 +64,9 @@ export class RangeSalePointController {
     @Get(':id/:userId/:idDevice/:version')
     findOne(
         @Param('id', ParseIntPipe) id: number,
-        @Param('userId', ParseIntPipe) userId: number,
-        @Param('idDevice', ParseUUIDPipe) idDevice: string,
-        @Param('version', ParseIntPipe) version: number,
+        @Param('userId', ParseIntPipe) _userId: number,
+        @Param('idDevice', ParseUUIDPipe) _idDevice: string,
+        @Param('version', ParseIntPipe) _version: number,
     ) {
         return this.rangeSalePointService.findOne(id);
     }

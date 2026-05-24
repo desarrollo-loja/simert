@@ -10,6 +10,13 @@ import { ErrorCode } from 'src/common/glob/error';
 // Safety margin: refresh the token 30 seconds before it expires
 const TOKEN_REFRESH_MARGIN_MS = 30_000;
 
+/**
+ * Service that wraps all Keycloak / GIM identity-provider operations:
+ * obtaining and caching the ServiceHub access token, creating/updating/
+ * deleting Keycloak users, and client-credentials login for municipality
+ * realm users. Token cache is refreshed {@link TOKEN_REFRESH_MARGIN_MS}
+ * before expiry.
+ */
 @Injectable()
 export class KeycloakService {
   private readonly logger = new Logger(KeycloakService.name);
@@ -622,7 +629,6 @@ export class KeycloakService {
       await axios.put(`${this.usersUrl(userId)}/execute-actions-email`, ['UPDATE_PASSWORD'], {
         headers: this.authHeaders(token),
       });
-      // return { errorCode: ErrorCode.NONE, message: 'Correo de verificación enviado exitosamente', data };
     } catch (error: any) {
       return this.throwKeycloakError('executeActionsEmail', error);
     }

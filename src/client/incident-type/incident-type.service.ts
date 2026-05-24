@@ -6,6 +6,10 @@ import { ErrorCode } from 'src/common/glob/error';
 import { LoggerService } from 'src/common/logger.service.ts';
 import { Repository } from 'typeorm';
 
+/**
+ * Client-facing service for IncidentType lookups. Returns only active
+ * incident types used to populate fine-category selectors in mobile apps.
+ */
 @Injectable()
 export class IncidentTypeService {
 

@@ -1,8 +1,13 @@
 import { Controller, Get, Param } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { AuthWithKeycloak } from 'src/auth/decorators';
 
 import { RangeSalePointService } from './range-sale-point.service';
-import { AuthWithKeycloak } from 'src/auth/decorators';
+/**
+ * REST controller exposing the user's range sale point assignment to the client app.
+ *
+ * Base route: `client/range-sale-point`. Delegates all business logic to {@link RangeSalePointService}.
+ */
 @ApiTags('Client - Range Sale Point')
 @ApiBearerAuth('keycloak')
 @Controller('client/range-sale-point')

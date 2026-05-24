@@ -1,13 +1,18 @@
 import { Controller, Get, Param, ParseIntPipe, ParseUUIDPipe } from '@nestjs/common';
-
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { IncidentType } from 'src/admin/incident-type/entities/incident-type.entity';
 import { ApiStandardResponse } from 'src/common/decorators/api-standard-response.decorator';
 import { ErrorCode } from 'src/common/glob/error';
+
 // import { Auth, GetUser } from 'src/auth/decorators';
 // import { JwtPayload } from 'src/auth/interfaces';
 import { IncidentTypeService } from './incident-type.service';
 
+/**
+ * REST controller exposing the catalog of incident types to the client app.
+ *
+ * Base route: `client/incident-type`. Delegates all business logic to {@link IncidentTypeService}.
+ */
 @ApiTags('Client - Incident Type')
 
 @ApiBearerAuth('keycloak')

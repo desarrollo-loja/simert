@@ -3,6 +3,11 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { CreateSupportTicketDto } from './dto/create-support-ticket.dto';
 import { SupportTicketService } from './support-ticket.service';
+/**
+ * REST controller for submitting support tickets from the client app.
+ *
+ * Base route: `client/support-ticket`. Delegates all business logic to {@link SupportTicketService}.
+ */
 @ApiTags('Client - Support Ticket')
 @ApiBearerAuth('keycloak')
 @Controller('client/support-ticket')

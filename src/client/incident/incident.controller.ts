@@ -11,6 +11,11 @@ import { GetIncidentDto } from './dto/get-incident.dto';
 import { PayIncidentDto } from './dto/pay-incident.dto';
 import { IncidentService } from './incident.service';
 
+/**
+ * REST controller for client-facing incident (fine) lookup and payment.
+ *
+ * Base route: `client/incident`. Delegates all business logic to {@link IncidentService}.
+ */
 @ApiTags('Client - Incident')
 @ApiBearerAuth('keycloak')
 @Controller('client/incident')
@@ -41,7 +46,6 @@ export class IncidentController {
     return this.incidentService.checkMyFractionsOutstanding(plate, identityCard);
   }
 
-  // @Auth()
   @ApiOperation({ summary: 'List sanctions/incidents linked to a fraction' })
   @ApiStandardResponse({
     description: 'Sanctions for the given fraction',
@@ -78,11 +82,8 @@ export class IncidentController {
       message: { type: 'string', example: 'No se pudo verificar la información del cliente, por favor inténtelo más tarde' },
     },
   })
-
-  // @AuthWithKeycloak()
   @Post('find-by-identity-card/:userId/:idDevice/:identityCard/:version')
   findSanctionByIdentityCard(
-    // @GetUser() user: JwtPayload,
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
     @Param('identityCard') identityCard: string,
@@ -92,7 +93,6 @@ export class IncidentController {
     return this.incidentService.findSanctionByIdentityCard(userId, idDevice, identityCard, getIncidentDto);
   }
 
-  // @Auth()
   @ApiOperation({ summary: 'Start payment for one or multiple incidents' })
   @ApiStandardResponse({
     description: 'Payment intent created, awaiting provider response',
@@ -129,7 +129,6 @@ export class IncidentController {
   })
   @Patch('on-response-pay/:idDevice/:userId/:referenceId/:typePaymentMethod/:register/:typePaymentResponsibility/')
   onResponse(
-    // @GetUser() user: JwtPayload,
     @Param('userId', ParseIntPipe) userId: number,
     @Param('typePaymentResponsibility', ParseIntPipe) typePaymentResponsibility: number,
     @Param('typePaymentMethod', ParseIntPipe) typePaymentMethod: number,
@@ -141,7 +140,6 @@ export class IncidentController {
     return this.incidentService.onResponsePay(idDevice, userId, referenceId, typePaymentMethod, register, typePaymentResponsibility)
   }
 
-  // @Auth()
   @ApiOperation({ summary: 'Webhook: provider payment error callback' })
   @ApiStandardResponse({
     description: 'Payment error webhook processed',
@@ -149,7 +147,6 @@ export class IncidentController {
   })
   @Delete('on-response-pay/:idDevice/:userId/:referenceId/:typePaymentMethod/:register/:typePaymentResponsibility/')
   onResponsePayError(
-    // @GetUser() user: JwtPayload,
     @Param('userId', ParseIntPipe) userId: number,
     @Param('typePaymentResponsibility', ParseIntPipe) typePaymentResponsibility: number,
     @Param('typePaymentMethod', ParseIntPipe) typePaymentMethod: number,
@@ -161,7 +158,6 @@ export class IncidentController {
     return this.incidentService.onResponsePayError(idDevice, userId, referenceId, typePaymentMethod, register, typePaymentResponsibility)
   }
 
-  // @Auth()
   @ApiOperation({ summary: 'Get payment transaction by reference id' })
   @ApiStandardResponse({
     description: 'Incident payment for the given reference',

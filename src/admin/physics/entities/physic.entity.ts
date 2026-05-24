@@ -1,4 +1,5 @@
 import { IsNumber } from "class-validator";
+import { OptionalDataInterface } from "src/common/intefaces/optional-data.interface";
 import { Column, Entity, Index, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 
 @Entity()
@@ -26,6 +27,9 @@ export class Physic {
 
     @Column("time", { comment: 'Duration of one fraction for the block where this card was used (HH:mm:ss)' })
     timeByBlock: string;
+
+    @Column("json", { nullable: true, comment: 'Extra key-value pairs for session data not covered by explicit columns' })
+    optionalData: OptionalDataInterface[];
 
     @Index()
     @Column({ type: 'timestamp', comment: 'Operation datetime. When registered from operator it is adjusted to UTC since the client sends local time' })

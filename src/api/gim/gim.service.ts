@@ -179,7 +179,7 @@ export class GimService {
         }
       }
 
-      // VERIFICAMOS SI LA DEUDA YA FUE EMITIDA en el gim
+      // Check whether the debt was already issued in GIM
       const debtData = await this.findObligationsByCitation(createGimDto.nroTicket, createGimDto.identityCard);
 
       if (debtData.errorCode === ErrorCode.NONE) {
@@ -208,7 +208,7 @@ export class GimService {
         obligationNumber: responeEmit.data.bondNumber.toString()
       } as Obligation
 
-      //llamamos otra ves para actualizar el valor a pagar, solo se ejecuta cuando se emtite la primera vez
+      // Re-query to refresh the amount to pay; only runs on the first issuance
       const findObligation = await this.findObligationsByCitation(createGimDto.nroTicket, createGimDto.identityCard);
       if (findObligation.errorCode === ErrorCode.NONE) {
         obligation.total = findObligation.data?.obligations?.[0]?.total || createGimDto.amount;
@@ -321,10 +321,10 @@ export class GimService {
 
   async createNewNaturalPersonGim(createClientGimDto: CreateClientGimDto): Promise<{ errorCode: number, data?: any } & Partial<CreateNaturalPersonResponse>> {
     try {
-      // PARA PRUEBAS DE DESARROLLO
+      // For local development testing only
       // createGimDto.identityCard = '1104187768';
 
-      //verificamos al usuario en nuestro sistema
+      // Check the user in our own system first
       const user = await this.commonAuthService.filterByIdentityCard(createClientGimDto.controllerId, createClientGimDto.identityCard);
 
       let body = null;
@@ -343,9 +343,9 @@ export class GimService {
           email: createClientGimDto.emailClient?.trim().toLowerCase() || '',
           phoneNumber: '',
           isForeigner: false,
-          birthday: new Date().toISOString().split('T')[0], // fecha actual UTC en formato YYYY-MM-DD
-          gender: getGenreNameById(TypeGenre.UNDEFINED), // ya devuelve string correcto
-          maritalStatus: getMaritalStatusName(TypeMaritalStatus.SINGLE), // ya devuelve string correcto
+          birthday: new Date().toISOString().split('T')[0], // current UTC date as YYYY-MM-DD
+          gender: getGenreNameById(TypeGenre.UNDEFINED), // already returns the correct string
+          maritalStatus: getMaritalStatusName(TypeMaritalStatus.SINGLE), // already returns the correct string
 
           isDead: false,
           isHandicaped: false
@@ -506,7 +506,7 @@ export class GimService {
     }
   }
 
-  // emitimos directamente la deuda al GIM
+  // Issue the debt directly into GIM
   async emitInfractionGim(createGimDto: CreateGimDto): Promise<{ errorCode: number, data: EmitInfractionSimertResponse | null, message?: string }> {
 
     try {
@@ -521,15 +521,16 @@ export class GimService {
         };
       }
 
-      //   `residentId` | Long | **Sí** | ID del infractor en el sistema GIM. |
-      // | `entryCode` | String | **Sí** | Código de la infracción (ej: `"580"`, `"582"`). |
-      // | `description`| String | **Sí** | Detalle de la sanción. |
-      // | `reference` | String | **Sí** | Número de boleta de citación o referencia legal. |
-      // | `infringementDate`| String| **Sí** | Fecha de infracción en formato **YYYY-MM-DD**. |
-      // | `numberPlate` | String | No | Placa del vehículo infractor. |
-      // | `notificationNumber`| String| No | Número de serie/notificación de la boleta impresa. |
-      // | `vehicleType` | Long | No | ID del tipo de vehículo (según catálogo GIM). |
-      // | `address` | String | No | Ubicación donde ocurrió la infracción. |
+      // GIM `emitSimertSanction` request body — field reference:
+      //   `residentId`          | Long   | **Yes** | Offender ID in the GIM system.
+      // | `entryCode`           | String | **Yes** | Infraction code (e.g. `"580"`, `"582"`).
+      // | `description`         | String | **Yes** | Sanction detail.
+      // | `reference`           | String | **Yes** | Citation ticket number or legal reference.
+      // | `infringementDate`    | String | **Yes** | Infraction date in **YYYY-MM-DD** format.
+      // | `numberPlate`         | String | No      | Offending vehicle plate.
+      // | `notificationNumber`  | String | No      | Printed ticket serial/notification number.
+      // | `vehicleType`         | Long   | No      | Vehicle-type ID (per GIM catalog).
+      // | `address`             | String | No      | Location where the infraction occurred.
       const residentId = createGimDto.optionalData.find((item: any) => item.key === 'residentId')?.value;
       const body = {
         residentId: Number(residentId), // Default or map
@@ -566,7 +567,7 @@ export class GimService {
         if (!responseData.ok && responseData.code === '400') {
           const innerMessage: string = responseData.message ?? '';
 
-          //verificamos error de rubro
+          // Detect "rubro not allowed" error
           if (innerMessage.includes('SIMERT_SANCTION_ENTRY_CODES')) {
             const rubroMatch = innerMessage.match(/rubro\s+(\d+)/i);
             const rubro = rubroMatch?.[1] ?? '';
@@ -603,7 +604,7 @@ export class GimService {
     }
   }
 
-  // Buscar Obligación por Número de boleta
+  // Look up an obligation by ticket number
   async findBondByNumber(findBondNumberDto: FindBondNumberDto): Promise<{ errorCode: number, data: any, message?: string }> {
     try {
       const url = `${this.gimBaseUrl}/api/external/findBondByNumber`;
@@ -634,15 +635,16 @@ export class GimService {
     }
   }
 
-  // Buscar Obligación por Número de boleta y cedula (este recurso devuelve todas las deudas de la persona, es decir de todos los estados)
+  // Look up an obligation by ticket number AND identity card (returns ALL the
+  // person's debts across every status — not just pending ones)
   async findObligationsByCitation(number: string, identityCard: string): Promise<{ errorCode: number, data: ObligationsResponse, message?: string }> {
     try {
       const body = {
-        citationNumber: number, // Número de boleta
-        identificationNumber: identityCard // Cédula
+        citationNumber: number, // Ticket number
+        identificationNumber: identityCard // Identity card
       };
       const data = await this._postToExternalApi<ObligationsResponse>('findObligationsByCitation', body);
-      // si me viene sin obligacioens significa que no esta emitida 
+      // An empty obligations list means the debt has not been issued yet
       if (data && data.ok && +data.code === ResponseCodeGim.SUCCESS && data.obligations && data.obligations.length > 0) {
 
         if (data.obligations.length > 1)
@@ -669,14 +671,14 @@ export class GimService {
     }
   }
 
-  // Buscar Obligación por placa (devuelve todas las deudas asociadas a la placa)
+  // Look up obligations by plate (returns ALL debts associated with the plate)
   async findObligationsByLicensePlate(licensePlate: string): Promise<{ errorCode: number, data: ObligationsResponse, message?: string }> {
     try {
       const body = {
         licensePlate: licensePlate
       };
       const data = await this._postToExternalApi<ObligationsResponse>('findObligationsByLicensePlate', body);
-      // si me viene sin obligaciones significa que no esta emitida
+      // An empty obligations list means the debt has not been issued yet
       if (data && data.ok && +data.code === ResponseCodeGim.SUCCESS && data.obligations && data.obligations.length > 0) {
 
         if (data.obligations.length > 1)
@@ -876,12 +878,12 @@ export class GimService {
     }
   }
 
-  // Login de gim para sacar el keycloak 
+  // GIM login to obtain a Keycloak access_token
   async loginGim(): Promise<{ errorCode: number; data: KeycloakTokenResponse | null; message?: string }> {
     try {
       const url = `${this.gimBaseUrlLogin}/realms/${this.gim2RealmMunicipio}/protocol/openid-connect/token`;
 
-      // x-www-form-urlencoded (igual que Postman)
+      // x-www-form-urlencoded (matches the Postman setup)
       const form = new URLSearchParams();
       form.append('grant_type', 'password');
       form.append('client_id', 'gim');
@@ -896,7 +898,7 @@ export class GimService {
         },
       });
 
-      // Keycloak responde directo (NO viene con "ok", "data", etc.)
+      // Keycloak responds directly (no "ok" / "data" envelope like other GIM endpoints)
       if (data?.access_token) {
         return { errorCode: ErrorCode.NONE, data };
       }
@@ -918,14 +920,14 @@ export class GimService {
     }
   }
 
-  // OBTENER LOS TIPOS DE VEHICULOS DESDE EL GIM
+  // Fetch the vehicle-type catalog from GIM
   async findVehicleTypesForSimert(): Promise<{ errorCode: number, data: any, message?: string }> {
     try {
-      const body = {}; // Body vacio segun requerimiento
+      const body = {}; // Empty body, as the endpoint requires
 
       const data = await this._postToExternalApi<VehicleTypesGimResponse>('findVehicleTypesForSimert', body);
 
-      // RESPONSE EJEMPLO
+      // Example response shape:
       // {
       //     "ok": true,
       //     "message": "Transacción exitosa",
@@ -939,7 +941,7 @@ export class GimService {
 
         return {
           errorCode: ErrorCode.NONE,
-          data: sorted // Asumo que devuelve vehicleTypes, ajustare si es necesario
+          data: sorted // Returns vehicleTypes; adjust mapping if the contract changes
         };
       } else {
         return {
@@ -958,7 +960,7 @@ export class GimService {
     }
   }
 
-  // OBTENER LOS TIPOS DE VEHICULOS DESDE EL GIM
+  // Issue a credit-card title (simert card) in GIM
   async emissionTitleCreditCard(emissionCreditCardDto: EmissionCreditCardDto): Promise<{ errorCode: number, data: any, message?: string }> {
     try {
       const body = {
@@ -993,7 +995,7 @@ export class GimService {
     }
   }
 
-  // DEPÓSITO EN EL GIM
+  // Register a deposit in GIM
   async registerDeposit(registerDepositGimDto: RegisterDepositGimDto): Promise<{ errorCode: number, data: any, message?: string }> {
     try {
       const body = { ...registerDepositGimDto, amount: Number(registerDepositGimDto.amount) }
@@ -1052,7 +1054,7 @@ export class GimService {
     }
   }
 
-  // Emitir sanción gim
+  // Emit a traffic sanction in GIM
   async emitSanction(emissionSanctionDto: EmissionSanctionDto): Promise<{ errorCode: number, data: any, message?: string }> {
     try {
       const body = {

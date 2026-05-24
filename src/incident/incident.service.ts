@@ -9,7 +9,12 @@ import { IncidentStatus } from 'src/common/glob/type/type_incident';
 import { Repository } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 
-
+/**
+ * Background service that monitors GIM-emitted incidents that have not yet
+ * received a deposit confirmation. Runs on a configurable interval
+ * (env `INTERVAL_VALIDATE_INCIDENT_MS`, default 2 min) and registers
+ * pending deposits via {@link GimService}.
+ */
 @Injectable()
 export class IncidentService {
 
@@ -27,20 +32,20 @@ export class IncidentService {
     async onModuleInit() {
         this.logger.verbose('start call onModuleInit');
 
-        // Valida los incidents que fueron emitidos en GIM pero aún no tienen depósito registrado
+        // Validates incidents that were issued in GIM but have not yet received a deposit
         setInterval(() => this._validateIncidentEmitAndPay(), this.intervalValidateIncident);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Job: registra el depósito GIM de incidents SUPPLIED + PAID
+    // Job: registers the GIM deposit for incidents in SUPPLIED + PAID state.
     //
-    // Agrupa por identityCard + transactionId y envía todos los bondIds del
-    // grupo en una sola llamada al GIM (de más antiguo a más nuevo).
-    // Siempre se guarda onResponseExternal en cada incident del grupo.
+    // Groups by identityCard + transactionId and sends all bondIds for the
+    // group in a single GIM call (oldest to newest).
+    // onResponseExternal is persisted on every incident in the group.
     // ─────────────────────────────────────────────────────────────────────────
     private async _validateIncidentEmitAndPay() {
 
-        //validamos que caja este abierta
+        // Validate that the cashier window is open in GIM before proceeding
         const openTill = await this.gimService.validateOpenTill();
         if (openTill.errorCode !== ErrorCode.NONE) return openTill;
 
@@ -66,7 +71,6 @@ export class IncidentService {
                 },
                 {}
             );
-
 
             for (const [key, group] of Object.entries(groups)) {
                 try {
@@ -102,7 +106,7 @@ export class IncidentService {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Registra el depósito en el GIM con todos los bondIds del grupo
+    // Registers the GIM deposit using all bondIds belonging to the group
     // ─────────────────────────────────────────────────────────────────────────
     private async _registerDeposit(group: Incident[]) {
         const { identityCard, transactionId } = group[0];

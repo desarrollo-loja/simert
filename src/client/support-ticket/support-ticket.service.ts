@@ -8,6 +8,11 @@ import { Repository } from 'typeorm';
 
 import { CreateSupportTicketDto } from './dto/create-support-ticket.dto';
 
+/**
+ * Client-facing service for SupportTicket. Allows authenticated users to
+ * submit help requests. Defaults status to PENDING and falls back to the
+ * token's userId when none is supplied in the DTO.
+ */
 @Injectable()
 export class SupportTicketService {
   private readonly logger = new Logger(SupportTicketService.name);

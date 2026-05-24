@@ -18,10 +18,10 @@ export class UserRoleGuard implements CanActivate {
     // Si no hay roles requeridos para la ruta, permitimos el acceso
     if (!validRoles || validRoles.length === 0) return true;
 
-    // Obtenemos el usuario que adjuntó el AuthGuard
+    // Retrieve the user attached by the AuthGuard
     const user = req.user;
 
-    // Si por alguna razón el usuario llega nulo (no debería si usas AuthGuard)
+    // Guard against a missing user object (should never happen when AuthGuard is applied)
     if (!user) {
       throw new ForbiddenException('User not found');
     }

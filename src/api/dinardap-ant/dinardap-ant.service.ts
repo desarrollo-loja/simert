@@ -9,6 +9,11 @@ type AntLookupResult =
   | { errorCode: ErrorCode.NONE; data: AntResponse }
   | { errorCode: Exclude<ErrorCode, ErrorCode.NONE>; data: null; message?: string };
 
+/**
+ * Service that queries the DINARDAP–ANT gateway to resolve vehicle owner
+ * data by plate. Obtains a GIM Keycloak token via {@link CommonGimService}
+ * and validates plate format before dispatching the HTTP request.
+ */
 @Injectable()
 export class DinardapAntService {
 
@@ -174,11 +179,11 @@ export class DinardapAntService {
       const fullName     = String(cols['propietario']    || `${lastName} ${firstName}`).trim();
       const identityCard = String(cols['docPropietario'] || '').trim();
       const email        = String(cols['correo']         || '').trim();
-      // El teléfono a veces viene con ";" al inicio (ej: ";0939700013"), se limpia
+      // Phone may arrive with a leading ";" (e.g. ";0939700013") — strip it
       const phone        = String(cols['telefono']       || '').replace(/^;+/, '').trim();
       const address      = String(cols['direccion']      || '').trim();
 
-      // ── Vehículo ──────────────────────────────────────────────────────────────
+      // ── Vehicle ───────────────────────────────────────────────────────────────
       const brand       = String(cols['marca']        || '').trim();
       const model       = String(cols['modelo']       || '').trim();
       const year        = String(cols['anio']         || '').trim();
@@ -190,7 +195,7 @@ export class DinardapAntService {
       const fuelType    = String(cols['combustible']  || '').trim();
       const passengers  = String(cols['pasajeros']    || '').trim();
 
-      // ── Matrícula ─────────────────────────────────────────────────────────────
+      // ── Registration ──────────────────────────────────────────────────────────
       const matriculaYear  = String(cols['anioMatriculado'] || '').trim();
       const matriculaDate  = String(cols['fechaMatricula']  || '').trim();
       const expirationDate = String(cols['fechaCaducidad']  || '').trim();

@@ -10,6 +10,11 @@ import { CreateSlotDto } from './dto/create-slot.dto';
 import { UpdateSlotDto } from './dto/update-slot.dto';
 import { Slot } from './entities/slot.entity';
 import { SlotService } from './slot.service';
+/**
+ * REST controller for managing parking slots.
+ *
+ * Base route: `admin/slot`. Delegates all business logic to {@link SlotService}.
+ */
 @ApiTags('Admin - Slot')
 @ApiBearerAuth('keycloak')
 @Controller('admin/slot')

@@ -6,6 +6,11 @@ import { ErrorCode } from 'src/common/glob/error';
 import { LoggerService } from 'src/common/logger.service.ts';
 import { MoreThan, Repository } from 'typeorm';
 
+/**
+ * Client-facing service for RangeSalePoint. Provides the lookup used by
+ * mobile clients to find an available checkbox batch assigned to a given
+ * user (agent/operator) so they can sell parking time.
+ */
 @Injectable()
 export class RangeSalePointService {
 

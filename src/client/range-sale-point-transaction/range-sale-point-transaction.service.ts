@@ -11,6 +11,12 @@ import { DataSource, Repository } from 'typeorm';
 
 import { CreateRangeSalePointTransactionDto } from './dto/create-range-sale-point-transaction.dto';
 
+/**
+ * Client-facing service for RangeSalePointTransaction. Handles the
+ * transactional purchase of checkbox bundles: verifies RangeSalePoint stock,
+ * credits the buyer's {@link CheckboxUser} balance, and records the
+ * transaction with audit logging.
+ */
 @Injectable()
 export class RangeSalePointTransactionService {
     private readonly logger = new Logger('RangeSalePointTransactionService');

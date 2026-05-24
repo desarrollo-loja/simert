@@ -9,6 +9,7 @@ import { AgentActivitiesModule as AgentActivitiesModuleAdmin } from './admin/age
 import { BlockModule } from './admin/block/block.module';
 import { BlockOperatorModule } from './admin/block_operator/block_operator.module';
 import { CardModule } from './admin/card/card.module';
+import { CatalogModule } from './admin/catalog/catalog.module';
 import { CheckboxModule as CheckboxModuleAdmin } from './admin/checkbox/checkbox.module';
 import { CheckboxUserModule } from './admin/checkbox-user/checkbox-user.module';
 import { FractionModule } from './admin/fraction/fraction.module';
@@ -54,7 +55,6 @@ import { LoggerModule } from './common/logger.module';
 import { ResponseTimeMiddleware } from './common/response-time.middleware';
 import { DataModule } from './data/data.module';
 import { IncidentCheckModule } from './incident/incident.module';
-import { CatalogModule } from './admin/catalog/catalog.module';
 
 @Module({
   imports: [
@@ -66,10 +66,10 @@ import { CatalogModule } from './admin/catalog/catalog.module';
       port: +process.env.DB_PORT_CACHE,
       password: process.env.DB_PASSWORD_CACHE,
       prefix: process.env.NODE_ENV === 'production' ? `P|` : `D|`,  // Prefijo basado en el entorno para generar keys diferentes para ambos entornos del mismo recurso
-      // El tiempo de expiración predeterminado de la caché es de 5 segundos. para especificar es asi 
+      // Default cache TTL is 5 s; override per method as needed:
       // ttl: 10, // seconds
       // max: 20, // maximum number of items in cache
-      // ttl: null,  // Asegúrate de que no haya un TTL global predeterminado que sobrescriba el TTL a nivel de método
+      // ttl: null,  // Disable global default so per-method TTL is not overridden
     }),
     TypeOrmModule.forRoot({
       type: 'postgres',

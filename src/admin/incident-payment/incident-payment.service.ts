@@ -7,6 +7,11 @@ import { In, Repository } from 'typeorm';
 
 import { IncidentPayment } from './entities/incident-payment.entity';
 
+/**
+ * Service for querying IncidentPayment records — the payment details
+ * (provider response, transaction id, optional data) attached to an
+ * incident fine. Supports batch lookups by transaction IDs.
+ */
 @Injectable()
 export class IncidentPaymentService {
   private readonly logger = new Logger(IncidentPaymentService.name);
@@ -16,12 +21,16 @@ export class IncidentPaymentService {
     private readonly incidentPaymentRepository: Repository<IncidentPayment>,
   ) {}
 
-  // Devuelve id, transactionId y optionalData de los pagos de incidencias
-  // cuyo transactionId esté dentro de la lista recibida en filterDto.transactionIds.
+  /**
+   * Returns id, transactionId and optionalData for incident payments
+   * whose transactionId is in the list supplied via filterDto.transactionIds.
+   *
+   * @param filterDto - Filter containing the transactionIds array to look up.
+   * @returns Object with errorCode and matching incidentPayments array.
+   */
   async findAllByTransactionId(filterDto: FilterDto) {
     const { transactionIds } = filterDto;
 
-    // Sin al menos un transactionId no hay nada que consultar.
     if (!Array.isArray(transactionIds) || transactionIds.length === 0) {
       return { errorCode: ErrorCode.NONE, incidentPayments: [] };
     }

@@ -1,8 +1,13 @@
-import { Body, Controller, Get, Param, ParseFloatPipe, ParseIntPipe, ParseUUIDPipe, Patch } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseIntPipe, ParseUUIDPipe, Patch } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { PlotLocationDto } from './dto/plot-location.dto';
 import { TrakingService } from './traking.service';
+/**
+ * REST controller for recording and querying user location tracking from the client app.
+ *
+ * Base route: `client/traking`. Delegates all business logic to {@link TrakingService}.
+ */
 @ApiTags('Client - Traking')
 @ApiBearerAuth('keycloak')
 @Controller('client/traking')
