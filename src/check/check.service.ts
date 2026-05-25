@@ -114,22 +114,46 @@ export class CheckService {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Watch fractions approaching expiration and notify the user
+    // Watch parked fractions and advance them through the expiration lifecycle
     // ─────────────────────────────────────────────────────────────────────────
+    /**
+     * Periodic job that moves active fractions through their expiration states
+     * driven by the paid time and the block's configured grace period:
+     *
+     * - When the paid time is over (`now > departureDate`) an ACTIVE/INCREMENTED
+     *   fraction enters the grace window and becomes `NEXT_TO_EXCEEDED_TIME` (300).
+     * - When the grace window is over (`now > departureDate + block.timeGrace`) a
+     *   fraction already in `NEXT_TO_EXCEEDED_TIME` becomes `EXCEEDED_TIME` (301).
+     *
+     * The grace value is read live from `block.timeGrace` through an indexed PK
+     * join, so each fraction always reflects its block's current grace setting.
+     * Every transition notifies the owning user and the block operators.
+     */
     private async _transferCheck(): Promise<void> {
         try {
+            // The grace span is the block's "time" value turned into an interval
+            // (time - time = interval), added to departureDate to get the grace deadline.
             const fractions = await this.dataSource.query(`
-            SELECT id, "userId", "statusId", "blockId"
-            FROM fraction
-            WHERE
-            "statusId" = ${StatusFraction.NEXT_TO_EXCEEDED_TIME} OR ("statusId" < ${StatusFraction.EXCEEDED_TIME} AND (NOW() AT TIME ZONE 'America/Guayaquil') + INTERVAL '3 MINUTE' > "departureDate")
-            AND "statusId" < ${StatusFraction.SANCTIONED}
-            AND "statusId" != ${StatusFraction.FINISHED_BY_OPERATOR}
+            SELECT f.id, f."userId", f."statusId", f."blockId"
+            FROM fraction f
+            JOIN block b ON b.id = f."blockId"
+            WHERE f."statusId" != ${StatusFraction.FINISHED_BY_OPERATOR}
+              AND (
+                (
+                  f."statusId" < ${StatusFraction.NEXT_TO_EXCEEDED_TIME}
+                  AND (NOW() AT TIME ZONE 'America/Guayaquil') > f."departureDate"
+                )
+                OR (
+                  f."statusId" = ${StatusFraction.NEXT_TO_EXCEEDED_TIME}
+                  AND (NOW() AT TIME ZONE 'America/Guayaquil') > f."departureDate" + (b."timeGrace" - TIME '00:00:00')
+                )
+              )
           `);
 
             for (const fraction of fractions) {
                 const { id, userId, statusId, blockId } = fraction;
                 if (statusId < StatusFraction.NEXT_TO_EXCEEDED_TIME) {
+                    // Paid time is over: enter the grace window → NEXT_TO_EXCEEDED_TIME (300)
                     await this.fractionRepository
                         .createQueryBuilder()
                         .update()
@@ -139,21 +163,15 @@ export class CheckService {
                     this._notifyChangeStatus(userId, StatusFraction.NEXT_TO_EXCEEDED_TIME, id);
                     this._notifyBlockOperators(blockId, StatusFraction.NEXT_TO_EXCEEDED_TIME, id);
                 } else {
-                    const shouldUpdate = await this.fractionRepository
+                    // Grace window elapsed (departureDate + block.timeGrace) → EXCEEDED_TIME (301)
+                    await this.fractionRepository
                         .createQueryBuilder()
-                        .where({ id })
-                        .andWhere(`((NOW() AT TIME ZONE 'America/Guayaquil') - INTERVAL '1 MINUTE' > "departureDate")`)
-                        .getCount() > 0;
-                    if (shouldUpdate) {
-                        await this.fractionRepository
-                            .createQueryBuilder()
-                            .update()
-                            .set({ status: { id: StatusFraction.EXCEEDED_TIME } })
-                            .whereInIds(id)
-                            .execute();
-                        this._notifyChangeStatus( userId, StatusFraction.EXCEEDED_TIME, id);
-                        this._notifyBlockOperators( blockId, StatusFraction.EXCEEDED_TIME, id);
-                    }
+                        .update()
+                        .set({ status: { id: StatusFraction.EXCEEDED_TIME } })
+                        .whereInIds(id)
+                        .execute();
+                    this._notifyChangeStatus(userId, StatusFraction.EXCEEDED_TIME, id);
+                    this._notifyBlockOperators(blockId, StatusFraction.EXCEEDED_TIME, id);
                 }
             }
         } catch (err) {
