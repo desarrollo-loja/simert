@@ -48,7 +48,6 @@ export class PhysicsService {
 
       const sql = `
         SELECT DISTINCT ON (p."id")
-        SELECT
           p."id",
           p."userId",
           p."zoneId",
@@ -71,7 +70,6 @@ export class PhysicsService {
         INNER JOIN "slot" s ON s."blockId" = b."id"
         ${whereClause}
         ORDER BY p."id" DESC, b."id" ASC, s."id" ASC
-        ORDER BY p."id" DESC
         LIMIT $${parameters.length + 1} OFFSET $${parameters.length + 2}
       `;
 
