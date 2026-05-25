@@ -317,6 +317,9 @@ export class SimertService {
             .andWhere('s.isActivated = :isActivated', { isActivated: true })
             .andWhere('zone.isActivated = :isActivated', { isActivated: true })
             .andWhere('block.isActivated = :isActivated', { isActivated: true })
+            .andWhere('s.lt != :zero AND s.lg != :zero', { zero: 0 })
+            .andWhere('zone.lt != :zero AND zone.lg != :zero', { zero: 0 })
+            .andWhere('block.lt != :zero AND block.lg != :zero', { zero: 0 })
             .orderBy('schedules.dayOfWeekInit', 'ASC')
             .getOne(),
 
