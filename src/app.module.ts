@@ -16,6 +16,7 @@ import { FractionModule } from './admin/fraction/fraction.module';
 import { FractionStatusModule } from './admin/fraction_status/fraction_status.module';
 import { IncidentModule as IncidentModuleAdmin } from './admin/incident/incident.module';
 import { IncidentNotificationModule } from './admin/incident-notification/incident-notification.module';
+import { IncidentPaymentModule } from './admin/incident-payment/incident-payment.module';
 import { IncidentTypeModule as IncidentTypeModuleAdmin } from './admin/incident-type/incident-type.module';
 import { LModule } from './admin/l/l.module';
 import { PhysicsModule } from './admin/physics/physics.module';
@@ -183,6 +184,7 @@ import { IncidentCheckModule } from './incident/incident.module';
     IncidentTypeModuleAdmin,
     IncidentModule,
     IncidentModuleAdmin,
+    IncidentPaymentModule,
     RangeSalePointModule,
     RangeSalePointModuleClient,
     RangeSalePointTransactionModuleAdmin,
