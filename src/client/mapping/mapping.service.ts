@@ -39,7 +39,8 @@ export class MappingService {
     try {
       const query = await this.zoneRepository.createQueryBuilder('z')
         .select(['z.id', 'z.name', 'z.color', 'z.acronym', 'z.lt', 'z.lg', 'z.geofence', 'z.isActivated'])
-        .where('z.isActivated = :isActivated', { isActivated: true });
+        .where('z.isActivated = :isActivated', { isActivated: true })
+        .andWhere('z.lt != :zero AND z.lg != :zero', { zero: 0 });
 
       if (search) {
         query.andWhere('z.name ILIKE :search', { search: `%${search}%` });
@@ -76,6 +77,8 @@ export class MappingService {
         .leftJoin("bl.schedules", "schedules")
         .where('bl.isActivated = :isActivated', { isActivated: true })
         .andWhere('zone.isActivated = :isActivated', { isActivated: true })
+        .andWhere('bl.lt != :zero AND bl.lg != :zero', { zero: 0 })
+        .andWhere('zone.lt != :zero AND zone.lg != :zero', { zero: 0 })
         .orderBy('schedules.dayOfWeekInit', 'ASC', 'NULLS LAST');
 
       if (search) {
@@ -110,6 +113,8 @@ export class MappingService {
         .innerJoin("sl.zone", "zone")
         .innerJoin("sl.block", "block")
         .where('sl.lt != :zero AND sl.lg != :zero', { zero: 0 })
+        .andWhere('zone.lt != :zero AND zone.lg != :zero', { zero: 0 })
+        .andWhere('block.lt != :zero AND block.lg != :zero', { zero: 0 })
         .andWhere('sl.isActivated = :isActivated', { isActivated: true })
         .andWhere('zone.isActivated = :isActivated', { isActivated: true })
         .andWhere('block.isActivated = :isActivated', { isActivated: true });
