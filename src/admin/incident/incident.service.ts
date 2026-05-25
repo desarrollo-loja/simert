@@ -274,6 +274,62 @@ export class IncidentService {
   }
 
   /**
+   * Returns a deduplicated list of incident clients for the combo/autocomplete
+   * search in the admin incident view.
+   *
+   * Each row carries `identityCard` (used as the combo id) and `fullNameClient`
+   * (used as the combo text). Rows without an identity card are excluded so every
+   * option has a valid, selectable id. An optional `search` term matches either
+   * field case-insensitively, and the result set is capped to keep the combo
+   * lightweight.
+   *
+   * The source table is resolved through {@link _resolveIncidentTable}; every
+   * value is bound as a `$N` parameter, so nothing is interpolated from raw input.
+   *
+   * @param filterDto Filter carrying the optional `search` term and `year`/`month`
+   *   for archive routing.
+   * @returns Object with the `clients` array and `errorCode`.
+   */
+  async findAllClient(filterDto: IncidentFilterDto) {
+    try {
+      const table = await this._resolveIncidentTable(filterDto);
+
+      const parameters: any[] = [];
+      const conditions: string[] = [
+        `i."identityCard" IS NOT NULL`,
+        `i."identityCard" <> ''`,
+        `i."fullNameClient" IS NOT NULL`,
+      ];
+
+      const addParam = (value: any) => {
+        parameters.push(value);
+        return `$${parameters.length}`;
+      };
+
+      const search = (filterDto.search || '').trim();
+      if (search && search !== 'undefined' && search !== 'null') {
+        const like = `%${search}%`;
+        conditions.push(
+          `(i."fullNameClient" ILIKE ${addParam(like)} OR i."identityCard" ILIKE ${addParam(like)})`,
+        );
+      }
+
+      const query = `
+        SELECT DISTINCT i."identityCard", i."fullNameClient"
+        FROM ${table} i
+        WHERE ${conditions.join(' AND ')}
+        ORDER BY i."fullNameClient" ASC
+        LIMIT 25;
+      `;
+
+      const clients = await this.incidentRepository.query(query, parameters);
+      return { clients, errorCode: ErrorCode.NONE };
+    } catch (error) {
+      handleDbExceptions(error, this.logger);
+    }
+  }
+
+  /**
    * Picks the table to read incidents from (`public.incident` or the historical
    * archive `history."YYYY_MM_incident"`) based on `year`/`month`, mirroring
    * the resolution pattern used by {@link _resolveSanctionTables}:
@@ -894,6 +950,7 @@ export class IncidentService {
       blockOperatorId,
       incidentCategory,
       controllerId,
+      identityCard,
 
     } = filterDto;
 
@@ -946,6 +1003,12 @@ export class IncidentService {
 
     if (controllerId) {
       conditions.push(`i."controllerId" = ${addParam(controllerId)}`);
+    }
+
+    // Exact-match filter by the fined client's national identity card. Set by the
+    // client combo (id = identityCard) so the listing narrows to that person.
+    if (identityCard) {
+      conditions.push(`i."identityCard" = ${addParam(identityCard)}`);
     }
 
     if (blockOperatorId) {

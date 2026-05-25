@@ -59,6 +59,18 @@ export class IncidentController {
     return this.incidentService.findAllByTransactionId(filterDto);
   }
 
+  @ApiOperation({ summary: 'List distinct incident clients for combo search (id: identityCard, text: fullNameClient)' })
+  @AuthWithKeycloak(TypeRol.ADMIN)
+  @Get('find-all-client/:userId/:idDevice/:version')
+  findAllClient(
+    @Query() filterDto: IncidentFilterDto,
+    @Param('userId', ParseIntPipe) userId: number,
+    @Param('idDevice', ParseUUIDPipe) idDevice: string,
+    @Param('version', ParseIntPipe) version: number,
+  ) {
+    return this.incidentService.findAllClient(filterDto);
+  }
+
   @ApiOperation({ summary: 'Get a single incident by id' })
   @Get(':id')
   findOne(@Param('id') id: string) {
