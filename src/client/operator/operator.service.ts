@@ -404,7 +404,9 @@ export class OperatorService {
           'block.id', 'block.name', 'block.neighborhood', 'block.mainStreet', 'block.sideStreet', 'block.timePerFraction',
         ])
         .innerJoin('slot.block', 'block')
-        .where('slot.blockId = :blockId', { blockId });
+        .where('slot.blockId = :blockId', { blockId })
+        .andWhere('slot.lt != :zero AND slot.lg != :zero', { zero: 0 })
+        .andWhere('block.lt != :zero AND block.lg != :zero', { zero: 0 });
 
       const fractionQuery = this.fractionRepository.createQueryBuilder('f')
         .select([
@@ -417,6 +419,7 @@ export class OperatorService {
         .innerJoin('f.status', 'status')
         .innerJoin('f.slot', 'fSlot')
         .where('f.blockId = :blockId', { blockId })
+        .andWhere('fSlot.lt != :zero AND fSlot.lg != :zero', { zero: 0 })
         .innerJoin(
           qb => qb.subQuery()
             .select('MAX(sub.id)', 'maxid')
