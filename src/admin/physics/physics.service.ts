@@ -31,6 +31,10 @@ export class PhysicsService {
    * `ORDER BY` picks the lowest `block.id` and `slot.id` as the representative
    * row. The reported `blockName`/`slotName` are therefore arbitrary and do not
    * necessarily reflect where the user actually parked.
+   * Runs a raw SQL query (no ORM query builder) with an INNER JOIN to the
+   * `zone` table, so only records pointing to an existing zone are returned.
+   * The selected columns and response shape are kept identical to the previous
+   * ORM-based implementation.
    *
    * @param filterDto Pagination (`limit`, `offset`) and optional filters
    *   (`userId`, `zoneId`, `search`, `dateFrom`, `timeByBlock`).

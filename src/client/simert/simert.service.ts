@@ -314,6 +314,9 @@ export class SimertService {
             .innerJoin("s.zone", "zone")
             .leftJoin('block.schedules', 'schedules')
             .where('s.slot = :slot', { slot: searchSlot })
+            .andWhere('s.isActivated = :isActivated', { isActivated: true })
+            .andWhere('zone.isActivated = :isActivated', { isActivated: true })
+            .andWhere('block.isActivated = :isActivated', { isActivated: true })
             .orderBy('schedules.dayOfWeekInit', 'ASC')
             .getOne(),
 

@@ -109,7 +109,10 @@ export class MappingService {
           'zone.id', 'zone.name', 'block.id', 'block.name', 'block.geofence'])
         .innerJoin("sl.zone", "zone")
         .innerJoin("sl.block", "block")
-        .where('sl.lt != :zero AND sl.lg != :zero', { zero: 0 });
+        .where('sl.lt != :zero AND sl.lg != :zero', { zero: 0 })
+        .andWhere('sl.isActivated = :isActivated', { isActivated: true })
+        .andWhere('zone.isActivated = :isActivated', { isActivated: true })
+        .andWhere('block.isActivated = :isActivated', { isActivated: true });
 
       if (search) {
         query.andWhere('sl.slot ILIKE :search', { search: `%${search}%` });

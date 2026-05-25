@@ -225,17 +225,17 @@ export class CheckboxService {
       conditions.push(`c."transactionId" = $${parameters.length}`);
     }
 
-    if (statusMomentId) {
+    if (statusMomentId !== undefined && statusMomentId !== null) {
       parameters.push(statusMomentId);
       conditions.push(`c.moment = $${parameters.length}`);
     }
 
-    if (statusPayment) {
+    if (statusPayment !== undefined && statusPayment !== null) {
       parameters.push(statusPayment);
       conditions.push(`c."statusPayment" = $${parameters.length}`);
     }
 
-    if (typePaymentMethod) {
+    if (typePaymentMethod !== undefined && typePaymentMethod !== null) {
       parameters.push(typePaymentMethod);
       conditions.push(`c."typePaymentMethod" = $${parameters.length}`);
     }
