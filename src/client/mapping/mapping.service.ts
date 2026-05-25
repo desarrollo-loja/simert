@@ -74,10 +74,12 @@ export class MappingService {
           'schedules.openingTime', 'schedules.closingTime'])
         .innerJoin("bl.zone", "zone")
         .leftJoin("bl.schedules", "schedules")
+        .where('bl.isActivated = :isActivated', { isActivated: true })
+        .andWhere('zone.isActivated = :isActivated', { isActivated: true })
         .orderBy('schedules.dayOfWeekInit', 'ASC', 'NULLS LAST');
 
       if (search) {
-        query.where('bl.name ILIKE :search', { search: `%${search}%` });
+        query.andWhere('bl.name ILIKE :search', { search: `%${search}%` });
       }
 
       const block = await query.getMany();
