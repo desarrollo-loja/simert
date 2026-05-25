@@ -31,6 +31,10 @@ export class PhysicsService {
    * `ORDER BY` picks the lowest `block.id` and `slot.id` as the representative
    * row. The reported `blockName`/`slotName` are therefore arbitrary and do not
    * necessarily reflect where the user actually parked.
+   * Runs a raw SQL query (no ORM query builder) with an INNER JOIN to the
+   * `zone` table, so only records pointing to an existing zone are returned.
+   * The selected columns and response shape are kept identical to the previous
+   * ORM-based implementation.
    *
    * @param filterDto Pagination (`limit`, `offset`) and optional filters
    *   (`userId`, `zoneId`, `search`, `dateFrom`, `timeByBlock`).
@@ -44,6 +48,7 @@ export class PhysicsService {
 
       const sql = `
         SELECT DISTINCT ON (p."id")
+        SELECT
           p."id",
           p."userId",
           p."zoneId",
@@ -58,6 +63,7 @@ export class PhysicsService {
           b.name AS "blockName",
           b.id AS "blockId",
           s.slot AS "slotName",
+          s.name AS "slotName",
           s.id AS "slotId"
         FROM "physic" p
         INNER JOIN "zone" z ON z."id" = p."zoneId"
@@ -65,6 +71,7 @@ export class PhysicsService {
         INNER JOIN "slot" s ON s."blockId" = b."id"
         ${whereClause}
         ORDER BY p."id" DESC, b."id" ASC, s."id" ASC
+        ORDER BY p."id" DESC
         LIMIT $${parameters.length + 1} OFFSET $${parameters.length + 2}
       `;
 
