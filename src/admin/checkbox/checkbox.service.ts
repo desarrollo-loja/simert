@@ -225,7 +225,7 @@ export class CheckboxService {
       conditions.push(`c."transactionId" = $${parameters.length}`);
     }
 
-    if (statusMomentId) {
+    if (statusMomentId !== undefined && statusMomentId !== null) {
       parameters.push(statusMomentId);
       conditions.push(`c.moment = $${parameters.length}`);
     }
