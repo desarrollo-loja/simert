@@ -638,12 +638,10 @@ export class IncidentService {
     let typePaymentResponsibility: TypePaymentResponsibility;
 
     try {
-      let concept = `Pago de multa`;
-
-      if (optionalData) {
-        const conceptElement = optionalData.find(element => element.key === 'concept');
-        concept = `${conceptElement ? conceptElement.value + ' | ' + concept : concept}`;
-      }
+      const concept = await this._buildPaymentConcept(
+        incidents.map(incident => incident.id),
+        optionalData,
+      );
 
       const debitAmounDto = await this._parseDebitAmounDto(concept, payIncidentDto);
 
@@ -754,6 +752,46 @@ export class IncidentService {
     } catch (error) {
     }
 
+  }
+
+  /**
+   * Builds the human-readable concept that travels with the payment to
+   * simert-pay. Reads each incident's `nroObligation` (bondNumber) from DB
+   * and appends them so simert-pay can correlate the resulting transaction
+   * against the obligations being paid (e.g. "Pago de multa #18650477, #18650478").
+   *
+   * If the caller provides a `concept` entry in `optionalData`, it is
+   * prepended (existing behavior) so callers can override the prefix.
+   * Downstream truncation in simert-pay (`LengthDb.concept`) still applies
+   * when the joined string exceeds the column length.
+   *
+   * @param incidentIds Ids of the incidents covered by the payment batch.
+   * @param optionalData Optional caller-supplied extras; honors `concept` key.
+   * @returns The final concept string passed to `_parseDebitAmounDto`.
+   */
+  private async _buildPaymentConcept(
+    incidentIds: number[],
+    optionalData?: OptionalDataInterface[],
+  ): Promise<string> {
+    const incidents = (await this.incidentRepository.find({
+      where: { id: In(incidentIds) },
+      select: ['nroObligation'],
+    })) ?? [];
+
+    const bondNumbersText = incidents
+      .map(incident => incident.nroObligation)
+      .filter(Boolean)
+      .map(nroObligation => `#${nroObligation}`)
+      .join(', ');
+
+    let concept = bondNumbersText ? `Pago de multa ${bondNumbersText}` : 'Pago de multa';
+
+    const conceptElement = optionalData?.find(element => element.key === 'concept');
+    if (conceptElement) {
+      concept = `${conceptElement.value} | ${concept}`;
+    }
+
+    return concept;
   }
 
   private async _parseDebitAmounDto(concept: string, payIncidentDto: PayIncidentDto) {
