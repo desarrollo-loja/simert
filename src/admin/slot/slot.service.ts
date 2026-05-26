@@ -47,16 +47,25 @@ export class SlotService {
   /**
    * Creates a new parking slot and writes an audit log entry.
    *
+   * Pre-checks the `(zone, slot)` uniqueness rule so the conflict is reported
+   * as a regular response with `errorCode: NAMEUNIQUE` instead of bubbling up
+   * a 400 from the Postgres `23505` violation.
+   *
    * @param userId ID of the authenticated user performing the operation.
    * @param createSlotDto Creation payload.
-   * @returns The persisted slot entity.
+   * @returns `{ errorCode, slot }` — `NAMEUNIQUE` with `slot: null` on conflict.
    */
   async create(userId: number, createSlotDto: CreateSlotDto) {
+    const conflict = await this._findSlotNameConflict(
+      createSlotDto.zone?.id,
+      createSlotDto.slot,
+    );
+    if (conflict) return { ...conflict, slot: {} };
     try {
       const query = this.slotRepository.create({ ...createSlotDto });
       const slot = await this.slotRepository.save(query);
       this.loggerService.saveSlotLogger({ id: slot.id, userId: userId, typeOperation: TypeOperation.CREATE, slot });
-      return { slot };
+      return { errorCode: ErrorCode.NONE, slot };
     } catch (error) {
       handleDbExceptions(error, this.logger);
     }
@@ -113,18 +122,30 @@ export class SlotService {
   /**
    * Updates an existing slot and writes an audit log entry.
    *
+   * Pre-checks the `(zone, slot)` uniqueness rule so the conflict is reported
+   * as a regular response with `errorCode: NAMEUNIQUE` instead of bubbling up
+   * a 400 from the Postgres `23505` violation.
+   *
    * @param userId ID of the authenticated user performing the operation.
    * @param id     Target slot ID.
    * @param updateSlotDto Fields to update.
-   * @returns The updated slot entity, or `undefined` when the id is not found.
+   * @returns `{ errorCode, slot }` — `NAMEUNIQUE` with `slot: null` on conflict,
+   *          or `undefined` when the id is not found.
    */
   async update(userId: number, id: number, updateSlotDto: UpdateSlotDto) {
+    const zoneId = updateSlotDto.zone?.id ?? (await this._resolveZoneId(id));
+    const conflict = await this._findSlotNameConflict(
+      zoneId,
+      updateSlotDto.slot,
+      id,
+    );
+    if (conflict) return { ...conflict, slot: {} };
     try {
       const slot = await this.slotRepository.preload({ id: id, ...updateSlotDto });
       if (slot) {
         await this.slotRepository.save(slot);
         this.loggerService.saveSlotLogger({ id: slot.id, userId: userId, typeOperation: TypeOperation.UPDATE, slot });
-        return { slot };
+        return { errorCode: ErrorCode.NONE, slot };
       }
     } catch (error) {
       handleDbExceptions(error, this.logger);
@@ -390,6 +411,55 @@ export class SlotService {
     }
 
     return { parameters, conditions };
+  }
+
+  /**
+   * Resolves the zone id of an existing slot. Used on update when the payload
+   * omits the zone, so the uniqueness check can still be scoped to the right zone.
+   *
+   * @param id Target slot ID.
+   * @returns The zone id, or `undefined` when the slot does not exist.
+   */
+  private async _resolveZoneId(id: number): Promise<number | undefined> {
+    const raw = await this.slotRepository.createQueryBuilder('s')
+      .select('s."zoneId"', 'zoneId')
+      .where('s.id = :id', { id })
+      .getRawOne<{ zoneId: number }>();
+    return raw ? Number(raw.zoneId) : undefined;
+  }
+
+  /**
+   * Verifies that the slot name is unique within its zone, mirroring the
+   * `@Unique(['zone', 'slot'])` constraint on the entity. Instead of throwing,
+   * returns a `{ errorCode, message }` pair so callers can propagate the
+   * conflict to the client as a regular response and the frontend does not
+   * see a 400 in the network tab.
+   *
+   * @param zoneId    Zone the slot belongs to. When falsy the check is skipped.
+   * @param slot      Slot name to validate (skipped when absent).
+   * @param excludeId Slot id to ignore — the record being updated.
+   * @returns The conflict descriptor, or `null` when the name is free.
+   */
+  private async _findSlotNameConflict(
+    zoneId: number | undefined,
+    slot?: string,
+    excludeId?: number,
+  ): Promise<{ errorCode: ErrorCode; message: string } | null> {
+    if (!zoneId || !slot) return null;
+
+    const qb = this.slotRepository.createQueryBuilder('s')
+      .where('s.zoneId = :zoneId', { zoneId })
+      .andWhere('s.slot = :slot', { slot });
+    if (excludeId) qb.andWhere('s.id != :excludeId', { excludeId });
+
+    if (await qb.getCount() > 0) {
+      return {
+        errorCode: ErrorCode.NAMEUNIQUE,
+        message: 'El nombre del slot ya está en uso en esta zona.',
+      };
+    }
+
+    return null;
   }
 
 }

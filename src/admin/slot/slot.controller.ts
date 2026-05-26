@@ -33,7 +33,8 @@ export class SlotController {
 
   @ApiOperation({ summary: 'Create a new parking slot' })
   @ApiStandardResponse({
-    description: 'Slot created',
+    description: 'Slot created. `NAMEUNIQUE` when the name already exists in the zone.',
+    errorCodes: [ErrorCode.NONE, ErrorCode.NAMEUNIQUE],
     data: { slot: { model: Slot } },
   })
   @AuthWithKeycloak()
@@ -111,7 +112,8 @@ export class SlotController {
 
   @ApiOperation({ summary: 'Update a parking slot' })
   @ApiStandardResponse({
-    description: 'Slot updated',
+    description: 'Slot updated. `NAMEUNIQUE` when the name already exists in the zone.',
+    errorCodes: [ErrorCode.NONE, ErrorCode.NAMEUNIQUE],
     data: { slot: { model: Slot } },
   })
   @AuthWithKeycloak()
