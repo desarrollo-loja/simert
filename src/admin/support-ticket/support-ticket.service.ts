@@ -141,10 +141,21 @@ export class SupportTicketService {
    */
   async findOne(id: number) {
     try {
-      const supportTicket = await this.supportTicketRepository.findOne({ where: { id } });
-      if (!supportTicket) {
+      const result = await this.supportTicketRepository.createQueryBuilder('st')
+        .addSelect(`TO_CHAR(st."createdAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`, 'st_createdAt')
+        .addSelect(`TO_CHAR(st."updatedAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`, 'st_updatedAt')
+        .where('st.id = :id', { id })
+        .getRawAndEntities();
+
+      const entity = result.entities[0];
+      if (!entity) {
         return { errorCode: ErrorCode.NOT_FOUND, supportTicket: null };
       }
+      const supportTicket = {
+        ...entity,
+        createdAt: result.raw[0]?.st_createdAt ?? null,
+        updatedAt: result.raw[0]?.st_updatedAt ?? null,
+      };
       return { supportTicket, errorCode: ErrorCode.NONE };
     } catch (error) {
       handleDbExceptions(error, this.logger);

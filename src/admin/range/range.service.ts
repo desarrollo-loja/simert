@@ -86,9 +86,12 @@ export class RangeService {
       const query = this.rangeRepository.createQueryBuilder('range')
         .select([
           'range.id', 'range.from', 'range.to', 'range.isActivated',
-          'range.createdAt', 'range.updatedAt', 'range.description',
-          'range.batchNumber', 'range.type', 'range.status', 'range.authorizationDate',
-        ]);
+          'range.description',
+          'range.batchNumber', 'range.type', 'range.status',
+        ])
+        .addSelect(`TO_CHAR(range."authorizationDate", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`, 'range_authorizationDate')
+        .addSelect(`TO_CHAR(range."createdAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`, 'range_createdAt')
+        .addSelect(`TO_CHAR(range."updatedAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`, 'range_updatedAt');
 
       if (search) {
         query.andWhere('range.description ILIKE :search', { search: `%${search}%` });
@@ -100,7 +103,13 @@ export class RangeService {
 
       query.take(limit).skip(offset).orderBy('range.id', 'DESC');
 
-      const ranges = await query.getMany();
+      const result = await query.getRawAndEntities();
+      const ranges = result.entities.map((entity, i) => ({
+        ...entity,
+        authorizationDate: result.raw[i]?.range_authorizationDate ?? null,
+        createdAt: result.raw[i]?.range_createdAt ?? null,
+        updatedAt: result.raw[i]?.range_updatedAt ?? null,
+      }));
       return { errorCode: ErrorCode.NONE, ranges };
     } catch (error) {
       handleDbExceptions(error, this.logger);

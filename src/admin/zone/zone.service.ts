@@ -215,11 +215,26 @@ export class ZoneService {
    */
   async remove(userId: number, id: number) {
     try {
-      const zone = await this.zoneRepository.findOne({ where: { id } });
-      if (zone) {
-        zone.isActivated = false;
-        await this.zoneRepository.save(zone);
-        this.loggerService.saveZoneLogger({ id: zone.id, userId, typeOperation: TypeOperation.DELETE, zone });
+      const result = await this.zoneRepository.createQueryBuilder('zone')
+        .addSelect(`TO_CHAR(zone."fromTemporary", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`, 'zone_fromTemporary')
+        .addSelect(`TO_CHAR(zone."toTemporary", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`, 'zone_toTemporary')
+        .addSelect(`TO_CHAR(zone."createdAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`, 'zone_createdAt')
+        .addSelect(`TO_CHAR(zone."updatedAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`, 'zone_updatedAt')
+        .where('zone.id = :id', { id })
+        .getRawAndEntities();
+
+      const entity = result.entities[0];
+      if (entity) {
+        entity.isActivated = false;
+        await this.zoneRepository.save(entity);
+        this.loggerService.saveZoneLogger({ id: entity.id, userId, typeOperation: TypeOperation.DELETE, zone: entity });
+        const zone = {
+          ...entity,
+          fromTemporary: result.raw[0]?.zone_fromTemporary ?? null,
+          toTemporary: result.raw[0]?.zone_toTemporary ?? null,
+          createdAt: result.raw[0]?.zone_createdAt ?? null,
+          updatedAt: result.raw[0]?.zone_updatedAt ?? null,
+        };
         return { errorCode: ErrorCode.NONE, zone };
       }
       return { errorCode: ErrorCode.NONE, zone: {} };

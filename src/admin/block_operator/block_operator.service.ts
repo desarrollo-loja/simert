@@ -70,9 +70,12 @@ export class BlockOperatorService {
     try {
       let blockOperatorsQuery = this.blockOperatorRepository.createQueryBuilder('bo')
         .select([
-          'bo.id', 'bo.isActivated', 'bo.userId', 'bo.blockId', 'bo.from', 'bo.to', 'bo.isInitialized', 'bo.isFinalized',
-          'bo.dateInitialized', 'bo.dateFinalized',
+          'bo.id', 'bo.isActivated', 'bo.userId', 'bo.blockId', 'bo.isInitialized', 'bo.isFinalized',
         ])
+        .addSelect(`TO_CHAR(bo."from", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`, 'bo_from')
+        .addSelect(`TO_CHAR(bo."to", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`, 'bo_to')
+        .addSelect(`TO_CHAR(bo."dateInitialized", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`, 'bo_dateInitialized')
+        .addSelect(`TO_CHAR(bo."dateFinalized", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`, 'bo_dateFinalized')
         .where('bo.blockId = :blockId', { blockId })
         .andWhere(
           "DATE(bo.from - INTERVAL '5 hours') <= DATE(:date) AND DATE(bo.to - INTERVAL '5 hours') >= DATE(:date)",
@@ -83,7 +86,14 @@ export class BlockOperatorService {
         blockOperatorsQuery = blockOperatorsQuery.andWhere('bo.userId = :userId', { userId });
       }
 
-      const blockOperators = await blockOperatorsQuery.getMany();
+      const result = await blockOperatorsQuery.getRawAndEntities();
+      const blockOperators = result.entities.map((entity, i) => ({
+        ...entity,
+        from: result.raw[i]?.bo_from ?? null,
+        to: result.raw[i]?.bo_to ?? null,
+        dateInitialized: result.raw[i]?.bo_dateInitialized ?? null,
+        dateFinalized: result.raw[i]?.bo_dateFinalized ?? null,
+      }));
 
       return { errorCode: ErrorCode.NONE, blockOperators };
     } catch (error) {
@@ -103,17 +113,25 @@ export class BlockOperatorService {
   async findAllActiveByUserId(filterDto: FilterDto) {
     const { userId, isInitialized = false, isFinalized = false } = filterDto;
     try {
-      const blockOperators = await this.blockOperatorRepository.createQueryBuilder('bo')
+      const result = await this.blockOperatorRepository.createQueryBuilder('bo')
         .select([
-          'bo.id', 'bo.isActivated', 'bo.userId', 'bo.from', 'bo.to',
+          'bo.id', 'bo.isActivated', 'bo.userId',
           'block.id', 'block.name',
         ])
+        .addSelect(`TO_CHAR(bo."from", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`, 'bo_from')
+        .addSelect(`TO_CHAR(bo."to", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`, 'bo_to')
         .innerJoin('bo.block', 'block')
         .where('bo.userId = :userId', { userId })
         .andWhere('bo.isActivated = :isActivated', { isActivated: true })
         .andWhere('bo.isInitialized = :isInitialized', { isInitialized })
         .andWhere('bo.isFinalized = :isFinalized', { isFinalized })
-        .getMany();
+        .getRawAndEntities();
+
+      const blockOperators = result.entities.map((entity, i) => ({
+        ...entity,
+        from: result.raw[i]?.bo_from ?? null,
+        to: result.raw[i]?.bo_to ?? null,
+      }));
 
       return { errorCode: ErrorCode.NONE, blockOperators };
     } catch (error) {
@@ -141,9 +159,9 @@ export class BlockOperatorService {
           'bo.blockId',
           'bo.isInitialized',
           'bo.isFinalized',
-          'bo.from',
-          'bo.to',
         ])
+        .addSelect(`TO_CHAR(bo."from", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`, 'bo_from')
+        .addSelect(`TO_CHAR(bo."to", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`, 'bo_to')
         .where('bo.blockId = :blockId', { blockId });
 
       if (dateFrom) {
@@ -154,7 +172,12 @@ export class BlockOperatorService {
         blockOperatorsQuery.andWhere('DATE(bo.from) <= DATE(:dateTo)', { dateTo });
       }
 
-      const blockOperators = await blockOperatorsQuery.getMany();
+      const result = await blockOperatorsQuery.getRawAndEntities();
+      const blockOperators = result.entities.map((entity, i) => ({
+        ...entity,
+        from: result.raw[i]?.bo_from ?? null,
+        to: result.raw[i]?.bo_to ?? null,
+      }));
 
       return { errorCode: ErrorCode.NONE, blockOperators };
     } catch (error) {

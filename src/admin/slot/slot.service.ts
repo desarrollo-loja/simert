@@ -231,9 +231,10 @@ export class SlotService {
       const { search, typeSlot, statusSlot } = filterDto ?? {};
       const query = this.slotRepository.createQueryBuilder('s')
         .select(['s.id', 's.isActivated', 's.isPaidParking', 's.slot', 's.lt', 's.lg', 's.status', 's.typeSlot', 's.blockId', 'zone.id',
-          'zone.name', 'zone.isActivated', 'block.id', 'block.name', 'block.geofence', 'block.isActivated', 'fraction.id', 'fraction.statusId', 'fraction.createdAt', 'fraction.image',
+          'zone.name', 'zone.isActivated', 'block.id', 'block.name', 'block.geofence', 'block.isActivated', 'fraction.id', 'fraction.statusId', 'fraction.image',
           'fraction.plate', 'status.id'
         ])
+        .addSelect(`TO_CHAR(fraction."createdAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`, 'fraction_createdAt')
         .innerJoin("s.zone", "zone")
         .innerJoin("s.block", "block")
         .leftJoin('s.fractions', 'fraction')
@@ -261,10 +262,27 @@ export class SlotService {
 
       query.orderBy('s.id', 'DESC');
 
-      const slot = await query.getMany();
+      const result = await query.getRawAndEntities();
 
-      if (slot.length === 0)
+      if (result.entities.length === 0)
         return { errorCode: ErrorCode.NOT_FOUND, slot: [] }
+
+      // raw has one row per (slot, fraction) pair, so map the formatted date by
+      // fraction id and apply it to each nested fraction (a slot may have many).
+      const fractionCreatedAtById = new Map<number, string>();
+      for (const row of result.raw) {
+        if (row.fraction_id != null) {
+          fractionCreatedAtById.set(row.fraction_id, row.fraction_createdAt ?? null);
+        }
+      }
+
+      const slot = result.entities.map(entity => ({
+        ...entity,
+        fractions: entity.fractions?.map(fraction => ({
+          ...fraction,
+          createdAt: fractionCreatedAtById.get(fraction.id) ?? null,
+        })),
+      }));
 
       return { errorCode: ErrorCode.NONE, slot }
     } catch (error) {
