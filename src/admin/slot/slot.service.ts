@@ -110,6 +110,7 @@ export class SlotService {
       const slots = await this.slotRepository.createQueryBuilder('s')
         .select('s.id', 'id')
         .addSelect('s.slot', 'name')
+        .addSelect('s.status', 'status')
         .where('s.blockId = :blockId', { blockId })
         .andWhere('s.zoneId = :zoneId', { zoneId })
         .getRawMany();
