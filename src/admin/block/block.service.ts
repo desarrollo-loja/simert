@@ -6,7 +6,7 @@ import { ErrorCode } from 'src/common/glob/error';
 import { TypeOperation } from 'src/common/glob/type/type_operation';
 import { parseGeoJsonMultiPolygon, toIntArray } from 'src/common/glob/utilities/funtions';
 import { LoggerService } from 'src/common/logger.service.ts';
-import { Repository } from 'typeorm';
+import { QueryFailedError, Repository } from 'typeorm';
 
 import { CreateBlockDto } from './dto/create-block.dto';
 import { UpdateBlockDto } from './dto/update-block.dto';
@@ -309,7 +309,6 @@ export class BlockService {
    */
   async createBlockSector(userId: number, createBlockDto: CreateBlockDto) {
     const conflict = await this._findSectorFieldsConflict(
-      createBlockDto.zone?.id,
       createBlockDto.name,
       createBlockDto.acronym,
     );
@@ -326,6 +325,8 @@ export class BlockService {
       this.loggerService.saveBlockLogger({ id: block.id, userId, typeOperation: TypeOperation.CREATE, block });
       return { errorCode: ErrorCode.NONE, block };
     } catch (error) {
+      const uniqueConflict = this._mapUniqueViolation(error);
+      if (uniqueConflict) return { ...uniqueConflict, block: null };
       handleDbExceptions(error, this.logger);
     }
   }
@@ -339,9 +340,7 @@ export class BlockService {
    * @returns `{ block }` — the updated block entity, or `undefined` when the id is not found.
    */
   async updateBlockSector(userId: number, id: number, updateBlockDto: UpdateBlockDto) {
-    const zoneId = updateBlockDto.zone?.id ?? (await this._resolveZoneId(id));
     const conflict = await this._findSectorFieldsConflict(
-      zoneId,
       updateBlockDto.name,
       updateBlockDto.acronym,
       id,
@@ -359,73 +358,79 @@ export class BlockService {
         return { errorCode: ErrorCode.NONE, block };
       }
     } catch (error) {
+      const uniqueConflict = this._mapUniqueViolation(error);
+      if (uniqueConflict) return { ...uniqueConflict, block: null };
       handleDbExceptions(error, this.logger);
     }
   }
 
   /**
-   * Resolves the zone id of an existing block. Used on update when the payload
-   * omits the zone, so the uniqueness check can still be scoped to the right zone.
+   * Verifies that a sector's name and acronym are globally unique across all
+   * blocks. Instead of throwing, returns a `{ errorCode, message }` pair so
+   * callers can propagate the conflict to the client as a regular 200 response
+   * and the frontend does not see a 400 in the network tab.
    *
-   * @param id Target block ID.
-   * @returns The zone id, or `undefined` when the block does not exist.
-   */
-  private async _resolveZoneId(id: number): Promise<number | undefined> {
-    const raw = await this.blockRepository.createQueryBuilder('b')
-      .select('b."zoneId"', 'zoneId')
-      .where('b.id = :id', { id })
-      .getRawOne<{ zoneId: number }>();
-    return raw ? Number(raw.zoneId) : undefined;
-  }
-
-  /**
-   * Verifies that a sector's name and acronym are unique within its zone,
-   * mirroring the `(zone, name)` uniqueness rule for the acronym field.
-   * Instead of throwing, returns a `{ errorCode, message }` pair so callers
-   * can propagate the conflict to the client as a regular 200 response and
-   * the frontend does not see a 400 in the network tab.
-   *
-   * @param zoneId    Zone the sector belongs to. When falsy the check is skipped.
    * @param name      Sector name to validate (skipped when absent).
    * @param acronym   Sector acronym to validate (skipped when absent).
    * @param excludeId Block id to ignore — the record being updated.
    * @returns The conflict descriptor, or `null` when both fields are free.
    */
   private async _findSectorFieldsConflict(
-    zoneId: number | undefined,
     name?: string,
     acronym?: string,
     excludeId?: number,
   ): Promise<{ errorCode: ErrorCode; message: string } | null> {
-    if (!zoneId) return null;
-
     if (name) {
       const nameQb = this.blockRepository.createQueryBuilder('b')
-        .where('b.zoneId = :zoneId', { zoneId })
-        .andWhere('b.name = :name', { name });
+        .where('b.name = :name', { name });
       if (excludeId) nameQb.andWhere('b.id != :excludeId', { excludeId });
       if (await nameQb.getCount() > 0) {
         return {
           errorCode: ErrorCode.NAMEUNIQUE,
-          message: 'El nombre del sector ya está en uso en esta zona.',
+          message: 'El nombre del sector ya está en uso.',
         };
       }
     }
 
     if (acronym) {
       const acronymQb = this.blockRepository.createQueryBuilder('b')
-        .where('b.zoneId = :zoneId', { zoneId })
-        .andWhere('b.acronym = :acronym', { acronym });
+        .where('b.acronym = :acronym', { acronym });
       if (excludeId) acronymQb.andWhere('b.id != :excludeId', { excludeId });
       if (await acronymQb.getCount() > 0) {
         return {
           errorCode: ErrorCode.ACRONYMUNIQUE,
-          message: 'El acrónimo del sector ya está en uso en esta zona.',
+          message: 'El acrónimo del sector ya está en uso.',
         };
       }
     }
 
     return null;
+  }
+
+  /**
+   * Maps a PostgreSQL unique-violation error (code `23505`) to a matching
+   * `{ errorCode, message }` descriptor. Returns the descriptor for the
+   * `name` or `acronym` column, falls back to `NAMEUNIQUE` when the column
+   * cannot be identified, and `null` when the error is not a unique-violation
+   * (so the caller can delegate to `handleDbExceptions`).
+   *
+   * @param error Error thrown by TypeORM during save/preload.
+   * @returns Matching descriptor or `null`.
+   */
+  private _mapUniqueViolation(error: unknown): { errorCode: ErrorCode; message: string } | null {
+    if (!(error instanceof QueryFailedError)) return null;
+    const driverError = (error as any).driverError;
+    if (driverError?.code !== '23505') return null;
+
+    this.logger.error(`Unique constraint violated: ${driverError.constraint}`);
+    const detail: string = driverError.detail ?? '';
+    if (detail.includes('(acronym)')) {
+      return { errorCode: ErrorCode.ACRONYMUNIQUE, message: 'El acrónimo del sector ya está en uso.' };
+    }
+    if (detail.includes('(name)')) {
+      return { errorCode: ErrorCode.NAMEUNIQUE, message: 'El nombre del sector ya está en uso.' };
+    }
+    return { errorCode: ErrorCode.NAMEUNIQUE, message: 'El nombre del sector ya está en uso.' };
   }
 
 }

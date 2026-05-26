@@ -11,6 +11,7 @@ import { Column, Entity, Index, ManyToOne, OneToMany, PrimaryGeneratedColumn, Un
 
 @Entity()
 @Unique(["name"])
+@Unique(["acronym"])
 @Index(['name'], { fulltext: true })
 @Index(['neighborhood'], { fulltext: true })
 @Index(['mainStreet'], { fulltext: true })
