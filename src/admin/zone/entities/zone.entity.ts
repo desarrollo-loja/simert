@@ -11,6 +11,7 @@ import { Column, Entity, Index, OneToMany, PrimaryGeneratedColumn, Unique, Updat
 
 @Entity()
 @Unique(["name"])
+@Unique(["acronym"])
 @Index(['name'], { fulltext: true })
 export class Zone {
 

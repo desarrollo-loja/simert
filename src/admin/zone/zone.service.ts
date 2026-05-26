@@ -32,7 +32,8 @@ export class ZoneService {
 
   /**
    * Creates a new zone with an optional geofence polygon.
-   * Returns `NAMEUNIQUE` when a duplicate name constraint is violated.
+   * Returns `NAMEUNIQUE` or `ACRONYMUNIQUE` when a duplicate name/acronym
+   * constraint is violated.
    *
    * @param userId        ID of the authenticated user performing the operation.
    * @param createZoneDto Creation payload (name, color, geofence WKT, etc.).
@@ -51,11 +52,9 @@ export class ZoneService {
       this.loggerService.saveZoneLogger({ id: zone.id, userId, typeOperation: TypeOperation.CREATE, zone });
       return { errorCode: ErrorCode.NONE, zone };
     } catch (error) {
-      const driverError = (error as any).driverError;
-      // PostgreSQL error code 23505 = unique_violation
-      if (error instanceof QueryFailedError && driverError?.code === '23505') {
-        this.logger.error(`Unique constraint violated: ${driverError.constraint}`);
-        return { errorCode: ErrorCode.NAMEUNIQUE };
+      const uniqueErrorCode = this._mapUniqueViolation(error);
+      if (uniqueErrorCode !== null) {
+        return { errorCode: uniqueErrorCode };
       }
       handleDbExceptions(error, this.logger);
     }
@@ -174,7 +173,8 @@ export class ZoneService {
   /**
    * Updates an existing zone and writes an audit log entry.
    * Returns an empty zone object when the id is not found.
-   * Returns `NAMEUNIQUE` on duplicate name constraint violation.
+   * Returns `NAMEUNIQUE` or `ACRONYMUNIQUE` on duplicate name/acronym
+   * constraint violation.
    *
    * @param userId        ID of the authenticated user performing the operation.
    * @param id            Target zone ID.
@@ -195,14 +195,34 @@ export class ZoneService {
       }
       return { errorCode: ErrorCode.NONE, zone: {} };
     } catch (error) {
-      const driverError = (error as any).driverError;
-      // PostgreSQL error code 23505 = unique_violation
-      if (error instanceof QueryFailedError && driverError?.code === '23505') {
-        this.logger.error(`Unique constraint violated: ${driverError.constraint}`);
-        return { errorCode: ErrorCode.NAMEUNIQUE };
+      const uniqueErrorCode = this._mapUniqueViolation(error);
+      if (uniqueErrorCode !== null) {
+        return { errorCode: uniqueErrorCode };
       }
       handleDbExceptions(error, this.logger);
     }
+  }
+
+  /**
+   * Maps a PostgreSQL unique-violation error (code `23505`) to the matching
+   * {@link ErrorCode}. Returns `NAMEUNIQUE` for the `name` column,
+   * `ACRONYMUNIQUE` for the `acronym` column, falls back to `NAMEUNIQUE` when
+   * the column cannot be identified, and `null` when the error is not a
+   * unique-violation (so the caller can delegate to `handleDbExceptions`).
+   *
+   * @param error Error thrown by TypeORM during save/preload.
+   * @returns Matching {@link ErrorCode} or `null`.
+   */
+  private _mapUniqueViolation(error: unknown): ErrorCode | null {
+    if (!(error instanceof QueryFailedError)) return null;
+    const driverError = (error as any).driverError;
+    if (driverError?.code !== '23505') return null;
+
+    this.logger.error(`Unique constraint violated: ${driverError.constraint}`);
+    const detail: string = driverError.detail ?? '';
+    if (detail.includes('(acronym)')) return ErrorCode.ACRONYMUNIQUE;
+    if (detail.includes('(name)')) return ErrorCode.NAMEUNIQUE;
+    return ErrorCode.NAMEUNIQUE;
   }
 
   /**

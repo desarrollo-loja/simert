@@ -8,7 +8,7 @@ import { TypeSlot } from "src/common/glob/type/type_slot";
 import { Column, Entity, Index, ManyToOne, OneToMany, PrimaryGeneratedColumn, Unique, UpdateDateColumn } from "typeorm";
 
 @Entity()
-@Unique(['zone', 'slot'])
+@Unique(['slot'])
 export class Slot {
 
     @ApiProperty({ example: 1, description: 'Unique slot identifier' })
