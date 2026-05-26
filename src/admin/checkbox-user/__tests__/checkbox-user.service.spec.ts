@@ -1,10 +1,19 @@
 import { CheckboxUserService } from '../checkbox-user.service';
 
+const buildRepoMock = () => ({
+  createQueryBuilder: jest.fn(),
+  count: jest.fn(),
+});
+
 describe('CheckboxUserService', () => {
   let service: CheckboxUserService;
 
   beforeEach(() => {
-    service = new CheckboxUserService();
+    service = new CheckboxUserService(
+      buildRepoMock() as any,
+      buildRepoMock() as any,
+      buildRepoMock() as any,
+    );
   });
 
   it('is defined', () => {

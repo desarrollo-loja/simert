@@ -3,9 +3,12 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { CheckboxUser } from 'src/admin/checkbox-user/entities/checkbox-user.entity';
 import { RangeSalePoint } from 'src/admin/range-sale-point/entities/range-sale-point.entity';
 import { RangeSalePointTransaction } from 'src/admin/range-sale-point-transaction/entities/range-sale-point-transaction.entity';
+import { CommonService } from 'src/common/common.service';
+import { CreateNotificationDto } from 'src/common/dto/create-notification.dto';
 import { FilterDto } from 'src/common/dto/filter.dto';
 import handleDbExceptions from 'src/common/exceptions/error.db.exception';
 import { ErrorCode } from 'src/common/glob/error';
+import { TypeNotification } from 'src/common/glob/type/type_notification';
 import { LoggerService } from 'src/common/logger.service.ts';
 import { DataSource, Repository } from 'typeorm';
 
@@ -33,6 +36,9 @@ export class RangeSalePointTransactionService {
 
         @Inject(LoggerService)
         private readonly loggerService: LoggerService,
+
+        @Inject(CommonService)
+        private readonly commonService: CommonService,
 
         private readonly dataSource: DataSource,
     ) { }
@@ -104,6 +110,13 @@ export class RangeSalePointTransactionService {
             }
 
             await queryRunner.commitTransaction();
+
+            this._notifyTransferSaleCard(userIdBuy, {
+                fractions: spaceCard,
+                card: amount,
+                totalFractions: totalSpaceCard,
+            });
+
             return { errorCode: ErrorCode.NONE, message: 'Transaccion exitosa', rangeSalePointTransaction: transactionRangeSalePoint, rangeSalePoint: rangeSalePointLock }
 
         } catch (error) {
@@ -114,6 +127,34 @@ export class RangeSalePointTransactionService {
         }
         return { errorCode: ErrorCode.NOT_VALID, message: 'Ocurrio un error al crear la transaccion' }
 
+    }
+
+    /**
+     * Dispatches a `TRANSFER_SALE_CARD` push notification to the buyer after
+     * a point-of-sale card-transfer transaction is successfully committed.
+     *
+     * Errors are swallowed by {@link CommonService.notify} so a failed push
+     * never rolls back or breaks the caller's response.
+     *
+     * @param userIdBuy - Target user that received the checkbox bundle.
+     * @param data - Payload describing the completed transaction.
+     */
+    private _notifyTransferSaleCard(
+        userIdBuy: number,
+        data: {
+            fractions: number;
+            card: number;
+            totalFractions: number;
+        },
+    ): void {
+        const notification = new CreateNotificationDto({
+            userId: userIdBuy,
+            notification: {
+                type: TypeNotification.TRANSFER_SALE_CARD,
+                data,
+            },
+        });
+        this.commonService.notify(notification);
     }
 
     private _buildConditionsAndParameters(filterDto: FilterDto) {
