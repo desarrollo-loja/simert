@@ -1,11 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Checkbox } from 'src/admin/checkbox/entities/checkbox.entity';
-import { Fraction } from 'src/admin/fraction/entities/fraction.entity';
 import { FilterDto } from 'src/common/dto/filter.dto';
 import handleDbExceptions from 'src/common/exceptions/error.db.exception';
 import { ErrorCode } from 'src/common/glob/error';
-import { StatusPayment } from 'src/common/glob/status/status_payment';
 import { Repository } from 'typeorm';
 
 import { CreateCheckboxUserDto } from './dto/create-checkbox-user.dto';
@@ -15,10 +12,11 @@ import { CheckboxUser } from './entities/checkbox-user.entity';
 /**
  * Admin service for the CheckboxUser resource.
  *
- * Exposes the "Consumo Digital" report: per-user current digital balance
- * (CheckboxUser.checkboxes), total fractions topped up via paid Checkbox
- * purchases and total fractions consumed in digital parking sessions
- * (Fraction) within an optional date range.
+ * Exposes the "Consumo Digital" report: the current digital balance
+ * (`CheckboxUser.checkboxes`) per user. Aggregated top-up/consumption
+ * sums are intentionally NOT included here because the source tables
+ * (`checkbox`, `fraction`) are archived monthly into history.* and this
+ * report does not query the historical tables.
  *
  * CRUD methods remain as placeholders; the real lifecycle of the row is
  * owned by `client/simert/simert.service.ts` and
@@ -31,88 +29,30 @@ export class CheckboxUserService {
   constructor(
     @InjectRepository(CheckboxUser)
     private readonly checkboxUserRepository: Repository<CheckboxUser>,
-
-    @InjectRepository(Checkbox)
-    private readonly checkboxRepository: Repository<Checkbox>,
-
-    @InjectRepository(Fraction)
-    private readonly fractionRepository: Repository<Fraction>,
   ) { }
 
   /**
    * Paginated rows of the digital-consumption report.
    *
-   * @param filterDto Filters: `userId` restricts the report to a single
-   *   user; `dateFrom`/`dateTo` constrain the aggregated sums;
+   * @param filterDto `userId` restricts the report to a single user;
    *   `limit`/`offset` paginate the result set.
    * @returns Object with `errorCode` and `rows`, each row containing
-   *   `{ userId, saldo, totalRecargas, totalConsumos, createdAt }`.
+   *   `{ userId, saldo, createdAt }`.
    */
   async findReport(filterDto: FilterDto) {
     try {
-      const { limit = 10, offset = 0, dateFrom, dateTo, userId } = filterDto;
+      const { limit = 10, offset = 0, userId } = filterDto;
 
-      // Page of users by their balance row.
-      const baseQb = this.checkboxUserRepository
+      const qb = this.checkboxUserRepository
         .createQueryBuilder('cu')
         .select(['cu.userId AS "userId"', 'cu.checkboxes AS "saldo"', 'cu.createdAt AS "createdAt"'])
         .orderBy('cu.id', 'DESC')
         .limit(limit)
         .offset(offset);
       if (userId) {
-        baseQb.where('cu.userId = :userId', { userId });
+        qb.where('cu.userId = :userId', { userId });
       }
-      const baseRows = await baseQb.getRawMany<{ userId: number; saldo: number; createdAt: Date }>();
-
-      if (baseRows.length === 0) {
-        return { errorCode: ErrorCode.NONE, rows: [] };
-      }
-
-      const userIds = baseRows.map(r => Number(r.userId));
-
-      // Top-ups (recargas): only PAID purchases, optional date range over `register`.
-      const rechargesQb = this.checkboxRepository
-        .createQueryBuilder('c')
-        .select('c.userId', 'userId')
-        .addSelect('SUM(c.checkboxes)', 'totalRecargas')
-        .where('c.userId IN (:...userIds)', { userIds })
-        .andWhere('c.statusPayment = :paid', { paid: StatusPayment.PAID })
-        .groupBy('c.userId');
-      if (dateFrom && dateTo) {
-        rechargesQb.andWhere('DATE(c.register) BETWEEN :dateFrom AND :dateTo', { dateFrom, dateTo });
-      }
-      const rechargeRows = await rechargesQb.getRawMany<{ userId: number; totalRecargas: string }>();
-      const rechargesByUser = new Map<number, number>();
-      for (const r of rechargeRows) {
-        rechargesByUser.set(Number(r.userId), Number(r.totalRecargas) || 0);
-      }
-
-      // Consumption (consumos): every digital parking session, optional date range over `register`.
-      const consumosQb = this.fractionRepository
-        .createQueryBuilder('f')
-        .select('f.userId', 'userId')
-        .addSelect('SUM(f.checkboxes)', 'totalConsumos')
-        .where('f.userId IN (:...userIds)', { userIds })
-        .groupBy('f.userId');
-      if (dateFrom && dateTo) {
-        consumosQb.andWhere('DATE(f.register) BETWEEN :dateFrom AND :dateTo', { dateFrom, dateTo });
-      }
-      const consumoRows = await consumosQb.getRawMany<{ userId: number; totalConsumos: string }>();
-      const consumosByUser = new Map<number, number>();
-      for (const r of consumoRows) {
-        consumosByUser.set(Number(r.userId), Number(r.totalConsumos) || 0);
-      }
-
-      const rows = baseRows.map(r => {
-        const userId = Number(r.userId);
-        return {
-          userId,
-          saldo: Number(r.saldo) || 0,
-          totalRecargas: rechargesByUser.get(userId) || 0,
-          totalConsumos: consumosByUser.get(userId) || 0,
-          createdAt: r.createdAt,
-        };
-      });
+      const rows = await qb.getRawMany<{ userId: number; saldo: number; createdAt: Date }>();
 
       return { errorCode: ErrorCode.NONE, rows };
     } catch (error) {

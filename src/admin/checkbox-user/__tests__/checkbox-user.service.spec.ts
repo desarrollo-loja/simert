@@ -9,11 +9,7 @@ describe('CheckboxUserService', () => {
   let service: CheckboxUserService;
 
   beforeEach(() => {
-    service = new CheckboxUserService(
-      buildRepoMock() as any,
-      buildRepoMock() as any,
-      buildRepoMock() as any,
-    );
+    service = new CheckboxUserService(buildRepoMock() as any);
   });
 
   it('is defined', () => {
