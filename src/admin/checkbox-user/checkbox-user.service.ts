@@ -45,14 +45,20 @@ export class CheckboxUserService {
 
       const qb = this.checkboxUserRepository
         .createQueryBuilder('cu')
-        .select(['cu.userId AS "userId"', 'cu.checkboxes AS "saldo"', 'cu.createdAt AS "createdAt"'])
+        .select(['cu.userId', 'cu.checkboxes'])
+        .addSelect(`TO_CHAR(cu."createdAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`, 'cu_createdAt')
         .orderBy('cu.id', 'DESC')
         .limit(limit)
         .offset(offset);
       if (userId) {
         qb.where('cu.userId = :userId', { userId });
       }
-      const rows = await qb.getRawMany<{ userId: number; saldo: number; createdAt: Date }>();
+      const result = await qb.getRawAndEntities();
+      const rows = result.entities.map((entity, i) => ({
+        userId: entity.userId,
+        saldo: entity.checkboxes,
+        createdAt: result.raw[i]?.cu_createdAt ?? null,
+      }));
 
       return { errorCode: ErrorCode.NONE, rows };
     } catch (error) {
