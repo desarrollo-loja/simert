@@ -178,6 +178,7 @@ export class BlockController {
   @ApiOperation({ summary: 'Create a new block for the sector module' })
   @ApiStandardResponse({
     description: 'Block created',
+    errorCodes: [ErrorCode.NONE, ErrorCode.NAMEUNIQUE, ErrorCode.ACRONYMUNIQUE],
     data: { block: { model: Block } },
   })
   @AuthWithKeycloak()
@@ -196,6 +197,7 @@ export class BlockController {
   @ApiOperation({ summary: 'Update a block in the sector module' })
   @ApiStandardResponse({
     description: 'Block updated',
+    errorCodes: [ErrorCode.NONE, ErrorCode.NAMEUNIQUE, ErrorCode.ACRONYMUNIQUE],
     data: { block: { model: Block } },
   })
   @AuthWithKeycloak()

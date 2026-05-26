@@ -1,4 +1,4 @@
-import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { FilterDto } from 'src/common/dto/filter.dto';
 import handleDbExceptions from 'src/common/exceptions/error.db.exception';
@@ -308,11 +308,12 @@ export class BlockService {
    * @returns `{ block }` — the persisted block entity.
    */
   async createBlockSector(userId: number, createBlockDto: CreateBlockDto) {
-    await this._ensureUniqueSectorFields(
+    const conflict = await this._findSectorFieldsConflict(
       createBlockDto.zone?.id,
       createBlockDto.name,
       createBlockDto.acronym,
     );
+    if (conflict) return { ...conflict, block: null };
     try {
       const blockEntity = this.blockRepository.create({ ...createBlockDto });
 
@@ -323,7 +324,7 @@ export class BlockService {
 
       const block = await this.blockRepository.save(blockEntity);
       this.loggerService.saveBlockLogger({ id: block.id, userId, typeOperation: TypeOperation.CREATE, block });
-      return { block };
+      return { errorCode: ErrorCode.NONE, block };
     } catch (error) {
       handleDbExceptions(error, this.logger);
     }
@@ -339,12 +340,13 @@ export class BlockService {
    */
   async updateBlockSector(userId: number, id: number, updateBlockDto: UpdateBlockDto) {
     const zoneId = updateBlockDto.zone?.id ?? (await this._resolveZoneId(id));
-    await this._ensureUniqueSectorFields(
+    const conflict = await this._findSectorFieldsConflict(
       zoneId,
       updateBlockDto.name,
       updateBlockDto.acronym,
       id,
     );
+    if (conflict) return { ...conflict, block: null };
     try {
       const block = await this.blockRepository.preload({ id, ...updateBlockDto });
       if (block) {
@@ -354,7 +356,7 @@ export class BlockService {
         }
         await this.blockRepository.save(block);
         this.loggerService.saveBlockLogger({ id: block.id, userId, typeOperation: TypeOperation.UPDATE, block });
-        return { block };
+        return { errorCode: ErrorCode.NONE, block };
       }
     } catch (error) {
       handleDbExceptions(error, this.logger);
@@ -377,23 +379,25 @@ export class BlockService {
   }
 
   /**
-   * Guarantees that a sector's name and acronym are unique within its zone,
+   * Verifies that a sector's name and acronym are unique within its zone,
    * mirroring the `(zone, name)` uniqueness rule for the acronym field.
-   * Throws a 400 carrying a distinguishable `errorCode` so the client can show
-   * the precise message (NAMEUNIQUE vs ACRONYMUNIQUE).
+   * Instead of throwing, returns a `{ errorCode, message }` pair so callers
+   * can propagate the conflict to the client as a regular 200 response and
+   * the frontend does not see a 400 in the network tab.
    *
    * @param zoneId    Zone the sector belongs to. When falsy the check is skipped.
    * @param name      Sector name to validate (skipped when absent).
    * @param acronym   Sector acronym to validate (skipped when absent).
    * @param excludeId Block id to ignore — the record being updated.
+   * @returns The conflict descriptor, or `null` when both fields are free.
    */
-  private async _ensureUniqueSectorFields(
+  private async _findSectorFieldsConflict(
     zoneId: number | undefined,
     name?: string,
     acronym?: string,
     excludeId?: number,
-  ): Promise<void> {
-    if (!zoneId) return;
+  ): Promise<{ errorCode: ErrorCode; message: string } | null> {
+    if (!zoneId) return null;
 
     if (name) {
       const nameQb = this.blockRepository.createQueryBuilder('b')
@@ -401,10 +405,10 @@ export class BlockService {
         .andWhere('b.name = :name', { name });
       if (excludeId) nameQb.andWhere('b.id != :excludeId', { excludeId });
       if (await nameQb.getCount() > 0) {
-        throw new BadRequestException({
-          codeError: ErrorCode.NAMEUNIQUE,
+        return {
+          errorCode: ErrorCode.NAMEUNIQUE,
           message: 'El nombre del sector ya está en uso en esta zona.',
-        });
+        };
       }
     }
 
@@ -414,12 +418,14 @@ export class BlockService {
         .andWhere('b.acronym = :acronym', { acronym });
       if (excludeId) acronymQb.andWhere('b.id != :excludeId', { excludeId });
       if (await acronymQb.getCount() > 0) {
-        throw new BadRequestException({
-          codeError: ErrorCode.ACRONYMUNIQUE,
+        return {
+          errorCode: ErrorCode.ACRONYMUNIQUE,
           message: 'El acrónimo del sector ya está en uso en esta zona.',
-        });
+        };
       }
     }
+
+    return null;
   }
 
 }
