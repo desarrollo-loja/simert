@@ -146,6 +146,11 @@ export class MappingService {
         .innerJoin("sl.zone", "zone")
         .innerJoin("sl.block", "block")
         .where('sl.lt != :zero AND sl.lg != :zero', { zero: 0 })
+        .andWhere('zone.lt != :zero AND zone.lg != :zero', { zero: 0 })
+        .andWhere('block.lt != :zero AND block.lg != :zero', { zero: 0 })
+        .andWhere('sl.isActivated = :isActivated', { isActivated: true })
+        .andWhere('zone.isActivated = :isActivated', { isActivated: true })
+        .andWhere('block.isActivated = :isActivated', { isActivated: true })
         .orderBy('distance', 'ASC')
         .setParameters({ lat: latitude, lng: longitude })
         .limit(50);
