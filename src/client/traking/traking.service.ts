@@ -72,7 +72,7 @@ export class TrakingService {
 
   async plot(userId: number, plotLocationDto: PlotLocationDto) {
 
-    const { p, l: polyline, t: travels } = plotLocationDto;
+    const { p, l: polyline, t: travels, zoneId, blockId } = plotLocationDto;
 
     if (!p) return;
 
@@ -106,16 +106,18 @@ export class TrakingService {
       const updateResult = await this.locationRepository.query(
         `
           UPDATE public.l
-          SET 
+          SET
             latitude = $1,
             longitude = $2,
             heading = $3,
             taken = $4,
             polyline = $5,
+            "zoneId" = $6,
+            "blockId" = $7,
             "timestamp" = NOW()
-          WHERE "userId" = $6
+          WHERE "userId" = $8
         `,
-        [latitude, longitude, heading, taken, polyline, userId]
+        [latitude, longitude, heading, taken, polyline, zoneId, blockId, userId]
       );
 
       // updateResult[1] is the affected rows count on MySQL
@@ -125,11 +127,11 @@ export class TrakingService {
         await this.locationRepository.query(
           `
           INSERT INTO public.l
-            ("userId", latitude, longitude, heading, taken, polyline, "timestamp")
+            ("userId", latitude, longitude, heading, taken, polyline, "zoneId", "blockId", "timestamp")
           VALUES
-            ($1, $2, $3, $4, $5, $6, NOW());
+            ($1, $2, $3, $4, $5, $6, $7, $8, NOW());
           `,
-          [userId, latitude, longitude, heading, taken, polyline]
+          [userId, latitude, longitude, heading, taken, polyline, zoneId, blockId]
         );
       }
 
