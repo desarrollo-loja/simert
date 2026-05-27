@@ -147,6 +147,7 @@ export class OperatorService {
         emailClient: createIncidentDto.emailClient || antEmailClient,
         fullNameClient: createIncidentDto.fullNameClient || antFullNameClient,
         identityCard: createIncidentDto.identityCard || antIdentityCard,
+        code: createIncidentDto.code ?? '',
       });
 
       const savedIncident = await this.incidentRepository.save(incident);

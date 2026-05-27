@@ -36,6 +36,11 @@ export class CreateIncidentDto {
     address?: string;
 
     @IsOptional()
+    @IsString()
+    @MaxLength(LengthDb.code)
+    code?: string;
+
+    @IsOptional()
     @Type(() => Number)
     @IsEnum(TypeSizeVehicle)
     vehicleType?: TypeSizeVehicle;
