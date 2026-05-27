@@ -12,6 +12,7 @@ import { DinardapAntService } from 'src/api/dinardap-ant/dinardap-ant.service';
 import { CreateGimDto } from 'src/api/gim/dto/create-gim.dto';
 import { GimService } from 'src/api/gim/gim.service';
 import { Obligation } from 'src/api/gim/interfaces/gim-responses.interfaces';
+import { BillingDataDto } from 'src/common/dto/billing-data.dto';
 import { CommonAntService } from 'src/common/common.ant.service';
 import { CommonAuthService } from 'src/common/common.auth.service';
 import { CommonCacheService } from 'src/common/common.cache.service';
@@ -643,6 +644,11 @@ export class IncidentService {
         optionalData,
       );
 
+      const codes = incidents
+        .map(incident => (incident.code ?? '').trim())
+        .filter(code => code.length > 0)
+        .join(', ');
+
       const debitAmounDto = await this._parseDebitAmounDto(concept, payIncidentDto);
 
       // Verify
@@ -676,7 +682,7 @@ export class IncidentService {
         switch (typePaymentMethod) {
           case TypePaymentMethod.DEUNAV2:
 
-            const responseDeunaV2 = await this._payDeunaV2(idDevice, debitAmounDto, payIncidentDto, typePaymentResponsibility, referenceId);
+            const responseDeunaV2 = await this._payDeunaV2(idDevice, debitAmounDto, payIncidentDto, typePaymentResponsibility, referenceId, codes);
             if (responseDeunaV2['errorCode'] === ErrorCode.NONE) {
               urlDeuna = responseDeunaV2['deeplink'];
               await queryRunner.manager.update(
@@ -691,7 +697,7 @@ export class IncidentService {
 
           case TypePaymentMethod.AHORITA:
 
-            const responseAhorita = await this._payAhorita(idDevice, debitAmounDto, payIncidentDto, typePaymentResponsibility, referenceId);
+            const responseAhorita = await this._payAhorita(idDevice, debitAmounDto, payIncidentDto, typePaymentResponsibility, referenceId, codes);
 
             if (responseAhorita['errorCode'] === ErrorCode.NONE) {
               urlAhorita = responseAhorita['deeplink'];
@@ -707,7 +713,7 @@ export class IncidentService {
 
           case TypePaymentMethod.PLACE_TO_PAY:
 
-            const responsePlaceToPay = await this._payPlaceToPay(idDevice, debitAmounDto, payIncidentDto, typePaymentResponsibility, referenceId);
+            const responsePlaceToPay = await this._payPlaceToPay(idDevice, debitAmounDto, payIncidentDto, typePaymentResponsibility, referenceId, codes);
 
             if (responsePlaceToPay['errorCode'] === ErrorCode.NONE) {
               urlPlaceToPay = responsePlaceToPay['deeplink'];
@@ -960,7 +966,7 @@ export class IncidentService {
     return this._handleProviderPaymentFailure(referenceId, userId, amount, typePaymentMethod);
   }
 
-  private async _payDeunaV2(idDevice: string, debitAmounDto: DebitAmounDto, payIncidentDto: PayIncidentDto, typePaymentResponsibility: TypePaymentResponsibility, referenceId: string) {
+  private async _payDeunaV2(idDevice: string, debitAmounDto: DebitAmounDto, payIncidentDto: PayIncidentDto, typePaymentResponsibility: TypePaymentResponsibility, referenceId: string, codes: string) {
 
     const { userId, typePaymentMethod, credentialId, amount
     } = payIncidentDto;
@@ -979,7 +985,7 @@ export class IncidentService {
       idTransactionReason: IdTransactionReason.PAY_INCIDENT,
       concept: debitAmounDto.concept,
       purchase_data: debitAmounDto.purchase_data,
-      billing_data: debitAmounDto.billing_data,
+      billing_data: { ...debitAmounDto.billing_data, code: codes } as BillingDataDto,
       transactionId: debitAmounDto.transactionId,
       userId,
       webhook: this._buildPaymentResponseWebhook(idDevice, userId, referenceId, typePaymentMethod, register, typePaymentResponsibility),
@@ -993,7 +999,7 @@ export class IncidentService {
     );
   }
 
-  private async _payAhorita(idDevice: string, debitAmounDto: DebitAmounDto, payIncidentDto: PayIncidentDto, typePaymentResponsibility: TypePaymentResponsibility, referenceId: string) {
+  private async _payAhorita(idDevice: string, debitAmounDto: DebitAmounDto, payIncidentDto: PayIncidentDto, typePaymentResponsibility: TypePaymentResponsibility, referenceId: string, codes: string) {
     const { userId, typePaymentMethod, credentialId, amount } = payIncidentDto;
     const { register } = debitAmounDto;
 
@@ -1010,7 +1016,7 @@ export class IncidentService {
       idTransactionReason: IdTransactionReason.PAY_INCIDENT,
       concept: debitAmounDto.concept,
       purchase_data: debitAmounDto.purchase_data,
-      billing_data: debitAmounDto.billing_data,
+      billing_data: { ...debitAmounDto.billing_data, code: codes } as BillingDataDto,
       transactionId: debitAmounDto.transactionId,
       userId,
       webhook: this._buildPaymentResponseWebhook(idDevice, userId, referenceId, typePaymentMethod, register, typePaymentResponsibility),
@@ -1024,7 +1030,7 @@ export class IncidentService {
     );
   }
 
-  private async _payPlaceToPay(idDevice: string, debitAmounDto: DebitAmounDto, payIncidentDto: PayIncidentDto, typePaymentResponsibility: TypePaymentResponsibility, referenceId: string) {
+  private async _payPlaceToPay(idDevice: string, debitAmounDto: DebitAmounDto, payIncidentDto: PayIncidentDto, typePaymentResponsibility: TypePaymentResponsibility, referenceId: string, codes: string) {
 
     const { userId, typePaymentMethod, credentialId, amount } = payIncidentDto;
     const { register } = debitAmounDto;
@@ -1042,7 +1048,7 @@ export class IncidentService {
       idTransactionReason: IdTransactionReason.PAY_INCIDENT,
       concept: debitAmounDto.concept,
       purchase_data: debitAmounDto.purchase_data,
-      billing_data: debitAmounDto.billing_data,
+      billing_data: { ...debitAmounDto.billing_data, code: codes } as BillingDataDto,
       transactionId: debitAmounDto.transactionId,
       userId,
       webhook: this._buildPaymentResponseWebhook(idDevice, userId, referenceId, typePaymentMethod, register, typePaymentResponsibility),

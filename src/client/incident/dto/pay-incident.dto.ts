@@ -77,4 +77,7 @@ export class IncidentItemDto {
 
     @IsString()
     register: string;
+
+    @IsString()
+    code: string;
 }
