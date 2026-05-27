@@ -404,9 +404,14 @@ export class OperatorService {
           'block.id', 'block.name', 'block.neighborhood', 'block.mainStreet', 'block.sideStreet', 'block.timePerFraction',
         ])
         .innerJoin('slot.block', 'block')
+        .innerJoin('block.zone', 'zone')
         .where('slot.blockId = :blockId', { blockId })
+        .andWhere('slot.isActivated = :isActivated', { isActivated: true })
+        .andWhere('block.isActivated = :isActivated', { isActivated: true })
+        .andWhere('zone.isActivated = :isActivated', { isActivated: true })
         .andWhere('slot.lt != :zero AND slot.lg != :zero', { zero: 0 })
-        .andWhere('block.lt != :zero AND block.lg != :zero', { zero: 0 });
+        .andWhere('block.lt != :zero AND block.lg != :zero', { zero: 0 })
+        .andWhere('zone.lt != :zero AND zone.lg != :zero', { zero: 0 });
 
       const fractionQuery = this.fractionRepository.createQueryBuilder('f')
         .select([
