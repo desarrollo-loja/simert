@@ -10,8 +10,7 @@ import { LengthDb } from "src/common/glob/length.db";
 import { Column, Entity, Index, ManyToOne, OneToMany, PrimaryGeneratedColumn, Unique, UpdateDateColumn } from "typeorm";
 
 @Entity()
-@Unique(["name"])
-@Unique(["acronym"])
+@Unique(["name", "acronym"])
 @Index(['name'], { fulltext: true })
 @Index(['neighborhood'], { fulltext: true })
 @Index(['mainStreet'], { fulltext: true })

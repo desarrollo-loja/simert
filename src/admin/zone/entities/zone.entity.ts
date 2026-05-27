@@ -10,8 +10,7 @@ import { ScheduleInterface } from "src/common/intefaces/schedule.interface";
 import { Column, Entity, Index, OneToMany, PrimaryGeneratedColumn, Unique, UpdateDateColumn } from "typeorm";
 
 @Entity()
-@Unique(["name"])
-@Unique(["acronym"])
+@Unique(["name", "acronym"])
 @Index(['name'], { fulltext: true })
 export class Zone {
 
