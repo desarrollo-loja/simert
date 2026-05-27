@@ -10,8 +10,6 @@ import { LengthDb } from "src/common/glob/length.db";
 import { Column, Entity, Index, ManyToOne, OneToMany, PrimaryGeneratedColumn, Unique, UpdateDateColumn } from "typeorm";
 
 @Entity()
-@Unique(["name"])
-@Unique(["acronym"])
 @Index(['name'], { fulltext: true })
 @Index(['neighborhood'], { fulltext: true })
 @Index(['mainStreet'], { fulltext: true })
@@ -24,7 +22,7 @@ export class Block {
     id: number;
 
     @ApiProperty({ example: 'Zona A', maxLength: 20, description: 'Display name of the block (sector)' })
-    @Column("varchar", { length: 20, comment: 'Display name of the block (sector)' })
+    @Column({ type: 'citext', unique: true, length: 20, comment: 'Display name of the block (sector)' })
     name: string;
 
     @ApiProperty({ example: 'Downtown sector with high rotation', description: 'Detailed description of the block area' })
@@ -37,7 +35,7 @@ export class Block {
 
     @ApiProperty({ example: 'ZA', maxLength: 7, description: 'Short acronym identifying the block (e.g. "A", "B1")' })
     @Index()
-    @Column("varchar", { length: 7, comment: 'Short acronym identifying the block (e.g. "A", "B1")' })
+    @Column({ type: 'citext', unique: true, length: 7, comment: 'Short acronym identifying the block (e.g. "A", "B1")' })
     acronym: string;
 
     @ApiProperty({ example: '#7986CB', maxLength: 7, description: 'Hex color code used to display the block on the map UI' })
