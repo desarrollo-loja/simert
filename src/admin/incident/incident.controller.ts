@@ -205,7 +205,7 @@ export class IncidentController {
   @ApiOperation({ summary: 'Aggregate total parking time per vehicle/client from incident data' })
   @Get('find-all-total-vehicle-client-time/:userId/:idDevice/:version')
   findAllTotalVehicleClientTime(
-    @Query() filterDto: FilterDto,
+    @Query() filterDto: IncidentFilterDto,
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
     @Param('version', ParseIntPipe) version: number
@@ -217,7 +217,7 @@ export class IncidentController {
   @AuthWithKeycloak()
   @Get('find-all-statistics-fraction-sanction/:userId/:idDevice/:version')
   findAllStatisticsFractionSanction(
-    @Query() filterDto: FilterDto,
+    @Query() filterDto: IncidentFilterDto,
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
     @Param('version', ParseIntPipe) version: number

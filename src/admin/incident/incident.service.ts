@@ -1232,7 +1232,7 @@ export class IncidentService {
    * @param filterDto Filters applied via {@link _buildConditionsAndParametersPg}.
    * @returns Object with the `fractionSanction` aggregate row.
    */
-  async findAllTotalVehicleClientTime(filterDto: FilterDto) {
+  async findAllTotalVehicleClientTime(filterDto: IncidentFilterDto) {
     try {
       const { typeFractionId } = filterDto;
 
@@ -1281,7 +1281,7 @@ export class IncidentService {
    * @param filterDto Filters applied via {@link _buildConditionsAndParametersPg}.
    * @returns Object with the `fractionSanction` rows grouped by zone/block/time.
    */
-  async findAllStatisticsFractionSanction(filterDto: FilterDto) {
+  async findAllStatisticsFractionSanction(filterDto: IncidentFilterDto) {
     const { typeFractionId } = filterDto;
     try {
       const { tableNameIncident, tableNameFraction } = await this._resolveSanctionTables(filterDto);
