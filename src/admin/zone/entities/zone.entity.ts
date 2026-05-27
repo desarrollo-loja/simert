@@ -19,7 +19,7 @@ export class Zone {
     id: number;
 
     @ApiProperty({ example: 'Zone A', maxLength: 20, description: 'Display zone name' })
-    @Column({ type: 'citext', unique: true, length: 20, comment: 'Display name of the zone (e.g. "Zone A", "Zone B")' })
+    @Column({ type: 'citext', unique: true, comment: 'Display name of the zone (e.g. "Zone A", "Zone B")' })
     name: string;
 
     @ApiProperty({ example: 'Downtown paid parking area', description: 'Detailed description' })
@@ -27,7 +27,7 @@ export class Zone {
     description: string;
 
     @ApiProperty({ example: 'ZA', maxLength: 7, description: 'Short acronym identifying the zone' })
-    @Column({ type: 'citext', unique: true, length: 7, comment: 'Short acronym identifying the zone (e.g. "ZA", "ZB")' })
+    @Column({ type: 'citext', unique: true, comment: 'Short acronym identifying the zone (e.g. "ZA", "ZB")' })
     @Index()
     acronym: string;
 
