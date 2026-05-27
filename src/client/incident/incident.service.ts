@@ -403,7 +403,7 @@ export class IncidentService {
         it.name AS reason, i.amount AS amount, i."bondId" AS "bondId",
         i."createdAt" AS "createdAt", i."statusIncident" AS "status", i."register" AS "register",
         i."nroTicket" AS "nroTicket", i."incidentTypeId" AS "incidentTypeId",
-        i."vehicleType" AS "vehicleType",
+        i."vehicleType" AS "vehicleType", i."code" AS "code",
         i."address" AS "address", i."optionalData" AS "optionalData",
         i."controllerId" AS "controllerId", i."onResponseExternal" AS "onResponseExternal",
         i."fullNameClient" AS "fullNameClient", i."emailClient" AS "emailClient",
