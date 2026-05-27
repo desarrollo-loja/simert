@@ -68,6 +68,9 @@ export class Incident {
     @Index()
     plate: string;
 
+    @Column("varchar", { default: '', length: LengthDb.code, comment: 'GIM system code (rubro) that uniquely identifies this infraction type in the external system' })
+    code: string;
+
     @Column("json", { nullable: true, comment: 'Extra key-value pairs for incident data not covered by explicit columns' })
     optionalData: OptionalDataInterface[];
 
@@ -205,7 +208,7 @@ export class Incident {
     @ManyToOne(
         () => Fraction,
         (fraction) => fraction.incidents,
-        { cascade: false, eager: false, onDelete: "NO ACTION", nullable: true}
+        { cascade: false, eager: false, onDelete: "NO ACTION", nullable: true }
     )
     fraction: Fraction;
 
