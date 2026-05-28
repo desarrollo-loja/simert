@@ -313,7 +313,7 @@ export class TrakingService {
           AND t.register BETWEEN $2 AND $3
           AND (t.register <> $2 OR t.time >= $4)
           AND (t.register <> $3 OR t.time <= $5)
-        ORDER BY t.register, t.time;
+        ORDER BY t.register, t.time DESC;
       `;
     const trackings = await this.dataSource.query(
       query,
