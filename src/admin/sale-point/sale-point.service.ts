@@ -228,7 +228,7 @@ export class SalePointService {
       parameters['blockId'] = blockId;
     }
 
-    if (isApproved) {
+    if (isApproved !== undefined && isApproved !== null) {
       conditions.push('sp.isApproved = :isApproved');
       parameters['isApproved'] = isApproved;
     }
