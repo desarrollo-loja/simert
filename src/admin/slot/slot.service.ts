@@ -271,7 +271,7 @@ export class SlotService {
       }
 
       if (search) {
-        query.andWhere('s.slot ILIKE :search', { search: `%${search}%` });
+        query.andWhere('s.slot ILIKE :search', { search: `${search}%` });
       }
 
       if (typeSlot) {
