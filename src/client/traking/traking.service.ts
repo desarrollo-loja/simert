@@ -263,4 +263,64 @@ export class TrakingService {
     return { errorCode: ErrorCode.NONE, locations };
   }
 
+  /**
+   * Historical tracking lookup against a single monthly partition.
+   *
+   * The frontend's Histórico tab guarantees `from` and `to` live inside the
+   * same month, and passes the year+month explicitly. We use them to route
+   * directly to the `YYYY_MM_traking` table (no fallback / no UNION), and
+   * apply the day-of-month + hour boundaries inside that partition:
+   *   • register BETWEEN dateFrom AND dateTo (inclusive)
+   *   • on the first day: time >= timeFrom
+   *   • on the last  day: time <= timeTo
+   *   • days in between: any time
+   *
+   * If the partition does not exist yet (e.g. queried for a month that
+   * never had data), we return an empty result instead of crashing.
+   */
+  async getAllTrackingHistory(
+    userId: number, from: Date, to: Date, year: number, month: number
+  ) {
+    const paddedMonth = month <= 9 ? `0${month}` : `${month}`;
+    const tableName = `${year}_${paddedMonth}_traking`;
+    const qualifiedTable = `public."${tableName}"`;
+
+    // The partition is created lazily on first INSERT. If a user queries a
+    // month with no tracking data the table won't exist; return [] instead
+    // of throwing a SQL error.
+    const tableExists = await this.dataSource.query(
+      `SELECT to_regclass($1) AS oid`,
+      [qualifiedTable]
+    );
+    if (!tableExists?.[0]?.oid) {
+      return { errorCode: ErrorCode.NONE, trackings: [] };
+    }
+
+    const isoFrom = from.toISOString().split('T');
+    const dateFrom = isoFrom[0];
+    const timeFrom = isoFrom[1].substring(0, 8);
+
+    const isoTo = to.toISOString().split('T');
+    const dateTo = isoTo[0];
+    const timeTo = isoTo[1].substring(0, 8);
+
+    const query =
+      `
+        SELECT "idDevice", latitude, longitude, "statusTracking", "activityTracking",
+               data, polyline, register, time
+        FROM ${qualifiedTable} t
+        WHERE t."userId" = $1
+          AND t.register BETWEEN $2 AND $3
+          AND (t.register <> $2 OR t.time >= $4)
+          AND (t.register <> $3 OR t.time <= $5)
+        ORDER BY t.register, t.time;
+      `;
+    const trackings = await this.dataSource.query(
+      query,
+      [userId, dateFrom, dateTo, timeFrom, timeTo]
+    );
+
+    return { errorCode: ErrorCode.NONE, trackings };
+  }
+
 }
