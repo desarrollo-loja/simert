@@ -126,7 +126,7 @@ export class CheckboxService {
         }
 
         const query = `
-          SELECT c.id, c."transactionId", c."statusIncident", c."onResponseExternal"
+          SELECT c.id, c."transactionId", c."statusIncident", c."onResponseExternal", c."optionalData"
           FROM ${tableName} c
           WHERE ${conditions.join(' AND ')}
           ORDER BY c.id DESC;
