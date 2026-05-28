@@ -296,6 +296,8 @@ export class OperatorService {
       .where('s.slot = :slot', { slot: createOperatorDto.slot })
       .getOne();
 
+    this.logger.log(`Slot found: ${slot}`);
+
     if (!slot) {
       return { errorCode: ErrorCode.NOT_FOUND }
     }
@@ -304,18 +306,20 @@ export class OperatorService {
       return { errorCode: ErrorCode.OCCUPIED }
     }
 
-    const checkboxUser = await this.checkboxUserRepository.createQueryBuilder('cb')
-      .select(['cb.checkboxes'])
-      .where('cb.userId = :userId', { userId })
-      .getOne();
+    // const checkboxUser = await this.checkboxUserRepository.createQueryBuilder('cb')
+    //   .select(['cb.checkboxes'])
+    //   .where('cb.userId = :userId', { userId })
+    //   .getOne();
 
-    if (!checkboxUser) {
-      return { errorCode: ErrorCode.NOT_FOUND }
-    }
+    // this.logger.log(`Checkbox user found: ${checkboxUser}`);
 
-    if (checkboxUser.checkboxes < checkboxes) {
-      return { errorCode: ErrorCode.NOT_ENOUGH_CHECKBOXES }
-    }
+    // if (!checkboxUser) {
+    //   return { errorCode: ErrorCode.NOT_FOUND }
+    // }
+
+    // if (checkboxUser.checkboxes < checkboxes) {
+    //   return { errorCode: ErrorCode.NOT_ENOUGH_CHECKBOXES }
+    // }
 
     const physicTotal = await this.physicRepository.createQueryBuilder('p')
       .select('COALESCE(SUM(p.checkboxes), 0)', 'totalCheckbox')
