@@ -206,8 +206,8 @@ export class PhysicsService {
     }
 
     if (search) {
-      parameters.push(`%${search}%`);
-      conditions.push(`p."card" ILIKE $${parameters.length}`);
+      parameters.push(search);
+      conditions.push(`p."card" = $${parameters.length}`);
     }
 
     if (dateFrom) {
