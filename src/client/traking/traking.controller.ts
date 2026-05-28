@@ -68,10 +68,12 @@ export class TrakingController {
    */
   @ApiOperation({
     summary:
-      'Get tracking records for a user within a SINGLE monthly partition (year+month required)'
+      'Get tracking records for a user within a SINGLE monthly partition (year+month required). Supports optional limit/offset pagination for the table view.'
   })
   @ApiQuery({ name: 'year', required: true, type: Number })
   @ApiQuery({ name: 'month', required: true, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'offset', required: false, type: Number })
   @Get('all-tracking-history/:userId/:idDevice/:from/:to/:version')
   getAllTrackingHistory(
     @Param('userId', ParseIntPipe) userId: number,
@@ -80,10 +82,44 @@ export class TrakingController {
     @Param('to') toString: Date,
     @Query('year', ParseIntPipe) year: number,
     @Query('month', ParseIntPipe) month: number,
+    @Query('limit') limitRaw?: string,
+    @Query('offset') offsetRaw?: string,
   ) {
     const from = new Date(fromString);
     const to = new Date(toString);
-    return this.trakingService.getAllTrackingHistory(userId, from, to, year, month);
+    const limit = limitRaw !== undefined ? parseInt(limitRaw, 10) : undefined;
+    const offset = offsetRaw !== undefined ? parseInt(offsetRaw, 10) : undefined;
+    return this.trakingService.getAllTrackingHistory(userId, from, to, year, month, limit, offset);
+  }
+
+  /**
+   * Lightweight polyline endpoint for the Histórico map. Returns only
+   * lat/lng (no metadata, no JSON columns) and applies server-side
+   * downsampling so the browser doesn't choke when the partition has
+   * tens of thousands of points.
+   */
+  @ApiOperation({
+    summary:
+      'Get the downsampled lat/lng polyline for a user in a single monthly partition'
+  })
+  @ApiQuery({ name: 'year', required: true, type: Number })
+  @ApiQuery({ name: 'month', required: true, type: Number })
+  @ApiQuery({ name: 'maxPoints', required: false, type: Number })
+  @Get('tracking-polyline-history/:userId/:idDevice/:from/:to/:version')
+  getTrackingPolylineHistory(
+    @Param('userId', ParseIntPipe) userId: number,
+    @Param('idDevice', ParseUUIDPipe) idDevice: string,
+    @Param('from') fromString: Date,
+    @Param('to') toString: Date,
+    @Query('year', ParseIntPipe) year: number,
+    @Query('month', ParseIntPipe) month: number,
+    @Query('maxPoints') maxPointsRaw?: string,
+  ) {
+    const from = new Date(fromString);
+    const to = new Date(toString);
+    const maxPoints =
+      maxPointsRaw !== undefined ? parseInt(maxPointsRaw, 10) : undefined;
+    return this.trakingService.getTrackingPolyline(userId, from, to, year, month, maxPoints);
   }
 
 }

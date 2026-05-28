@@ -279,7 +279,8 @@ export class TrakingService {
    * never had data), we return an empty result instead of crashing.
    */
   async getAllTrackingHistory(
-    userId: number, from: Date, to: Date, year: number, month: number
+    userId: number, from: Date, to: Date, year: number, month: number,
+    limit?: number, offset?: number,
   ) {
     const paddedMonth = month <= 9 ? `0${month}` : `${month}`;
     const tableName = `${year}_${paddedMonth}_traking`;
@@ -293,7 +294,7 @@ export class TrakingService {
       [qualifiedTable]
     );
     if (!tableExists?.[0]?.oid) {
-      return { errorCode: ErrorCode.NONE, trackings: [] };
+      return { errorCode: ErrorCode.NONE, trackings: [], total: 0 };
     }
 
     const isoFrom = from.toISOString().split('T');
@@ -304,6 +305,34 @@ export class TrakingService {
     const dateTo = isoTo[0];
     const timeTo = isoTo[1].substring(0, 8);
 
+    const hasPagination =
+      limit !== undefined && limit !== null && limit > 0;
+
+    // Total count for pagination metadata. Only run COUNT(*) when paginating
+    // — for non-paginated callers we can derive it from the result length.
+    let total = 0;
+    if (hasPagination) {
+      const countRow = await this.dataSource.query(
+        `
+          SELECT COUNT(*)::int AS total
+          FROM ${qualifiedTable} t
+          WHERE t."userId" = $1
+            AND t.register BETWEEN $2 AND $3
+            AND (t.register <> $2 OR t.time >= $4)
+            AND (t.register <> $3 OR t.time <= $5);
+        `,
+        [userId, dateFrom, dateTo, timeFrom, timeTo]
+      );
+      total = countRow?.[0]?.total ?? 0;
+    }
+
+    const dataParams: any[] = [userId, dateFrom, dateTo, timeFrom, timeTo];
+    let pagingClause = '';
+    if (hasPagination) {
+      dataParams.push(limit, offset ?? 0);
+      pagingClause = `LIMIT $${dataParams.length - 1} OFFSET $${dataParams.length}`;
+    }
+
     const query =
       `
         SELECT "idDevice", latitude, longitude, "statusTracking", "activityTracking",
@@ -313,14 +342,115 @@ export class TrakingService {
           AND t.register BETWEEN $2 AND $3
           AND (t.register <> $2 OR t.time >= $4)
           AND (t.register <> $3 OR t.time <= $5)
-        ORDER BY t.register, t.time DESC;
+        ORDER BY t.register DESC, t.time DESC
+        ${pagingClause};
       `;
-    const trackings = await this.dataSource.query(
-      query,
+    const trackings = await this.dataSource.query(query, dataParams);
+
+    if (!hasPagination) total = trackings.length;
+
+    return { errorCode: ErrorCode.NONE, trackings, total };
+  }
+
+  /**
+   * Returns a downsampled lat/lng list for the user's tracking inside a
+   * single monthly partition. Designed to feed the Histórico map polyline
+   * without freezing the browser when the raw record count is huge.
+   *
+   * Strategy:
+   *   1. Resolve year/month/dateFrom/dateTo/timeFrom/timeTo as in
+   *      `getAllTrackingHistory`.
+   *   2. COUNT(*) over the same predicate to get the total point count.
+   *   3. If total <= maxPoints, return everything (ordered chronologically).
+   *   4. Otherwise compute `stride = ceil(total / maxPoints)` and keep only
+   *      rows where `row_number % stride = 0`, plus the first and last
+   *      rows so the visible route always starts and ends at the real
+   *      endpoints.
+   *
+   * The default cap of 1500 points keeps Leaflet's SVG renderer fluid even
+   * on lower-end devices; callers can raise/lower it via `maxPoints`.
+   */
+  async getTrackingPolyline(
+    userId: number, from: Date, to: Date, year: number, month: number,
+    maxPoints = 1500,
+  ) {
+    const paddedMonth = month <= 9 ? `0${month}` : `${month}`;
+    const tableName = `${year}_${paddedMonth}_traking`;
+    const qualifiedTable = `public."${tableName}"`;
+
+    const tableExists = await this.dataSource.query(
+      `SELECT to_regclass($1) AS oid`,
+      [qualifiedTable]
+    );
+    if (!tableExists?.[0]?.oid) {
+      return { errorCode: ErrorCode.NONE, points: [], total: 0 };
+    }
+
+    const isoFrom = from.toISOString().split('T');
+    const dateFrom = isoFrom[0];
+    const timeFrom = isoFrom[1].substring(0, 8);
+
+    const isoTo = to.toISOString().split('T');
+    const dateTo = isoTo[0];
+    const timeTo = isoTo[1].substring(0, 8);
+
+    const countRow = await this.dataSource.query(
+      `
+        SELECT COUNT(*)::int AS total
+        FROM ${qualifiedTable} t
+        WHERE t."userId" = $1
+          AND t.register BETWEEN $2 AND $3
+          AND (t.register <> $2 OR t.time >= $4)
+          AND (t.register <> $3 OR t.time <= $5);
+      `,
       [userId, dateFrom, dateTo, timeFrom, timeTo]
     );
+    const total: number = countRow?.[0]?.total ?? 0;
+    if (total === 0) {
+      return { errorCode: ErrorCode.NONE, points: [], total: 0 };
+    }
 
-    return { errorCode: ErrorCode.NONE, trackings };
+    const safeMax = Math.max(2, Math.floor(maxPoints) || 1500);
+
+    // Under the cap → return every point, just lat/lng.
+    if (total <= safeMax) {
+      const points = await this.dataSource.query(
+        `
+          SELECT latitude, longitude
+          FROM ${qualifiedTable} t
+          WHERE t."userId" = $1
+            AND t.register BETWEEN $2 AND $3
+            AND (t.register <> $2 OR t.time >= $4)
+            AND (t.register <> $3 OR t.time <= $5)
+          ORDER BY t.register, t.time;
+        `,
+        [userId, dateFrom, dateTo, timeFrom, timeTo]
+      );
+      return { errorCode: ErrorCode.NONE, points, total };
+    }
+
+    // Above the cap → stride sampling, preserving endpoints.
+    const stride = Math.ceil(total / safeMax);
+    const points = await this.dataSource.query(
+      `
+        WITH ordered AS (
+          SELECT latitude, longitude,
+                 ROW_NUMBER() OVER (ORDER BY t.register, t.time) AS rn
+          FROM ${qualifiedTable} t
+          WHERE t."userId" = $1
+            AND t.register BETWEEN $2 AND $3
+            AND (t.register <> $2 OR t.time >= $4)
+            AND (t.register <> $3 OR t.time <= $5)
+        )
+        SELECT latitude, longitude
+        FROM ordered
+        WHERE rn = 1 OR rn = $6 OR (rn % $7) = 0
+        ORDER BY rn;
+      `,
+      [userId, dateFrom, dateTo, timeFrom, timeTo, total, stride]
+    );
+
+    return { errorCode: ErrorCode.NONE, points, total };
   }
 
 }
