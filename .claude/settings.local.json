@@ -43,7 +43,8 @@
       "Bash(echo \"ESLINT EXIT: $?\")",
       "Bash(npx nest *)",
       "Bash(curl -s -X POST \"https://api.telegram.org/bot7980668976:AAHm-8KTyQCb25Z2Id9aPwz94UAEkFgeZnE/sendMessage\" -d chat_id=181334323 -d text=\"Claude Code: Iniciando refactorizacion SOLID integral de src/. Explorare el codigo primero y te escribire por aqui antes de pedir cualquier autorizacion para decisiones que requieran tu input.\")",
-      "Bash(npx nest *)"
+      "Bash(npx nest *)",
+      "Bash(echo \"BUILD_EXIT: $?\")"
     ]
   }
 }

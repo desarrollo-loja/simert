@@ -29,6 +29,9 @@ export class CreateOperatorDto {
     @IsNumber()
     checkboxes: number
 
+    @IsNumber()
+    initialRow: number
+
     @IsString()
     @IsOptional()
     time: string

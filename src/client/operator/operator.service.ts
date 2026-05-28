@@ -304,6 +304,33 @@ export class OperatorService {
       return { errorCode: ErrorCode.OCCUPIED }
     }
 
+    const checkboxUser = await this.checkboxUserRepository.createQueryBuilder('cb')
+      .select(['cb.checkboxes'])
+      .where('cb.userId = :userId', { userId })
+      .getOne();
+
+    if (!checkboxUser) {
+      return { errorCode: ErrorCode.NOT_FOUND }
+    }
+
+    if (checkboxUser.checkboxes < checkboxes) {
+      return { errorCode: ErrorCode.NOT_ENOUGH_CHECKBOXES }
+    }
+
+    const physicTotal = await this.physicRepository.createQueryBuilder('p')
+      .select('COALESCE(SUM(p.checkboxes), 0)', 'totalCheckbox')
+      .where('p.userId = :userId', { userId })
+      .andWhere('p.card = :card', { card: createOperatorDto.card })
+      .getRawOne();
+
+    const totalCheckbox = Number(physicTotal?.totalCheckbox ?? 0);
+
+    this.logger.log(`Total checkboxes consumed by user ${userId} with card ${createOperatorDto.card}: ${totalCheckbox}`);
+
+    if (createOperatorDto.initialRow <= totalCheckbox) {
+      return { errorCode: ErrorCode.OCCUPIED }
+    }
+
     let fractionCheck = await this.fractionRepository.findOne({ where: { userId, transactionId } });
 
     if (fractionCheck) {
