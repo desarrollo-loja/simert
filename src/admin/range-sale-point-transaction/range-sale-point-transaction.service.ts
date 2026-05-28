@@ -51,12 +51,20 @@ export class RangeSalePointTransactionService {
     try {
       const { conditions, parameters } = this._buildSqlConditions(filterDto);
 
+      // Alias every column so duplicate names across joined tables (id from rspt,
+      // rsp and sp; description from rsp) don't collide in the result row. Without
+      // these aliases the last column wins (sp.id overwrote rspt.id), which made
+      // every transaction from the same sale point share the same `id` value and
+      // caused Vue/q-table "Duplicate keys found" warnings + duplicated rendering.
       let sql = `
         SELECT
-          rspt.id, rspt."userIdSell", rspt."userIdBuy", rspt.amount,
+          rspt.id AS "id",
+          rspt."userIdSell", rspt."userIdBuy", rspt.amount,
           TO_CHAR(rspt."createdAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS') AS "createdAt",
-          rsp.id, rsp."available", rsp.sold, rsp.description,
-          sp.id, sp.title, sp."subTitle", sp.type, sp.mode
+          rsp.id AS "rangeSalePointId",
+          rsp."available", rsp.sold, rsp.description AS "rangeDescription",
+          sp.id AS "salePointId",
+          sp.title, sp."subTitle", sp.type, sp.mode
         FROM public.range_sale_point_transaction rspt
         INNER JOIN public.range_sale_point rsp ON rsp.id = rspt."rangeSalePointId"
         INNER JOIN public.sale_point sp ON sp.id = rsp."salePointId"
