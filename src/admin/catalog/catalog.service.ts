@@ -1,6 +1,8 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import handleDbExceptions from 'src/common/exceptions/error.db.exception';
+import handleDbExceptions, {
+  PG_UNIQUE_VIOLATION,
+} from 'src/common/exceptions/error.db.exception';
 import { ErrorCode } from 'src/common/glob/error';
 import { TypeOperation } from 'src/common/glob/type/type_operation';
 import { LoggerService } from 'src/common/logger.service.ts';
@@ -48,6 +50,10 @@ export class CatalogService {
       });
       return { errorCode: ErrorCode.NONE, catalog };
     } catch (error) {
+      if ((error as { code?: string })?.code === PG_UNIQUE_VIOLATION) {
+        this.logger.error(error);
+        return { errorCode: ErrorCode.NAMEUNIQUE };
+      }
       handleDbExceptions(error, this.logger);
     }
   }
@@ -122,6 +128,10 @@ export class CatalogService {
       }
       return { errorCode: ErrorCode.NOT_FOUND };
     } catch (error) {
+      if ((error as { code?: string })?.code === PG_UNIQUE_VIOLATION) {
+        this.logger.error(error);
+        return { errorCode: ErrorCode.NAMEUNIQUE };
+      }
       handleDbExceptions(error, this.logger);
     }
   }
