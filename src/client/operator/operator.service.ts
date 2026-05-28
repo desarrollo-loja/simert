@@ -306,21 +306,6 @@ export class OperatorService {
       return { errorCode: ErrorCode.OCCUPIED }
     }
 
-    // const checkboxUser = await this.checkboxUserRepository.createQueryBuilder('cb')
-    //   .select(['cb.checkboxes'])
-    //   .where('cb.userId = :userId', { userId })
-    //   .getOne();
-
-    // this.logger.log(`Checkbox user found: ${checkboxUser}`);
-
-    // if (!checkboxUser) {
-    //   return { errorCode: ErrorCode.NOT_FOUND }
-    // }
-
-    // if (checkboxUser.checkboxes < checkboxes) {
-    //   return { errorCode: ErrorCode.NOT_ENOUGH_CHECKBOXES }
-    // }
-
     const physicTotal = await this.physicRepository.createQueryBuilder('p')
       .select('COALESCE(SUM(p.checkboxes), 0)', 'totalCheckbox')
       .where('p.userId = :userId', { userId })
