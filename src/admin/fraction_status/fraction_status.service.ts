@@ -43,7 +43,9 @@ export class FractionStatusService {
   async findAllFractionState(fractionId: number | string, filterDto: FilterDto) {
     const { year, month } = filterDto;
     try {
-      let tableName = `fraction_status`;
+      // Live table uses an explicit double-quoted camelCase identifier so PostgreSQL
+      // preserves the casing (unquoted it would be folded to lowercase and not found).
+      let tableName = `public."fractionStatus"`;
       // Defense-in-depth: validate year/month as integers in expected ranges
       // before interpolating into the table identifier.
       if (year && month) {
@@ -53,7 +55,8 @@ export class FractionStatusService {
           Number.isInteger(y) && y >= 2000 && y <= 2100 &&
           Number.isInteger(m) && m >= 1 && m <= 12
         ) {
-          tableName = `${y}_${m}_fraction_status`;
+          // Historical partition names start with a digit, so they must be double-quoted.
+          tableName = `"${y}_${m}_fraction_status"`;
         }
       }
       // Parameterized fractionId to prevent SQL injection via URL param.

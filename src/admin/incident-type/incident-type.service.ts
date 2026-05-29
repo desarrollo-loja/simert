@@ -86,7 +86,7 @@ export class IncidentTypeService {
    * @throws Delegates DB errors to {@link handleDbExceptions}.
    */
   async findAll(filterDto: IncidentTypeFilterDto) {
-    const table = 'public.incident_type';
+    const table = 'public."incidentType"';
 
     const { conditions, parameters } = this._buildConditionsAndParametersPg(filterDto);
 

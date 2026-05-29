@@ -54,7 +54,7 @@ export class CheckboxService {
           SELECT c.id,
           c."userId", c."transactionId", c.checkboxes, c.amount,
           c.moment, c."statusPayment", c."typePaymentMethod",
-          c.billing_data, c."cardId",
+          c."billingData" AS billing_data, c."cardId",
           TO_CHAR(c."createdAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS') AS "createdAt",
           TO_CHAR(c."updatedAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS') AS "updatedAt",
           c."statusIncident"

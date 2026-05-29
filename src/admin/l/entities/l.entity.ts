@@ -1,7 +1,7 @@
 import { IsNumber } from 'class-validator';
 import { Column, Entity, Index, PrimaryColumn } from "typeorm";
 
-@Entity()
+@Entity('l')
 @Index(['userId', 'taken', 'timestamp', 'latitude', 'longitude'])
 export class L {
 

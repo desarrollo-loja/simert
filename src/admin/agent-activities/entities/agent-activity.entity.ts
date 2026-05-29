@@ -3,7 +3,7 @@ import { LengthDb } from "src/common/glob/length.db";
 import { TypeActivity } from "src/common/glob/type/type_activity";
 import { Column, Entity, Index, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 
-@Entity()
+@Entity('agentActivity')
 export class AgentActivity {
     @PrimaryGeneratedColumn('increment')
     @IsNumber()

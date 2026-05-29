@@ -9,7 +9,7 @@ import { TypePaymentMethod } from "src/common/glob/type/type_payment_method";
 import { OptionalDataInterface } from "src/common/intefaces/optional-data.interface";
 import { Column, Entity, Index, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 
-@Entity()
+@Entity('checkbox')
 @Index(["userId", "transactionId"])
 export class Checkbox {
     @ApiProperty({ example: 1, description: 'Unique checkbox purchase identifier' })
@@ -78,7 +78,7 @@ export class Checkbox {
     statusPayment: StatusPayment;
 
     @ApiProperty({ type: () => BillingDataDto, description: 'Billing data (name, identity card, address, etc.) provided at purchase time' })
-    @Column("json", { nullable: false, comment: 'Billing data (name, identity card, address, etc.) provided at purchase time' })
+    @Column("json", { name: 'billingData', nullable: false, comment: 'Billing data (name, identity card, address, etc.) provided at purchase time' })
     billing_data: BillingDataDto;
 
     @ApiPropertyOptional({ example: 'https://gateway.example.com/redirect/abc', description: 'Payment gateway redirect URL generated on the first payment attempt' })

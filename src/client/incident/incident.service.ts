@@ -12,12 +12,12 @@ import { DinardapAntService } from 'src/api/dinardap-ant/dinardap-ant.service';
 import { CreateGimDto } from 'src/api/gim/dto/create-gim.dto';
 import { GimService } from 'src/api/gim/gim.service';
 import { Obligation } from 'src/api/gim/interfaces/gim-responses.interfaces';
-import { BillingDataDto } from 'src/common/dto/billing-data.dto';
 import { CommonAntService } from 'src/common/common.ant.service';
 import { CommonAuthService } from 'src/common/common.auth.service';
 import { CommonCacheService } from 'src/common/common.cache.service';
 import { CommonGimService } from 'src/common/common.gim.service';
 import { CommonService } from 'src/common/common.service';
+import { BillingDataDto } from 'src/common/dto/billing-data.dto';
 import { CreateClientGimDto } from 'src/common/dto/create-client-gim.dto';
 import { CreateNotificationDto } from 'src/common/dto/create-notification.dto';
 import { DebitAmounDto } from 'src/common/dto/debit-amoun.dto';
@@ -55,7 +55,7 @@ import { UpdateIncidentDto } from './dto/update-incident.dto';
  * external providers (DeUna / Ahorita / PlaceToPay) and post-payment
  * synchronization with GIM.
  *
- * Persists to `public.incident` and `public.incident_payment`.
+ * Persists to `public.incident` and `public."incidentPayment"`.
  */
 @Injectable()
 export class IncidentService {
@@ -410,7 +410,7 @@ export class IncidentService {
         i."fullNameClient" AS "fullNameClient", i."emailClient" AS "emailClient",
         i."identityCard" AS "identityCard", i."commission" AS "commission", i."reference" AS "reference"
       FROM ${table} i
-      INNER JOIN public.incident_type it ON i."incidentTypeId" = it.id
+      INNER JOIN public."incidentType" it ON i."incidentTypeId" = it.id
     `;
 
       const query = `${baseSelect(tableName)} ${buildWhere()}`;

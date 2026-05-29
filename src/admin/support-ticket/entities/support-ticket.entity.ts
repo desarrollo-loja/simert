@@ -5,7 +5,7 @@ import { SupportTicketStatus } from 'src/common/glob/type/support_ticket_status'
 import { SupportTicketType } from 'src/common/glob/type/support_ticket_type';
 import { Column, Entity, Index, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
 
-@Entity('support_ticket')
+@Entity('supportTicket')
 export class SupportTicket {
 
     @PrimaryGeneratedColumn('increment')

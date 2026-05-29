@@ -3,7 +3,7 @@ import { IsNumber } from "class-validator";
 import { RangeSalePoint } from "src/admin/range-sale-point/entities/range-sale-point.entity";
 import { Column, Entity, Index, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 
-@Entity()
+@Entity('rangeSalePointTransaction')
 export class RangeSalePointTransaction {
     @ApiProperty({ example: 1, description: 'Unique transaction identifier' })
     @PrimaryGeneratedColumn('increment')

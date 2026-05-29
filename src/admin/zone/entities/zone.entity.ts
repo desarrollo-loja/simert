@@ -7,9 +7,9 @@ import { Slot } from "src/admin/slot/entities/slot.entity";
 import { LengthDb } from "src/common/glob/length.db";
 import { TypeZone } from "src/common/glob/type/type_zone";
 import { ScheduleInterface } from "src/common/intefaces/schedule.interface";
-import { Column, Entity, Index, OneToMany, PrimaryGeneratedColumn, Unique, UpdateDateColumn } from "typeorm";
+import { Column, Entity, Index, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 
-@Entity()
+@Entity('zone')
 @Index(['name'], { fulltext: true })
 export class Zone {
 
@@ -88,7 +88,7 @@ export class Zone {
     @ApiPropertyOptional({ type: () => Slot, isArray: true })
     @OneToMany(
         () => Slot,
-        (slot) => slot.block,
+        (slot) => slot.zone,
         { cascade: false, eager: false }
     )
     slots?: Slot[];
@@ -96,7 +96,7 @@ export class Zone {
     @ApiPropertyOptional({ type: () => Fraction, isArray: true })
     @OneToMany(
         () => Fraction,
-        (fraction) => fraction.slot,
+        (fraction) => fraction.zone,
         { cascade: false, eager: false }
     )
     fractions?: Fraction[];

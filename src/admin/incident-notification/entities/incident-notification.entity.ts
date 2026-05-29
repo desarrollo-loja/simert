@@ -1,8 +1,9 @@
 import { IsNumber } from "class-validator";
 import { LengthDb } from "src/common/glob/length.db";
 import { IncidentStatus } from "src/common/glob/type/type_incident";
-import { Column, Index, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+import { Column, Entity, Index, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 
+@Entity('incidentNotification')
 export class IncidentNotification {
 
     @PrimaryGeneratedColumn('increment')

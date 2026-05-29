@@ -60,7 +60,7 @@ export class DataService {
             const tableIncident = `"${table}_incident"`;
 
             // CREATE TABLE LIKE — PostgreSQL form
-            await queryRunner.query(`CREATE TABLE IF NOT EXISTS history.${tableFractionStatus} (LIKE public.fraction_status INCLUDING ALL)`);
+            await queryRunner.query(`CREATE TABLE IF NOT EXISTS history.${tableFractionStatus} (LIKE public."fractionStatus" INCLUDING ALL)`);
             await queryRunner.query(`CREATE TABLE IF NOT EXISTS history.${tableFraction} (LIKE public.fraction INCLUDING ALL)`);
 
             await queryRunner.query(`CREATE TABLE IF NOT EXISTS history.${tableCheckbox} (LIKE public.checkbox INCLUDING ALL)`);
@@ -208,7 +208,7 @@ export class DataService {
                     // Make sure the historical tables for the correct month exist.
                     // The "current - 2 days" tables were created at the top, but when
                     // reprocessing fractions from earlier months their tables may not exist yet.
-                    await queryRunner.query(`CREATE TABLE IF NOT EXISTS history.${targetFractionStatus} (LIKE public.fraction_status INCLUDING ALL)`);
+                    await queryRunner.query(`CREATE TABLE IF NOT EXISTS history.${targetFractionStatus} (LIKE public."fractionStatus" INCLUDING ALL)`);
                     await queryRunner.query(`CREATE TABLE IF NOT EXISTS history.${targetFraction} (LIKE public.fraction INCLUDING ALL)`);
 
                     // Insert fraction_status first, then fraction.
@@ -216,7 +216,7 @@ export class DataService {
                     // independent), but we keep it consistent with the rest of the flow.
                     await queryRunner.query(
                         `INSERT INTO history.${targetFractionStatus}
-                        SELECT * FROM public.fraction_status
+                        SELECT * FROM public."fractionStatus"
                         WHERE "fractionId" = ANY($1)`,
                         [ids]
                     );
@@ -236,7 +236,7 @@ export class DataService {
                 const allFractionIds = fractionIdsToTransfer.map((e: { id: number }) => e.id);
 
                 await queryRunner.query(
-                    `DELETE FROM public.fraction_status WHERE "fractionId" = ANY($1)`,
+                    `DELETE FROM public."fractionStatus" WHERE "fractionId" = ANY($1)`,
                     [allFractionIds]
                 );
 

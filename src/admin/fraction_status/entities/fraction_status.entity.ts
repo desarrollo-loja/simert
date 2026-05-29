@@ -3,7 +3,7 @@ import { Status } from "src/admin/status/entities/status.entity";
 import { StatusMoment } from "src/common/glob/status/status_moment";
 import { Column, Entity, Index, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 
-@Entity()
+@Entity('fractionStatus')
 @Index(['fraction', 'status'])
 export class FractionStatus {
 
@@ -24,7 +24,7 @@ export class FractionStatus {
     @Index()
     @ManyToOne(
         () => Status,
-        (status) => status.fractions,
+        (status) => status.fractionsStatus,
         { cascade: false, eager: false, onDelete: "NO ACTION", }
     )
     status: Status;

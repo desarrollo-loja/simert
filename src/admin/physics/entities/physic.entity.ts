@@ -2,7 +2,7 @@ import { IsNumber } from "class-validator";
 import { OptionalDataInterface } from "src/common/intefaces/optional-data.interface";
 import { Column, Entity, Index, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 
-@Entity()
+@Entity('physic')
 export class Physic {
 
     @PrimaryGeneratedColumn('increment')

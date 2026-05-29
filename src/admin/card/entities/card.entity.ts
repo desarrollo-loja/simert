@@ -2,7 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { IsNumber } from "class-validator";
 import { Column, Entity, Index, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 
-@Entity()
+@Entity('card')
 export class Card {
     @ApiProperty({ example: 1, description: 'Unique card type identifier' })
     @PrimaryGeneratedColumn('increment')

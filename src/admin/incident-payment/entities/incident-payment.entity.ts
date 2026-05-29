@@ -6,7 +6,7 @@ import { TypePaymentMethod } from "src/common/glob/type/type_payment_method";
 import { OptionalDataInterface } from "src/common/intefaces/optional-data.interface";
 import { Column, Entity, Index, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 
-@Entity()
+@Entity('incidentPayment')
 export class IncidentPayment {
 
     @PrimaryGeneratedColumn('increment')
@@ -24,7 +24,7 @@ export class IncidentPayment {
     @Index()
     referenceId: string;
 
-    @Column("json", { nullable: false, comment: 'Billing data (name, identity card, address, etc.) provided at payment time' })
+    @Column("json", { name: 'billingData', nullable: false, comment: 'Billing data (name, identity card, address, etc.) provided at payment time' })
     billing_data: BillingDataDto;
 
     @Column('numeric', {

@@ -849,7 +849,7 @@ export class IncidentService {
                 COUNT(i.id) as total,
                 it.name as name
               FROM ${tableName} i
-              INNER JOIN public."incident_type" it ON i."incidentTypeId" = it.id
+              INNER JOIN public."incidentType" it ON i."incidentTypeId" = it.id
       `;
 
       if (conditions.length > 0) {
@@ -893,7 +893,7 @@ export class IncidentService {
                 COUNT(i.id) as total,
                 it.name as name
               FROM ${tableName} i
-              INNER JOIN public."incident_type" it ON i."incidentTypeId" = it.id
+              INNER JOIN public."incidentType" it ON i."incidentTypeId" = it.id
               WHERE i."fractionId" IS NOT NULL
       `;
 
@@ -1070,7 +1070,7 @@ export class IncidentService {
             f.time as "timeFraction"
           FROM
             ${tableNameIncident} i
-            INNER JOIN public."incident_type" it ON i."incidentTypeId" = it.id
+            INNER JOIN public."incidentType" it ON i."incidentTypeId" = it.id
             INNER JOIN public.zone z ON z.id = i."zoneId"
             INNER JOIN public.block b ON b.id = i."blockId"
             LEFT JOIN ${tableNameFraction} f ON f.id = i."fractionId"
@@ -1130,7 +1130,7 @@ export class IncidentService {
             COUNT(*) as total
           FROM
             ${tableNameIncident} i
-            INNER JOIN public."incident_type" it ON i."incidentTypeId" = it.id
+            INNER JOIN public."incidentType" it ON i."incidentTypeId" = it.id
             INNER JOIN public.zone z ON z.id = i."zoneId"
             INNER JOIN public.block b ON b.id = i."blockId"
             LEFT JOIN ${tableNameFraction} f ON f.id = i."fractionId"

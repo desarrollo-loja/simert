@@ -2,7 +2,7 @@ import { IsNumber } from "class-validator";
 import { LengthDb } from "src/common/glob/length.db";
 import { Column, Entity, Index, PrimaryGeneratedColumn, Unique, UpdateDateColumn } from "typeorm";
 
-@Entity()
+@Entity('incidentType')
 @Index(['name'], { fulltext: true })
 @Index(['description'], { fulltext: true })
 @Unique(['code'])

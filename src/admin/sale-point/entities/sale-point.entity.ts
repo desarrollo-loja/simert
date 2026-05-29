@@ -4,13 +4,11 @@ import { RangeSalePoint } from "src/admin/range-sale-point/entities/range-sale-p
 import { Zone } from "src/admin/zone/entities/zone.entity";
 import { BillingDataDto } from "src/common/dto/billing-data.dto";
 import { LengthDb } from "src/common/glob/length.db";
-import { TypeBankAccount } from "src/common/glob/type/type_bank_account";
-import { TypeIdentityCard } from "src/common/glob/type/type_identity_card";
 import { TypeModeSalePoint } from "src/common/glob/type/type_mode_sale_point";
 import { TypeSalePoint } from "src/common/glob/type/type_sale_point";
 import { Column, Entity, Index, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 
-@Entity()
+@Entity('salePoint')
 export class SalePoint {
     @PrimaryGeneratedColumn('increment')
     @IsNumber()
@@ -40,7 +38,7 @@ export class SalePoint {
     @Index()
     userId: number;
 
-    @Column("json", { nullable: true, comment: 'Billing data (name, identity card, address, etc.) for this sale point' })
+    @Column("json", { name: 'billingData', nullable: true, comment: 'Billing data (name, identity card, address, etc.) for this sale point' })
     billing_data: BillingDataDto;
 
     @Column("varchar", { length: LengthDb.alias, comment: 'Alias or short name used to identify the bank account' })

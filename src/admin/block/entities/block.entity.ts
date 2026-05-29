@@ -7,9 +7,9 @@ import { Schedule } from "src/admin/schedule/entities/schedule.entity";
 import { Slot } from "src/admin/slot/entities/slot.entity";
 import { Zone } from "src/admin/zone/entities/zone.entity";
 import { LengthDb } from "src/common/glob/length.db";
-import { Column, Entity, Index, ManyToOne, OneToMany, PrimaryGeneratedColumn, Unique, UpdateDateColumn } from "typeorm";
+import { Column, Entity, Index, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 
-@Entity()
+@Entity('block')
 @Index(['name'], { fulltext: true })
 @Index(['neighborhood'], { fulltext: true })
 @Index(['mainStreet'], { fulltext: true })
@@ -118,7 +118,7 @@ export class Block {
     @ApiPropertyOptional({ type: () => Fraction, isArray: true, description: 'Parking fractions registered on this block' })
     @OneToMany(
         () => Fraction,
-        (fraction) => fraction.slot,
+        (fraction) => fraction.block,
         { cascade: false, eager: false }
     )
     fractions?: Fraction[];

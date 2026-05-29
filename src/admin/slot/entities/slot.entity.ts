@@ -7,7 +7,7 @@ import { StatusSlot } from "src/common/glob/status/status_slot";
 import { TypeSlot } from "src/common/glob/type/type_slot";
 import { Column, Entity, Index, ManyToOne, OneToMany, PrimaryGeneratedColumn, Unique, UpdateDateColumn } from "typeorm";
 
-@Entity()
+@Entity('slot')
 @Unique(['slot'])
 export class Slot {
 

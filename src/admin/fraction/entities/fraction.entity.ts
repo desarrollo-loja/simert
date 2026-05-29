@@ -12,7 +12,7 @@ import { MetaInterface } from "src/common/intefaces/meta.interface";
 import { OptionalDataInterface } from "src/common/intefaces/optional-data.interface";
 import { BeforeInsert, Column, Entity, Index, ManyToOne, OneToMany, PrimaryGeneratedColumn, Unique, UpdateDateColumn } from "typeorm";
 
-@Entity()
+@Entity('fraction')
 @Unique(['userId', 'transactionId'])
 export class Fraction {
 

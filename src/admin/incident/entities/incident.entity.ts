@@ -9,7 +9,7 @@ import { TypeSizeVehicle } from "src/common/glob/type/type_size_vehicle";
 import { OptionalDataInterface } from "src/common/intefaces/optional-data.interface";
 import { Column, Entity, Index, ManyToOne, PrimaryGeneratedColumn, Unique, UpdateDateColumn } from "typeorm";
 
-@Entity()
+@Entity('incident')
 @Unique(["nroTicket"])
 export class Incident {
 

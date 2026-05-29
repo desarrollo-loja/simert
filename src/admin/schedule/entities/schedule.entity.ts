@@ -2,7 +2,7 @@ import { IsPositive } from "class-validator";
 import { Block } from "src/admin/block/entities/block.entity";
 import { Column, Entity, Index, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 
-@Entity()
+@Entity('schedule')
 @Index(['block', 'dayOfWeekInit'])
 @Index(['block', 'dayOfWeekEnd'])
 export class Schedule {

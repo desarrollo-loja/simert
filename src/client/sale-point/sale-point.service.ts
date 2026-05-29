@@ -51,7 +51,7 @@ export class SalePointService {
   async findAllActiveModeMobile(filterDto: FilterDto) {
     try {
       let query = `SELECT "sp"."id", "sp"."mode", "loc"."latitude" AS "lt", "loc"."longitude" AS "lg", "sp"."title", "sp"."subTitle", "sp"."userId"
-        FROM "sale_point" "sp"
+        FROM "salePoint" "sp"
         INNER JOIN "l" "loc" ON "loc"."userId" = "sp"."userId"
         WHERE "sp"."mode" = $1 `;
 

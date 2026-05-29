@@ -65,9 +65,9 @@ export class RangeSalePointTransactionService {
           rsp."available", rsp.sold, rsp.description AS "rangeDescription",
           sp.id AS "salePointId",
           sp.title, sp."subTitle", sp.type, sp.mode
-        FROM public.range_sale_point_transaction rspt
-        INNER JOIN public.range_sale_point rsp ON rsp.id = rspt."rangeSalePointId"
-        INNER JOIN public.sale_point sp ON sp.id = rsp."salePointId"
+        FROM public."rangeSalePointTransaction" rspt
+        INNER JOIN public."rangeSalePoint" rsp ON rsp.id = rspt."rangeSalePointId"
+        INNER JOIN public."salePoint" sp ON sp.id = rsp."salePointId"
       `;
 
       if (conditions.length > 0) {
@@ -108,9 +108,9 @@ export class RangeSalePointTransactionService {
 
     let sql = `
       SELECT COUNT(*) as total
-      FROM public.range_sale_point_transaction rspt
-      INNER JOIN public.range_sale_point rsp ON rsp.id = rspt."rangeSalePointId"
-      INNER JOIN public.sale_point sp ON sp.id = rsp."salePointId"
+      FROM public."rangeSalePointTransaction" rspt
+      INNER JOIN public."rangeSalePoint" rsp ON rsp.id = rspt."rangeSalePointId"
+      INNER JOIN public."salePoint" sp ON sp.id = rsp."salePointId"
     `;
 
     if (conditions.length > 0) {

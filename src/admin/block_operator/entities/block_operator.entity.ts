@@ -2,7 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { Block } from "src/admin/block/entities/block.entity";
 import { Column, Entity, Index, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 
-@Entity()
+@Entity('blockOperator')
 @Index(['userId', 'block'])
 export class BlockOperator {
 

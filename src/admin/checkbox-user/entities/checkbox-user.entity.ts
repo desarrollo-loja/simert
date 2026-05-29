@@ -1,7 +1,7 @@
 import { IsNumber } from "class-validator";
 import { Column, Entity, Index, PrimaryGeneratedColumn, Unique, UpdateDateColumn } from "typeorm";
 
-@Entity()
+@Entity('checkboxUser')
 @Unique(["userId"])
 export class CheckboxUser {
     @PrimaryGeneratedColumn('increment')

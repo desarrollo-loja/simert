@@ -41,7 +41,7 @@ export class AgentActivitiesService {
         aa."userId",
         aa."blockOperatorId",
         b.name AS "blockName"
-        FROM agent_activity AS aa
+        FROM "agentActivity" AS aa
         INNER JOIN block b ON aa."blockId" = b.id
       `;
 
@@ -75,7 +75,7 @@ export class AgentActivitiesService {
 
       let query = `
         SELECT COUNT(*) AS total
-        FROM agent_activity AS aa
+        FROM "agentActivity" AS aa
         INNER JOIN block b ON aa."blockId" = b.id
       `;
 

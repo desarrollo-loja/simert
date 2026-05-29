@@ -3,7 +3,7 @@ import { Fraction } from "src/admin/fraction/entities/fraction.entity";
 import { FractionStatus } from "src/admin/fraction_status/entities/fraction_status.entity";
 import { Column, Entity, OneToMany, PrimaryColumn, UpdateDateColumn } from "typeorm";
 
-@Entity()
+@Entity('status')
 export class Status {
 
     @PrimaryColumn({ comment: 'Manual primary key matching the StatusFraction enum values' })
@@ -29,7 +29,7 @@ export class Status {
 
     @OneToMany(
         () => FractionStatus,
-        (fractionStatus) => fractionStatus.fraction,
+        (fractionStatus) => fractionStatus.status,
         { cascade: false, eager: false, onDelete: "NO ACTION", }
     )
     fractionsStatus: FractionStatus[];

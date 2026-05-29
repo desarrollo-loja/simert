@@ -5,7 +5,7 @@ import { SalePoint } from "src/admin/sale-point/entities/sale-point.entity";
 import { LengthDb } from "src/common/glob/length.db";
 import { Column, Entity, Index, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 
-@Entity()
+@Entity('rangeSalePoint')
 export class RangeSalePoint {
     @ApiProperty({ example: 1, description: 'Unique range-sale-point identifier' })
     @PrimaryGeneratedColumn('increment')

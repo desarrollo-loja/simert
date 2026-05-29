@@ -5,7 +5,7 @@ import { StatusRange } from "src/common/glob/status/status_range";
 import { TypeCard } from "src/common/glob/type/type_card";
 import { Column, Entity, Index, PrimaryGeneratedColumn, Unique, UpdateDateColumn } from "typeorm";
 
-@Entity()
+@Entity('range')
 @Unique(['from', 'to'])
 export class Range {
 

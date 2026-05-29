@@ -765,7 +765,7 @@ export class OperatorService {
         i."controllerId" AS "controllerId", i."onResponseExternal" AS "onResponseExternal",
         i."identityCard" AS "identityCard", i."commission" AS "commission", i."reference" AS "reference"
       FROM ${table} i
-      INNER JOIN public.incident_type it ON i."incidentTypeId" = it.id
+      INNER JOIN public."incidentType" it ON i."incidentTypeId" = it.id
     `;
 
       const query = `${baseSelect(tableName)} ${buildWhere()}`;

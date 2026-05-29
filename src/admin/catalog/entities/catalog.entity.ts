@@ -1,7 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { Column, Entity, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 
-@Entity()
+@Entity('catalog')
 export class Catalog {
     @ApiProperty({ example: 1, description: 'Unique catalog type identifier' })
     @PrimaryGeneratedColumn()

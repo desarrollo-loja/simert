@@ -76,7 +76,7 @@ export class SupportTicketService {
       TO_CHAR(st."createdAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS') AS "createdAt",
       TO_CHAR(st."updatedAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS') AS "updatedAt",
       st."typeTicket"
-    FROM public.support_ticket st
+    FROM public."supportTicket" st
     `;
 
     if (conditions.length > 0) {
@@ -117,7 +117,7 @@ export class SupportTicketService {
   async findAllTotal(filterDto: SupportTicketFilterDto) {
     const { conditions, parameters } = this._buildSqlConditions(filterDto);
 
-    let sql = `SELECT COUNT(*) as total FROM public.support_ticket st`;
+    let sql = `SELECT COUNT(*) as total FROM public."supportTicket" st`;
 
     if (conditions.length > 0) {
       sql += ' WHERE ' + conditions.join(' AND ');
