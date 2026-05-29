@@ -1,23 +1,23 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { IsNumber } from "class-validator";
 import { RangeSalePoint } from "src/admin/range-sale-point/entities/range-sale-point.entity";
-import { Column, Entity, Index, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+import { Column, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 
 @Entity('rangeSalePointTransaction')
 export class RangeSalePointTransaction {
     @ApiProperty({ example: 1, description: 'Unique transaction identifier' })
-    @PrimaryGeneratedColumn('increment')
+    @PrimaryGeneratedColumn('increment', { primaryKeyConstraintName: 'pkRangeSalePointTransactionId' })
     @IsNumber()
     id: number;
 
     @ApiProperty({ example: 20, description: 'User identifier of the agent who sold the card range' })
     @Column("int", { comment: 'User identifier of the agent who sold the card range' })
-    @Index()
+    @Index('idxRangeSalePointTransactionUserIdSell')
     userIdSell: number;
 
     @ApiProperty({ example: 10, description: 'User identifier of the agent who bought the card range' })
     @Column("int", { comment: 'User identifier of the agent who bought the card range' })
-    @Index()
+    @Index('idxRangeSalePointTransactionUserIdBuy')
     userIdBuy: number;
 
     @ApiProperty({ example: 5, description: 'Number of cards (checkboxes) transferred in this transaction' })
@@ -30,6 +30,7 @@ export class RangeSalePointTransaction {
         rangeSalePoint => rangeSalePoint.rangeSalePointTransactions,
         { nullable: false }
     )
+    @JoinColumn({ name: 'rangeSalePointId', foreignKeyConstraintName: 'fkRangeSalePointTransactionRangeSalePoint' })
     rangeSalePoint: RangeSalePoint
 
     @ApiProperty({ type: String, format: 'date-time', description: 'Creation timestamp' })

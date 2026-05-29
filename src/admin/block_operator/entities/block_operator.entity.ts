@@ -1,13 +1,13 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { Block } from "src/admin/block/entities/block.entity";
-import { Column, Entity, Index, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+import { Column, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 
 @Entity('blockOperator')
-@Index(['userId', 'block'])
+@Index('idxBlockOperatorUserIdBlock', ['userId', 'block'])
 export class BlockOperator {
 
     @ApiProperty({ example: 1, description: 'Unique block operator shift identifier' })
-    @PrimaryGeneratedColumn('increment')
+    @PrimaryGeneratedColumn('increment', { primaryKeyConstraintName: 'pkBlockOperatorId' })
     id: number;
 
     @ApiProperty({ example: true, description: 'Whether this shift assignment is currently active' })
@@ -16,16 +16,16 @@ export class BlockOperator {
 
     @ApiProperty({ example: 42, description: 'User identifier of the control officer assigned to this shift' })
     @Column("int", { comment: 'User identifier of the control officer assigned to this shift' })
-    @Index()
+    @Index('idxBlockOperatorUserId')
     userId: number;
 
     @ApiPropertyOptional({ type: String, format: 'date-time', description: 'Start datetime of the operator shift' })
-    @Index()
+    @Index('idxBlockOperatorFrom')
     @Column({ type: 'timestamp', nullable: true, comment: 'Start datetime of the operator shift' })
     from: Date;
 
     @ApiPropertyOptional({ type: String, format: 'date-time', description: 'End datetime of the operator shift' })
-    @Index()
+    @Index('idxBlockOperatorTo')
     @Column({ type: 'timestamp', nullable: true, comment: 'End datetime of the operator shift' })
     to: Date;
 
@@ -46,12 +46,13 @@ export class BlockOperator {
     dateFinalized: Date;
 
     @ApiPropertyOptional({ type: () => Block, description: 'Associated block (sector) to which the operator is assigned' })
-    @Index()
+    @Index('idxBlockOperatorBlock')
     @ManyToOne(
         () => Block,
         (block) => block.blocksOperator,
         { nullable: false }
     )
+    @JoinColumn({ name: 'blockId', foreignKeyConstraintName: 'fkBlockOperatorBlock' })
     block: Block;
 
     @ApiProperty({ type: String, format: 'date-time', description: 'Creation timestamp' })

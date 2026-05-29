@@ -7,13 +7,13 @@ import { InternalStateIncident } from "src/common/glob/type/type_internal_state_
 import { TypePaymentMethod } from "src/common/glob/type/type_payment_method";
 import { TypeSizeVehicle } from "src/common/glob/type/type_size_vehicle";
 import { OptionalDataInterface } from "src/common/intefaces/optional-data.interface";
-import { Column, Entity, Index, ManyToOne, PrimaryGeneratedColumn, Unique, UpdateDateColumn } from "typeorm";
+import { Column, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn, Unique, UpdateDateColumn } from "typeorm";
 
 @Entity('incident')
-@Unique(["nroTicket"])
+@Unique('uqIncidentNroTicket', ["nroTicket"])
 export class Incident {
 
-    @PrimaryGeneratedColumn('increment')
+    @PrimaryGeneratedColumn('increment', { primaryKeyConstraintName: 'pkIncidentId' })
     @IsNumber()
     id: number;
 
@@ -21,35 +21,35 @@ export class Incident {
         nullable: true,
         comment: 'Incident type identifier (fine category). Only applies to fines (NOTIFICATION), not reports or sanctions'
     })
-    @Index()
+    @Index('idxIncidentIncidentTypeId')
     incidentTypeId: number;
 
     @Column("int", {
         nullable: true,
         comment: 'Incident category: NOTIFICATION (100) = fine, INCIDENT_BITACORA (200) = log entry, REPORT (300) = report'
     })
-    @Index()
+    @Index('idxIncidentIncidentCategory')
     incidentCategory: IncidentCategory;
 
     @Column("int", {
         default: IncidentStatus.ENTERED,
         comment: 'GIM system status of the incident: ENTERED(100), APPEALED(200), ERRONEOUS(300), CANCELED(400), APPROVED(500), SUPPLIED(600), PAYED(700), CANCELED_BY_SUPERVISOR(800), CONVENIO(900), ON_CREDIT(1000), PENDIENTE_LIQUIDACION(1100)'
     })
-    @Index()
+    @Index('idxIncidentStatusIncident')
     statusIncident: IncidentStatus;
 
     @Column("int", {
         default: InternalStateIncident.SIMERT_ADMINISTRATION,
         comment: 'Internal workflow state: SIMERT_ADMINISTRATION(100) = pending data review, TRAFFIC_POLICE_STATION(200) = generating documents, REVENUE_DEPARTMENT(300) = issuing credit titles'
     })
-    @Index()
+    @Index('idxIncidentInternalState')
     internalState: InternalStateIncident;
 
     @Column("int", {
         nullable: true,
         comment: 'Vehicle type involved in the incident: UNDEFINED(0), VEHICLE(1), BIKE(19), OTHERS(26)'
     })
-    @Index()
+    @Index('idxIncidentVehicleType')
     vehicleType: TypeSizeVehicle;
 
     @Column("varchar", { default: '', length: LengthDb.details, comment: 'Free-text description of the incident' })
@@ -65,7 +65,7 @@ export class Incident {
     address: string;
 
     @Column("varchar", { nullable: true, length: LengthDb.plate, comment: 'License plate of the vehicle involved in the incident' })
-    @Index()
+    @Index('idxIncidentPlate')
     plate: string;
 
     @Column("varchar", { default: '', length: LengthDb.code, comment: 'GIM system code (rubro) that uniquely identifies this infraction type in the external system' })
@@ -78,42 +78,42 @@ export class Incident {
     supervisorObservations: string;
 
     @Column("int", { comment: 'User ID of the control officer who registered the incident' })
-    @Index()
+    @Index('idxIncidentControllerId')
     controllerId: number;
 
     @Column("varchar", { length: LengthDb.identityCard, nullable: true, comment: 'National identity card number of the vehicle owner or client' })
-    @Index()
+    @Index('idxIncidentIdentityCard')
     identityCard: string;
 
     @Column("varchar", { length: LengthDb.fullName, nullable: true, comment: 'Full name of the vehicle owner or client' })
     fullNameClient: string;
 
     @Column("varchar", { length: LengthDb.email, nullable: true, comment: 'Email address of the vehicle owner or client' })
-    @Index()
+    @Index('idxIncidentEmailClient')
     emailClient: string;
 
     @Column("varchar", { nullable: true, default: null, comment: 'Physical ticket number left on the vehicle (citationNumber in GIM system)' })
-    @Index()
+    @Index('idxIncidentNroTicket')
     nroTicket: string | null;
 
     @Column("varchar", { nullable: true, comment: 'Obligation number (credit title number in GIM). Populated only after the title has been issued' })
-    @Index()
+    @Index('idxIncidentNroObligation')
     nroObligation: string;
 
     @Column("int", { comment: 'Block operator shift ID under which the incident was registered' })
-    @Index()
+    @Index('idxIncidentBlockOperatorId')
     blockOperatorId: number;
 
     @Column("int", { nullable: true, comment: 'Zone identifier where the incident occurred' })
-    @Index()
+    @Index('idxIncidentZoneId')
     zoneId: number;
 
     @Column("int", { comment: 'Block (sector) identifier where the incident occurred' })
-    @Index()
+    @Index('idxIncidentBlockId')
     blockId: number;
 
     @Column("varchar", { length: 5, nullable: true, comment: 'Parking slot number (display number, not the slot ID) where the incident occurred' })
-    @Index()
+    @Index('idxIncidentSlot')
     slot: string;
 
     @Column("varchar", {
@@ -160,7 +160,7 @@ export class Incident {
     commission: number;
 
     @Column("int", { nullable: true, comment: 'Obligation ID registered in the GIM system, linked to the credit title' })
-    @Index()
+    @Index('idxIncidentBondId')
     bondId: number;
 
     @Column("varchar", {
@@ -168,7 +168,7 @@ export class Incident {
         nullable: true,
         comment: 'Unique transaction ID sent when a payment is processed'
     })
-    @Index()
+    @Index('idxIncidentTransactionId')
     transactionId: string | null;
 
     @Column({
@@ -176,7 +176,7 @@ export class Incident {
         nullable: true,
         comment: 'Payment method used: references TypePaymentMethod enum',
     })
-    @Index()
+    @Index('idxIncidentTypePaymentMethod')
     typePaymentMethod: TypePaymentMethod | null;
 
     @Column({
@@ -184,7 +184,7 @@ export class Incident {
         nullable: true,
         comment: 'Current payment status of the incident: references StatusPayment enum',
     })
-    @Index()
+    @Index('idxIncidentStatusPayment')
     statusPayment: StatusPayment | null;
 
     @Column("boolean", { default: true, comment: 'Soft-delete flag. False means the incident has been deactivated' })
@@ -210,6 +210,7 @@ export class Incident {
         (fraction) => fraction.incidents,
         { cascade: false, eager: false, onDelete: "NO ACTION", nullable: true }
     )
+    @JoinColumn({ name: 'fractionId', foreignKeyConstraintName: 'fkIncidentFraction' })
     fraction: Fraction;
 
     @Column({ type: "timestamp", default: () => "now()", comment: 'Timestamp when the record was created' })
@@ -219,7 +220,7 @@ export class Incident {
     updatedAt: Date;
 
     @Column({ type: "timestamp", nullable: false, comment: 'Business-level registration datetime of the incident, set by the application' })
-    @Index()
+    @Index('idxIncidentRegister')
     register: string;
 
 }

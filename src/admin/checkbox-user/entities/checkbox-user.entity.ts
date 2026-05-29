@@ -2,14 +2,14 @@ import { IsNumber } from "class-validator";
 import { Column, Entity, Index, PrimaryGeneratedColumn, Unique, UpdateDateColumn } from "typeorm";
 
 @Entity('checkboxUser')
-@Unique(["userId"])
+@Unique('uqCheckboxUserUserId', ["userId"])
 export class CheckboxUser {
-    @PrimaryGeneratedColumn('increment')
+    @PrimaryGeneratedColumn('increment', { primaryKeyConstraintName: 'pkCheckboxUserId' })
     @IsNumber()
     id: number;
 
     @Column("int", { comment: 'User identifier who owns the checkboxes balance' })
-    @Index()
+    @Index('idxCheckboxUserUserId')
     userId: number;
 
     @Column("int", { comment: 'Number of parking fractions (checkboxes) available for this user' })

@@ -7,19 +7,21 @@ import { Slot } from "src/admin/slot/entities/slot.entity";
 import { LengthDb } from "src/common/glob/length.db";
 import { TypeZone } from "src/common/glob/type/type_zone";
 import { ScheduleInterface } from "src/common/intefaces/schedule.interface";
-import { Column, Entity, Index, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+import { Column, Entity, Index, OneToMany, PrimaryGeneratedColumn, Unique, UpdateDateColumn } from "typeorm";
 
 @Entity('zone')
-@Index(['name'], { fulltext: true })
+@Index('idxZoneName', ['name'], { fulltext: true })
+@Unique('uqZoneName', ['name'])
+@Unique('uqZoneAcronym', ['acronym'])
 export class Zone {
 
     @ApiProperty({ example: 1, description: 'Unique zone identifier' })
-    @PrimaryGeneratedColumn('increment')
+    @PrimaryGeneratedColumn('increment', { primaryKeyConstraintName: 'pkZoneId' })
     @IsNumber()
     id: number;
 
     @ApiProperty({ example: 'Zone A', maxLength: 20, description: 'Display zone name' })
-    @Column({ type: 'citext', unique: true, comment: 'Display name of the zone (e.g. "Zone A", "Zone B")' })
+    @Column({ type: 'citext', comment: 'Display name of the zone (e.g. "Zone A", "Zone B")' })
     name: string;
 
     @ApiProperty({ example: 'Downtown paid parking area', description: 'Detailed description' })
@@ -27,8 +29,8 @@ export class Zone {
     description: string;
 
     @ApiProperty({ example: 'ZA', maxLength: 7, description: 'Short acronym identifying the zone' })
-    @Column({ type: 'citext', unique: true, comment: 'Short acronym identifying the zone (e.g. "ZA", "ZB")' })
-    @Index()
+    @Column({ type: 'citext', comment: 'Short acronym identifying the zone (e.g. "ZA", "ZB")' })
+    @Index('idxZoneAcronym')
     acronym: string;
 
     @ApiProperty({ example: '#FF5733', maxLength: 7, description: 'Hex color used on the map UI' })
@@ -60,12 +62,12 @@ export class Zone {
     type: TypeZone;
 
     @ApiPropertyOptional({ type: String, format: 'date-time', description: 'Start datetime (only when type = TEMPORARY)' })
-    @Index()
+    @Index('idxZoneFromTemporary')
     @Column({ type: 'timestamp', nullable: true, comment: 'Start datetime for a temporary zone. Only applies when type = TEMPORARY' })
     fromTemporary: Date;
 
     @ApiPropertyOptional({ type: String, format: 'date-time', description: 'End datetime (only when type = TEMPORARY)' })
-    @Index()
+    @Index('idxZoneToTemporary')
     @Column({ type: 'timestamp', nullable: true, comment: 'End datetime for a temporary zone. Only applies when type = TEMPORARY' })
     toTemporary: Date;
 

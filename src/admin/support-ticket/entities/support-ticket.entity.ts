@@ -8,7 +8,7 @@ import { Column, Entity, Index, PrimaryGeneratedColumn, UpdateDateColumn } from 
 @Entity('supportTicket')
 export class SupportTicket {
 
-    @PrimaryGeneratedColumn('increment')
+    @PrimaryGeneratedColumn('increment', { primaryKeyConstraintName: 'pkSupportTicketId' })
     @IsNumber()
     id: number;
 
@@ -16,7 +16,7 @@ export class SupportTicket {
         nullable: true,
         comment: 'Registered user identifier who created the ticket, if applicable'
     })
-    @Index()
+    @Index('idxSupportTicketUserId')
     @IsOptional()
     @IsNumber()
     userId?: number;
@@ -24,7 +24,7 @@ export class SupportTicket {
     @Column('int', {
         comment: 'Type of request: 1=Inquiry, 2=Complaint, 3=Suggestion'
     })
-    @Index()
+    @Index('idxSupportTicketRequestType')
     requestType: SupportRequestType;
 
     @Column('varchar', {
@@ -39,7 +39,7 @@ export class SupportTicket {
         default: SupportTicketStatus.PENDING,
         comment: 'Ticket status: 1=Pending, 2=In Progress, 3=Resolved, 4=Rejected'
     })
-    @Index()
+    @Index('idxSupportTicketStatus')
     status: SupportTicketStatus;
 
     @Column('varchar', {
@@ -47,7 +47,7 @@ export class SupportTicket {
         nullable: true,
         comment: 'Client email address used to follow up on the ticket'
     })
-    @Index()
+    @Index('idxSupportTicketEmailClient')
     emailClient: string;
 
     @Column("varchar", {
@@ -67,6 +67,6 @@ export class SupportTicket {
         nullable: true,
         comment: 'Ticket submitter type: 1=USER, 2=CONTROLLER'
     })
-    @Index()
+    @Index('idxSupportTicketTypeTicket')
     typeTicket: SupportTicketType;
 }

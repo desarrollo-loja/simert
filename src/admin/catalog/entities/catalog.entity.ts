@@ -1,14 +1,15 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { Column, Entity, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+import { Column, Entity, PrimaryGeneratedColumn, Unique, UpdateDateColumn } from "typeorm";
 
 @Entity('catalog')
+@Unique('uqCatalogName', ['name'])
 export class Catalog {
     @ApiProperty({ example: 1, description: 'Unique catalog type identifier' })
-    @PrimaryGeneratedColumn()
+    @PrimaryGeneratedColumn({ primaryKeyConstraintName: 'pkCatalogId' })
     id: number;
 
     @ApiProperty({ example: 'Zone', description: 'Name of catalog' })
-    @Column("varchar", { length: 100, unique: true, comment: 'Name of catalog' })
+    @Column("varchar", { length: 100, comment: 'Name of catalog' })
     name: string;
 
     @ApiProperty({ example: '{}', description: 'Data of catalog' })

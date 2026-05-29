@@ -5,20 +5,20 @@ import { Fraction } from "src/admin/fraction/entities/fraction.entity";
 import { Zone } from "src/admin/zone/entities/zone.entity";
 import { StatusSlot } from "src/common/glob/status/status_slot";
 import { TypeSlot } from "src/common/glob/type/type_slot";
-import { Column, Entity, Index, ManyToOne, OneToMany, PrimaryGeneratedColumn, Unique, UpdateDateColumn } from "typeorm";
+import { Column, Entity, Index, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, Unique, UpdateDateColumn } from "typeorm";
 
 @Entity('slot')
-@Unique(['slot'])
+@Unique('uqSlotSlot', ['slot'])
 export class Slot {
 
     @ApiProperty({ example: 1, description: 'Unique slot identifier' })
-    @PrimaryGeneratedColumn('increment')
+    @PrimaryGeneratedColumn('increment', { primaryKeyConstraintName: 'pkSlotId' })
     @IsNumber()
     id: number;
 
     @ApiProperty({ example: 'A01', maxLength: 5, description: 'Display slot number/code' })
     @Column("varchar", { length: 5, nullable: true, comment: 'Display slot number shown on signage and app (e.g. "A01")' })
-    @Index()
+    @Index('idxSlotSlot')
     slot: string;
 
     @ApiProperty({ example: true, description: 'Whether the slot is active and visible' })
@@ -39,12 +39,12 @@ export class Slot {
 
     @ApiProperty({ enum: StatusSlot, description: 'Occupancy status (StatusSlot)' })
     @Column({ type: 'int', default: StatusSlot.AVAILABLE, comment: 'Current occupancy status: references StatusSlot enum (AVAILABLE, OCCUPIED, SANCTIONED, etc.)' })
-    @Index()
+    @Index('idxSlotStatus')
     status: StatusSlot;
 
     @ApiProperty({ enum: TypeSlot, description: 'Allowed vehicle type (TypeSlot)' })
     @Column({ type: 'int', default: TypeSlot.Car, comment: 'Vehicle type this slot is designated for: references TypeSlot enum (Car, Bike, etc.)' })
-    @Index()
+    @Index('idxSlotTypeSlot')
     typeSlot: TypeSlot;
 
     @ApiProperty({ type: String, format: 'date-time', description: 'Creation timestamp' })
@@ -56,21 +56,23 @@ export class Slot {
     updatedAt: Date;
 
     @ApiPropertyOptional({ type: () => Block, description: 'Associated block' })
-    @Index()
+    @Index('idxSlotBlock')
     @ManyToOne(
         () => Block,
         (block) => block.slots,
         { onDelete: "RESTRICT", nullable: false, eager: false }
     )
+    @JoinColumn({ name: 'blockId', foreignKeyConstraintName: 'fkSlotBlock' })
     block: Block;
 
     @ApiPropertyOptional({ type: () => Zone, description: 'Associated zone' })
-    @Index()
+    @Index('idxSlotZone')
     @ManyToOne(
         () => Zone,
         (zone) => zone.slots,
         { onDelete: "RESTRICT", nullable: false, eager: false }
     )
+    @JoinColumn({ name: 'zoneId', foreignKeyConstraintName: 'fkSlotZone' })
     zone: Zone;
 
     @ApiPropertyOptional({ type: () => Fraction, isArray: true, description: 'Associated usage fractions' })

@@ -5,24 +5,24 @@ import { Column, Entity, Index, PrimaryGeneratedColumn, UpdateDateColumn } from 
 
 @Entity('agentActivity')
 export class AgentActivity {
-    @PrimaryGeneratedColumn('increment')
+    @PrimaryGeneratedColumn('increment', { primaryKeyConstraintName: 'pkAgentActivityId' })
     @IsNumber()
     id: number;
 
     @Column("int", { comment: 'User identifier of the control officer who performed the activity' })
-    @Index()
+    @Index('idxAgentActivityUserId')
     userId: number;
 
     @Column("int", { comment: 'Block identifier where the activity took place' })
-    @Index()
+    @Index('idxAgentActivityBlockId')
     blockId: number;
 
     @Column("int", { comment: 'Block operator shift identifier during which the activity was registered' })
-    @Index()
+    @Index('idxAgentActivityBlockOperatorId')
     blockOperatorId: number;
 
     @Column("int", { comment: 'Activity type: references TypeActivity enum (CHECK_IN, CHECK_OUT, PATROL, etc.)' })
-    @Index()
+    @Index('idxAgentActivityType')
     type: TypeActivity;
 
     @Column("varchar", { length: LengthDb.description, default: '', comment: 'Optional description or notes about the activity' })

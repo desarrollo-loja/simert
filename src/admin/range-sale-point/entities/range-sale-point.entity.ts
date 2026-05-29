@@ -8,28 +8,28 @@ import { Column, Entity, Index, JoinColumn, ManyToOne, OneToMany, PrimaryGenerat
 @Entity('rangeSalePoint')
 export class RangeSalePoint {
     @ApiProperty({ example: 1, description: 'Unique range-sale-point identifier' })
-    @PrimaryGeneratedColumn('increment')
+    @PrimaryGeneratedColumn('increment', { primaryKeyConstraintName: 'pkRangeSalePointId' })
     @IsNumber()
     id: number;
 
     @ApiProperty({ example: 10, description: 'User identifier of the agent who wants to buy (receive) the card range' })
     @Column("int", { comment: 'User identifier of the agent who wants to buy (receive) the card range' })
-    @Index()
+    @Index('idxRangeSalePointUserId')
     userId: number;
 
     @ApiProperty({ example: 20, description: 'User identifier of the agent who performs the sale (provides the cards)' })
     @Column("int", { comment: 'User identifier of the agent who performs the sale (provides the cards)' })
-    @Index()
+    @Index('idxRangeSalePointUserIdSale')
     userIdSale: number;
 
     @ApiPropertyOptional({ example: 1, description: 'Sale point identifier from which this range was issued' })
     @Column({ type: "int", nullable: true, comment: 'Sale point identifier from which this range was issued' })
-    @Index()
+    @Index('idxRangeSalePointSalePointId')
     salePointId: number;
 
     @ApiPropertyOptional({ type: () => SalePoint, description: 'Associated sale point' })
     @ManyToOne(() => SalePoint, (salePoint) => salePoint.rangeSalePoints, { nullable: true })
-    @JoinColumn({ name: 'salePointId' })
+    @JoinColumn({ name: 'salePointId', foreignKeyConstraintName: 'fkRangeSalePointSalePoint' })
     salePoint: SalePoint;
 
     @ApiProperty({ example: 100, description: 'Number of cards currently available (not yet used) in this range' })

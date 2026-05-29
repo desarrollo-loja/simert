@@ -1,13 +1,13 @@
 import { IsPositive } from "class-validator";
 import { Block } from "src/admin/block/entities/block.entity";
-import { Column, Entity, Index, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+import { Column, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 
 @Entity('schedule')
-@Index(['block', 'dayOfWeekInit'])
-@Index(['block', 'dayOfWeekEnd'])
+@Index('idxScheduleBlockDayOfWeekInit', ['block', 'dayOfWeekInit'])
+@Index('idxScheduleBlockDayOfWeekEnd', ['block', 'dayOfWeekEnd'])
 export class Schedule {
 
-    @PrimaryGeneratedColumn()
+    @PrimaryGeneratedColumn({ primaryKeyConstraintName: 'pkScheduleId' })
     @IsPositive()
     id: number;
 
@@ -32,12 +32,13 @@ export class Schedule {
     @UpdateDateColumn({ type: 'timestamp', nullable: true, comment: 'Timestamp of the last update. Null on creation, auto-set on every update' })
     updatedAt: Date;
 
-    @Index()
+    @Index('idxScheduleBlock')
     @ManyToOne(
         () => Block,
         (block) => block.schedules,
         { onDelete: "CASCADE" }
     )
+    @JoinColumn({ name: 'blockId', foreignKeyConstraintName: 'fkScheduleBlock' })
     block: Block;
 
 }

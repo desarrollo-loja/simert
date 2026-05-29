@@ -7,22 +7,24 @@ import { Schedule } from "src/admin/schedule/entities/schedule.entity";
 import { Slot } from "src/admin/slot/entities/slot.entity";
 import { Zone } from "src/admin/zone/entities/zone.entity";
 import { LengthDb } from "src/common/glob/length.db";
-import { Column, Entity, Index, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+import { Column, Entity, Index, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, Unique, UpdateDateColumn } from "typeorm";
 
 @Entity('block')
-@Index(['name'], { fulltext: true })
-@Index(['neighborhood'], { fulltext: true })
-@Index(['mainStreet'], { fulltext: true })
-@Index(['sideStreet'], { fulltext: true })
+@Index('idxBlockName', ['name'], { fulltext: true })
+@Index('idxBlockNeighborhood', ['neighborhood'], { fulltext: true })
+@Index('idxBlockMainStreet', ['mainStreet'], { fulltext: true })
+@Index('idxBlockSideStreet', ['sideStreet'], { fulltext: true })
+@Unique('uqBlockName', ['name'])
+@Unique('uqBlockAcronym', ['acronym'])
 export class Block {
 
     @ApiProperty({ example: 1, description: 'Unique block identifier' })
-    @PrimaryGeneratedColumn('increment')
+    @PrimaryGeneratedColumn('increment', { primaryKeyConstraintName: 'pkBlockId' })
     @IsNumber()
     id: number;
 
     @ApiProperty({ example: 'Zona A', maxLength: 20, description: 'Display name of the block (sector)' })
-    @Column({ type: 'citext', unique: true, comment: 'Display name of the block (sector)' })
+    @Column({ type: 'citext', comment: 'Display name of the block (sector)' })
     name: string;
 
     @ApiProperty({ example: 'Downtown sector with high rotation', description: 'Detailed description of the block area' })
@@ -34,8 +36,8 @@ export class Block {
     priority: number;
 
     @ApiProperty({ example: 'ZA', maxLength: 7, description: 'Short acronym identifying the block (e.g. "A", "B1")' })
-    @Index()
-    @Column({ type: 'citext', unique: true, comment: 'Short acronym identifying the block (e.g. "A", "B1")' })
+    @Index('idxBlockAcronym')
+    @Column({ type: 'citext', comment: 'Short acronym identifying the block (e.g. "A", "B1")' })
     acronym: string;
 
     @ApiProperty({ example: '#7986CB', maxLength: 7, description: 'Hex color code used to display the block on the map UI' })
@@ -91,12 +93,13 @@ export class Block {
     updatedAt: Date;
 
     @ApiPropertyOptional({ type: () => Zone, description: 'Associated zone' })
-    @Index()
+    @Index('idxBlockZone')
     @ManyToOne(
         () => Zone,
         (zone) => zone.blocks,
         { onDelete: "RESTRICT", nullable: false, eager: false }
     )
+    @JoinColumn({ name: 'zoneId', foreignKeyConstraintName: 'fkBlockZone' })
     zone: Zone;
 
     @ApiPropertyOptional({ type: () => BlockOperator, isArray: true, description: 'Block operator assignments for this block' })

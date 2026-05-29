@@ -6,20 +6,21 @@ import { BillingDataDto } from "src/common/dto/billing-data.dto";
 import { LengthDb } from "src/common/glob/length.db";
 import { TypeModeSalePoint } from "src/common/glob/type/type_mode_sale_point";
 import { TypeSalePoint } from "src/common/glob/type/type_sale_point";
-import { Column, Entity, Index, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+import { Column, Entity, Index, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, Unique, UpdateDateColumn } from "typeorm";
 
 @Entity('salePoint')
+@Unique('uqSalePointUserId', ['userId'])
 export class SalePoint {
-    @PrimaryGeneratedColumn('increment')
+    @PrimaryGeneratedColumn('increment', { primaryKeyConstraintName: 'pkSalePointId' })
     @IsNumber()
     id: number;
 
     @Column("int", { comment: 'Sale point operating mode: references TypeModeSalePoint enum (PHYSICAL, VIRTUAL, etc.)' })
-    @Index()
+    @Index('idxSalePointMode')
     mode: TypeModeSalePoint;
 
     @Column("int", { comment: 'Sale point type: references TypeSalePoint enum (AGENT, STORE, etc.)' })
-    @Index()
+    @Index('idxSalePointType')
     type: TypeSalePoint;
 
     @Column({ type: 'decimal', precision: 10, scale: 6, comment: 'Latitude coordinate used to filter results in the call center search tool' })
@@ -34,8 +35,8 @@ export class SalePoint {
     @Column("varchar", { length: LengthDb.subTitle, comment: 'Secondary subtitle shown below the title in the UI' })
     subTitle: string;
 
-    @Column("int", { unique: true, comment: 'User identifier of the agent who operates this sale point (unique per sale point)' })
-    @Index()
+    @Column("int", { comment: 'User identifier of the agent who operates this sale point (unique per sale point)' })
+    @Index('idxSalePointUserId')
     userId: number;
 
     @Column("json", { name: 'billingData', nullable: true, comment: 'Billing data (name, identity card, address, etc.) for this sale point' })
@@ -51,15 +52,15 @@ export class SalePoint {
     number: string;
 
     @Column("varchar", { length: LengthDb.email, nullable: true, comment: 'Email address of the sale point agent' })
-    @Index()
+    @Index('idxSalePointEmail')
     email: string;
 
     @Column("varchar", { length: 8, nullable: true, comment: 'SIM country dialing code for the agent phone number (e.g. "+593" for Ecuador)' })
-    @Index()
+    @Index('idxSalePointCountryCode')
     countryCode: string;
 
     @Column("varchar", { length: LengthDb.phone, nullable: true, comment: 'Phone number of the sale point agent' })
-    @Index()
+    @Index('idxSalePointPhone')
     phone: string;
 
     @Column("varchar", { length: LengthDb.image, nullable: true, comment: 'URL or path to the QR code image for this sale point' })
@@ -69,23 +70,23 @@ export class SalePoint {
     isApproved: boolean;
 
     @Column("int", { default: null, comment: 'User identifier of the administrator who approved this sale point' })
-    @Index()
+    @Index('idxSalePointUserIdApproved')
     userIdApproved: number;
 
     @Column("int", { nullable: true, comment: 'Zone identifier where this sale point is located' })
-    @Index()
+    @Index('idxSalePointZoneId')
     zoneId: number;
 
     @ManyToOne(() => Zone, (zone) => zone.salePoints, { onDelete: "SET NULL", nullable: true })
-    @JoinColumn({ name: 'zoneId' })
+    @JoinColumn({ name: 'zoneId', foreignKeyConstraintName: 'fkSalePointZone' })
     zone: Zone;
 
     @Column("int", { nullable: true, comment: 'Block identifier where this sale point is located' })
-    @Index()
+    @Index('idxSalePointBlockId')
     blockId: number;
 
     @ManyToOne(() => Block, (block) => block.salePoints, { onDelete: "SET NULL", nullable: true })
-    @JoinColumn({ name: 'blockId' })
+    @JoinColumn({ name: 'blockId', foreignKeyConstraintName: 'fkSalePointBlock' })
     block: Block;
 
     @OneToMany(
@@ -97,14 +98,14 @@ export class SalePoint {
 
     // Revenue configuration
     @Column("int", { nullable: true, comment: 'Revenue category applied on card sales: references TypeSalePoint enum' })
-    @Index()
+    @Index('idxSalePointCardRevenue')
     cardRevenue: TypeSalePoint;
 
     @Column("int", { default: 0, comment: 'Fixed revenue amount applied per card sale' })
     cardRevenueValue: number;
 
     @Column("int", { nullable: true, comment: 'Revenue category applied on balance transactions: references TypeSalePoint enum' })
-    @Index()
+    @Index('idxSalePointBalanceRevenue')
     balanceRevenue: TypeSalePoint;
 
     @Column("int", { default: 0, nullable: true, comment: 'Fixed revenue amount applied per balance transaction' })

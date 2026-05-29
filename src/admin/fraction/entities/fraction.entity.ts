@@ -10,25 +10,25 @@ import { LengthDb } from "src/common/glob/length.db";
 import { TypeFraction } from "src/common/glob/type/type_fraction";
 import { MetaInterface } from "src/common/intefaces/meta.interface";
 import { OptionalDataInterface } from "src/common/intefaces/optional-data.interface";
-import { BeforeInsert, Column, Entity, Index, ManyToOne, OneToMany, PrimaryGeneratedColumn, Unique, UpdateDateColumn } from "typeorm";
+import { BeforeInsert, Column, Entity, Index, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, Unique, UpdateDateColumn } from "typeorm";
 
 @Entity('fraction')
-@Unique(['userId', 'transactionId'])
+@Unique('uqFractionUserIdTransactionId', ['userId', 'transactionId'])
 export class Fraction {
 
     @ApiProperty({ example: 1, description: 'Unique fraction identifier' })
-    @PrimaryGeneratedColumn('increment')
+    @PrimaryGeneratedColumn('increment', { primaryKeyConstraintName: 'pkFractionId' })
     @IsNumber()
     id: number;
 
     @ApiProperty({ example: 1, description: 'Service section city identifier for internal routing' })
     @Column("int", { comment: 'Service section city identifier for internal routing' })
-    @Index()
+    @Index('idxFractionServiceSectionCityId')
     serviceSectionCityId: number;
 
     @ApiProperty({ example: 123, description: 'User identifier who owns this parking session (operator or client)' })
     @Column("int", { comment: 'User identifier who owns this parking session (operator or client)' })
-    @Index()
+    @Index('idxFractionUserId')
     userId: number;
 
     @ApiProperty({ example: 'b6fabf7a-9a4e-4c9e-83a2-8ef6b39c8b21', maxLength: 36, description: 'Unique transaction ID sent by the API consumer for idempotency checks' })
@@ -37,7 +37,7 @@ export class Fraction {
 
     @ApiProperty({ enum: TypeFraction, description: 'Fraction type (TypeFraction)' })
     @Column({ type: 'int', comment: 'Fraction type: references TypeFraction enum (PHYSICAL, VIRTUAL, etc.)' })
-    @Index()
+    @Index('idxFractionTypeFraction')
     typeFraction: TypeFraction;
 
     @ApiProperty({ example: '00:15:00', description: 'Duration of one parking fraction for the block where this session was registered (HH:mm:ss)' })
@@ -57,12 +57,12 @@ export class Fraction {
     checkboxes: number;
 
     @ApiPropertyOptional({ example: 'LOJ1234', description: 'License plate of the parked vehicle (null for virtual card sessions)' })
-    @Index()
+    @Index('idxFractionPlate')
     @Column("varchar", { length: LengthDb.plate, default: null, nullable: true, comment: 'License plate of the parked vehicle (null for virtual card sessions)' })
     plate: string;
 
     @ApiPropertyOptional({ example: '123456789012', description: 'Physical or virtual card number used for this session' })
-    @Index()
+    @Index('idxFractionCard')
     @Column("varchar", { length: 12, default: null, nullable: true, comment: 'Physical or virtual card number used for this session (null for plate-based sessions)' })
     card: string;
 
@@ -79,12 +79,12 @@ export class Fraction {
     image: string;
 
     @ApiProperty({ type: String, format: 'date-time', description: 'Operation datetime (adjusted to UTC when sent by operator)' })
-    @Index()
+    @Index('idxFractionRegisterAt')
     @Column({ type: 'timestamp', comment: 'Operation datetime. When registered from operator it is adjusted to UTC since the client sends local time' })
     registerAt: Date;
 
     @ApiProperty({ type: String, format: 'date-time', description: 'Calculated departure datetime based on registerAt + time' })
-    @Index()
+    @Index('idxFractionDepartureDate')
     @Column({ type: 'timestamp', comment: 'Calculated departure datetime based on registerAt + time. Auto-computed on insert' })
     departureDate: Date;
 
@@ -93,7 +93,7 @@ export class Fraction {
     optionalData: OptionalDataInterface[];
 
     @ApiProperty({ type: String, format: 'date-time', description: 'Creation timestamp' })
-    @Index()
+    @Index('idxFractionCreatedAt')
     @Column({ type: "timestamp", default: () => "now()", comment: 'Timestamp when the record was created' })
     createdAt: Date;
 
@@ -107,44 +107,48 @@ export class Fraction {
     meta: MetaInterface;
 
     @ApiPropertyOptional({ type: () => Slot, description: 'Associated slot' })
-    @Index()
+    @Index('idxFractionSlot')
     @ManyToOne(
         () => Slot,
         (slot) => slot.fractions,
         { onDelete: "RESTRICT", nullable: false, eager: false }
     )
+    @JoinColumn({ name: 'slotId', foreignKeyConstraintName: 'fkFractionSlot' })
     slot: Slot;
 
     @ApiPropertyOptional({ type: () => Block, description: 'Associated block' })
-    @Index()
+    @Index('idxFractionBlock')
     @ManyToOne(
         () => Block,
         (block) => block.fractions,
         { onDelete: "RESTRICT", nullable: false, eager: false }
     )
+    @JoinColumn({ name: 'blockId', foreignKeyConstraintName: 'fkFractionBlock' })
     block: Block;
 
     @ApiPropertyOptional({ type: () => Zone, description: 'Associated zone' })
-    @Index()
+    @Index('idxFractionZone')
     @ManyToOne(
         () => Zone,
         (zone) => zone.fractions,
         { onDelete: "RESTRICT", nullable: false, eager: false }
     )
+    @JoinColumn({ name: 'zoneId', foreignKeyConstraintName: 'fkFractionZone' })
     zone: Zone;
 
     @ApiPropertyOptional({ type: () => Status, description: 'Current status' })
-    @Index()
+    @Index('idxFractionStatus')
     @ManyToOne(
         () => Status,
         (status) => status.fractions,
         { nullable: false }
     )
+    @JoinColumn({ name: 'statusId', foreignKeyConstraintName: 'fkFractionStatus' })
     status: Status;
 
     @ApiProperty({ example: '2024-05-10 10:30:00', description: 'Business-level registration datetime of the session, set by the application' })
     @Column({ type: "timestamp", nullable: false, comment: 'Business-level registration datetime of the session, set by the application' })
-    @Index()
+    @Index('idxFractionRegister')
     register: string;
 
     @ApiPropertyOptional({ type: () => FractionStatus, isArray: true, description: 'Historical statuses for this fraction' })

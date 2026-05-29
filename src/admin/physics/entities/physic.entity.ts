@@ -5,7 +5,7 @@ import { Column, Entity, Index, PrimaryGeneratedColumn, UpdateDateColumn } from 
 @Entity('physic')
 export class Physic {
 
-    @PrimaryGeneratedColumn('increment')
+    @PrimaryGeneratedColumn('increment', { primaryKeyConstraintName: 'pkPhysicId' })
     @IsNumber()
     id: number;
 
@@ -16,7 +16,7 @@ export class Physic {
     zoneId: number;
 
     @Column("varchar", { length: 12, nullable: false, comment: 'Physical card number used for the parking session' })
-    @Index()
+    @Index('idxPhysicCard')
     card: string;
 
     @Column("time", { comment: 'Total parking time purchased with this physical card (HH:mm:ss)' })
@@ -31,7 +31,7 @@ export class Physic {
     @Column("json", { nullable: true, comment: 'Extra key-value pairs for session data not covered by explicit columns' })
     optionalData: OptionalDataInterface[];
 
-    @Index()
+    @Index('idxPhysicRegisterAt')
     @Column({ type: 'timestamp', comment: 'Operation datetime. When registered from operator it is adjusted to UTC since the client sends local time' })
     registerAt: Date;
 

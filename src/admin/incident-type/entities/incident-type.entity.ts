@@ -3,12 +3,12 @@ import { LengthDb } from "src/common/glob/length.db";
 import { Column, Entity, Index, PrimaryGeneratedColumn, Unique, UpdateDateColumn } from "typeorm";
 
 @Entity('incidentType')
-@Index(['name'], { fulltext: true })
-@Index(['description'], { fulltext: true })
-@Unique(['code'])
+@Index('idxIncidentTypeName', ['name'], { fulltext: true })
+@Index('idxIncidentTypeDescription', ['description'], { fulltext: true })
+@Unique('uqIncidentTypeCode', ['code'])
 export class IncidentType {
 
-    @PrimaryGeneratedColumn('increment')
+    @PrimaryGeneratedColumn('increment', { primaryKeyConstraintName: 'pkIncidentTypeId' })
     @IsNumber()
     id: number;
 

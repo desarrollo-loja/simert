@@ -6,7 +6,7 @@ import { Column, Entity, OneToMany, PrimaryColumn, UpdateDateColumn } from "type
 @Entity('status')
 export class Status {
 
-    @PrimaryColumn({ comment: 'Manual primary key matching the StatusFraction enum values' })
+    @PrimaryColumn({ primaryKeyConstraintName: 'pkStatusId', comment: 'Manual primary key matching the StatusFraction enum values' })
     @IsPositive()
     id: number;
 

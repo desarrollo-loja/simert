@@ -5,13 +5,13 @@ import { Column, Entity, Index, PrimaryGeneratedColumn, UpdateDateColumn } from 
 @Entity('card')
 export class Card {
     @ApiProperty({ example: 1, description: 'Unique card type identifier' })
-    @PrimaryGeneratedColumn('increment')
+    @PrimaryGeneratedColumn('increment', { primaryKeyConstraintName: 'pkCardId' })
     @IsNumber()
     id: number;
 
     @ApiProperty({ example: 'Daily', maxLength: 20, description: 'Display name of the card type (e.g. "Daily", "Weekly")' })
     @Column("varchar", { length: 20, comment: 'Display name of the card type (e.g. "Daily", "Weekly")' })
-    @Index()
+    @Index('idxCardName')
     name: string;
 
     @ApiProperty({ example: true, description: 'Whether this card type is currently available for purchase' })

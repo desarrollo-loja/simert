@@ -6,11 +6,11 @@ import { TypeCard } from "src/common/glob/type/type_card";
 import { Column, Entity, Index, PrimaryGeneratedColumn, Unique, UpdateDateColumn } from "typeorm";
 
 @Entity('range')
-@Unique(['from', 'to'])
+@Unique('uqRangeFromTo', ['from', 'to'])
 export class Range {
 
     @ApiProperty({ example: 1, description: 'Unique range identifier' })
-    @PrimaryGeneratedColumn('increment')
+    @PrimaryGeneratedColumn('increment', { primaryKeyConstraintName: 'pkRangeId' })
     @IsNumber()
     id: number;
 
@@ -34,18 +34,18 @@ export class Range {
     status: StatusRange;
 
     @ApiPropertyOptional({ type: String, format: 'date-time', description: 'Date and time when this card range was officially authorized for use' })
-    @Index()
+    @Index('idxRangeAuthorizationDate')
     @Column({ type: 'timestamp', nullable: true, comment: 'Date and time when this card range was officially authorized for use' })
     authorizationDate: Date;
 
     @ApiProperty({ example: '000000000001', maxLength: 12, description: 'First card number in this range (inclusive)' })
     @Column("varchar", { length: 12, nullable: false, comment: 'First card number in this range (inclusive)' })
-    @Index()
+    @Index('idxRangeFrom')
     from: string;
 
     @ApiProperty({ example: '000000001000', maxLength: 12, description: 'Last card number in this range (inclusive)' })
     @Column("varchar", { length: 12, nullable: false, comment: 'Last card number in this range (inclusive)' })
-    @Index()
+    @Index('idxRangeTo')
     to: string;
 
     @ApiProperty({ example: true, description: 'Whether this range is currently active and cards can be issued from it' })
