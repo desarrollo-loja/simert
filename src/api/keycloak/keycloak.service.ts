@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { CommonGimService } from 'src/common/common.gim.service';
@@ -88,44 +88,65 @@ export class KeycloakService {
     return id ? `${base}/${id}` : base;
   }
 
-  private throwKeycloakError(context: string, error: any): never {
+  /**
+   * Builds a normalized error envelope for a failed Keycloak / GIM request.
+   *
+   * This used to throw an {@link HttpException}, which surfaced on the client as
+   * an HTTP error (e.g. the red `401 (Unauthorized)` logged in the browser
+   * console). To stay consistent with the rest of the service — where every
+   * method resolves with an `{ errorCode, message }` envelope — failures are now
+   * **returned** instead of thrown, so the HTTP status stays 2xx and the client
+   * reads the outcome from `errorCode` without it being treated as a hard error.
+   *
+   * The client-facing Spanish messages are kept verbatim (they are contracts).
+   *
+   * @param context Name of the calling operation, used only for server-side logging.
+   * @param error Error raised by axios: a connection error (`error.code`) or an
+   *        HTTP response error (`error.response.status`).
+   * @returns An `{ errorCode, message }` envelope describing the failure.
+   */
+  private _buildKeycloakError(context: string, error: any): { errorCode: ErrorCode; message: string } {
     const status: number = error?.response?.status ?? HttpStatus.INTERNAL_SERVER_ERROR;
     const isConnectionError = ['ECONNABORTED', 'ETIMEDOUT', 'ECONNREFUSED', 'ENOTFOUND'].includes(error?.code);
+    const logMessage = `Error ${context} | status: ${status} | code: ${error?.code} | msg: ${error?.message}`;
 
-    this.logger.error(`Error ${context} | status: ${status} | code: ${error?.code} | msg: ${error?.message}`);
+    // A 401 is an expected client-side failure (bad credentials / unauthorized),
+    // so it is logged as a warning; everything else points to an infra/server issue.
+    if (status === 401) this.logger.warn(logMessage);
+    else this.logger.error(logMessage);
 
     if (isConnectionError) {
-      throw new HttpException(
-        'No hay comunicación con el sistema municipal, por favor comuníquese con el administrador',
-        HttpStatus.GATEWAY_TIMEOUT,
-      );
+      return {
+        errorCode: ErrorCode.RESPONSE,
+        message: 'No hay comunicación con el sistema municipal, por favor comuníquese con el administrador',
+      };
     }
 
     if (status === 401) {
       if (error?.response?.data?.error === 'invalid_grant') {
-        throw new HttpException(
-          'Credenciales incorrectas, por favor verifique su usuario y contraseña',
-          HttpStatus.UNAUTHORIZED,
-        );
+        return {
+          errorCode: ErrorCode.UNAUTHORIZED,
+          message: 'Credenciales incorrectas, por favor verifique su usuario y contraseña',
+        };
       }
-      throw new HttpException(
-        'Usuario no autorizado en el sistema municipal, por favor comuníquese con el administrador',
-        HttpStatus.UNAUTHORIZED,
-      );
+      return {
+        errorCode: ErrorCode.UNAUTHORIZED,
+        message: 'Usuario no autorizado en el sistema municipal, por favor comuníquese con el administrador',
+      };
     }
 
     if (status === 500) {
-      throw new HttpException(
-        'Error con el sistema municipal, por favor comuníquese con el administrador',
-        HttpStatus.BAD_GATEWAY,
-      );
+      return {
+        errorCode: ErrorCode.RESPONSE,
+        message: 'Error con el sistema municipal, por favor comuníquese con el administrador',
+      };
     }
 
     if (status === 409) {
-      throw new HttpException(
-        'El usuario ya existe en el sistema municipal, por favor comuníquese con el administrador',
-        HttpStatus.CONFLICT,
-      );
+      return {
+        errorCode: ErrorCode.RESPONSE,
+        message: 'El usuario ya existe en el sistema municipal, por favor comuníquese con el administrador',
+      };
     }
 
     const rawMessage: string =
@@ -135,16 +156,16 @@ export class KeycloakService {
       'Error inesperado en Keycloak';
 
     if (rawMessage.includes('Account disabled')) {
-      throw new HttpException(
-        'Su cuenta está deshabilitada en el sistema municipal. Por favor comuníquese con el administrador',
-        HttpStatus.FORBIDDEN,
-      );
+      return {
+        errorCode: ErrorCode.UNAUTHORIZED,
+        message: 'Su cuenta está deshabilitada en el sistema municipal. Por favor comuníquese con el administrador',
+      };
     }
 
-    throw new HttpException(
-      'Error al verificar el usuario en el municipio. Por favor comuníquese con el administrador.',
-      status,
-    );
+    return {
+      errorCode: ErrorCode.RESPONSE,
+      message: 'Error al verificar el usuario en el municipio. Por favor comuníquese con el administrador.',
+    };
   }
 
   // ─── Endpoints ───────────────────────────────────────────────────────────────
@@ -167,7 +188,7 @@ export class KeycloakService {
       return { errorCode: ErrorCode.NONE, message: 'Usuario creado exitosamente', userId };
 
     } catch (error: any) {
-      return this.throwKeycloakError('createUser', error);
+      return this._buildKeycloakError('createUser', error);
     }
   }
 
@@ -189,7 +210,7 @@ export class KeycloakService {
       return { errorCode: ErrorCode.NONE, message: 'Usuario creado exitosamente', userId };
 
     } catch (error: any) {
-      return this.throwKeycloakError('createUserMunicipality', error);
+      return this._buildKeycloakError('createUserMunicipality', error);
     }
   }
 
@@ -204,7 +225,7 @@ export class KeycloakService {
       });
       return { errorCode: ErrorCode.NONE, message: 'Usuario actualizado exitosamente' };
     } catch (error: any) {
-      return this.throwKeycloakError('updateUser', error);
+      return this._buildKeycloakError('updateUser', error);
     }
   }
 
@@ -219,7 +240,7 @@ export class KeycloakService {
       });
       return { errorCode: ErrorCode.NONE, message: 'Usuario actualizado exitosamente' };
     } catch (error: any) {
-      return this.throwKeycloakError('updateUserMunicipality', error);
+      return this._buildKeycloakError('updateUserMunicipality', error);
     }
   }
 
@@ -243,7 +264,7 @@ export class KeycloakService {
         enabled,
       };
     } catch (error: any) {
-      return this.throwKeycloakError('setUserStatus', error);
+      return this._buildKeycloakError('setUserStatus', error);
     }
   }
 
@@ -265,7 +286,7 @@ export class KeycloakService {
         enabled,
       };
     } catch (error: any) {
-      return this.throwKeycloakError('setUserStatusMunicipality', error);
+      return this._buildKeycloakError('setUserStatusMunicipality', error);
     }
   }
 
@@ -285,7 +306,7 @@ export class KeycloakService {
       return { errorCode: ErrorCode.NOT_FOUND, message: 'Usuario no encontrado', data };
 
     } catch (error: any) {
-      return this.throwKeycloakError('findByUsername', error);
+      return this._buildKeycloakError('findByUsername', error);
     }
   }
 
@@ -305,7 +326,7 @@ export class KeycloakService {
       return { errorCode: ErrorCode.NOT_FOUND, message: 'Usuario no encontrado', data };
 
     } catch (error: any) {
-      return this.throwKeycloakError('findByUsername', error);
+      return this._buildKeycloakError('findByUsername', error);
     }
   }
 
@@ -351,7 +372,7 @@ export class KeycloakService {
       };
     } catch (error: any) {
       this.logger.warn(warnMessage);
-      return this.throwKeycloakError('loginClient', error);
+      return this._buildKeycloakError('loginClient', error);
     }
   }
 
@@ -393,7 +414,7 @@ export class KeycloakService {
       return { errorCode: ErrorCode.NOT_FOUND, message: 'Usuario no encontrado', data };
 
     } catch (error: any) {
-      return this.throwKeycloakError('findByEmail', error);
+      return this._buildKeycloakError('findByEmail', error);
     }
   }
 
@@ -436,7 +457,7 @@ export class KeycloakService {
         emailSent,
       };
     } catch (error: any) {
-      return this.throwKeycloakError('setUserPassword', error);
+      return this._buildKeycloakError('setUserPassword', error);
     }
   }
 
@@ -479,7 +500,7 @@ export class KeycloakService {
         emailSent,
       };
     } catch (error: any) {
-      return this.throwKeycloakError('setUserPasswordMunicipality', error);
+      return this._buildKeycloakError('setUserPasswordMunicipality', error);
     }
   }
 
@@ -515,7 +536,7 @@ export class KeycloakService {
         userId,
       };
     } catch (error: any) {
-      return this.throwKeycloakError('changePassword', error);
+      return this._buildKeycloakError('changePassword', error);
     }
   }
 
@@ -551,7 +572,7 @@ export class KeycloakService {
         userId,
       };
     } catch (error: any) {
-      return this.throwKeycloakError('changePasswordMunicipality', error);
+      return this._buildKeycloakError('changePasswordMunicipality', error);
     }
   }
 
@@ -596,7 +617,7 @@ export class KeycloakService {
       return { errorCode: ErrorCode.NOT_FOUND, message: 'Usuario no encontrado', data };
 
     } catch (error: any) {
-      return this.throwKeycloakError('findByIdentification', error);
+      return this._buildKeycloakError('findByIdentification', error);
     }
   }
 
@@ -616,7 +637,7 @@ export class KeycloakService {
       return { errorCode: ErrorCode.NOT_FOUND, message: 'Usuario no encontrado', data };
 
     } catch (error: any) {
-      return this.throwKeycloakError('findByIdentificationMunicipality', error);
+      return this._buildKeycloakError('findByIdentificationMunicipality', error);
     }
   }
 
@@ -630,7 +651,7 @@ export class KeycloakService {
         headers: this.authHeaders(token),
       });
     } catch (error: any) {
-      return this.throwKeycloakError('executeActionsEmail', error);
+      return this._buildKeycloakError('executeActionsEmail', error);
     }
   }
 
@@ -645,7 +666,7 @@ export class KeycloakService {
       });
       return { errorCode: ErrorCode.NONE, message: 'Correo de verificación enviado exitosamente' };
     } catch (error: any) {
-      return this.throwKeycloakError('executeActionsEmailMunicipality', error);
+      return this._buildKeycloakError('executeActionsEmailMunicipality', error);
     }
   }
 
@@ -665,7 +686,7 @@ export class KeycloakService {
       return { errorCode: ErrorCode.NOT_FOUND, message: 'Usuario no encontrado', data };
 
     } catch (error: any) {
-      return this.throwKeycloakError('findByEmail', error);
+      return this._buildKeycloakError('findByEmail', error);
     }
   }
 
