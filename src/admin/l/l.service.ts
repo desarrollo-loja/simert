@@ -59,6 +59,10 @@ export class LService {
    * Returns location records for multiple users with optional date, zone, and
    * block filters. Timestamps are formatted using TO_CHAR to avoid UTC-Z serialization.
    *
+   * When the client provides both `dateFrom` and `dateTo`, records are filtered
+   * to that range. When the date range is omitted, results default to the
+   * current day (server date) so the dashboard never returns the full history.
+   *
    * @param filterDto - Filter containing userIds (CSV), optional date range, zoneId, blockId.
    * @returns Object with errorCode and a location array enriched with zoneName/blockName.
    */
@@ -83,6 +87,10 @@ export class LService {
 
       if (dateFrom && dateTo) {
         query.andWhere('l.timestamp BETWEEN :dateFrom AND :dateTo', { dateFrom, dateTo });
+      } else {
+        // No date range from the client: default to the current day (server
+        // date). Uses a sargable range so an index on l.timestamp can be used.
+        query.andWhere(`l.timestamp >= CURRENT_DATE AND l.timestamp < CURRENT_DATE + INTERVAL '1 day'`);
       }
 
       if (zoneId) {
