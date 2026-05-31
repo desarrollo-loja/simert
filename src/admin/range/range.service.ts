@@ -5,7 +5,7 @@ import handleDbExceptions from 'src/common/exceptions/error.db.exception';
 import { ErrorCode } from 'src/common/glob/error';
 import { TypeOperation } from 'src/common/glob/type/type_operation';
 import { LoggerService } from 'src/common/logger.service.ts';
-import { Repository } from 'typeorm';
+import { QueryFailedError, Repository } from 'typeorm';
 
 import { CreateRangeDto } from './dto/create-range.dto';
 import { UpdateRangeDto } from './dto/update-range.dto';
@@ -32,6 +32,9 @@ export class RangeService {
   /**
    * Creates a new price range record and emits an audit log entry.
    *
+   * Returns `DESCRIPTIONUNIQUE`, `BATCHNUMBERUNIQUE` or `RANGEUNIQUE` when a
+   * duplicate description / batch number / from-to constraint is violated.
+   *
    * @param userId - ID of the user performing the operation.
    * @param createRangeDto - DTO with the range fields.
    * @returns Object with errorCode and the persisted range.
@@ -44,12 +47,19 @@ export class RangeService {
 
       return { errorCode: ErrorCode.NONE, range };
     } catch (error) {
+      const uniqueErrorCode = this._mapUniqueViolation(error);
+      if (uniqueErrorCode !== null) {
+        return { errorCode: uniqueErrorCode };
+      }
       handleDbExceptions(error, this.logger);
     }
   }
 
   /**
    * Updates an existing range by id and emits an audit log entry.
+   *
+   * Returns `DESCRIPTIONUNIQUE`, `BATCHNUMBERUNIQUE` or `RANGEUNIQUE` when a
+   * duplicate description / batch number / from-to constraint is violated.
    *
    * @param userId - ID of the user performing the operation.
    * @param id - Numeric ID of the range to update.
@@ -70,8 +80,37 @@ export class RangeService {
 
       return { errorCode: ErrorCode.NONE, range };
     } catch (error) {
+      const uniqueErrorCode = this._mapUniqueViolation(error);
+      if (uniqueErrorCode !== null) {
+        return { errorCode: uniqueErrorCode };
+      }
       handleDbExceptions(error, this.logger);
     }
+  }
+
+  /**
+   * Maps a PostgreSQL unique-violation error (code `23505`) to the matching
+   * {@link ErrorCode}. Shared by `create` and `update` to avoid duplicating the
+   * constraint-handling branch. Returns `DESCRIPTIONUNIQUE` for the `description`
+   * column, `BATCHNUMBERUNIQUE` for the `batchNumber` column, `RANGEUNIQUE` for
+   * the `from`/`to` pair, falls back to `RANGEUNIQUE` when the column cannot be
+   * identified, and `null` when the error is not a unique-violation (so the
+   * caller can delegate to `handleDbExceptions`).
+   *
+   * @param error - Error thrown by TypeORM during save/preload.
+   * @returns Matching {@link ErrorCode} or `null`.
+   */
+  private _mapUniqueViolation(error: unknown): ErrorCode | null {
+    if (!(error instanceof QueryFailedError)) return null;
+    const driverError = (error as any).driverError;
+    if (driverError?.code !== '23505') return null;
+
+    this.logger.error(`Unique constraint violated: ${driverError.constraint}`);
+    const detail: string = driverError.detail ?? '';
+    if (detail.includes('(description)')) return ErrorCode.DESCRIPTIONUNIQUE;
+    if (detail.includes('(batchNumber)')) return ErrorCode.BATCHNUMBERUNIQUE;
+    if (detail.includes('(from, to)')) return ErrorCode.RANGEUNIQUE;
+    return ErrorCode.RANGEUNIQUE;
   }
 
   /**

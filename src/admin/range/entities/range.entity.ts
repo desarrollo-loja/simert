@@ -1,12 +1,13 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { IsNumber } from "class-validator";
-import { LengthDb } from "src/common/glob/length.db";
 import { StatusRange } from "src/common/glob/status/status_range";
 import { TypeCard } from "src/common/glob/type/type_card";
 import { Column, Entity, Index, PrimaryGeneratedColumn, Unique, UpdateDateColumn } from "typeorm";
 
 @Entity('range')
 @Unique('uqRangeFromTo', ['from', 'to'])
+@Unique('uqRangeDescription', ['description'])
+@Unique('uqRangeBatchNumber', ['batchNumber'])
 export class Range {
 
     @ApiProperty({ example: 1, description: 'Unique range identifier' })
@@ -15,7 +16,7 @@ export class Range {
     id: number;
 
     @ApiPropertyOptional({ example: 'Batch 2026 Q1', description: 'Optional description or notes for this card range batch' })
-    @Column("varchar", { length: LengthDb.description, nullable: true, comment: 'Optional description or notes for this card range batch' })
+    @Column({ type: 'citext', nullable: true, comment: 'Optional description or notes for this card range batch' })
     description: string;
 
     @ApiProperty({ example: 1, description: 'Batch lot number identifying which physical printing batch this range belongs to' })

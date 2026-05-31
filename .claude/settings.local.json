@@ -46,7 +46,9 @@
       "Bash(npx nest *)",
       "Bash(echo \"BUILD_EXIT: $?\")",
       "Bash(git -C \"c:/Users/Usuario/Documents/proyectoSimertLoja/simert\" diff --stat)",
-      "Bash(echo \"ESLINT_EXIT: $?\")"
+      "Bash(echo \"ESLINT_EXIT: $?\")",
+      "Bash(cd \"c:/Users/Usuario/Documents/proyectoSimertLoja\" && grep -rln \"NAMEUNIQUE\\\\|ACRONYMUNIQUE\\\\|103\\\\|105\\\\|batchNumber\\\\|errorCode\" simert-web/src 2>/dev/null | head -40)",
+      "Read(//c/Users/Usuario/Documents/proyectoSimertLoja/**)"
     ]
   }
 }
