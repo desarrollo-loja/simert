@@ -91,11 +91,14 @@ export class RangeService {
   /**
    * Maps a PostgreSQL unique-violation error (code `23505`) to the matching
    * {@link ErrorCode}. Shared by `create` and `update` to avoid duplicating the
-   * constraint-handling branch. Returns `DESCRIPTIONUNIQUE` for the `description`
-   * column, `BATCHNUMBERUNIQUE` for the `batchNumber` column, `RANGEUNIQUE` for
-   * the `from`/`to` pair, falls back to `RANGEUNIQUE` when the column cannot be
-   * identified, and `null` when the error is not a unique-violation (so the
-   * caller can delegate to `handleDbExceptions`).
+   * constraint-handling branch. Matching is done on the constraint name (not the
+   * error `detail`) because PostgreSQL double-quotes camelCase column names such
+   * as `batchNumber` in the detail text, which would break substring matching.
+   * Returns `DESCRIPTIONUNIQUE` for `uqRangeDescription`, `BATCHNUMBERUNIQUE` for
+   * `uqRangeBatchNumber`, `RANGEUNIQUE` for `uqRangeFromTo`, falls back to
+   * `RANGEUNIQUE` when the constraint cannot be identified, and `null` when the
+   * error is not a unique-violation (so the caller can delegate to
+   * `handleDbExceptions`).
    *
    * @param error - Error thrown by TypeORM during save/preload.
    * @returns Matching {@link ErrorCode} or `null`.
@@ -105,11 +108,11 @@ export class RangeService {
     const driverError = (error as any).driverError;
     if (driverError?.code !== '23505') return null;
 
-    this.logger.error(`Unique constraint violated: ${driverError.constraint}`);
-    const detail: string = driverError.detail ?? '';
-    if (detail.includes('(description)')) return ErrorCode.DESCRIPTIONUNIQUE;
-    if (detail.includes('(batchNumber)')) return ErrorCode.BATCHNUMBERUNIQUE;
-    if (detail.includes('(from, to)')) return ErrorCode.RANGEUNIQUE;
+    const constraint: string = driverError.constraint ?? '';
+    this.logger.error(`Unique constraint violated: ${constraint}`);
+    if (constraint === 'uqRangeDescription') return ErrorCode.DESCRIPTIONUNIQUE;
+    if (constraint === 'uqRangeBatchNumber') return ErrorCode.BATCHNUMBERUNIQUE;
+    if (constraint === 'uqRangeFromTo') return ErrorCode.RANGEUNIQUE;
     return ErrorCode.RANGEUNIQUE;
   }
 
