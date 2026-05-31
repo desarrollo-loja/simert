@@ -91,12 +91,21 @@ export class RangeService {
   /**
    * Maps a PostgreSQL unique-violation error (code `23505`) to the matching
    * {@link ErrorCode}. Shared by `create` and `update` to avoid duplicating the
-   * constraint-handling branch. Matching is done on the constraint name (not the
-   * error `detail`) because PostgreSQL double-quotes camelCase column names such
-   * as `batchNumber` in the detail text, which would break substring matching.
-   * Returns `DESCRIPTIONUNIQUE` for `uqRangeDescription`, `BATCHNUMBERUNIQUE` for
-   * `uqRangeBatchNumber`, `RANGEUNIQUE` for `uqRangeFromTo`, falls back to
-   * `RANGEUNIQUE` when the constraint cannot be identified, and `null` when the
+   * constraint-handling branch.
+   *
+   * Identification is resilient on purpose: it first matches the entity-defined
+   * constraint name (`uqRangeDescription` / `uqRangeBatchNumber` /
+   * `uqRangeFromTo`) and, when that fails, falls back to the column list parsed
+   * from the error `detail`. This matters because TypeORM `synchronize` may have
+   * created the constraint with an auto-generated `UQ_<hash>` name (the default
+   * naming strategy, used when a unique constraint is added via `ALTER TABLE` to
+   * an existing table) instead of the entity name — in that case the constraint
+   * name does not match but the reported column still does. The `detail` lookup
+   * is also quote/locale tolerant (PostgreSQL double-quotes camelCase columns
+   * such as `"batchNumber"`).
+   *
+   * Returns `DESCRIPTIONUNIQUE`, `BATCHNUMBERUNIQUE` or `RANGEUNIQUE`, falls back
+   * to `RANGEUNIQUE` when the column cannot be identified, and `null` when the
    * error is not a unique-violation (so the caller can delegate to
    * `handleDbExceptions`).
    *
@@ -109,10 +118,16 @@ export class RangeService {
     if (driverError?.code !== '23505') return null;
 
     const constraint: string = driverError.constraint ?? '';
-    this.logger.error(`Unique constraint violated: ${constraint}`);
-    if (constraint === 'uqRangeDescription') return ErrorCode.DESCRIPTIONUNIQUE;
-    if (constraint === 'uqRangeBatchNumber') return ErrorCode.BATCHNUMBERUNIQUE;
-    if (constraint === 'uqRangeFromTo') return ErrorCode.RANGEUNIQUE;
+    const detail: string = driverError.detail ?? '';
+    this.logger.error(`Unique constraint violated: ${constraint} | ${detail}`);
+
+    // Columns reported in the detail's first "(...)=" group, normalized (drop
+    // double quotes and spaces): e.g. 'batchNumber', 'description', 'from,to'.
+    const reportedColumns = (detail.match(/\(([^)]+)\)\s*=/)?.[1] ?? '').replace(/["\s]/g, '');
+
+    if (constraint === 'uqRangeDescription' || reportedColumns === 'description') return ErrorCode.DESCRIPTIONUNIQUE;
+    if (constraint === 'uqRangeBatchNumber' || reportedColumns === 'batchNumber') return ErrorCode.BATCHNUMBERUNIQUE;
+    if (constraint === 'uqRangeFromTo' || reportedColumns === 'from,to') return ErrorCode.RANGEUNIQUE;
     return ErrorCode.RANGEUNIQUE;
   }
 

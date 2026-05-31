@@ -48,7 +48,8 @@
       "Bash(git -C \"c:/Users/Usuario/Documents/proyectoSimertLoja/simert\" diff --stat)",
       "Bash(echo \"ESLINT_EXIT: $?\")",
       "Bash(cd \"c:/Users/Usuario/Documents/proyectoSimertLoja\" && grep -rln \"NAMEUNIQUE\\\\|ACRONYMUNIQUE\\\\|103\\\\|105\\\\|batchNumber\\\\|errorCode\" simert-web/src 2>/dev/null | head -40)",
-      "Read(//c/Users/Usuario/Documents/proyectoSimertLoja/**)"
+      "Read(//c/Users/Usuario/Documents/proyectoSimertLoja/**)",
+      "Bash(node -e \"console.log\\('typeorm', require\\('typeorm/package.json'\\).version\\); console.log\\('nestjs/typeorm', require\\('@nestjs/typeorm/package.json'\\).version\\)\")"
     ]
   }
 }
