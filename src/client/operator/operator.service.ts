@@ -189,6 +189,7 @@ export class OperatorService {
         .where('CAST(:card AS bigint) BETWEEN CAST(r.from AS bigint) AND CAST(r.to AS bigint)', { card })
         .andWhere('r.isActivated = :isActivated', { isActivated: true })
         .andWhere('r.status NOT IN (:...status)', { status: [StatusRange.CLOSED, StatusRange.DEPLETED] })
+        .andWhere('r.authorizationDate <= :currentDate', { currentDate: new Date() })
         .orderBy('r.id', 'DESC')
         .getOne();
 
