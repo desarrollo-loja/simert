@@ -153,7 +153,6 @@ export class GimService {
         const dataUserGim = await this.getUserByIdentityCardGim(createGimDto.identityCard);
 
         if (dataUserGim.errorCode !== ErrorCode.NONE) {
-          console.log("dataUserGim createNewNaturalPersonGim", JSON.stringify(dataUserGim));
           //CREAR EL CLIETE EN EL GIM SI NO EXISTE VERIFICAR SIE S RUC O PERSONA FINAL 
           const createClientGimDto = new CreateClientGimDto();
           createClientGimDto.identityCard = createGimDto.identityCard;
