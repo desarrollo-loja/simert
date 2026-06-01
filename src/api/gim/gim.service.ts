@@ -328,6 +328,7 @@ export class GimService {
       const user = await this.commonAuthService.filterByIdentityCard(createClientGimDto.controllerId, createClientGimDto.identityCard);
 
       let body = null;
+      console.log("user createNewNaturalPersonGim", user);
 
       if (user.errorCode !== ErrorCode.NONE) {
 
