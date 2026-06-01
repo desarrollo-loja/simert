@@ -727,6 +727,7 @@ export class CheckboxService implements OnModuleInit {
     private async _payPlaceToPay(idDevice: string, checkbox: Checkbox, debitAmounDto: DebitAmounDto, createCheckboxDto: CreateCheckboxDto, typePaymentResponsibility: TypePaymentResponsibility) {
         const { userId, typePaymentMethod, credentialId } = createCheckboxDto;
         const { register } = debitAmounDto;
+        console.log("placeToPay ", debitAmounDto, createCheckboxDto);
 
         if (!typePaymentResponsibility) {
             typePaymentResponsibility = TypePaymentResponsibility.NONE;
@@ -781,6 +782,7 @@ export class CheckboxService implements OnModuleInit {
      */
     async onResponsePay(idDevice: string, userId: number, checkboxId: number, typePaymentMethod: number, register: string, typePaymentResponsibility: TypePaymentResponsibility) {
 
+        console.log("onResponsePay", idDevice, userId, checkboxId, typePaymentMethod, register, typePaymentResponsibility);
         let checkbox = await this.checkboxRepository.findOne({ where: { id: checkboxId } });
         if (!checkbox) {
             return { errorCode: ErrorCode.NOT_FOUND };
