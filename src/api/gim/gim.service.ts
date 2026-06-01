@@ -320,6 +320,7 @@ export class GimService {
   }
 
   async createNewNaturalPersonGim(createClientGimDto: CreateClientGimDto): Promise<{ errorCode: number, data?: any } & Partial<CreateNaturalPersonResponse>> {
+    console.log("createClientGimDto createNewNaturalPersonGim", createClientGimDto);
     try {
       // For local development testing only
       // createGimDto.identityCard = '1104187768';
@@ -328,7 +329,6 @@ export class GimService {
       const user = await this.commonAuthService.filterByIdentityCard(createClientGimDto.controllerId, createClientGimDto.identityCard);
 
       let body = null;
-      console.log("user createNewNaturalPersonGim", user);
 
       if (user.errorCode !== ErrorCode.NONE) {
 
