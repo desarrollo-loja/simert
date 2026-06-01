@@ -321,7 +321,6 @@ export class GimService {
   }
 
   async createNewNaturalPersonGim(createClientGimDto: CreateClientGimDto): Promise<{ errorCode: number, data?: any } & Partial<CreateNaturalPersonResponse>> {
-    console.log("createClientGimDto createNewNaturalPersonGim", JSON.stringify(createClientGimDto));
     try {
       // For local development testing only
       // createGimDto.identityCard = '1104187768';
