@@ -116,6 +116,7 @@ export class GimService {
   }
 
   async issueIncidentGim(createGimDto: CreateGimDto, incidentId: number, isTransacional: number): Promise<{ errorCode: number, data: CreateGimDto | null | any, message?: string }> {
+    console.log("createGimDto issueIncidentGim", JSON.stringify(createGimDto));
     try {
 
       // VERIFICAR SI TENGO CEDULA, EMAIL, NOMBRE Y RECIDENTID EN OBTIONAL DATA
@@ -127,8 +128,6 @@ export class GimService {
       if (!dataUserComplete) {
         // OBTENER DATOS DESDE LA ANT (cedula, nombre, apellido, correo y mail)
         const antData = await this.dinardapAntService.getUserDataByPlateAnt(createGimDto.plate);
-
-        console.log("antData issueIncidentGim", JSON.stringify(antData));
 
         if (antData.errorCode !== ErrorCode.NONE) {
           return {
