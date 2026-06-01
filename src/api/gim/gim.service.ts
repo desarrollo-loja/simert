@@ -17,7 +17,7 @@ import { ErrorCode } from 'src/common/glob/error';
 import { ResponseCodeGim, StatusObligation } from 'src/common/glob/responses-gim';
 import { getMaritalStatusName } from 'src/common/glob/status/status_marital';
 import { getGenreNameById, TypeGenre } from 'src/common/glob/type/type_genre';
-import { mapIdentificationTypeToGim } from 'src/common/glob/type/type_identifycard';
+import { mapIdentificationTypeToGim, TypeIdentifyCard } from 'src/common/glob/type/type_identifycard';
 import { IncidentStatus } from 'src/common/glob/type/type_incident';
 import { TypeMaritalStatus } from 'src/common/glob/type/type_maritalStatus';
 import { TypeSizeVehicle } from 'src/common/glob/type/type_size_vehicle';
@@ -29,7 +29,7 @@ import { CreateGimDto } from './dto/create-gim.dto';
 import FindBondNumberDto from './dto/find-bond-number';
 import { GetClientGimDto } from './dto/get-client-gim.dto';
 import { consts } from './helpers/consts.enum';
-import { CreateNaturalPersonResponse, DepositResponse, EmisionTitleCreditCardResponse, EmitInfractionSimertResponse, FindTaxPayerResponse, IdentificationType, Obligation, ObligationsClientResponse, ObligationsResponse, VehicleTypesGimResponse } from './interfaces/gim-responses.interfaces';
+import { CreateNaturalPersonResponse, DepositResponse, EmisionTitleCreditCardResponse, EmitInfractionSimertResponse, FindTaxPayerResponse, Obligation, ObligationsClientResponse, ObligationsResponse, VehicleTypesGimResponse } from './interfaces/gim-responses.interfaces';
 
 @Injectable()
 export class GimService {
@@ -332,7 +332,7 @@ export class GimService {
       if (user.errorCode !== ErrorCode.NONE) {
 
         body = {
-          identificationType: mapIdentificationTypeToGim(IdentificationType.DNI),
+          identificationType: mapIdentificationTypeToGim(TypeIdentifyCard.NATIONAL_IDENTITY_DOCUMENT),
           identificationNumber: createClientGimDto.identityCard?.trim(),
           firstName: this._removeAccents(createClientGimDto.firstName || 'Usuario'),
           lastName: this._removeAccents(createClientGimDto.firstName || 'Usuario'),
@@ -344,8 +344,8 @@ export class GimService {
           phoneNumber: '',
           isForeigner: false,
           birthday: new Date().toISOString().split('T')[0], // current UTC date as YYYY-MM-DD
-          gender: getGenreNameById(TypeGenre.UNDEFINED), // already returns the correct string
-          maritalStatus: getMaritalStatusName(TypeMaritalStatus.SINGLE), // already returns the correct string
+          gender: (TypeGenre.UNDEFINED), // already returns the correct string
+          maritalStatus: (TypeMaritalStatus.SINGLE), // already returns the correct string
           isDead: false,
           isHandicaped: false
         };

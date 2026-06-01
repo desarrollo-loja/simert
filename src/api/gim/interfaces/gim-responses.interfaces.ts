@@ -42,7 +42,7 @@ export interface ResidentDTO {
   enabledIndividualPayment: boolean;
   enableSubscription: boolean;
   generateUniqueAccount: boolean;
-  currentAddressAsString: string; 
+  currentAddressAsString: string;
 }
 
 // TIPO DE IDENTIFICACION
@@ -150,7 +150,7 @@ export interface Bond {
   interests: number;
   surcharges: number,
   taxes: number,
-  discounts: number, 
+  discounts: number,
   description: string,
   bondsDetail: BondDetail[];
 }
