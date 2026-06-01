@@ -346,7 +346,6 @@ export class GimService {
           birthday: new Date().toISOString().split('T')[0], // current UTC date as YYYY-MM-DD
           gender: getGenreNameById(TypeGenre.UNDEFINED), // already returns the correct string
           maritalStatus: getMaritalStatusName(TypeMaritalStatus.SINGLE), // already returns the correct string
-
           isDead: false,
           isHandicaped: false
         };
