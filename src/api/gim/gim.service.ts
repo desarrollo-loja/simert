@@ -116,7 +116,6 @@ export class GimService {
   }
 
   async issueIncidentGim(createGimDto: CreateGimDto, incidentId: number, isTransacional: number): Promise<{ errorCode: number, data: CreateGimDto | null | any, message?: string }> {
-    console.log("createGimDto issueIncidentGim", JSON.stringify(createGimDto));
     try {
 
       // VERIFICAR SI TENGO CEDULA, EMAIL, NOMBRE Y RECIDENTID EN OBTIONAL DATA
@@ -380,6 +379,8 @@ export class GimService {
           isHandicaped: !!user.data[0].isHandicaped,
         };
       }
+
+      console.log("body createNewNaturalPersonGim", JSON.stringify(body));
 
       const data = await this._postToExternalApi<CreateNaturalPersonResponse>('createNewNaturalPerson', body);
 
