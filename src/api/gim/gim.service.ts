@@ -128,6 +128,8 @@ export class GimService {
         // OBTENER DATOS DESDE LA ANT (cedula, nombre, apellido, correo y mail)
         const antData = await this.dinardapAntService.getUserDataByPlateAnt(createGimDto.plate);
 
+        console.log("antData issueIncidentGim", JSON.stringify(antData));
+
         if (antData.errorCode !== ErrorCode.NONE) {
           return {
             errorCode: ErrorCode.NOT_FOUND,
