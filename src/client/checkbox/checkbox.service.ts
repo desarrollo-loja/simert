@@ -727,7 +727,6 @@ export class CheckboxService implements OnModuleInit {
     private async _payPlaceToPay(idDevice: string, checkbox: Checkbox, debitAmounDto: DebitAmounDto, createCheckboxDto: CreateCheckboxDto, typePaymentResponsibility: TypePaymentResponsibility) {
         const { userId, typePaymentMethod, credentialId } = createCheckboxDto;
         const { register } = debitAmounDto;
-        console.log("placeToPay ", debitAmounDto, createCheckboxDto);
 
         if (!typePaymentResponsibility) {
             typePaymentResponsibility = TypePaymentResponsibility.NONE;
