@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Block } from 'src/admin/block/entities/block.entity';
+import { BlockOperator } from 'src/admin/block_operator/entities/block_operator.entity';
 import { Zone } from 'src/admin/zone/entities/zone.entity';
 import { FilterDto } from 'src/common/dto/filter.dto';
 import handleDbExceptions from 'src/common/exceptions/error.db.exception';
@@ -81,6 +82,9 @@ export class LService {
         .addSelect('block.name', 'blockName')
         .innerJoin(Zone, 'zone', 'zone.id = l.zoneId')
         .innerJoin(Block, 'block', 'block.id = l.blockId')
+        // INNER JOIN on the block's operator assignments (blockOperator.blockId = block.id),
+        // restricted to shifts the operator has already initialized (isInitialized = true).
+        .innerJoin(BlockOperator, 'blockOperator', 'blockOperator.blockId = block.id AND blockOperator.isInitialized = true')
         .where('l.userId IN (:...userIds)', { userIds: userIdsArray });
 
       if (dateFrom && dateTo) {
