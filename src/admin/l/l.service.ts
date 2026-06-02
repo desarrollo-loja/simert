@@ -79,10 +79,8 @@ export class LService {
         .addSelect(`TO_CHAR(l."timestamp", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`, 'l_timestamp')
         .addSelect('zone.name', 'zoneName')
         .addSelect('block.name', 'blockName')
-        // LEFT JOIN (not INNER): zoneId/blockId are nullable — positions outside
-        // any zone/block must still be returned.
-        .leftJoin(Zone, 'zone', 'zone.id = l.zoneId')
-        .leftJoin(Block, 'block', 'block.id = l.blockId')
+        .innerJoin(Zone, 'zone', 'zone.id = l.zoneId')
+        .innerJoin(Block, 'block', 'block.id = l.blockId')
         .where('l.userId IN (:...userIds)', { userIds: userIdsArray });
 
       if (dateFrom && dateTo) {
