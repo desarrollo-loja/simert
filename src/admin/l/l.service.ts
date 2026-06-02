@@ -83,8 +83,9 @@ export class LService {
         .innerJoin(Zone, 'zone', 'zone.id = l.zoneId')
         .innerJoin(Block, 'block', 'block.id = l.blockId')
         // INNER JOIN on the block's operator assignments (blockOperator.blockId = block.id),
-        // restricted to shifts the operator has already initialized (isInitialized = true).
-        .innerJoin(BlockOperator, 'blockOperator', 'blockOperator.blockId = block.id AND blockOperator.isInitialized = true')
+        // restricted to shifts that are currently in progress: started but not yet
+        // finished (isInitialized = true AND isFinalized = false).
+        .innerJoin(BlockOperator, 'blockOperator', 'blockOperator.blockId = block.id AND blockOperator.isInitialized = true AND blockOperator.isFinalized = false')
         .where('l.userId IN (:...userIds)', { userIds: userIdsArray });
 
       if (dateFrom && dateTo) {
