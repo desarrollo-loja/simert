@@ -203,7 +203,7 @@ export class BlockService {
           TO_CHAR(b."updatedAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS') AS "updatedAt",
           b."zoneId", b.priority, b.description,
           z.name AS "nameZone", ST_AsGeoJSON(z.geofence) AS "geofenceZone", z.color AS "colorZone",
-          z.lg AS "lgZone", z.lt AS "ltZone"
+          z.lg AS "lgZone", z.lt AS "ltZone", z.schedules AS "schedulesZone"
         FROM block AS b
         INNER JOIN zone AS z ON b."zoneId" = z.id
         ${where}
