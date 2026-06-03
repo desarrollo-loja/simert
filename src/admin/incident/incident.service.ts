@@ -1229,6 +1229,10 @@ export class IncidentService {
    * - `totalClient`: distinct incident client names (`i."fullNameClient"`).
    * - `totalTime`: summed parking time from the associated fractions.
    *
+   * The FROM/JOIN chain mirrors {@link findAllFractionSanction} exactly
+   * (`INNER JOIN` incident-type, zone and block, then `LEFT JOIN` fraction), so
+   * this metric covers the same population as the report.
+   *
    * Vehicle and client counts come from the INCIDENT, so sanctions without an
    * associated fraction still contribute their plate/client. The fraction is
    * `LEFT JOIN`ed only to aggregate parking time; fraction-less rows add zero
@@ -1263,6 +1267,9 @@ export class IncidentService {
             COALESCE(SUM(fraction.time), '00:00:00')::time AS "totalTime"
           FROM
             ${tableNameIncident} i
+            INNER JOIN public."incidentType" it ON i."incidentTypeId" = it.id
+            INNER JOIN public.zone z ON z.id = i."zoneId"
+            INNER JOIN public.block b ON b.id = i."blockId"
             LEFT JOIN ${tableNameFraction} fraction ON fraction.id = i."fractionId"
        `;
 
@@ -1286,11 +1293,12 @@ export class IncidentService {
    * Each result row aggregates the sanction count for the corresponding
    * combination.
    *
-   * Zone and block are taken from the INCIDENT (not the fraction) and the
-   * fraction is `LEFT JOIN`ed, so incidents without an associated fraction are
-   * still counted, keeping this metric aligned with the report in
-   * {@link findAllFractionSanction}. Fraction-less rows have no parking time, so
-   * they fall under the `00:00:00` bucket; the `time` column is wrapped in
+   * The FROM/JOIN chain mirrors {@link findAllFractionSanction} (`INNER JOIN`
+   * incident-type, zone and block on the INCIDENT, then `LEFT JOIN` fraction),
+   * so this metric covers the same population as the report. Zone and block are
+   * taken from the INCIDENT (not the fraction), and incidents without an
+   * associated fraction are still counted: they have no parking time, so they
+   * fall under the `00:00:00` bucket. The `time` column is wrapped in
    * `COALESCE(..., '00:00:00')` so it never returns `NULL`, while `totalTime`
    * counts only the rows that actually carry a fraction time.
    *
@@ -1323,12 +1331,14 @@ export class IncidentService {
             COUNT(*) FILTER (WHERE fraction.time IS NOT NULL) AS "totalTime"
           FROM
               ${tableNameIncident} i
-                  LEFT JOIN
-              ${tableNameFraction} fraction ON fraction.id = i."fractionId"
+                  INNER JOIN
+              public."incidentType" it ON i."incidentTypeId" = it.id
                   INNER JOIN
               public.zone z ON z.id = i."zoneId"
                   INNER JOIN
               public.block b ON b.id = i."blockId"
+                  LEFT JOIN
+              ${tableNameFraction} fraction ON fraction.id = i."fractionId"
         `;
 
       if (conditions.length > 0) {
