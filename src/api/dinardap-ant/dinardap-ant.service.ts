@@ -124,7 +124,6 @@ export class DinardapAntService {
 
     this.token = this.commonGimService.getTokenGim2();
     const accessToken = this.token;
-    console.log(accessToken);
 
     if (!accessToken) {
       this.logger.error('Token GIM2 no disponible para DINARDAP ANT');
