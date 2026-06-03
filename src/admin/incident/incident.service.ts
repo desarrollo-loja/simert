@@ -1224,16 +1224,19 @@ export class IncidentService {
   }
 
   /**
-   * Returns aggregate parking metrics (distinct vehicles, distinct clients,
-   * total time) across the matching incidents.
+   * Returns aggregate parking metrics across the matching incidents:
+   * - `totalVehicle`: distinct incident license plates (`i."plate"`).
+   * - `totalClient`: distinct incident client names (`i."fullNameClient"`).
+   * - `totalTime`: summed parking time from the associated fractions.
    *
-   * The fraction is `LEFT JOIN`ed so incidents without an associated fraction
-   * are still counted, keeping this metric aligned with the report in
-   * {@link findAllFractionSanction}. Fraction-less rows carry no fraction data,
-   * so they contribute nothing to the distinct vehicle/client counts and add
-   * zero to `totalTime`; `totalTime` is additionally wrapped in
-   * `COALESCE(..., '00:00:00')` so it never returns `NULL` when the filtered set
-   * has no fraction time at all.
+   * Vehicle and client counts come from the INCIDENT, so sanctions without an
+   * associated fraction still contribute their plate/client. The fraction is
+   * `LEFT JOIN`ed only to aggregate parking time; fraction-less rows add zero
+   * and `totalTime` is wrapped in `COALESCE(..., '00:00:00')` so it never
+   * returns `NULL` when the filtered set has no fraction time at all.
+   *
+   * `COUNT(DISTINCT ...)` ignores `NULL`, so incidents without a plate or
+   * client name simply do not add to those counts.
    *
    * Routes to the correct archives via {@link _resolveSanctionTables}.
    *
@@ -1255,8 +1258,8 @@ export class IncidentService {
 
       let query = `
           SELECT
-            COUNT(DISTINCT fraction.plate) AS "totalVehicle",
-            COUNT(DISTINCT fraction."userId") AS "totalClient",
+            COUNT(DISTINCT i."plate") AS "totalVehicle",
+            COUNT(DISTINCT i."fullNameClient") AS "totalClient",
             COALESCE(SUM(fraction.time), '00:00:00')::time AS "totalTime"
           FROM
             ${tableNameIncident} i
