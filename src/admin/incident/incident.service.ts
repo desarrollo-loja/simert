@@ -1225,7 +1225,15 @@ export class IncidentService {
 
   /**
    * Returns aggregate parking metrics (distinct vehicles, distinct clients,
-   * total time) for incidents that have an associated fraction.
+   * total time) across the matching incidents.
+   *
+   * The fraction is `LEFT JOIN`ed so incidents without an associated fraction
+   * are still counted, keeping this metric aligned with the report in
+   * {@link findAllFractionSanction}. Fraction-less rows carry no fraction data,
+   * so they contribute nothing to the distinct vehicle/client counts and add
+   * zero to `totalTime`; `totalTime` is additionally wrapped in
+   * `COALESCE(..., '00:00:00')` so it never returns `NULL` when the filtered set
+   * has no fraction time at all.
    *
    * Routes to the correct archives via {@link _resolveSanctionTables}.
    *
@@ -1249,15 +1257,14 @@ export class IncidentService {
           SELECT
             COUNT(DISTINCT fraction.plate) AS "totalVehicle",
             COUNT(DISTINCT fraction."userId") AS "totalClient",
-            SUM(fraction.time)::time AS "totalTime"
+            COALESCE(SUM(fraction.time), '00:00:00')::time AS "totalTime"
           FROM
             ${tableNameIncident} i
-            INNER JOIN ${tableNameFraction} fraction ON fraction.id = i."fractionId"
-            WHERE i."fractionId" IS NOT NULL
+            LEFT JOIN ${tableNameFraction} fraction ON fraction.id = i."fractionId"
        `;
 
       if (conditions.length > 0) {
-        query += ' AND ' + conditions.join(' AND ');
+        query += ' WHERE ' + conditions.join(' AND ');
       }
 
       const fractionSanction = await this.incidentRepository.query(query, parameters);
@@ -1272,9 +1279,17 @@ export class IncidentService {
   }
 
   /**
-   * Returns fraction-sanction statistics grouped by zone, block, and parking
-   * time slot. Each result row aggregates the sanction count for the
-   * corresponding combination.
+   * Returns sanction statistics grouped by zone, block, and parking time slot.
+   * Each result row aggregates the sanction count for the corresponding
+   * combination.
+   *
+   * Zone and block are taken from the INCIDENT (not the fraction) and the
+   * fraction is `LEFT JOIN`ed, so incidents without an associated fraction are
+   * still counted, keeping this metric aligned with the report in
+   * {@link findAllFractionSanction}. Fraction-less rows have no parking time, so
+   * they fall under the `00:00:00` bucket; the `time` column is wrapped in
+   * `COALESCE(..., '00:00:00')` so it never returns `NULL`, while `totalTime`
+   * counts only the rows that actually carry a fraction time.
    *
    * Routes to the correct archives via {@link _resolveSanctionTables}.
    *
@@ -1299,25 +1314,25 @@ export class IncidentService {
               MAX(z.name) AS "nameZone",
               MAX(b.id) AS "idBlock",
               MAX(b.name) AS "nameBlock",
-              MAX(fraction.time) AS "time",
-            COUNT(*) FILTER (WHERE fraction."zoneId" IS NOT NULL) AS "totalZone",
-            COUNT(*) FILTER (WHERE fraction."blockId" IS NOT NULL) AS "totalBlock",
+              COALESCE(MAX(fraction.time), '00:00:00'::time) AS "time",
+            COUNT(*) AS "totalZone",
+            COUNT(*) AS "totalBlock",
             COUNT(*) FILTER (WHERE fraction.time IS NOT NULL) AS "totalTime"
           FROM
               ${tableNameIncident} i
-                  INNER JOIN
+                  LEFT JOIN
               ${tableNameFraction} fraction ON fraction.id = i."fractionId"
                   INNER JOIN
-              public.zone z ON z.id = fraction."zoneId"
+              public.zone z ON z.id = i."zoneId"
                   INNER JOIN
-              public.block b ON b.id = fraction."blockId"
+              public.block b ON b.id = i."blockId"
         `;
 
       if (conditions.length > 0) {
         query += ' WHERE ' + conditions.join(' AND ');
       }
 
-      query += ' GROUP BY fraction."zoneId" , fraction."blockId" , fraction.time';
+      query += ' GROUP BY i."zoneId" , i."blockId" , fraction.time';
 
       const fractionSanction = await this.incidentRepository.query(query, parameters);
 
