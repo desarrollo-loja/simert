@@ -1479,7 +1479,8 @@ export class IncidentService {
 
     let queryInfo = `
       SELECT i."id", i."description",
-      i."plate", i."statusIncident", i."updatedAt"
+      i."plate", i."statusIncident",
+      TO_CHAR(i."updatedAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS') AS "updatedAt"
       FROM ${table} i
     `;
 
