@@ -124,6 +124,7 @@ export class DinardapAntService {
 
     this.token = this.commonGimService.getTokenGim2();
     const accessToken = this.token;
+    console.log(accessToken);
 
     if (!accessToken) {
       this.logger.error('Token GIM2 no disponible para DINARDAP ANT');
@@ -172,33 +173,33 @@ export class DinardapAntService {
       const cols: Record<string, string> = filaRaw?.columnas?.columna ? this._parseCols(filaRaw.columnas.columna) : {};
 
       // ── Persona ──────────────────────────────────────────────────────────────
-      const firstName    = String(cols['nombres']        || '').trim();
-      const apellido1    = String(cols['apellido1']      || '').trim();
-      const apellido2    = String(cols['apellido2']      || '').trim();
-      const lastName     = [apellido1, apellido2].filter(Boolean).join(' ').trim();
-      const fullName     = String(cols['propietario']    || `${lastName} ${firstName}`).trim();
+      const firstName = String(cols['nombres'] || '').trim();
+      const apellido1 = String(cols['apellido1'] || '').trim();
+      const apellido2 = String(cols['apellido2'] || '').trim();
+      const lastName = [apellido1, apellido2].filter(Boolean).join(' ').trim();
+      const fullName = String(cols['propietario'] || `${lastName} ${firstName}`).trim();
       const identityCard = String(cols['docPropietario'] || '').trim();
-      const email        = String(cols['correo']         || '').trim();
+      const email = String(cols['correo'] || '').trim();
       // Phone may arrive with a leading ";" (e.g. ";0939700013") — strip it
-      const phone        = String(cols['telefono']       || '').replace(/^;+/, '').trim();
-      const address      = String(cols['direccion']      || '').trim();
+      const phone = String(cols['telefono'] || '').replace(/^;+/, '').trim();
+      const address = String(cols['direccion'] || '').trim();
 
       // ── Vehicle ───────────────────────────────────────────────────────────────
-      const brand       = String(cols['marca']        || '').trim();
-      const model       = String(cols['modelo']       || '').trim();
-      const year        = String(cols['anio']         || '').trim();
-      const color       = String(cols['color']        || '').trim();
-      const chassis     = String(cols['chasis']       || '').trim();
-      const motor       = String(cols['motor']        || '').trim();
+      const brand = String(cols['marca'] || '').trim();
+      const model = String(cols['modelo'] || '').trim();
+      const year = String(cols['anio'] || '').trim();
+      const color = String(cols['color'] || '').trim();
+      const chassis = String(cols['chasis'] || '').trim();
+      const motor = String(cols['motor'] || '').trim();
       const vehicleType = String(cols['tipoVehiculo'] || '').trim();
       const serviceType = String(cols['tipoServicio'] || '').trim();
-      const fuelType    = String(cols['combustible']  || '').trim();
-      const passengers  = String(cols['pasajeros']    || '').trim();
+      const fuelType = String(cols['combustible'] || '').trim();
+      const passengers = String(cols['pasajeros'] || '').trim();
 
       // ── Registration ──────────────────────────────────────────────────────────
-      const matriculaYear  = String(cols['anioMatriculado'] || '').trim();
-      const matriculaDate  = String(cols['fechaMatricula']  || '').trim();
-      const expirationDate = String(cols['fechaCaducidad']  || '').trim();
+      const matriculaYear = String(cols['anioMatriculado'] || '').trim();
+      const matriculaDate = String(cols['fechaMatricula'] || '').trim();
+      const expirationDate = String(cols['fechaCaducidad'] || '').trim();
 
       if (!fullName && !identityCard && !email) {
         this.logger.warn(`La respuesta vino sin datos útiles para la placa ${plate}`);

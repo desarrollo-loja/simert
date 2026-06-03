@@ -13,10 +13,10 @@ import { DinardapAntService } from './dinardap-ant.service';
 @ApiBearerAuth('keycloak')
 @Controller('api/dinardap-ant')
 export class DinardapAntController {
-  constructor(private readonly dinardapAntService: DinardapAntService) {}
+    constructor(private readonly dinardapAntService: DinardapAntService) { }
 
-     @ApiOperation({ summary: 'Look up vehicle owner + vehicle data by plate via DINARDAP ANT REST service' })
-     @ApiStandardResponse({
+    @ApiOperation({ summary: 'Look up vehicle owner + vehicle data by plate via DINARDAP ANT REST service' })
+    @ApiStandardResponse({
         description: 'Owner and vehicle data from DINARDAP ANT',
         errorCodes: [ErrorCode.NONE, ErrorCode.NOT_FOUND],
         data: {
@@ -48,15 +48,15 @@ export class DinardapAntController {
             },
             message: { type: 'string', example: 'No se encontró información del vehículo' },
         },
-     })
-     @Get('get-user-data-by-plate-ant/:userId/:idDevice/:applicationId')
-      async getUserDataByPlateAnt(
-          @Param('userId') userId: string,
-          @Param('idDevice') idDevice: string,
-          @Param('applicationId') applicationId: string,
-          @Query('plate') plate: string,
-      ) {
-          return this.dinardapAntService.getUserDataByPlateAnt(plate);
-      }
+    })
+    @Get('get-user-data-by-plate-ant/:userId/:idDevice/:applicationId')
+    async getUserDataByPlateAnt(
+        @Param('userId') userId: string,
+        @Param('idDevice') idDevice: string,
+        @Param('applicationId') applicationId: string,
+        @Query('plate') plate: string,
+    ) {
+        return this.dinardapAntService.getUserDataByPlateAnt(plate);
+    }
 
 }
