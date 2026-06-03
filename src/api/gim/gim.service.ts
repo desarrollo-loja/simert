@@ -108,13 +108,14 @@ export class GimService {
    * @returns The parsed response body returned by GIM.
    */
   private async _postToExternalApi<T>(endpointPath: string, body: unknown): Promise<T> {
-    console.log(endpointPath);
     const url = `${this.gimBaseUrl}/api/external/${endpointPath}`;
-    console.log(url);
+    axios.interceptors.response.use((response) => {
+      console.log('AXIOS RESPONSE:', response);
+      return response;
+    });
     const { data } = await axios.post<T>(url, body, {
       headers: this._authJsonHeaders(),
     });
-    console.log('data', data);
     return data;
   }
 

@@ -524,6 +524,8 @@ export class KeycloakService {
 
       const userId = data[0].id;
 
+      console.log('url', `${this.usersUrl(userId)}/reset-password`);
+
       await axios.put(
         `${this.usersUrl(userId)}/reset-password`,
         { type: 'password', value: newPassword, temporary: false },
