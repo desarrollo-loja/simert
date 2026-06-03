@@ -593,6 +593,7 @@ export class IncidentService {
    * @returns Error-code envelope. On success returns `AWAITS_RESPONSE` with the payment record.
    */
   async pay(idDevice: string, payIncidentDto: PayIncidentDto) {
+    console.log(' payIncidentDto', payIncidentDto);
 
     // Validate that the till is open
     const openTill = await this.gimService.validateOpenTill();
