@@ -839,7 +839,8 @@ export class GimService {
       };
     } catch (error: any) {
 
-      this.logger.error('Errro validateOpenTill ', error?.response?.status, error?.code, error?.message)
+      // this.logger.error('Errro validateOpenTill ', error?.response?.status, error?.code, error?.message)
+      this.logger.error('Errro validateOpenTill ', error)
       const status = error?.response?.status;
       const isTimeout = error?.code === 'ECONNABORTED' || error?.code === 'ETIMEDOUT';
 
