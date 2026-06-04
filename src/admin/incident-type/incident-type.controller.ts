@@ -16,7 +16,7 @@ import { IncidentTypeService } from './incident-type.service';
 @ApiBearerAuth('keycloak')
 @Controller('admin/incident-type')
 export class IncidentTypeController {
-  constructor(private readonly incidentTypeService: IncidentTypeService) {}
+  constructor(private readonly incidentTypeService: IncidentTypeService) { }
 
   @ApiOperation({ summary: 'Create a new incident type' })
   // @Auth()
