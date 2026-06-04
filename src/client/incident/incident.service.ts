@@ -644,6 +644,8 @@ export class IncidentService {
         optionalData,
       );
 
+      const ownerName = await this._getOwnerName(incidents[0].id);
+
       const codes = incidents
         .map(incident => (incident.code ?? '').trim())
         .filter(code => code.length > 0)
@@ -682,7 +684,7 @@ export class IncidentService {
         switch (typePaymentMethod) {
           case TypePaymentMethod.DEUNAV2:
 
-            const responseDeunaV2 = await this._payDeunaV2(idDevice, debitAmounDto, payIncidentDto, typePaymentResponsibility, referenceId, codes);
+            const responseDeunaV2 = await this._payDeunaV2(idDevice, debitAmounDto, payIncidentDto, typePaymentResponsibility, referenceId, codes, ownerName);
             if (responseDeunaV2['errorCode'] === ErrorCode.NONE) {
               urlDeuna = responseDeunaV2['deeplink'];
               await queryRunner.manager.update(
@@ -697,7 +699,7 @@ export class IncidentService {
 
           case TypePaymentMethod.AHORITA:
 
-            const responseAhorita = await this._payAhorita(idDevice, debitAmounDto, payIncidentDto, typePaymentResponsibility, referenceId, codes);
+            const responseAhorita = await this._payAhorita(idDevice, debitAmounDto, payIncidentDto, typePaymentResponsibility, referenceId, codes, ownerName);
 
             if (responseAhorita['errorCode'] === ErrorCode.NONE) {
               urlAhorita = responseAhorita['deeplink'];
@@ -713,7 +715,7 @@ export class IncidentService {
 
           case TypePaymentMethod.PLACE_TO_PAY:
 
-            const responsePlaceToPay = await this._payPlaceToPay(idDevice, debitAmounDto, payIncidentDto, typePaymentResponsibility, referenceId, codes);
+            const responsePlaceToPay = await this._payPlaceToPay(idDevice, debitAmounDto, payIncidentDto, typePaymentResponsibility, referenceId, codes, ownerName);
 
             if (responsePlaceToPay['errorCode'] === ErrorCode.NONE) {
               urlPlaceToPay = responsePlaceToPay['deeplink'];
@@ -798,6 +800,23 @@ export class IncidentService {
     }
 
     return concept;
+  }
+
+  /**
+   * Resolves the vehicle owner's full name for a payment batch using a single
+   * query. Every incident in a batch shares the same owner, so it reads just
+   * one incident by its id instead of loading the whole list.
+   *
+   * @param incidentId Id of a single incident from the payment batch.
+   * @returns The owner's full name (`fullNameClient`), or an empty string when not found.
+   */
+  private async _getOwnerName(incidentId: number): Promise<string> {
+    const incident = await this.incidentRepository.findOne({
+      where: { id: incidentId },
+      select: ['fullNameClient'],
+    });
+
+    return incident?.fullNameClient ?? '';
   }
 
   private async _parseDebitAmounDto(concept: string, payIncidentDto: PayIncidentDto) {
@@ -966,7 +985,7 @@ export class IncidentService {
     return this._handleProviderPaymentFailure(referenceId, userId, amount, typePaymentMethod);
   }
 
-  private async _payDeunaV2(idDevice: string, debitAmounDto: DebitAmounDto, payIncidentDto: PayIncidentDto, typePaymentResponsibility: TypePaymentResponsibility, referenceId: string, codes: string) {
+  private async _payDeunaV2(idDevice: string, debitAmounDto: DebitAmounDto, payIncidentDto: PayIncidentDto, typePaymentResponsibility: TypePaymentResponsibility, referenceId: string, codes: string, ownerName: string) {
 
     const { userId, typePaymentMethod, credentialId, amount
     } = payIncidentDto;
@@ -985,7 +1004,7 @@ export class IncidentService {
       idTransactionReason: IdTransactionReason.PAY_INCIDENT,
       concept: debitAmounDto.concept,
       purchase_data: debitAmounDto.purchase_data,
-      billing_data: { ...debitAmounDto.billing_data, code: codes } as BillingDataDto,
+      billing_data: { ...debitAmounDto.billing_data, code: codes, ownerName } as BillingDataDto,
       transactionId: debitAmounDto.transactionId,
       userId,
       webhook: this._buildPaymentResponseWebhook(idDevice, userId, referenceId, typePaymentMethod, register, typePaymentResponsibility),
@@ -999,7 +1018,7 @@ export class IncidentService {
     );
   }
 
-  private async _payAhorita(idDevice: string, debitAmounDto: DebitAmounDto, payIncidentDto: PayIncidentDto, typePaymentResponsibility: TypePaymentResponsibility, referenceId: string, codes: string) {
+  private async _payAhorita(idDevice: string, debitAmounDto: DebitAmounDto, payIncidentDto: PayIncidentDto, typePaymentResponsibility: TypePaymentResponsibility, referenceId: string, codes: string, ownerName: string) {
     const { userId, typePaymentMethod, credentialId, amount } = payIncidentDto;
     const { register } = debitAmounDto;
 
@@ -1016,7 +1035,7 @@ export class IncidentService {
       idTransactionReason: IdTransactionReason.PAY_INCIDENT,
       concept: debitAmounDto.concept,
       purchase_data: debitAmounDto.purchase_data,
-      billing_data: { ...debitAmounDto.billing_data, code: codes } as BillingDataDto,
+      billing_data: { ...debitAmounDto.billing_data, code: codes, ownerName } as BillingDataDto,
       transactionId: debitAmounDto.transactionId,
       userId,
       webhook: this._buildPaymentResponseWebhook(idDevice, userId, referenceId, typePaymentMethod, register, typePaymentResponsibility),
@@ -1030,7 +1049,7 @@ export class IncidentService {
     );
   }
 
-  private async _payPlaceToPay(idDevice: string, debitAmounDto: DebitAmounDto, payIncidentDto: PayIncidentDto, typePaymentResponsibility: TypePaymentResponsibility, referenceId: string, codes: string) {
+  private async _payPlaceToPay(idDevice: string, debitAmounDto: DebitAmounDto, payIncidentDto: PayIncidentDto, typePaymentResponsibility: TypePaymentResponsibility, referenceId: string, codes: string, ownerName: string) {
 
     const { userId, typePaymentMethod, credentialId, amount } = payIncidentDto;
     const { register } = debitAmounDto;
@@ -1048,7 +1067,7 @@ export class IncidentService {
       idTransactionReason: IdTransactionReason.PAY_INCIDENT,
       concept: debitAmounDto.concept,
       purchase_data: debitAmounDto.purchase_data,
-      billing_data: { ...debitAmounDto.billing_data, code: codes } as BillingDataDto,
+      billing_data: { ...debitAmounDto.billing_data, code: codes, ownerName } as BillingDataDto,
       transactionId: debitAmounDto.transactionId,
       userId,
       webhook: this._buildPaymentResponseWebhook(idDevice, userId, referenceId, typePaymentMethod, register, typePaymentResponsibility),
