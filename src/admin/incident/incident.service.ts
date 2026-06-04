@@ -87,8 +87,19 @@ export class IncidentService {
   }
 
   /**
-   * Returns a paginated, filtered list of incidents from the appropriate table
-   * (`public.incident` or a historical archive).
+   * Returns a paginated, filtered list of incidents.
+   *
+   * Source-table routing (only the FROM source is built dynamically; the
+   * SELECT, filters, ORDER BY and LIMIT/OFFSET are identical across every
+   * branch):
+   * - `dateFrom` + `dateTo` (current front-end contract) -> dynamically
+   *   `UNION ALL`s every monthly archive `history."YYYY_MM_incident"` whose
+   *   month falls within the range and that already exists, plus the live
+   *   `public.incident` table only when `dateTo` is within the last 3 days, so
+   *   the most recent, not-yet-archived rows are still returned. See
+   *   {@link _buildIncidentRangeSource}.
+   * - No range -> legacy `year`/`month` routing via {@link _resolveIncidentTable}
+   *   (`public.incident` or a single historical archive).
    *
    * Timestamps are serialized as `YYYY-MM-DD"T"HH24:MI:SS.MS` strings to avoid
    * the UTC-`Z` suffix that JS `Date` serialization would produce.
@@ -97,7 +108,30 @@ export class IncidentService {
    * @returns Object with the `incidents` array and `errorCode`.
    */
   async findAll(filterDto: IncidentFilterDto) {
-    const table = await this._resolveIncidentTable(filterDto);
+    const { dateFrom, dateTo } = filterDto;
+
+    // Resolve the FROM source. With a date range, union the monthly archives in
+    // range plus the transactional table when the range reaches the recent
+    // window; otherwise keep the legacy year/month routing. The projection must
+    // cover every SELECT/ORDER BY column below and every column referenced by
+    // `_buildConditionsAndParametersPg`.
+    let table: string;
+    if (dateFrom && dateTo) {
+      const columns =
+        '"id", "incidentTypeId", "statusIncident", "description", "plate", "optionalData", ' +
+        '"supervisorObservations", "controllerId", "dictumPdfUrl", "resolutionPdfUrl", ' +
+        '"blockOperatorId", "zoneId", "blockId", "slot", "images", "lt", "lg", "isActivated", ' +
+        '"createdAt", "updatedAt", "incidentCategory", "nroTicket", "identityCard", ' +
+        '"fullNameClient", "emailClient", "amount", "reference", "address", "vehicleType", ' +
+        '"controllerReportPdfUrl", "nroObligation", "internalState"';
+      const rangeSource = await this._buildIncidentRangeSource(dateFrom, dateTo, columns);
+      if (!rangeSource) {
+        return { incidents: [], errorCode: ErrorCode.NONE };
+      }
+      table = rangeSource;
+    } else {
+      table = await this._resolveIncidentTable(filterDto);
+    }
 
     const { conditions, parameters } = this._buildConditionsAndParametersPg(filterDto);
 
@@ -837,7 +871,7 @@ export class IncidentService {
    *   month falls within the range and that already exists, plus the live
    *   `public.incident` table only when `dateTo` is within the last 3 days, so
    *   the most recent, not-yet-archived rows are still counted. See
-   *   {@link _buildStatisticsIncidentRangeSource}.
+   *   {@link _buildIncidentRangeSource}.
    * - No range -> live `public.incident` table (preserves prior behavior).
    *
    * @param filterDto Filters applied via {@link _buildConditionsAndParametersPg}.
@@ -853,9 +887,16 @@ export class IncidentService {
       // Resolve the FROM source. With a date range, union the monthly archives
       // in range plus the transactional table when the range reaches the recent
       // window; otherwise keep reading the live table (legacy behavior).
+      // The projection must cover the SELECT (`id`, `incidentTypeId`) and every
+      // column referenced by `_buildConditionsAndParametersPg`.
       let fromSource = 'public.incident';
       if (dateFrom && dateTo) {
-        const rangeSource = await this._buildStatisticsIncidentRangeSource(dateFrom, dateTo);
+        const columns =
+          '"id", "incidentTypeId", "description", "plate", "supervisorObservations", ' +
+          '"identityCard", "nroTicket", "nroObligation", "fullNameClient", "zoneId", ' +
+          '"blockId", "statusIncident", "internalState", "controllerId", ' +
+          '"blockOperatorId", "incidentCategory", "createdAt"';
+        const rangeSource = await this._buildIncidentRangeSource(dateFrom, dateTo, columns);
         if (!rangeSource) {
           return { errorCode: ErrorCode.NOT_FOUND, message: 'No se encontraron resultados' };
         }
@@ -936,19 +977,19 @@ export class IncidentService {
   }
 
   /**
-   * Builds the dynamic FROM source for a date-range statistics query: a
+   * Builds the dynamic FROM source for a date-range incident query: a
    * `UNION ALL` of every monthly archive `history."YYYY_MM_incident"` whose
    * month falls within [`dateFrom`, `dateTo`] and that already exists, plus the
    * live `public.incident` table when `dateTo` is within the last 3 days (so
    * recent, not-yet-archived rows are still counted).
    *
-   * Every UNION branch projects the same fixed column list, so the rows stay
-   * union-compatible regardless of incidental column drift between the archives
-   * and the live table. This projection MUST expose every column referenced by
-   * the statistics SELECT (`id`, `incidentTypeId`) and by
-   * {@link _buildConditionsAndParametersPg} (the WHERE builder); keep it in sync
-   * when new filter columns are added there. The result is parenthesized so the
-   * caller can alias it as `i`.
+   * Every UNION branch projects the same caller-supplied `columns` list, so the
+   * rows stay union-compatible regardless of incidental column drift between the
+   * archives and the live table. The projection MUST expose every column the
+   * caller's outer query references — both its SELECT/ORDER BY columns and every
+   * column produced by {@link _buildConditionsAndParametersPg} (the WHERE
+   * builder); keep it in sync when new filter columns are added there. The
+   * result is parenthesized so the caller can alias it as `i`.
    *
    * The table names are never interpolated from raw input: `year`/`month` are
    * validated by {@link _isValidYearMonth} (via {@link _extractYearMonth}) and
@@ -957,19 +998,17 @@ export class IncidentService {
    *
    * @param dateFrom Inclusive range start (`YYYY-MM-DD`).
    * @param dateTo   Inclusive range end (`YYYY-MM-DD`).
+   * @param columns  Comma-separated, double-quoted column list projected by
+   *   every UNION branch (e.g. `'"id", "createdAt"'`).
    * @returns The parenthesized `UNION ALL` subquery, or `null` when no archive
    *   in range exists and the live table is not eligible.
    */
-  private async _buildStatisticsIncidentRangeSource(
+  private async _buildIncidentRangeSource(
     dateFrom: string,
     dateTo: string,
+    columns: string,
   ): Promise<string | null> {
     const schema = 'history';
-    const columns =
-      '"id", "incidentTypeId", "description", "plate", "supervisorObservations", ' +
-      '"identityCard", "nroTicket", "nroObligation", "fullNameClient", "zoneId", ' +
-      '"blockId", "statusIncident", "internalState", "controllerId", ' +
-      '"blockOperatorId", "incidentCategory", "createdAt"';
 
     const selects: string[] = [];
 
