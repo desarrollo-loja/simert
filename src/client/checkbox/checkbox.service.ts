@@ -781,7 +781,6 @@ export class CheckboxService implements OnModuleInit {
      */
     async onResponsePay(idDevice: string, userId: number, checkboxId: number, typePaymentMethod: number, register: string, typePaymentResponsibility: TypePaymentResponsibility) {
 
-        console.log("onResponsePay", idDevice, userId, checkboxId, typePaymentMethod, register, typePaymentResponsibility);
         let checkbox = await this.checkboxRepository.findOne({ where: { id: checkboxId } });
         if (!checkbox) {
             return { errorCode: ErrorCode.NOT_FOUND };
