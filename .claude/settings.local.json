@@ -53,7 +53,9 @@
       "PowerShell(npx nest build)",
       "PowerShell(npx eslint src/api/keycloak/keycloak.service.ts)",
       "PowerShell(npx nest build; \"exit code: $LASTEXITCODE\")",
-      "PowerShell(npx eslint src/admin/l/l.service.ts; \"eslint exit: $LASTEXITCODE\"; npx nest build; \"build exit: $LASTEXITCODE\")"
+      "PowerShell(npx eslint src/admin/l/l.service.ts; \"eslint exit: $LASTEXITCODE\"; npx nest build; \"build exit: $LASTEXITCODE\")",
+      "Bash(echo \"BUILD_EXIT=$?\")",
+      "Bash(echo \"ESLINT_EXIT=$?\")"
     ]
   }
 }

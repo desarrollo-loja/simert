@@ -829,7 +829,16 @@ export class IncidentService {
    * Returns aggregate incident counts grouped by incident type, optionally
    * restricted to a date range and other filter criteria.
    *
-   * Always queries `public.incident` (no historical archive routing).
+   * Source-table routing (only the FROM source is built dynamically; the
+   * aggregation SELECT, the INNER JOIN, the filters and the GROUP BY are
+   * identical across every branch):
+   * - `dateFrom` + `dateTo` (current front-end contract) -> dynamically
+   *   `UNION ALL`s every monthly archive `history."YYYY_MM_incident"` whose
+   *   month falls within the range and that already exists, plus the live
+   *   `public.incident` table only when `dateTo` is within the last 3 days, so
+   *   the most recent, not-yet-archived rows are still counted. See
+   *   {@link _buildStatisticsIncidentRangeSource}.
+   * - No range -> live `public.incident` table (preserves prior behavior).
    *
    * @param filterDto Filters applied via {@link _buildConditionsAndParametersPg}.
    * @returns Object with `errorCode`, `message`, and the `incidents` statistics
@@ -839,7 +848,19 @@ export class IncidentService {
 
     try {
 
-      const tableName = 'public.incident';
+      const { dateFrom, dateTo } = filterDto;
+
+      // Resolve the FROM source. With a date range, union the monthly archives
+      // in range plus the transactional table when the range reaches the recent
+      // window; otherwise keep reading the live table (legacy behavior).
+      let fromSource = 'public.incident';
+      if (dateFrom && dateTo) {
+        const rangeSource = await this._buildStatisticsIncidentRangeSource(dateFrom, dateTo);
+        if (!rangeSource) {
+          return { errorCode: ErrorCode.NOT_FOUND, message: 'No se encontraron resultados' };
+        }
+        fromSource = rangeSource;
+      }
 
       const { parameters, conditions } = this._buildConditionsAndParametersPg(filterDto);
 
@@ -848,7 +869,7 @@ export class IncidentService {
                 i."incidentTypeId",
                 COUNT(i.id) as total,
                 it.name as name
-              FROM ${tableName} i
+              FROM ${fromSource} i
               INNER JOIN public."incidentType" it ON i."incidentTypeId" = it.id
       `;
 
@@ -912,6 +933,158 @@ export class IncidentService {
       handleDbExceptions(error, this.logger);
     }
 
+  }
+
+  /**
+   * Builds the dynamic FROM source for a date-range statistics query: a
+   * `UNION ALL` of every monthly archive `history."YYYY_MM_incident"` whose
+   * month falls within [`dateFrom`, `dateTo`] and that already exists, plus the
+   * live `public.incident` table when `dateTo` is within the last 3 days (so
+   * recent, not-yet-archived rows are still counted).
+   *
+   * Every UNION branch projects the same fixed column list, so the rows stay
+   * union-compatible regardless of incidental column drift between the archives
+   * and the live table. This projection MUST expose every column referenced by
+   * the statistics SELECT (`id`, `incidentTypeId`) and by
+   * {@link _buildConditionsAndParametersPg} (the WHERE builder); keep it in sync
+   * when new filter columns are added there. The result is parenthesized so the
+   * caller can alias it as `i`.
+   *
+   * The table names are never interpolated from raw input: `year`/`month` are
+   * validated by {@link _isValidYearMonth} (via {@link _extractYearMonth}) and
+   * each resulting identifier is verified against `information_schema` through
+   * {@link _tableExists}.
+   *
+   * @param dateFrom Inclusive range start (`YYYY-MM-DD`).
+   * @param dateTo   Inclusive range end (`YYYY-MM-DD`).
+   * @returns The parenthesized `UNION ALL` subquery, or `null` when no archive
+   *   in range exists and the live table is not eligible.
+   */
+  private async _buildStatisticsIncidentRangeSource(
+    dateFrom: string,
+    dateTo: string,
+  ): Promise<string | null> {
+    const schema = 'history';
+    const columns =
+      '"id", "incidentTypeId", "description", "plate", "supervisorObservations", ' +
+      '"identityCard", "nroTicket", "nroObligation", "fullNameClient", "zoneId", ' +
+      '"blockId", "statusIncident", "internalState", "controllerId", ' +
+      '"blockOperatorId", "incidentCategory", "createdAt"';
+
+    const selects: string[] = [];
+
+    for (const { year, month } of this._enumerateRangeMonths(dateFrom, dateTo)) {
+      const monthPadded = month.toString().padStart(2, '0');
+      const historicalTable = `${schema}."${year}_${monthPadded}_incident"`;
+      if (await this._tableExists(historicalTable)) {
+        selects.push(`SELECT ${columns} FROM ${historicalTable}`);
+      }
+    }
+
+    // Include the transactional table only when the range reaches the last 3 days.
+    if (this._isDateWithinLastDays(dateTo, 3)) {
+      selects.push(`SELECT ${columns} FROM public.incident`);
+    }
+
+    if (selects.length === 0) {
+      return null;
+    }
+
+    return `(${selects.join(' UNION ALL ')})`;
+  }
+
+  /**
+   * Enumerates every `{ year, month }` between two dates, inclusive of both the
+   * start and end months. Used to resolve which monthly history archives a
+   * date-range statistics query must read.
+   *
+   * @param dateFrom Range start (`YYYY-MM-DD`); only year and month are used.
+   * @param dateTo   Range end (`YYYY-MM-DD`); only year and month are used.
+   * @returns Ordered list of months in range, or an empty array when either
+   *   bound is missing/invalid or `dateFrom` is after `dateTo`.
+   */
+  private _enumerateRangeMonths(
+    dateFrom: string,
+    dateTo: string,
+  ): { year: number; month: number }[] {
+    const from = this._extractYearMonth(dateFrom);
+    const to = this._extractYearMonth(dateTo);
+    if (!from || !to) {
+      return [];
+    }
+
+    const months: { year: number; month: number }[] = [];
+    let year = from.year;
+    let month = from.month;
+
+    while (year < to.year || (year === to.year && month <= to.month)) {
+      months.push({ year, month });
+      month += 1;
+      if (month > 12) {
+        month = 1;
+        year += 1;
+      }
+    }
+
+    return months;
+  }
+
+  /**
+   * Parses the leading `YYYY-MM` of a date string and validates it through
+   * {@link _isValidYearMonth}, guarding against SQL injection before the values
+   * are interpolated into historical table identifiers.
+   *
+   * @param value Date string expected to start with `YYYY-MM`.
+   * @returns `{ year, month }` when valid, otherwise `null`.
+   */
+  private _extractYearMonth(value: string): { year: number; month: number } | null {
+    if (!value) {
+      return null;
+    }
+    const match = /^(\d{4})-(\d{2})/.exec(String(value));
+    if (!match) {
+      return null;
+    }
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    return this._isValidYearMonth(year, month) ? { year, month } : null;
+  }
+
+  /**
+   * Checks whether a date falls within the last `days` days relative to today
+   * (inclusive). Used to decide whether the live `public.incident` table must
+   * be included alongside the monthly archives.
+   *
+   * @param value Date string expected to start with `YYYY-MM-DD`.
+   * @param days  Size of the recent window in days.
+   * @returns `true` when `value` is on or after `today - days`.
+   */
+  private _isDateWithinLastDays(value: string, days: number): boolean {
+    const target = this._extractDate(value);
+    if (!target) {
+      return false;
+    }
+    const threshold = new Date();
+    threshold.setHours(0, 0, 0, 0);
+    threshold.setDate(threshold.getDate() - days);
+    return target.getTime() >= threshold.getTime();
+  }
+
+  /**
+   * Parses the leading `YYYY-MM-DD` of a string into a local `Date` at
+   * midnight, ignoring any time/zone suffix.
+   *
+   * @param value Date string expected to start with `YYYY-MM-DD`.
+   * @returns The parsed `Date`, or `null` when the format does not match.
+   */
+  private _extractDate(value: string): Date | null {
+    const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value));
+    if (!match) {
+      return null;
+    }
+    const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+    date.setHours(0, 0, 0, 0);
+    return date;
   }
 
   /**
