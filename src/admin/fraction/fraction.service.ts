@@ -413,18 +413,45 @@ export class FractionService {
   }
 
   /**
-   * Returns daily fraction counts grouped by status for a date range or
-   * period, reading from the live or historical table.
+   * Returns daily fraction counts grouped by status for a date range or period.
    *
-   * @param filterDto Filters including optional year/month period and
-   *   the conditions resolved by {@link _buildQueryParameters}.
+   * Source-table routing (only the FROM source is built dynamically; the
+   * aggregation SELECT, filters, GROUP BY and ORDER BY are identical across
+   * every branch):
+   * - `dateFrom` + `dateTo` (current front-end contract) -> dynamically
+   *   `UNION ALL`s every monthly archive `history."YYYY_MM_fraction"` whose
+   *   month falls within the range and that already exists, plus the live
+   *   `public.fraction` table only when `dateTo` is within the last 3 days, so
+   *   the most recent, not-yet-archived rows are still counted. See
+   *   {@link _buildStatisticsFractionRangeSource}.
+   * - Legacy `year`/`month` period -> single `history."YYYY_MM_fraction"`
+   *   archive when it exists, otherwise the live `public.fraction` table.
+   * - No range and no period -> live `public.fraction` table.
+   *
+   * @param filterDto Filters including the `dateFrom`/`dateTo` range, the legacy
+   *   `year`/`month` period and the conditions resolved by
+   *   {@link _buildQueryParameters}.
    * @returns `{ errorCode, fractions }` with per-day status counts,
-   *   or `{ errorCode: NOT_FOUND, message }` when no rows match.
+   *   or `{ errorCode: NOT_FOUND, message }` when no rows match or no source
+   *   table is available for the requested range.
    * @throws Delegates DB errors to {@link handleDbExceptions}.
    */
   async findStatisticsFractions(filterDto: FilterDto) {
     try {
-      const { year, month } = filterDto;
+      const { year, month, dateFrom, dateTo } = filterDto;
+
+      // Current front-end contract: a date range that may span several months.
+      // Build the data source dynamically from the monthly archives in range
+      // plus the live table when the range reaches the most recent days.
+      if (dateFrom && dateTo) {
+        const fromSource = await this._buildStatisticsFractionRangeSource(dateFrom, dateTo);
+        if (!fromSource) {
+          return { errorCode: ErrorCode.NOT_FOUND, message: 'No se encontraron resultados' };
+        }
+        return await this._runStatisticsFractionQuery(fromSource, filterDto);
+      }
+
+      // Legacy single-period routing (year/month) with live-table fallback.
       let tableName = 'public.fraction';
       let tableExists = false;
       const schema = 'history';
@@ -440,9 +467,45 @@ export class FractionService {
           tableName = tableNameAux;
       }
 
-      const { parameters, conditions } = this._buildQueryParameters(filterDto);
+      return await this._runStatisticsFractionQuery(tableName, filterDto);
+    } catch (error) {
+      handleDbExceptions(error, this.logger);
+    }
+  }
 
-      let query = `
+  /**
+   * Executes the daily status-count aggregation against the supplied FROM
+   * source (a single table name or a parenthesized `UNION ALL` subquery) using
+   * the filters from {@link _buildQueryParameters}, and shapes the standard
+   * response.
+   *
+   * @param fromSource Table identifier or parenthesized subquery aliased as `f`.
+   * @param filterDto Filters resolved into parameterized WHERE conditions.
+   * @returns `{ errorCode, message, fractions }`, or
+   *   `{ errorCode: NOT_FOUND, message }` when the query returns no rows.
+   */
+  private async _runStatisticsFractionQuery(fromSource: string, filterDto: FilterDto) {
+    const { parameters, conditions } = this._buildQueryParameters(filterDto);
+    const query = this._buildStatisticsFractionQuery(fromSource, conditions);
+    const fractions = await this.fractionRepository.query(query, parameters);
+
+    if (fractions.length === 0)
+      return { errorCode: ErrorCode.NOT_FOUND, message: 'No se encontraron resultados' };
+    return { errorCode: ErrorCode.NONE, message: 'Resultados encontrados', fractions };
+  }
+
+  /**
+   * Builds the daily status-count aggregation SQL for fractions over the given
+   * FROM source. The SELECT list, GROUP BY and ORDER BY are fixed; only the
+   * source table/subquery and the optional WHERE conditions vary.
+   *
+   * @param fromSource Table identifier or parenthesized subquery aliased as `f`.
+   * @param conditions Parameterized WHERE fragments from
+   *   {@link _buildQueryParameters} (joined with AND when present).
+   * @returns The complete raw SQL string ready for `repository.query`.
+   */
+  private _buildStatisticsFractionQuery(fromSource: string, conditions: string[]): string {
+    let query = `
               SELECT
                 TO_CHAR(f."createdAt", 'YYYY-MM-DD') AS date,
                 COUNT(CASE WHEN f."statusId" = ${StatusFraction.REQUESTED} THEN 1 END) AS requested,
@@ -459,23 +522,155 @@ export class FractionService {
                 COUNT(CASE WHEN f."statusId" = ${StatusFraction.FINISHED_BY_CONTROLLER} THEN 1 END) AS finished_by_controller,
                 COUNT(CASE WHEN f."statusId" = ${StatusFraction.RATED_CLIENT} THEN 1 END) AS rated_client,
                 COUNT(CASE WHEN f."statusId" = ${StatusFraction.ERROR} THEN 1 END) AS error
-              FROM ${tableName} f
+              FROM ${fromSource} f
       `;
 
-      if (conditions.length > 0) {
-        query += ' WHERE ' + conditions.join(' AND ');
-      }
-
-      query += ` GROUP BY TO_CHAR(f."createdAt", 'YYYY-MM-DD') ORDER BY date;`;
-
-      const fractions = await this.fractionRepository.query(query, parameters);
-
-      if (fractions.length === 0)
-        return { errorCode: ErrorCode.NOT_FOUND, message: 'No se encontraron resultados' };
-      return { errorCode: ErrorCode.NONE, message: 'Resultados encontrados', fractions };
-    } catch (error) {
-      handleDbExceptions(error, this.logger);
+    if (conditions.length > 0) {
+      query += ' WHERE ' + conditions.join(' AND ');
     }
+
+    query += ` GROUP BY TO_CHAR(f."createdAt", 'YYYY-MM-DD') ORDER BY date;`;
+    return query;
+  }
+
+  /**
+   * Builds the dynamic FROM source for a date-range statistics query: a
+   * `UNION ALL` of every monthly archive `history."YYYY_MM_fraction"` whose
+   * month falls within [`dateFrom`, `dateTo`] and that already exists, plus the
+   * live `public.fraction` table when `dateTo` is within the last 3 days (so
+   * recent, not-yet-archived rows are still counted).
+   *
+   * Every UNION branch projects the same fixed column list, so the rows stay
+   * union-compatible regardless of incidental column drift between the archives
+   * and the live table. The result is parenthesized to be aliased as `f`.
+   *
+   * @param dateFrom Inclusive range start (`YYYY-MM-DD`).
+   * @param dateTo Inclusive range end (`YYYY-MM-DD`).
+   * @returns The parenthesized `UNION ALL` subquery, or `null` when no archive
+   *   in range exists and the live table is not eligible.
+   */
+  private async _buildStatisticsFractionRangeSource(
+    dateFrom: string,
+    dateTo: string,
+  ): Promise<string | null> {
+    const schema = 'history';
+    const columns =
+      '"createdAt", "statusId", "register", "plate", "typeFraction", "zoneId", "blockId", "slotId", "userId"';
+
+    const selects: string[] = [];
+
+    for (const { year, month } of this._enumerateRangeMonths(dateFrom, dateTo)) {
+      const monthPadded = month.toString().padStart(2, '0');
+      const historicalTable = `${schema}."${year}_${monthPadded}_fraction"`;
+      if (await this._tableExists(historicalTable)) {
+        selects.push(`SELECT ${columns} FROM ${historicalTable}`);
+      }
+    }
+
+    // Include the transactional table only when the range reaches the last 3 days.
+    if (this._isDateWithinLastDays(dateTo, 3)) {
+      selects.push(`SELECT ${columns} FROM public.fraction`);
+    }
+
+    if (selects.length === 0) {
+      return null;
+    }
+
+    return `(${selects.join(' UNION ALL ')})`;
+  }
+
+  /**
+   * Enumerates every `{ year, month }` between two dates, inclusive of both the
+   * start and end months. Used to resolve which monthly history archives a
+   * date-range query must read.
+   *
+   * @param dateFrom Range start (`YYYY-MM-DD`); only year and month are used.
+   * @param dateTo Range end (`YYYY-MM-DD`); only year and month are used.
+   * @returns Ordered list of months in range, or an empty array when either
+   *   bound is missing/invalid or `dateFrom` is after `dateTo`.
+   */
+  private _enumerateRangeMonths(
+    dateFrom: string,
+    dateTo: string,
+  ): { year: number; month: number }[] {
+    const from = this._extractYearMonth(dateFrom);
+    const to = this._extractYearMonth(dateTo);
+    if (!from || !to) {
+      return [];
+    }
+
+    const months: { year: number; month: number }[] = [];
+    let year = from.year;
+    let month = from.month;
+
+    while (year < to.year || (year === to.year && month <= to.month)) {
+      months.push({ year, month });
+      month += 1;
+      if (month > 12) {
+        month = 1;
+        year += 1;
+      }
+    }
+
+    return months;
+  }
+
+  /**
+   * Parses the leading `YYYY-MM` of a date string and validates it through
+   * {@link _isValidYearMonth}, guarding against SQL injection before the values
+   * are interpolated into historical table identifiers.
+   *
+   * @param value Date string expected to start with `YYYY-MM`.
+   * @returns `{ year, month }` when valid, otherwise `null`.
+   */
+  private _extractYearMonth(value: string): { year: number; month: number } | null {
+    if (!value) {
+      return null;
+    }
+    const match = /^(\d{4})-(\d{2})/.exec(String(value));
+    if (!match) {
+      return null;
+    }
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    return this._isValidYearMonth(year, month) ? { year, month } : null;
+  }
+
+  /**
+   * Checks whether a date falls within the last `days` days relative to today
+   * (inclusive). Used to decide whether the live `public.fraction` table must
+   * be included alongside the monthly archives.
+   *
+   * @param value Date string expected to start with `YYYY-MM-DD`.
+   * @param days Size of the recent window in days.
+   * @returns `true` when `value` is on or after `today - days`.
+   */
+  private _isDateWithinLastDays(value: string, days: number): boolean {
+    const target = this._extractDate(value);
+    if (!target) {
+      return false;
+    }
+    const threshold = new Date();
+    threshold.setHours(0, 0, 0, 0);
+    threshold.setDate(threshold.getDate() - days);
+    return target.getTime() >= threshold.getTime();
+  }
+
+  /**
+   * Parses the leading `YYYY-MM-DD` of a string into a local `Date` at
+   * midnight, ignoring any time/zone suffix.
+   *
+   * @param value Date string expected to start with `YYYY-MM-DD`.
+   * @returns The parsed `Date`, or `null` when the format does not match.
+   */
+  private _extractDate(value: string): Date | null {
+    const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value));
+    if (!match) {
+      return null;
+    }
+    const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+    date.setHours(0, 0, 0, 0);
+    return date;
   }
 
   /**
