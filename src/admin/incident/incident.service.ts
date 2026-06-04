@@ -8,6 +8,7 @@ import { ErrorCode } from 'src/common/glob/error';
 import { IncidentStatus } from 'src/common/glob/type/type_incident';
 import { InternalStateIncident } from 'src/common/glob/type/type_internal_state_incident';
 import { TypeOperation } from 'src/common/glob/type/type_operation';
+import { TypeTimeZone } from 'src/common/glob/type/type_time_zone';
 import { LoggerService } from 'src/common/logger.service.ts';
 import { Repository } from 'typeorm';
 
@@ -1127,6 +1128,58 @@ export class IncidentService {
   }
 
   /**
+   * Converts a local wall-clock date range into the equivalent UTC range, used
+   * to filter `createdAt` (stored in UTC) by the user's local day. Each bound is
+   * interpreted as a local time in the given `timeZone` offset and shifted to
+   * UTC, then re-formatted as `YYYY-MM-DD HH:mm:ss`.
+   *
+   * Mirrors the helper of the same name in the fraction/parking services to keep
+   * timezone handling consistent across the codebase.
+   *
+   * @param startUTC Range start as a local `YYYY-MM-DD HH:mm:ss` string.
+   * @param endUTC   Range end as a local `YYYY-MM-DD HH:mm:ss` string.
+   * @param timeZone Offset string in the form `+HH:MM` or `-HH:MM`.
+   * @returns `{ start, end }` formatted as `YYYY-MM-DD HH:mm:ss` in UTC, or empty
+   *   strings if parsing fails.
+   */
+  private _convertRangeToTimeZone(
+    startUTC: string,
+    endUTC: string,
+    timeZone: string,
+  ): { start: string; end: string } {
+    try {
+      // Extract hours and minutes from the timezone string (e.g. "-05:00").
+      const [sign, hours, minutes] = timeZone.match(/([+-])(\d{2}):(\d{2})/)?.slice(1) || [];
+      const timeZoneOffset = (parseInt(hours) * 60 + parseInt(minutes)) * (sign === '-' ? 1 : -1);
+
+      // "Z" forces UTC interpretation of the local wall-clock string.
+      const startDateUTC = new Date(startUTC + 'Z');
+      const endDateUTC = new Date(endUTC + 'Z');
+
+      const startDateInTimeZone = new Date(startDateUTC.getTime() + timeZoneOffset * 60 * 1000);
+      const endDateInTimeZone = new Date(endDateUTC.getTime() + timeZoneOffset * 60 * 1000);
+
+      const formatDate = (date: Date) =>
+        date.getUTCFullYear() +
+        '-' +
+        String(date.getUTCMonth() + 1).padStart(2, '0') +
+        '-' +
+        String(date.getUTCDate()).padStart(2, '0') +
+        ' ' +
+        String(date.getUTCHours()).padStart(2, '0') +
+        ':' +
+        String(date.getUTCMinutes()).padStart(2, '0') +
+        ':' +
+        String(date.getUTCSeconds()).padStart(2, '0');
+
+      return { start: formatDate(startDateInTimeZone), end: formatDate(endDateInTimeZone) };
+    } catch (error) {
+      this.logger.error(`_convertRangeToTimeZone error: ${error?.message}`);
+      return { start: '', end: '' };
+    }
+  }
+
+  /**
    * Builds the parameterized WHERE conditions and positional parameter array
    * for PostgreSQL raw queries against the incident table alias `i`.
    *
@@ -1232,7 +1285,17 @@ export class IncidentService {
     }
 
     if (dateFrom && dateTo) {
-      conditions.push(`DATE(i."createdAt") BETWEEN ${addParam(dateFrom)} AND ${addParam(dateTo)}`);
+      // `createdAt` is stored in UTC, while the client selects whole days in
+      // local (Ecuador, UTC-5) time. Translate the local day range
+      // [dateFrom 00:00:00, dateTo 23:59:59] to its equivalent UTC window before
+      // comparing, so rows are matched by the user's local day. Example:
+      // 2026-06-03 -> 2026-06-03 05:00:00 .. 2026-06-04 04:59:59 (UTC).
+      const { start, end } = this._convertRangeToTimeZone(
+        `${dateFrom} 00:00:00`,
+        `${dateTo} 23:59:59`,
+        TypeTimeZone.ECUADOR,
+      );
+      conditions.push(`i."createdAt" BETWEEN ${addParam(start)} AND ${addParam(end)}`);
     }
 
     if (excludeStatus.length > 0) {
