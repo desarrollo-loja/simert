@@ -56,6 +56,7 @@ import { LoggerModule } from './common/logger.module';
 import { ResponseTimeMiddleware } from './common/response-time.middleware';
 import { DataModule } from './data/data.module';
 import { IncidentCheckModule } from './incident/incident.module';
+import { PublicModule } from './public/public.module';
 
 @Module({
   imports: [
@@ -199,7 +200,8 @@ import { IncidentCheckModule } from './incident/incident.module';
     PortalModule,
     DinardapAntModule,
     KeycloakModule,
-    CatalogModule
+    CatalogModule,
+    PublicModule,
   ],
   controllers: [AppController],
 })
