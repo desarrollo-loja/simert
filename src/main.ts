@@ -87,6 +87,7 @@ async function bootstrap() {
     .addTag('Admin', 'Endpoints de administración')
     .addTag('Client', 'Endpoints consumidos por la app cliente')
     .addTag('Api', 'Integraciones externas (GIM, Keycloak, Ant, Portal, Dinardap)')
+    .addTag('Public', 'Public read-only endpoints for third-party consumers, mobile apps and maps')
     .build();
   const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup(`${TypePrefix.API_SIMERT}internal/docs`, app, swaggerDocument, {
