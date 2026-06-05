@@ -336,7 +336,7 @@ export class TrakingService {
     const query =
       `
         SELECT "idDevice", latitude, longitude, "statusTracking", "activityTracking",
-               data, polyline, register, time, "zoneId", "blockId"
+               data, polyline, register, time
         FROM ${qualifiedTable} t
         WHERE t."userId" = $1
           AND t.register BETWEEN $2 AND $3
