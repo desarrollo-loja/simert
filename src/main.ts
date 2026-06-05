@@ -20,19 +20,21 @@ async function bootstrap() {
 
   app.setGlobalPrefix(TypePrefix.API_SIMERT);
   app.use(expressip().getIpInfoMiddleware);
+  const isHttps = process.env.HTTPS_ENABLED === 'true';
   app.use(
     helmet({
       contentSecurityPolicy: {
         directives: {
           defaultSrc: ["'self'"],
+          scriptSrc: ["'self'", "'unsafe-inline'"],
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          imgSrc: ["'self'", 'data:'],
           connectSrc: ["'self'", ...(process.env.NODE_ENV === "development" ? development : production)],
         },
       },
-      hsts: {
-        maxAge: 31536000,
-        includeSubDomains: true,
-        preload: true,
-      },
+      hsts: isHttps
+        ? { maxAge: 31536000, includeSubDomains: true, preload: true }
+        : false,
       hidePoweredBy: true,
       xssFilter: true,
       frameguard: {
