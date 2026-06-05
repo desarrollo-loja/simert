@@ -5,6 +5,7 @@ import helmet from 'helmet';
 
 import { AppModule } from './app.module';
 import { TypePrefix } from './common/glob/type/type_prefix';
+import { PublicModule } from './public/public.module';
 const expressip = require('express-ip');
 
 const developmentDomain = process.env.DEVELOPMENT_ALLOWED_DOMAIN || '"https://www.web.clipp.app", "https://web.clipp.app", "http://localhost:8080", "https://localhost:8080"';
@@ -87,6 +88,26 @@ async function bootstrap() {
   SwaggerModule.setup(`${TypePrefix.API_SIMERT}internal/docs`, app, swaggerDocument, {
     swaggerOptions: {
       persistAuthorization: true,
+      tagsSorter: 'alpha',
+      operationsSorter: 'alpha',
+    },
+  });
+
+  // Public-only API documentation. Scoped to `PublicModule` via the `include`
+  // option so it exposes solely the unauthenticated read-only endpoints meant
+  // for third-party consumers, mobile apps and maps. The full internal docs
+  // (Auth, Admin, Client, Api) remain available at `internal/docs`.
+  const publicSwaggerConfig = new DocumentBuilder()
+    .setTitle('Parking Simert Public API')
+    .setDescription('Public read-only endpoints for third-party consumers, mobile apps and maps (zones, sectors, schedules, availability, map data).')
+    .setVersion(process.env.npm_package_version || '1.0.0')
+    .addTag('Public', 'Public read-only endpoints for third-party consumers, mobile apps and maps')
+    .build();
+  const publicSwaggerDocument = SwaggerModule.createDocument(app, publicSwaggerConfig, {
+    include: [PublicModule],
+  });
+  SwaggerModule.setup(`${TypePrefix.API_SIMERT}public/docs`, app, publicSwaggerDocument, {
+    swaggerOptions: {
       tagsSorter: 'alpha',
       operationsSorter: 'alpha',
     },

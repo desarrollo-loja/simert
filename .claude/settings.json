@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -sS -D - -o /dev/null \"http://181.113.129.20/api/simert/internal/docs\")",
+      "Bash(curl -sS -D - -o /dev/null \"http://181.113.129.20/\")",
+      "Bash(echo \"EXIT_CODE=$?\")",
+      "Bash(echo \"LINT_EXIT=$?\")"
+    ]
+  }
+}
