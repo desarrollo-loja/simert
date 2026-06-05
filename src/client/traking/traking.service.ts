@@ -34,7 +34,7 @@ export class TrakingService {
   private async _registerTraking(
     vehicleId: number, userId: number, idDevice: string, latitude: number, longitude: number, altitude: number,
     statusTracking: StatusTracking, activityTracking: ActivityTracking, speed: number, accuracy: number, heading: number, data: Object,
-    polyline: string) {
+    polyline: string, zoneId: number, blockId: number) {
 
     const register: Date = new Date();
     register.toISOString().substring
@@ -59,11 +59,11 @@ export class TrakingService {
       await this.dataSource.query(
         `
         INSERT INTO ${table}
-          ( register, "userId", time, "vehicleId", "idDevice", latitude, longitude, altitude, speed, accuracy, heading, "statusTracking", "activityTracking", data, polyline )
+          ( register, "userId", time, "vehicleId", "idDevice", latitude, longitude, altitude, speed, accuracy, heading, "statusTracking", "activityTracking", data, polyline, "zoneId", "blockId" )
         VALUES
-          ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+          ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
         ON CONFLICT DO NOTHING;
-  `, [date, userId, time, vehicleId, idDevice ? idDevice.substring(30, 36) : '', latitude, longitude, altitude, speed, accuracy, heading, statusTracking, activityTracking, JSON.stringify(data), polyline]);
+  `, [date, userId, time, vehicleId, idDevice ? idDevice.substring(30, 36) : '', latitude, longitude, altitude, speed, accuracy, heading, statusTracking, activityTracking, JSON.stringify(data), polyline, zoneId, blockId]);
 
     } catch (err) {
       this.logger.error(`Call _register err: ${err}`);
@@ -136,7 +136,7 @@ export class TrakingService {
       }
 
       const data = { travels, meta: [gps, battery, carrier, network, version, platform, versionos, typeconnection] };
-      this._registerTraking(vehicleId, userId, null, latitude, longitude, altitude, statusTracking, activityTracking, speed, accuracy, heading, data, polyline);
+      this._registerTraking(vehicleId, userId, null, latitude, longitude, altitude, statusTracking, activityTracking, speed, accuracy, heading, data, polyline, zoneId, blockId);
 
     } catch (error) {
       this.logger.error(`Call plot`);
@@ -336,7 +336,7 @@ export class TrakingService {
     const query =
       `
         SELECT "idDevice", latitude, longitude, "statusTracking", "activityTracking",
-               data, polyline, register, time
+               data, polyline, register, time, "zoneId", "blockId"
         FROM ${qualifiedTable} t
         WHERE t."userId" = $1
           AND t.register BETWEEN $2 AND $3
