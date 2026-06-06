@@ -808,7 +808,9 @@ export class SimertService {
   private async _tableExists(qualifiedTableName: string): Promise<boolean> {
     const names = qualifiedTableName.split('.');
     if (names.length <= 1) {
-      this.logger.error(`No schema was specified for table ${qualifiedTableName}`);
+      this.logger.error(
+        `No schema was specified for table ${qualifiedTableName}`,
+      );
       return false;
     }
     const tableSchema = names[0].replace(/"/g, '').trim();
