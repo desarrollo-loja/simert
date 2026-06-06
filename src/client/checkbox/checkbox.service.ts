@@ -503,7 +503,7 @@ export class CheckboxService implements OnModuleInit {
 
       const register = this.commonService.getDate();
 
-      const purchase_data: PurchaseDataDto[] = [
+      const purchaseData: PurchaseDataDto[] = [
         new PurchaseDataDto({
           quantity: 1,
           product: concept,
@@ -523,7 +523,7 @@ export class CheckboxService implements OnModuleInit {
           ...createCheckboxDto.billing_data,
           typeService: TypeService.PARKING,
         },
-        purchase_data,
+        purchase_data: purchaseData,
         credentialId,
         commission,
       });

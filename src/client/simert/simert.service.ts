@@ -809,8 +809,8 @@ export class SimertService {
       this.logger.error(`No schema was specified for table ${tableName}`);
       return false;
     }
-    const table_schema = names[0].replace(/"/g, '').trim();
-    const table_name = names[1].replace(/"/g, '').trim();
+    const tableSchema = names[0].replace(/"/g, '').trim();
+    const tableName = names[1].replace(/"/g, '').trim();
 
     const query = `
       SELECT EXISTS(
@@ -823,8 +823,8 @@ export class SimertService {
 
     try {
       const result = await this.fractionRepository.query(query, [
-        table_schema,
-        table_name,
+        tableSchema,
+        tableName,
       ]);
       return !!result[0]?.exists;
     } catch {

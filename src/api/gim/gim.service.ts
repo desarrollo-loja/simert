@@ -34,7 +34,7 @@ import { DinardapAntService } from '../dinardap-ant/dinardap-ant.service';
 import { CreateGimDto } from './dto/create-gim.dto';
 import FindBondNumberDto from './dto/find-bond-number';
 import { GetClientGimDto } from './dto/get-client-gim.dto';
-import { consts } from './helpers/consts.enum';
+import { Consts } from './helpers/consts.enum';
 import {
   CreateNaturalPersonResponse,
   DepositResponse,
@@ -468,10 +468,10 @@ export class GimService {
           lastName: this._removeAccents(
             createClientGimDto.firstName || 'Usuario',
           ),
-          country: consts.COUNTRY_GIM,
-          city: consts.CITY_GIM,
+          country: Consts.COUNTRY_GIM,
+          city: Consts.CITY_GIM,
           neighborhood: '',
-          address: consts.CITY_GIM,
+          address: Consts.CITY_GIM,
           email: createClientGimDto.emailClient?.trim().toLowerCase() || '',
           phoneNumber: '',
           isForeigner: false,
@@ -497,8 +497,8 @@ export class GimService {
           identificationNumber: createClientGimDto.identityCard?.trim(),
           firstName: this._removeAccents(user.data[0].firstName),
           lastName: this._removeAccents(user.data[0].lastName),
-          country: consts.COUNTRY_GIM,
-          city: consts.CITY_GIM,
+          country: Consts.COUNTRY_GIM,
+          city: Consts.CITY_GIM,
           neighborhood: this._removeAccents(user.data[0].neighborhood),
           address: this._removeAccents(user.data[0].address),
           email: user.data[0].email?.trim().toLowerCase(),
@@ -585,13 +585,13 @@ export class GimService {
             createClientGimNotExistDto.firstName ||
             'Usuario',
         ),
-        country: consts.COUNTRY_GIM,
-        city: consts.CITY_GIM,
+        country: Consts.COUNTRY_GIM,
+        city: Consts.CITY_GIM,
         neighborhood: this._removeAccents(
           createClientGimNotExistDto.neighborhood,
         ),
         address: this._removeAccents(
-          createClientGimNotExistDto.address || consts.CITY_GIM,
+          createClientGimNotExistDto.address || Consts.CITY_GIM,
         ),
         email: createClientGimNotExistDto.email?.trim().toLowerCase(),
         phoneNumber,

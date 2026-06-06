@@ -766,7 +766,7 @@ export class IncidentService {
       identityCard,
       credentialId,
       incidents,
-      billing_data,
+      billing_data: billingData,
     } = payIncidentDto;
 
     let urlDeuna = '';
@@ -860,7 +860,7 @@ export class IncidentService {
             register,
             userId,
             amount: incident.amount,
-            billing_data,
+            billing_data: billingData,
             optionalData: [{ key: 'register', value: incident.register }],
           }),
         );
@@ -1051,7 +1051,7 @@ export class IncidentService {
 
       const register = this.commonService.getDate();
 
-      const purchase_data: PurchaseDataDto[] = [
+      const purchaseData: PurchaseDataDto[] = [
         new PurchaseDataDto({
           quantity: 1,
           product: concept,
@@ -1071,7 +1071,7 @@ export class IncidentService {
           ...payIncidentDto.billing_data,
           typeService: TypeService.PARKING,
         },
-        purchase_data,
+        purchase_data: purchaseData,
         credentialId,
         commission,
       });
@@ -1729,8 +1729,8 @@ export class IncidentService {
       return false;
     }
 
-    const table_schema = names[0].replace(/"/g, '').trim();
-    const table_name = names[1].replace(/"/g, '').trim();
+    const tableSchema = names[0].replace(/"/g, '').trim();
+    const tableName = names[1].replace(/"/g, '').trim();
 
     const query = `
     SELECT EXISTS(
@@ -1742,8 +1742,8 @@ export class IncidentService {
   `;
 
     const result = await this.incidentRepository.query(query, [
-      table_schema,
-      table_name,
+      tableSchema,
+      tableName,
     ]);
     return !!result[0]?.exists;
   }

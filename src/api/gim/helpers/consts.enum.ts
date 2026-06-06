@@ -1,4 +1,4 @@
-export enum consts {
+export enum Consts {
   COUNTRY_GIM = 'ECUADOR',
   CITY_GIM = 'LOJA',
 }

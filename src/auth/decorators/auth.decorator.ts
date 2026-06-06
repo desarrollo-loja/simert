@@ -10,6 +10,8 @@ import { RoleProtected } from './role-protected.decorator';
  *
  * @param {...any} roles
  */
+// PascalCase is the NestJS convention for decorator factories (used as `@Auth`).
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export function Auth(...roles: TypeRol[]) {
   return applyDecorators(
     RoleProtected(...roles),
@@ -21,6 +23,8 @@ export function Auth(...roles: TypeRol[]) {
  *
  * @param {...any} roles
  */
+// PascalCase is the NestJS convention for decorator factories (used as `@AuthWithKeycloak`).
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export function AuthWithKeycloak(...roles: TypeRol[]) {
   return applyDecorators(
     RoleProtected(...roles),
