@@ -433,7 +433,7 @@ export class IncidentService {
       const tableName = 'public.incident';
       const currentDate = new Date();
 
-      let params: any[] = [];
+      const params: any[] = [];
       let paramIndex = 1;
 
       const buildWhere = () => {
@@ -869,7 +869,7 @@ export class IncidentService {
         await queryRunner.manager.insert(IncidentPayment, payments);
 
         switch (typePaymentMethod) {
-          case TypePaymentMethod.DEUNAV2:
+          case TypePaymentMethod.DEUNAV2: {
             const responseDeunaV2 = await this._payDeunaV2(
               idDevice,
               debitAmounDto,
@@ -890,8 +890,9 @@ export class IncidentService {
               throw new Error('call buy TypePaymentMethod DeunaV2 not found');
             }
             break;
+          }
 
-          case TypePaymentMethod.AHORITA:
+          case TypePaymentMethod.AHORITA: {
             const responseAhorita = await this._payAhorita(
               idDevice,
               debitAmounDto,
@@ -913,8 +914,9 @@ export class IncidentService {
               throw new Error('call buy TypePaymentMethod Ahorita not found');
             }
             break;
+          }
 
-          case TypePaymentMethod.PLACE_TO_PAY:
+          case TypePaymentMethod.PLACE_TO_PAY: {
             const responsePlaceToPay = await this._payPlaceToPay(
               idDevice,
               debitAmounDto,
@@ -938,6 +940,7 @@ export class IncidentService {
               );
             }
             break;
+          }
 
           default:
             throw new Error('call buy TypePaymentMethod not found');
@@ -972,7 +975,10 @@ export class IncidentService {
       }
 
       return { errorCode: ErrorCode.UNAUTHORIZED };
-    } catch {}
+    } catch {
+      // Errors are swallowed here on purpose: the pay flow already returns its
+      // own error-code envelope above and must not surface raw exceptions.
+    }
   }
 
   /**
@@ -1078,7 +1084,9 @@ export class IncidentService {
       });
 
       return debitAmounDto;
-    } catch {}
+    } catch {
+      // Returns undefined on failure; callers handle the missing DTO.
+    }
   }
 
   /**

@@ -71,13 +71,12 @@ export class TrakingService {
     speed: number,
     accuracy: number,
     heading: number,
-    data: Object,
+    data: object,
     polyline: string,
     zoneId: number,
     blockId: number,
   ) {
     const register: Date = new Date();
-    register.toISOString().substring;
     const year = register.getUTCFullYear();
     const month = register.getUTCMonth() + 1;
 

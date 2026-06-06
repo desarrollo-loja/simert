@@ -69,7 +69,7 @@ export class SalePointService {
    */
   async findAllActiveModeMobile(_filterDto: FilterDto) {
     try {
-      let query = `SELECT "sp"."id", "sp"."mode", "loc"."latitude" AS "lt", "loc"."longitude" AS "lg", "sp"."title", "sp"."subTitle", "sp"."userId"
+      const query = `SELECT "sp"."id", "sp"."mode", "loc"."latitude" AS "lt", "loc"."longitude" AS "lg", "sp"."title", "sp"."subTitle", "sp"."userId"
         FROM "salePoint" "sp"
         INNER JOIN "l" "loc" ON "loc"."userId" = "sp"."userId"
         WHERE "sp"."mode" = $1 `;
@@ -86,10 +86,9 @@ export class SalePointService {
 
   /**
    *
-   * @param filterDto
+   * @param _filterDto
    */
-  private _buildConditionsAndParameters(filterDto: FilterDto) {
-    const {} = filterDto;
+  private _buildConditionsAndParameters(_filterDto: FilterDto) {
     const conditions: string[] = [];
     const parameters: Record<string, any> = {};
 

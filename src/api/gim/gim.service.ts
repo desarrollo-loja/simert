@@ -371,8 +371,8 @@ export class GimService {
     updateDto.statusIncident = statusIncident;
     if (obligation.total) updateDto.amount = obligation.total;
 
-    let currentOptionalData = incident.optionalData;
-    let currentOnResponseExternal = incident.onResponseExternal;
+    const currentOptionalData = incident.optionalData;
+    const currentOnResponseExternal = incident.onResponseExternal;
 
     if (obligation.taxpayerId != null) {
       const optionalData = [...(currentOptionalData ?? [])];

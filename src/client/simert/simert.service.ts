@@ -349,7 +349,7 @@ export class SimertService {
       return { errorCode: ErrorCode.OCCUPIED };
     }
 
-    let fractionCheck = await this.fractionRepository.findOne({
+    const fractionCheck = await this.fractionRepository.findOne({
       where: { userId, transactionId },
     });
 
@@ -683,7 +683,7 @@ export class SimertService {
       const schema = 'history';
 
       const params: any[] = [];
-      let queryParts: string[] = [];
+      const queryParts: string[] = [];
 
       // Guard against SQL injection: only allow safe integer year/month before
       // interpolating into the historical table identifier.

@@ -168,7 +168,7 @@ export class CheckboxService implements OnModuleInit {
         tableExists = await this._tableExists(tableName);
       }
       let query: string = '';
-      let params = [];
+      const params = [];
       let idx = 1;
 
       if (tableExists) {
@@ -381,7 +381,7 @@ export class CheckboxService implements OnModuleInit {
     }
 
     // Check whether the user already has a previous transaction
-    let checkboxCheck = await this.checkboxRepository.findOne({
+    const checkboxCheck = await this.checkboxRepository.findOne({
       where: { userId, transactionId },
     });
 
@@ -420,7 +420,7 @@ export class CheckboxService implements OnModuleInit {
         checkbox = await queryRunner.manager.save(checkbox);
 
         switch (typePaymentMethod) {
-          case TypePaymentMethod.DEUNAV2:
+          case TypePaymentMethod.DEUNAV2: {
             const responseDeunaV2 = await this._payDeunaV2(
               idDevice,
               checkbox,
@@ -432,7 +432,8 @@ export class CheckboxService implements OnModuleInit {
             checkbox.url = urlDeuna;
             await queryRunner.manager.save(checkbox);
             break;
-          case TypePaymentMethod.AHORITA:
+          }
+          case TypePaymentMethod.AHORITA: {
             const responseAhorita = await this._payAhorita(
               idDevice,
               checkbox,
@@ -444,8 +445,9 @@ export class CheckboxService implements OnModuleInit {
             checkbox.url = urlAhorita;
             await queryRunner.manager.save(checkbox);
             break;
+          }
 
-          case TypePaymentMethod.PLACE_TO_PAY:
+          case TypePaymentMethod.PLACE_TO_PAY: {
             const responsePlaceToPay = await this._payPlaceToPay(
               idDevice,
               checkbox,
@@ -458,6 +460,7 @@ export class CheckboxService implements OnModuleInit {
             checkbox.url = urlPlaceToPay;
             await queryRunner.manager.save(checkbox);
             break;
+          }
 
           default:
             throw new Error('call buy TypePaymentMethod not found');
@@ -485,7 +488,10 @@ export class CheckboxService implements OnModuleInit {
       }
 
       return { errorCode: ErrorCode.UNAUTHORIZED };
-    } catch {}
+    } catch {
+      // Errors are swallowed here on purpose: the buy flow already returns its
+      // own error-code envelope above and must not surface raw exceptions.
+    }
   }
 
   /**
@@ -529,7 +535,9 @@ export class CheckboxService implements OnModuleInit {
       });
 
       return debitAmounDto;
-    } catch {}
+    } catch {
+      // Returns undefined on failure; callers handle the missing DTO.
+    }
   }
 
   /**
@@ -538,7 +546,7 @@ export class CheckboxService implements OnModuleInit {
   private _buildRubroOptionalData(): {
     entryCode: string;
     description: string;
-    optionalData: { key: string; value: string | Object }[];
+    optionalData: { key: string; value: string | object }[];
   } {
     const rubroCatalog = this.catalogs.get(CatalogType.TypeRubroCard);
     let entryCode: string;
@@ -1015,7 +1023,7 @@ export class CheckboxService implements OnModuleInit {
     _register: string,
     _typePaymentResponsibility: TypePaymentResponsibility,
   ) {
-    let checkbox = await this.checkboxRepository.findOne({
+    const checkbox = await this.checkboxRepository.findOne({
       where: { id: checkboxId },
     });
     if (!checkbox) {

@@ -676,7 +676,7 @@ export class IncidentService {
     fileBuffer: Buffer,
     fileName: string,
     relativePath?: string,
-  ): Promise<Object> {
+  ): Promise<object> {
     try {
       const credentials = this._getAlfrescoCredentials();
       if (!credentials) {
@@ -684,6 +684,9 @@ export class IncidentService {
       }
       const { alfrescoBaseUrl, username, password, directory } = credentials;
 
+      // form-data is a CommonJS module loaded via require for correct
+      // multipart streaming interop; behavior preserved as in production.
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const FormData = require('form-data');
       const form = new FormData();
       form.append('filedata', fileBuffer, fileName);
@@ -738,7 +741,7 @@ export class IncidentService {
    * @returns Object with `errorCode`, `alfrescoData`, `sharedId`, and
    *   `sharedUrl` on success, or `errorCode: HTTP_ERROR_REINTENT` on failure.
    */
-  async getFileUrlAlfresco(alfrescoId: string): Promise<Object> {
+  async getFileUrlAlfresco(alfrescoId: string): Promise<object> {
     try {
       const credentials = this._getAlfrescoCredentials();
       if (!credentials) {
@@ -805,7 +808,7 @@ export class IncidentService {
    * @returns Object with `errorCode`, `sharedId`, `alfrescoId` (node ID), and
    *   `alfrescoData` on success, or `errorCode: HTTP_ERROR_REINTENT` on failure.
    */
-  async getAlfrescoIdBySharedUrl(sharedUrlOrId: string): Promise<Object> {
+  async getAlfrescoIdBySharedUrl(sharedUrlOrId: string): Promise<object> {
     try {
       const credentials = this._getAlfrescoCredentials();
       if (!credentials) {
@@ -857,7 +860,7 @@ export class IncidentService {
    */
   private extractSharedId(input: string): string | null {
     if (!input) return null;
-    const match = input.match(/\/shared-links\/([^\/?#]+)/);
+    const match = input.match(/\/shared-links\/([^/?#]+)/);
     if (match) return match[1];
     return input.includes('/') ? null : input;
   }

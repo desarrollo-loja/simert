@@ -6,6 +6,9 @@ import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { TypePrefix } from './common/glob/type/type_prefix';
 import { PublicModule } from './public/public.module';
+// express-ip is a CommonJS module loaded via require to preserve its runtime
+// interop in this already-deployed bootstrap.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const expressip = require('express-ip');
 
 const developmentDomain =

@@ -116,7 +116,7 @@ export class CheckService {
   private _buildRubroOptionalData(): {
     entryCode: string;
     description: string;
-    optionalData: { key: string; value: string | Object }[];
+    optionalData: { key: string; value: string | object }[];
   } {
     const rubroCatalog = this.catalogs.get(CatalogType.TypeRubroCard);
     let entryCode: string;
@@ -328,7 +328,7 @@ export class CheckService {
             // Title not yet issued and deposit not yet registered
             case null:
             case IncidentStatus.ENTERED:
-            case IncidentStatus.APPROVED:
+            case IncidentStatus.APPROVED: {
               // Issue the credit title
               const emision = await this._emitCreditCard(checkbox);
 
@@ -352,12 +352,14 @@ export class CheckService {
               const deposit = await this._registerDeposit(checkbox);
               this._applyDepositOutcome(checkbox, deposit);
               break;
+            }
 
-            case IncidentStatus.SUPPLIED:
+            case IncidentStatus.SUPPLIED: {
               // Title already issued → only register the deposit
               const depositSupplied = await this._registerDeposit(checkbox);
               this._applyDepositOutcome(checkbox, depositSupplied);
               break;
+            }
 
             default:
               // Unexpected state → flag as error

@@ -454,7 +454,7 @@ export class OperatorService {
       return { errorCode: ErrorCode.OCCUPIED };
     }
 
-    let fractionCheck = await this.fractionRepository.findOne({
+    const fractionCheck = await this.fractionRepository.findOne({
       where: { userId, transactionId },
     });
 
@@ -1067,10 +1067,10 @@ export class OperatorService {
     _getIncidentDto: GetIncidentDto,
   ) {
     try {
-      let tableName = 'public.incident';
+      const tableName = 'public.incident';
       const currentDate = new Date();
 
-      let params: any[] = [];
+      const params: any[] = [];
       let paramIndex = 1;
 
       const buildWhere = () => {
