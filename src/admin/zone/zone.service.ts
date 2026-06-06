@@ -18,17 +18,20 @@ import { Zone } from './entities/zone.entity';
  */
 @Injectable()
 export class ZoneService {
-
   private readonly logger = new Logger(ZoneService.name);
 
+  /**
+   *
+   * @param zoneRepository
+   * @param loggerService
+   */
   constructor(
     @InjectRepository(Zone)
     private readonly zoneRepository: Repository<Zone>,
 
     @Inject(LoggerService)
     private readonly loggerService: LoggerService,
-
-  ) { }
+  ) {}
 
   /**
    * Creates a new zone with an optional geofence polygon.
@@ -49,7 +52,12 @@ export class ZoneService {
       }
 
       const zone = await this.zoneRepository.save(zoneEntity);
-      this.loggerService.saveZoneLogger({ id: zone.id, userId, typeOperation: TypeOperation.CREATE, zone });
+      this.loggerService.saveZoneLogger({
+        id: zone.id,
+        userId,
+        typeOperation: TypeOperation.CREATE,
+        zone,
+      });
       return { errorCode: ErrorCode.NONE, zone };
     } catch (error) {
       const uniqueErrorCode = this._mapUniqueViolation(error);
@@ -69,20 +77,26 @@ export class ZoneService {
   async findAllByFilterParking(paginationDto: FilterDto) {
     const { search } = paginationDto;
     try {
-      const queryBuilder = this.zoneRepository.createQueryBuilder('z')
+      const queryBuilder = this.zoneRepository
+        .createQueryBuilder('z')
         .select(['z.id', 'z.name', 'z.geofence', 'z.color']);
 
       if (search) {
-        queryBuilder.andWhere('z.name ILIKE :search', { search: `%${search}%` });
+        queryBuilder.andWhere('z.name ILIKE :search', {
+          search: `%${search}%`,
+        });
       }
 
       let zones = await queryBuilder.getMany();
 
       if (zones.length > 0) {
-        zones = zones.map(zone => ({
-          ...zone,
-          geofence: parseGeoJsonMultiPolygon(zone.geofence),
-        }) as Zone);
+        zones = zones.map(
+          (zone) =>
+            ({
+              ...zone,
+              geofence: parseGeoJsonMultiPolygon(zone.geofence),
+            }) as Zone,
+        );
       }
 
       return { zones };
@@ -100,9 +114,23 @@ export class ZoneService {
   async findAll(filterDto: FilterDto) {
     try {
       const { search } = filterDto;
-      const queryBuilder = this.zoneRepository.createQueryBuilder('z')
-        .select(['z.id', 'z.name', 'z.color', 'z.acronym', 'z.lt', 'z.lg',
-          'z.geofence', 'z.isActivated', 'z.description', 'z.schedules', 'z.type', 'z.fromTemporary', 'z.toTemporary']);
+      const queryBuilder = this.zoneRepository
+        .createQueryBuilder('z')
+        .select([
+          'z.id',
+          'z.name',
+          'z.color',
+          'z.acronym',
+          'z.lt',
+          'z.lg',
+          'z.geofence',
+          'z.isActivated',
+          'z.description',
+          'z.schedules',
+          'z.type',
+          'z.fromTemporary',
+          'z.toTemporary',
+        ]);
 
       if (search) {
         queryBuilder.where('z.name ILIKE :search', { search: `%${search}%` });
@@ -111,9 +139,13 @@ export class ZoneService {
       const zones = await queryBuilder.getMany();
 
       if (zones.length > 0) {
-        const zonesWithParsedGeofence = zones.map(zone => {
+        const zonesWithParsedGeofence = zones.map((zone) => {
           const geofenceData = parseGeoJsonMultiPolygon(zone.geofence);
-          return { ...zone, geofence: geofenceData, numberPolygon: geofenceData.length };
+          return {
+            ...zone,
+            geofence: geofenceData,
+            numberPolygon: geofenceData.length,
+          };
         });
         return { errorCode: ErrorCode.NONE, zones: zonesWithParsedGeofence };
       }
@@ -155,12 +187,15 @@ export class ZoneService {
   private async _queryActiveZones(filterDto: FilterDto) {
     try {
       const { search } = filterDto;
-      const queryBuilder = this.zoneRepository.createQueryBuilder('z')
+      const queryBuilder = this.zoneRepository
+        .createQueryBuilder('z')
         .select(['z.id', 'z.name'])
         .where('z.isActivated = :isActivated', { isActivated: true });
 
       if (search) {
-        queryBuilder.andWhere('z.name ILIKE :search', { search: `%${search}%` });
+        queryBuilder.andWhere('z.name ILIKE :search', {
+          search: `%${search}%`,
+        });
       }
 
       const zones = await queryBuilder.getMany();
@@ -190,7 +225,12 @@ export class ZoneService {
           zone.geofence = () => `ST_GeomFromText('${wkt}')`;
         }
         await this.zoneRepository.save(zone);
-        this.loggerService.saveZoneLogger({ id: zone.id, userId, typeOperation: TypeOperation.UPDATE, zone });
+        this.loggerService.saveZoneLogger({
+          id: zone.id,
+          userId,
+          typeOperation: TypeOperation.UPDATE,
+          zone,
+        });
         return { errorCode: ErrorCode.NONE, zone };
       }
       return { errorCode: ErrorCode.NONE, zone: {} };
@@ -235,11 +275,24 @@ export class ZoneService {
    */
   async remove(userId: number, id: number) {
     try {
-      const result = await this.zoneRepository.createQueryBuilder('zone')
-        .addSelect(`TO_CHAR(zone."fromTemporary", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`, 'zone_fromTemporary')
-        .addSelect(`TO_CHAR(zone."toTemporary", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`, 'zone_toTemporary')
-        .addSelect(`TO_CHAR(zone."createdAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`, 'zone_createdAt')
-        .addSelect(`TO_CHAR(zone."updatedAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`, 'zone_updatedAt')
+      const result = await this.zoneRepository
+        .createQueryBuilder('zone')
+        .addSelect(
+          `TO_CHAR(zone."fromTemporary", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`,
+          'zone_fromTemporary',
+        )
+        .addSelect(
+          `TO_CHAR(zone."toTemporary", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`,
+          'zone_toTemporary',
+        )
+        .addSelect(
+          `TO_CHAR(zone."createdAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`,
+          'zone_createdAt',
+        )
+        .addSelect(
+          `TO_CHAR(zone."updatedAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`,
+          'zone_updatedAt',
+        )
         .where('zone.id = :id', { id })
         .getRawAndEntities();
 
@@ -247,7 +300,12 @@ export class ZoneService {
       if (entity) {
         entity.isActivated = false;
         await this.zoneRepository.save(entity);
-        this.loggerService.saveZoneLogger({ id: entity.id, userId, typeOperation: TypeOperation.DELETE, zone: entity });
+        this.loggerService.saveZoneLogger({
+          id: entity.id,
+          userId,
+          typeOperation: TypeOperation.DELETE,
+          zone: entity,
+        });
         const zone = {
           ...entity,
           fromTemporary: result.raw[0]?.zone_fromTemporary ?? null,

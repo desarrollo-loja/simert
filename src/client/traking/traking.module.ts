@@ -5,10 +5,12 @@ import { L } from 'src/admin/l/entities/l.entity';
 import { TrakingController } from './traking.controller';
 import { TrakingService } from './traking.service';
 
+/**
+ *
+ */
 @Module({
   controllers: [TrakingController],
-  providers: [TrakingService,
-  ],
-  imports: [TypeOrmModule.forFeature([L])]
+  providers: [TrakingService],
+  imports: [TypeOrmModule.forFeature([L])],
 })
-export class TrakingModule { }
+export class TrakingModule {}

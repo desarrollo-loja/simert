@@ -8,10 +8,18 @@ import { Incident } from './entities/incident.entity';
 import { IncidentController } from './incident.controller';
 import { IncidentService } from './incident.service';
 
+/**
+ *
+ */
 @Module({
   controllers: [IncidentController],
   providers: [IncidentService],
-  imports: [TypeOrmModule.forFeature([Incident]), AuthModule, LoggerModule, CommonGimModule],
+  imports: [
+    TypeOrmModule.forFeature([Incident]),
+    AuthModule,
+    LoggerModule,
+    CommonGimModule,
+  ],
   exports: [IncidentService],
 })
-export class IncidentModule { }
+export class IncidentModule {}

@@ -1,4 +1,12 @@
-import { Body, Controller, Param, ParseIntPipe, ParseUUIDPipe, Patch, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Param,
+  ParseIntPipe,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthWithKeycloak, GetUser } from 'src/auth/decorators';
 import { JwtPayload } from 'src/auth/interfaces';
@@ -15,8 +23,22 @@ import { UpdateAgentActivityDto } from './dto/update-agent-activity.dto';
 @ApiBearerAuth('keycloak')
 @Controller('client/agent-activities')
 export class AgentActivitiesController {
-  constructor(private readonly agentActivitiesService: AgentActivitiesService) { }
+  /**
+   *
+   * @param agentActivitiesService
+   */
+  constructor(
+    private readonly agentActivitiesService: AgentActivitiesService,
+  ) {}
 
+  /**
+   *
+   * @param user
+   * @param userId
+   * @param idDevice
+   * @param version
+   * @param createAgentActivityDto
+   */
   @ApiOperation({ summary: 'Create a new agent activity record for a user' })
   @AuthWithKeycloak()
   @Post(':userId/:idDevice/:version')
@@ -25,11 +47,20 @@ export class AgentActivitiesController {
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
     @Param('version', ParseIntPipe) version: number,
-    @Body() createAgentActivityDto: CreateAgentActivityDto
+    @Body() createAgentActivityDto: CreateAgentActivityDto,
   ) {
     return this.agentActivitiesService.create(userId, createAgentActivityDto);
   }
 
+  /**
+   *
+   * @param user
+   * @param id
+   * @param userId
+   * @param idDevice
+   * @param version
+   * @param updateAgentActivityDto
+   */
   @ApiOperation({ summary: 'Update an agent activity record by id' })
   @AuthWithKeycloak()
   @Patch(':id/:userId/:idDevice/:version')
@@ -39,8 +70,12 @@ export class AgentActivitiesController {
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
     @Param('version', ParseIntPipe) version: number,
-    @Body() updateAgentActivityDto: UpdateAgentActivityDto
+    @Body() updateAgentActivityDto: UpdateAgentActivityDto,
   ) {
-    return this.agentActivitiesService.update(userId, id, updateAgentActivityDto);
+    return this.agentActivitiesService.update(
+      userId,
+      id,
+      updateAgentActivityDto,
+    );
   }
 }

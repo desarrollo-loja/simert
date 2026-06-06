@@ -13,17 +13,25 @@ import { MoreThan, Repository } from 'typeorm';
  */
 @Injectable()
 export class RangeSalePointService {
-
   private readonly logger = new Logger(RangeSalePointService.name);
 
+  /**
+   *
+   * @param rangeSalePointRepository
+   * @param loggerService
+   */
   constructor(
     @InjectRepository(RangeSalePoint)
     private readonly rangeSalePointRepository: Repository<RangeSalePoint>,
 
     @Inject(LoggerService)
     private readonly loggerService: LoggerService,
-  ) { }
+  ) {}
 
+  /**
+   *
+   * @param userId
+   */
   async getRangeSalePointByUserId(userId: number) {
     try {
       const rangeSalePoint = await this.rangeSalePointRepository.findOne({
@@ -35,10 +43,10 @@ export class RangeSalePointService {
         order: {
           createdAt: 'ASC', // oldest first
         },
-        select: ['sold','id'], // select available stock
+        select: ['sold', 'id'], // select available stock
       });
 
-      if(!rangeSalePoint)
+      if (!rangeSalePoint)
         return { rangeSalePoint: {}, errorCode: ErrorCode.NONE };
 
       return { rangeSalePoint, errorCode: ErrorCode.NONE };
@@ -46,5 +54,4 @@ export class RangeSalePointService {
       handleDbExceptions(error, this.logger);
     }
   }
-
 }

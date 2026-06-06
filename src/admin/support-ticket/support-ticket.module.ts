@@ -7,10 +7,16 @@ import { SupportTicket } from './entities/support-ticket.entity';
 import { SupportTicketController } from './support-ticket.controller';
 import { SupportTicketService } from './support-ticket.service';
 
+/**
+ *
+ */
 @Module({
   controllers: [SupportTicketController],
   providers: [SupportTicketService],
-    imports: [TypeOrmModule.forFeature([SupportTicket]), AuthModule, LoggerModule],
-  
+  imports: [
+    TypeOrmModule.forFeature([SupportTicket]),
+    AuthModule,
+    LoggerModule,
+  ],
 })
 export class SupportTicketModule {}

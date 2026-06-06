@@ -13,8 +13,15 @@ import { PortalService } from './portal.service';
 @ApiBearerAuth('keycloak')
 @Controller('portal')
 export class PortalController {
+  /**
+   *
+   * @param portalService
+   */
   constructor(private readonly portalService: PortalService) {}
 
+  /**
+   *
+   */
   @ApiOperation({ summary: 'Placeholder: list all portal entries' })
   @ApiStandardResponse({
     description: 'Static placeholder message (not implemented)',
@@ -27,6 +34,10 @@ export class PortalController {
     return this.portalService.findAll();
   }
 
+  /**
+   *
+   * @param id
+   */
   @ApiOperation({ summary: 'Placeholder: get a portal entry by id' })
   @ApiStandardResponse({
     description: 'Static placeholder message (not implemented)',

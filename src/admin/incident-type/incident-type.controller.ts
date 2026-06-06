@@ -1,4 +1,14 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, ParseUUIDPipe, Patch, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseIntPipe,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthWithKeycloak, GetUser } from 'src/auth/decorators';
 import { JwtPayload } from 'src/auth/interfaces';
@@ -16,8 +26,18 @@ import { IncidentTypeService } from './incident-type.service';
 @ApiBearerAuth('keycloak')
 @Controller('admin/incident-type')
 export class IncidentTypeController {
-  constructor(private readonly incidentTypeService: IncidentTypeService) { }
+  /**
+   *
+   * @param incidentTypeService
+   */
+  constructor(private readonly incidentTypeService: IncidentTypeService) {}
 
+  /**
+   *
+   * @param userId
+   * @param idDevice
+   * @param createIncidentTypeDto
+   */
   @ApiOperation({ summary: 'Create a new incident type' })
   // @Auth()
   @Post('create/:userId/:idDevice')
@@ -25,10 +45,17 @@ export class IncidentTypeController {
     // @GetUser() user: JwtPayload,
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
-    @Body() createIncidentTypeDto: CreateIncidentTypeDto) {
+    @Body() createIncidentTypeDto: CreateIncidentTypeDto,
+  ) {
     return this.incidentTypeService.create(userId, createIncidentTypeDto);
   }
 
+  /**
+   *
+   * @param userId
+   * @param idDevice
+   * @param filterDto
+   */
   @ApiOperation({ summary: 'List incident types with filters' })
   // @Auth()
   @Patch('find-all/:userId/:idDevice')
@@ -36,20 +63,34 @@ export class IncidentTypeController {
     // @GetUser() user: JwtPayload,
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
-    @Body() filterDto: IncidentTypeFilterDto) {
+    @Body() filterDto: IncidentTypeFilterDto,
+  ) {
     return this.incidentTypeService.findAll(filterDto);
   }
 
+  /**
+   *
+   * @param userId
+   * @param idDevice
+   * @param id
+   */
   @ApiOperation({ summary: 'Get a single incident type by id' })
   @Get('get-type-incident-by-id/:userId/:idDevice/:id')
   getTypeIncidentById(
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
-    @Param('id', ParseIntPipe) id: number
+    @Param('id', ParseIntPipe) id: number,
   ) {
     return this.incidentTypeService.getTypeIncidentById(id);
   }
 
+  /**
+   *
+   * @param userId
+   * @param idDevice
+   * @param id
+   * @param updateIncidentTypeDto
+   */
   @ApiOperation({ summary: 'Update an incident type by id' })
   // @Auth()
   @Patch('update/:userId/:idDevice/:id')
@@ -58,10 +99,18 @@ export class IncidentTypeController {
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
     @Param('id') id: string,
-    @Body() updateIncidentTypeDto: UpdateIncidentTypeDto) {
+    @Body() updateIncidentTypeDto: UpdateIncidentTypeDto,
+  ) {
     return this.incidentTypeService.update(userId, +id, updateIncidentTypeDto);
   }
 
+  /**
+   *
+   * @param user
+   * @param userId
+   * @param idDevice
+   * @param id
+   */
   @ApiOperation({ summary: 'Delete an incident type by id' })
   // @Auth()
   @AuthWithKeycloak()
@@ -70,7 +119,8 @@ export class IncidentTypeController {
     @GetUser() user: JwtPayload,
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
-    @Param('id') id: string) {
+    @Param('id') id: string,
+  ) {
     return this.incidentTypeService.remove(+id);
   }
 }

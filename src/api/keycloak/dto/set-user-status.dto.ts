@@ -1,5 +1,8 @@
 import { IsBoolean, IsNotEmpty, IsString } from 'class-validator';
 
+/**
+ *
+ */
 export class SetUserStatusDto {
   /**
    * UUID del usuario en Keycloak (campo `id` de la representación de usuario).

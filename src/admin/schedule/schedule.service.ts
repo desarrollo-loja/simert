@@ -17,16 +17,20 @@ import { Schedule } from './entities/schedule.entity';
  */
 @Injectable()
 export class ScheduleService {
-
   private readonly logger = new Logger('ScheduleService');
 
+  /**
+   *
+   * @param scheduleRepository
+   * @param loggerService
+   */
   constructor(
     @InjectRepository(Schedule)
     private readonly scheduleRepository: Repository<Schedule>,
 
     @Inject(LoggerService)
     private readonly loggerService: LoggerService,
-  ) { }
+  ) {}
 
   /**
    * Bulk-creates schedule entries from the dataSchedules array in the DTO.
@@ -39,9 +43,16 @@ export class ScheduleService {
   async create(userId: number, createScheduleDto: CreateScheduleDto) {
     try {
       createScheduleDto.dataSchedules.forEach((scheduleEntry) => {
-        const blockSchedule = this.scheduleRepository.create({ ...scheduleEntry });
+        const blockSchedule = this.scheduleRepository.create({
+          ...scheduleEntry,
+        });
         this.scheduleRepository.save(blockSchedule);
-        this.loggerService.saveScheduleBlockLogger({ id: blockSchedule.id, userId, typeOperation: TypeOperation.CREATE, blockSchedule });
+        this.loggerService.saveScheduleBlockLogger({
+          id: blockSchedule.id,
+          userId,
+          typeOperation: TypeOperation.CREATE,
+          blockSchedule,
+        });
       });
       return { errorCode: ErrorCode.NONE };
     } catch (error) {
@@ -57,10 +68,15 @@ export class ScheduleService {
    */
   async findAllScheduleByBlock(blockId: number) {
     try {
-      const blockSchedule = await this.scheduleRepository.createQueryBuilder('sc')
+      const blockSchedule = await this.scheduleRepository
+        .createQueryBuilder('sc')
         .select([
-          'sc.id', 'sc.isActivated', 'sc.dayOfWeekInit',
-          'sc.dayOfWeekEnd', 'sc.openingTime', 'sc.closingTime',
+          'sc.id',
+          'sc.isActivated',
+          'sc.dayOfWeekInit',
+          'sc.dayOfWeekEnd',
+          'sc.openingTime',
+          'sc.closingTime',
         ])
         .where('sc.blockId = :blockId', { blockId })
         .orderBy('sc.dayOfWeekInit', 'ASC')
@@ -84,12 +100,24 @@ export class ScheduleService {
    * @param updateScheduleDto - DTO with the updated isActivated flag.
    * @returns Object with errorCode and updated blockSchedule, or NOT_FOUND.
    */
-  async updateActive(userId: number, id: number, updateScheduleDto: UpdateScheduleDto) {
+  async updateActive(
+    userId: number,
+    id: number,
+    updateScheduleDto: UpdateScheduleDto,
+  ) {
     try {
-      const blockSchedule = await this.scheduleRepository.preload({ id, ...updateScheduleDto });
+      const blockSchedule = await this.scheduleRepository.preload({
+        id,
+        ...updateScheduleDto,
+      });
       if (blockSchedule) {
         await this.scheduleRepository.save(blockSchedule);
-        this.loggerService.saveScheduleBlockLogger({ id: blockSchedule.id, userId, typeOperation: TypeOperation.UPDATE, blockSchedule });
+        this.loggerService.saveScheduleBlockLogger({
+          id: blockSchedule.id,
+          userId,
+          typeOperation: TypeOperation.UPDATE,
+          blockSchedule,
+        });
         return { errorCode: ErrorCode.NONE, blockSchedule };
       }
 
@@ -111,10 +139,18 @@ export class ScheduleService {
     try {
       updateScheduleDto.dataSchedules.forEach(async (scheduleEntry) => {
         const { id } = scheduleEntry;
-        const blockSchedule = await this.scheduleRepository.preload({ id, ...scheduleEntry });
+        const blockSchedule = await this.scheduleRepository.preload({
+          id,
+          ...scheduleEntry,
+        });
         if (blockSchedule) {
           this.scheduleRepository.save(blockSchedule);
-          this.loggerService.saveScheduleBlockLogger({ id: blockSchedule.id, userId, typeOperation: TypeOperation.UPDATE, blockSchedule });
+          this.loggerService.saveScheduleBlockLogger({
+            id: blockSchedule.id,
+            userId,
+            typeOperation: TypeOperation.UPDATE,
+            blockSchedule,
+          });
         }
       });
       return { errorCode: ErrorCode.NONE };

@@ -1,7 +1,17 @@
-import { Body, Controller, Get, Param, ParseIntPipe, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseIntPipe,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { FilterDto } from "../../common/dto/filter.dto";
+import { FilterDto } from '../../common/dto/filter.dto';
 import { CardService } from './card.service';
 import { CreateCardDto } from './dto/create-card.dto';
 import { UpdateCardDto } from './dto/update-card.dto';
@@ -15,7 +25,11 @@ import { UpdateCardDto } from './dto/update-card.dto';
 @ApiBearerAuth('keycloak')
 @Controller('admin/card')
 export class CardController {
-  constructor(private readonly cardService: CardService) { }
+  /**
+   *
+   * @param cardService
+   */
+  constructor(private readonly cardService: CardService) {}
 
   /**
    * Creates a new card record and writes an audit log entry.
@@ -32,7 +46,8 @@ export class CardController {
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
     @Param('version', ParseIntPipe) version: number,
-    @Body() createCardDto: CreateCardDto) {
+    @Body() createCardDto: CreateCardDto,
+  ) {
     return this.cardService.create(userId, createCardDto);
   }
 
@@ -93,7 +108,7 @@ export class CardController {
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
     @Param('version', ParseIntPipe) version: number,
-    @Body() updateCardDto: UpdateCardDto
+    @Body() updateCardDto: UpdateCardDto,
   ) {
     return this.cardService.update(+id, updateCardDto);
   }

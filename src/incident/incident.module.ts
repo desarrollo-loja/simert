@@ -5,8 +5,11 @@ import { GimModule } from 'src/api/gim/gim.module';
 
 import { IncidentService } from './incident.service';
 
+/**
+ *
+ */
 @Module({
   providers: [IncidentService],
   imports: [TypeOrmModule.forFeature([Incident]), GimModule],
 })
-export class IncidentCheckModule { }
+export class IncidentCheckModule {}

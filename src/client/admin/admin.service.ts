@@ -14,13 +14,16 @@ import { CreateAdminDto } from './dto/create-admin.dto';
  */
 @Injectable()
 export class AdminService {
-
   private readonly logger = new Logger(AdminService.name);
 
+  /**
+   *
+   * @param slotRepository
+   */
   constructor(
     @InjectRepository(Slot)
     private readonly slotRepository: Repository<Slot>,
-  ) { }
+  ) {}
 
   /**
    * Deletes a slot by its primary key.
@@ -62,23 +65,32 @@ export class AdminService {
    */
   async findAllSlots(latitude: number, longitude: number) {
     try {
-      const slots = await this.slotRepository.createQueryBuilder('sl')
+      const slots = await this.slotRepository
+        .createQueryBuilder('sl')
         .select([
-          'sl.id', 'sl.slot', 'sl.isActivated', 'sl.lt', 'sl.lg', 'sl.status', 'sl.typeSlot',
-          'zone.id', 'zone.name', 'block.id', 'block.name', `earth_distance(ll_to_earth(sl.lt, sl.lg), ll_to_earth(:lat, :lng)) AS distance`
+          'sl.id',
+          'sl.slot',
+          'sl.isActivated',
+          'sl.lt',
+          'sl.lg',
+          'sl.status',
+          'sl.typeSlot',
+          'zone.id',
+          'zone.name',
+          'block.id',
+          'block.name',
+          `earth_distance(ll_to_earth(sl.lt, sl.lg), ll_to_earth(:lat, :lng)) AS distance`,
         ])
-        .innerJoin("sl.zone", "zone")
-        .innerJoin("sl.block", "block")
+        .innerJoin('sl.zone', 'zone')
+        .innerJoin('sl.block', 'block')
         .limit(100)
         .orderBy('distance', 'ASC')
         .setParameters({ lat: latitude, lng: longitude })
         .getMany();
 
       return { errorCode: ErrorCode.NONE, slots };
-
     } catch (error) {
       handleDbExceptions(error, this.logger);
     }
   }
-
 }

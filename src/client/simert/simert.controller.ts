@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Param, ParseIntPipe, ParseUUIDPipe, Post, Query, UseInterceptors } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseIntPipe,
+  ParseUUIDPipe,
+  Post,
+  Query,
+  UseInterceptors,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Fraction } from 'src/admin/fraction/entities/fraction.entity';
 import { Slot } from 'src/admin/slot/entities/slot.entity';
@@ -23,8 +33,19 @@ import { SimertService } from './simert.service';
 @ApiBearerAuth('keycloak')
 @Controller('client/simert')
 export class SimertController {
-  constructor(private readonly simertService: SimertService) { }
+  /**
+   *
+   * @param simertService
+   */
+  constructor(private readonly simertService: SimertService) {}
 
+  /**
+   *
+   * @param user
+   * @param userId
+   * @param _idDevice
+   * @param _version
+   */
   @ApiOperation({ summary: 'Find all active fractions for the given user' })
   @ApiStandardResponse({
     description: 'Active fractions list with block/zone/slot info',
@@ -39,13 +60,23 @@ export class SimertController {
   findAllFractions(
     @GetUser() user: JwtPayload,
     @Param('userId', ParseIntPipe) userId: number,
-    @Param('idDevice', ParseUUIDPipe) idDevice: string,
-    @Param('version', ParseIntPipe) version: number,
+    @Param('idDevice', ParseUUIDPipe) _idDevice: string,
+    @Param('version', ParseIntPipe) _version: number,
   ) {
     return this.simertService.findAllFractions(userId);
   }
 
-  @ApiOperation({ summary: 'Find a single fraction by id with block/zone/slot' })
+  /**
+   *
+   * @param user
+   * @param userId
+   * @param idDevice
+   * @param fractionId
+   * @param _version
+   */
+  @ApiOperation({
+    summary: 'Find a single fraction by id with block/zone/slot',
+  })
   @ApiStandardResponse({
     description: 'Fraction detail',
     errorCodes: [ErrorCode.NONE],
@@ -61,12 +92,23 @@ export class SimertController {
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
     @Param('fractionId', ParseIntPipe) fractionId: number,
-    @Param('version', ParseIntPipe) version: number,
+    @Param('version', ParseIntPipe) _version: number,
   ) {
     return this.simertService.findFractionById(fractionId);
   }
 
-  @ApiOperation({ summary: 'Start a parking fraction on a slot (consumes checkboxes if paid)' })
+  /**
+   *
+   * @param user
+   * @param meta
+   * @param userId
+   * @param idDevice
+   * @param version
+   * @param createSimertDto
+   */
+  @ApiOperation({
+    summary: 'Start a parking fraction on a slot (consumes checkboxes if paid)',
+  })
   @ApiStandardResponse({
     description: 'Parking fraction created and slot marked as occupied',
     errorCodes: [
@@ -90,13 +132,25 @@ export class SimertController {
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
     @Param('version', ParseIntPipe) version: number,
-    @Body() createSimertDto: CreateSimertDto
+    @Body() createSimertDto: CreateSimertDto,
   ) {
     createSimertDto.meta = meta;
     return this.simertService.parking(idDevice, createSimertDto);
   }
 
-  @ApiOperation({ summary: 'Increment parking time on an existing fraction (consumes checkboxes)' })
+  /**
+   *
+   * @param user
+   * @param meta
+   * @param userId
+   * @param idDevice
+   * @param version
+   * @param incrementSimertDto
+   */
+  @ApiOperation({
+    summary:
+      'Increment parking time on an existing fraction (consumes checkboxes)',
+  })
   @ApiStandardResponse({
     description: 'New fraction created with incremented time',
     errorCodes: [
@@ -118,12 +172,20 @@ export class SimertController {
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
     @Param('version', ParseIntPipe) version: number,
-    @Body() incrementSimertDto: IncrementSimertDto
+    @Body() incrementSimertDto: IncrementSimertDto,
   ) {
     incrementSimertDto.meta = meta;
     return this.simertService.incrementTime(idDevice, incrementSimertDto);
   }
 
+  /**
+   *
+   * @param user
+   * @param userId
+   * @param idDevice
+   * @param fractionId
+   * @param _version
+   */
   @ApiOperation({ summary: 'Finish a parking fraction and free the slot' })
   @ApiStandardResponse({
     description: 'Fraction finished and slot released',
@@ -137,12 +199,22 @@ export class SimertController {
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
     @Param('fractionId', ParseIntPipe) fractionId: number,
-    @Param('version', ParseIntPipe) version: number,
+    @Param('version', ParseIntPipe) _version: number,
   ) {
     return this.simertService.finished(userId, fractionId);
   }
 
-  @ApiOperation({ summary: 'Get a slot by name with pricing, schedules and user checkboxes' })
+  /**
+   *
+   * @param user
+   * @param userId
+   * @param idDevice
+   * @param searchSlot
+   * @param _version
+   */
+  @ApiOperation({
+    summary: 'Get a slot by name with pricing, schedules and user checkboxes',
+  })
   @ApiStandardResponse({
     description: 'Slot info with pricing and user available checkboxes',
     errorCodes: [ErrorCode.NONE, ErrorCode.NOT_FOUND, ErrorCode.OCCUPIED],
@@ -158,33 +230,47 @@ export class SimertController {
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
     @Param('searchSlot') searchSlot: string,
-    @Param('version', ParseIntPipe) version: number,
+    @Param('version', ParseIntPipe) _version: number,
   ) {
     return this.simertService.getPriceSlot(userId, searchSlot);
   }
 
-  @ApiOperation({ summary: 'Fraction history (current month and history partitions) for the user' })
+  /**
+   *
+   * @param user
+   * @param userId
+   * @param idDevice
+   * @param version
+   * @param searchFractionDto
+   */
+  @ApiOperation({
+    summary:
+      'Fraction history (current month and history partitions) for the user',
+  })
   @ApiStandardResponse({
-    description: 'Fraction history filtered by year/month and optional date range',
+    description:
+      'Fraction history filtered by year/month and optional date range',
     errorCodes: [ErrorCode.NONE],
     data: {
       fraction: {
         isArray: true,
         type: 'object',
-        example: [{
-          time: 60,
-          plate: 'ABC-1234',
-          registerAt: '2026-04-24T12:00:00.000Z',
-          departureDate: '2026-04-24T13:00:00.000Z',
-          image: null,
-          statusId: 2,
-          checkboxes: 4,
-          zone: 'Centro',
-          block: 'Block A',
-          slot: 'A01',
-          ltSlot: -3.99,
-          lgSlot: -79.20,
-        }],
+        example: [
+          {
+            time: 60,
+            plate: 'ABC-1234',
+            registerAt: '2026-04-24T12:00:00.000Z',
+            departureDate: '2026-04-24T13:00:00.000Z',
+            image: null,
+            statusId: 2,
+            checkboxes: 4,
+            zone: 'Centro',
+            block: 'Block A',
+            slot: 'A01',
+            ltSlot: -3.99,
+            lgSlot: -79.2,
+          },
+        ],
       },
     },
   })
@@ -195,9 +281,8 @@ export class SimertController {
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
     @Param('version', ParseIntPipe) version: number,
-    @Query() searchFractionDto: SearchFractionDto
+    @Query() searchFractionDto: SearchFractionDto,
   ) {
     return this.simertService.findFractionHistory(userId, searchFractionDto);
   }
-
 }

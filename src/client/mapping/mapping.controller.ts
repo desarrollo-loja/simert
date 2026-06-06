@@ -1,4 +1,12 @@
-import { Controller, Get, Param, ParseFloatPipe, ParseIntPipe, ParseUUIDPipe, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  ParseFloatPipe,
+  ParseIntPipe,
+  ParseUUIDPipe,
+  Query,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Block } from 'src/admin/block/entities/block.entity';
 import { Slot } from 'src/admin/slot/entities/slot.entity';
@@ -19,9 +27,21 @@ import { MappingService } from './mapping.service';
 @ApiBearerAuth('keycloak')
 @Controller('client/mapping')
 export class MappingController {
-  constructor(private readonly mappingService: MappingService) { }
+  /**
+   *
+   * @param mappingService
+   */
+  constructor(private readonly mappingService: MappingService) {}
 
   // @Auth()
+  /**
+   *
+   * @param user
+   * @param userId
+   * @param idDevice
+   * @param version
+   * @param paginationDto
+   */
   @ApiOperation({ summary: 'List all activated zones with parsed geofence' })
   @ApiStandardResponse({
     description: 'Active zones list. `zone` empty array if no results.',
@@ -43,9 +63,20 @@ export class MappingController {
   }
 
   // @Auth()
-  @ApiOperation({ summary: 'List all blocks with zone, schedules and parsed geofence' })
+  /**
+   *
+   * @param user
+   * @param userId
+   * @param idDevice
+   * @param version
+   * @param paginationDto
+   */
+  @ApiOperation({
+    summary: 'List all blocks with zone, schedules and parsed geofence',
+  })
   @ApiStandardResponse({
-    description: 'Blocks list with zone and schedules. `blocks` empty if no results.',
+    description:
+      'Blocks list with zone and schedules. `blocks` empty if no results.',
     errorCodes: [ErrorCode.NONE, ErrorCode.NOT_FOUND],
     data: {
       blocks: { model: Block, isArray: true },
@@ -65,7 +96,17 @@ export class MappingController {
   }
 
   // @Auth()
-  @ApiOperation({ summary: 'List all slots with zone and block (excluding 0/0 coordinates)' })
+  /**
+   *
+   * @param user
+   * @param userId
+   * @param idDevice
+   * @param version
+   * @param paginationDto
+   */
+  @ApiOperation({
+    summary: 'List all slots with zone and block (excluding 0/0 coordinates)',
+  })
   @ApiStandardResponse({
     description: 'Slots list with zone and block. `slots` empty if no results.',
     errorCodes: [ErrorCode.NONE, ErrorCode.NOT_FOUND],
@@ -86,9 +127,23 @@ export class MappingController {
   }
 
   // @Auth()
-  @ApiOperation({ summary: 'Find slots near a latitude/longitude (ordered by distance, limit 50)' })
+  /**
+   *
+   * @param user
+   * @param userId
+   * @param idDevice
+   * @param latitude
+   * @param longitude
+   * @param version
+   * @param paginationDto
+   */
+  @ApiOperation({
+    summary:
+      'Find slots near a latitude/longitude (ordered by distance, limit 50)',
+  })
   @ApiStandardResponse({
-    description: 'Nearby slots ordered by distance. `slots` empty if no results.',
+    description:
+      'Nearby slots ordered by distance. `slots` empty if no results.',
     errorCodes: [ErrorCode.NONE, ErrorCode.NOT_FOUND],
     data: {
       slots: { model: Slot, isArray: true },
@@ -105,6 +160,10 @@ export class MappingController {
     @Param('version') version: number,
     @Query() paginationDto: FilterDto,
   ) {
-    return this.mappingService.findSlotNearby(latitude, longitude, paginationDto);
+    return this.mappingService.findSlotNearby(
+      latitude,
+      longitude,
+      paginationDto,
+    );
   }
 }

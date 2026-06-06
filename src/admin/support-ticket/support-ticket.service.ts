@@ -19,10 +19,14 @@ import { SupportTicket } from './entities/support-ticket.entity';
 export class SupportTicketService {
   private readonly logger = new Logger(SupportTicketService.name);
 
+  /**
+   *
+   * @param supportTicketRepository
+   */
   constructor(
     @InjectRepository(SupportTicket)
     private readonly supportTicketRepository: Repository<SupportTicket>,
-  ) { }
+  ) {}
 
   /**
    * Creates a new support ticket. Defaults status to PENDING when not provided.
@@ -37,8 +41,11 @@ export class SupportTicketService {
         createSupportTicketDto.status = SupportTicketStatus.PENDING;
       }
 
-      const supportTicket = this.supportTicketRepository.create({ ...createSupportTicketDto });
-      const savedTicket = await this.supportTicketRepository.save(supportTicket);
+      const supportTicket = this.supportTicketRepository.create({
+        ...createSupportTicketDto,
+      });
+      const savedTicket =
+        await this.supportTicketRepository.save(supportTicket);
 
       const ticketNumber = `ST-${savedTicket.id.toString().padStart(6, '0')}`;
 
@@ -101,7 +108,10 @@ export class SupportTicketService {
     sql += ';';
 
     try {
-      const supportTickets = await this.supportTicketRepository.query(sql, parameters);
+      const supportTickets = await this.supportTicketRepository.query(
+        sql,
+        parameters,
+      );
       return { supportTickets, errorCode: ErrorCode.NONE };
     } catch (error) {
       handleDbExceptions(error, this.logger);
@@ -142,9 +152,16 @@ export class SupportTicketService {
    */
   async findOne(id: number) {
     try {
-      const result = await this.supportTicketRepository.createQueryBuilder('st')
-        .addSelect(`TO_CHAR(st."createdAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`, 'st_createdAt')
-        .addSelect(`TO_CHAR(st."updatedAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`, 'st_updatedAt')
+      const result = await this.supportTicketRepository
+        .createQueryBuilder('st')
+        .addSelect(
+          `TO_CHAR(st."createdAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`,
+          'st_createdAt',
+        )
+        .addSelect(
+          `TO_CHAR(st."updatedAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`,
+          'st_updatedAt',
+        )
         .where('st.id = :id', { id })
         .getRawAndEntities();
 
@@ -172,7 +189,10 @@ export class SupportTicketService {
    */
   async update(id: number, updateSupportTicketDto: UpdateSupportTicketDto) {
     try {
-      const supportTicket = await this.supportTicketRepository.preload({ id, ...updateSupportTicketDto });
+      const supportTicket = await this.supportTicketRepository.preload({
+        id,
+        ...updateSupportTicketDto,
+      });
 
       if (supportTicket) {
         await this.supportTicketRepository.save(supportTicket);
@@ -193,7 +213,9 @@ export class SupportTicketService {
    */
   async remove(id: number) {
     try {
-      const supportTicket = await this.supportTicketRepository.findOne({ where: { id } });
+      const supportTicket = await this.supportTicketRepository.findOne({
+        where: { id },
+      });
       if (supportTicket) {
         supportTicket.status = SupportTicketStatus.REJECTED;
         await this.supportTicketRepository.save(supportTicket);
@@ -212,9 +234,10 @@ export class SupportTicketService {
    * @param filterDto - Filter options to translate into SQL conditions.
    * @returns Object with conditions array and positional parameters array.
    */
-  private _buildSqlConditions(
-    filterDto: SupportTicketFilterDto,
-  ): { conditions: string[]; parameters: any[] } {
+  private _buildSqlConditions(filterDto: SupportTicketFilterDto): {
+    conditions: string[];
+    parameters: any[];
+  } {
     const {
       search = '',
       userId,
@@ -257,12 +280,20 @@ export class SupportTicketService {
     // Guard on the trimmed value, but keep the raw `search` in the ILIKE
     // pattern to preserve the original matching behavior for whitespace.
     const trimmedSearch = search?.trim();
-    if (trimmedSearch && trimmedSearch !== 'undefined' && trimmedSearch !== 'null') {
-      conditions.push(`(st."message" ILIKE ${addParam(`%${search}%`)} OR st."emailClient" ILIKE ${addParam(`%${search}%`)})`);
+    if (
+      trimmedSearch &&
+      trimmedSearch !== 'undefined' &&
+      trimmedSearch !== 'null'
+    ) {
+      conditions.push(
+        `(st."message" ILIKE ${addParam(`%${search}%`)} OR st."emailClient" ILIKE ${addParam(`%${search}%`)})`,
+      );
     }
 
     if (dateFrom && dateTo) {
-      conditions.push(`st."createdAt" BETWEEN ${addParam(dateFrom)} AND ${addParam(dateTo)}`);
+      conditions.push(
+        `st."createdAt" BETWEEN ${addParam(dateFrom)} AND ${addParam(dateTo)}`,
+      );
     }
 
     return { conditions, parameters };

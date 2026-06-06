@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Param, ParseIntPipe, ParseUUIDPipe, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseIntPipe,
+  ParseUUIDPipe,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Auth } from 'src/auth/decorators';
 import { FilterDto } from 'src/common/dto/filter.dto';
@@ -14,9 +23,22 @@ import { LService } from './l.service';
 @ApiBearerAuth('keycloak')
 @Controller('admin/l')
 export class LController {
-  constructor(private readonly lService: LService) { }
+  /**
+   *
+   * @param lService
+   */
+  constructor(private readonly lService: LService) {}
 
-  @ApiOperation({ summary: 'List location records for a single user (tracking DB)' })
+  /**
+   *
+   * @param userId
+   * @param idDevice
+   * @param version
+   * @param filterDto
+   */
+  @ApiOperation({
+    summary: 'List location records for a single user (tracking DB)',
+  })
   // @Auth(TypeRol.ADMIN)
   @Get('by-user/:userId/:idDevice/:version')
   findAllByUser(
@@ -24,19 +46,28 @@ export class LController {
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
     @Param('version', ParseIntPipe) version: number,
-    @Query() filterDto: FilterDto
+    @Query() filterDto: FilterDto,
   ) {
     return this.lService.findAllByUser(filterDto);
   }
 
-  @ApiOperation({ summary: 'List location records for multiple users (tracking DB)' })
+  /**
+   *
+   * @param userId
+   * @param idDevice
+   * @param version
+   * @param filterDto
+   */
+  @ApiOperation({
+    summary: 'List location records for multiple users (tracking DB)',
+  })
   @Auth()
   @Post('find-all-by-users/:userId/:idDevice/:version')
   findByUsers(
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
     @Param('version', ParseIntPipe) version: number,
-    @Body() filterDto: FilterDto
+    @Body() filterDto: FilterDto,
   ) {
     return this.lService.findByUsers(filterDto);
   }

@@ -7,11 +7,14 @@ import { LoggerModule } from 'src/common/logger.module';
 import { SupportTicketController } from './support-ticket.controller';
 import { SupportTicketService } from './support-ticket.service';
 
+/**
+ *
+ */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([SupportTicket]), 
-    AuthModule, 
-    LoggerModule
+    TypeOrmModule.forFeature([SupportTicket]),
+    AuthModule,
+    LoggerModule,
   ],
   controllers: [SupportTicketController],
   providers: [SupportTicketService],

@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Param, ParseIntPipe, ParseUUIDPipe, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseIntPipe,
+  ParseUUIDPipe,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthWithKeycloak, GetUser } from 'src/auth/decorators';
 import { JwtPayload } from 'src/auth/interfaces';
@@ -20,10 +29,18 @@ import { OperatorService } from './operator.service';
 @ApiBearerAuth('keycloak')
 @Controller('client/operator')
 export class OperatorController {
-  constructor(
-    private readonly operatorService: OperatorService,
-  ) { }
+  /**
+   *
+   * @param operatorService
+   */
+  constructor(private readonly operatorService: OperatorService) {}
 
+  /**
+   *
+   * @param createIncidentDto
+   * @param userId
+   * @param idDevice
+   */
   @ApiOperation({ summary: 'Create an incident from the operator app' })
   // @Auth()
   @AuthWithKeycloak()
@@ -33,10 +50,24 @@ export class OperatorController {
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
   ) {
-    return this.operatorService.createIncident(userId, idDevice, createIncidentDto);
+    return this.operatorService.createIncident(
+      userId,
+      idDevice,
+      createIncidentDto,
+    );
   }
 
-  @ApiOperation({ summary: 'Finish an active parking fraction from the operator app' })
+  /**
+   *
+   * @param user
+   * @param userId
+   * @param idDevice
+   * @param fractionId
+   * @param _version
+   */
+  @ApiOperation({
+    summary: 'Finish an active parking fraction from the operator app',
+  })
   // @Auth()
   @AuthWithKeycloak()
   @Post('finished/:userId/:idDevice/:fractionId/:version')
@@ -45,12 +76,23 @@ export class OperatorController {
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
     @Param('fractionId', ParseIntPipe) fractionId: number,
-    @Param('version', ParseIntPipe) version: number,
+    @Param('version', ParseIntPipe) _version: number,
   ) {
     return this.operatorService.finished(userId, fractionId);
   }
 
-  @ApiOperation({ summary: 'Register (start) a parking session from the operator app' })
+  /**
+   *
+   * @param user
+   * @param meta
+   * @param userId
+   * @param idDevice
+   * @param version
+   * @param createOperatorDto
+   */
+  @ApiOperation({
+    summary: 'Register (start) a parking session from the operator app',
+  })
   // @Auth()
   @AuthWithKeycloak()
   @Post('register/:userId/:idDevice/:version')
@@ -60,13 +102,24 @@ export class OperatorController {
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
     @Param('version', ParseIntPipe) version: number,
-    @Body() createOperatorDto: CreateOperatorDto
+    @Body() createOperatorDto: CreateOperatorDto,
   ) {
     createOperatorDto.meta = meta;
     return this.operatorService.parking(createOperatorDto);
   }
 
-  @ApiOperation({ summary: 'Extend parking time for an active fraction (operator app)' })
+  /**
+   *
+   * @param user
+   * @param meta
+   * @param userId
+   * @param idDevice
+   * @param version
+   * @param incrementOperatorDto
+   */
+  @ApiOperation({
+    summary: 'Extend parking time for an active fraction (operator app)',
+  })
   // @Auth()
   @AuthWithKeycloak()
   @Post('increment-time/:userId/:idDevice/:version')
@@ -76,12 +129,20 @@ export class OperatorController {
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
     @Param('version', ParseIntPipe) version: number,
-    @Body() incrementOperatorDto: IncrementOperatorDto
+    @Body() incrementOperatorDto: IncrementOperatorDto,
   ) {
     incrementOperatorDto.meta = meta;
     return this.operatorService.incrementTime(idDevice, incrementOperatorDto);
   }
 
+  /**
+   *
+   * @param user
+   * @param criteria
+   * @param userId
+   * @param _idDevice
+   * @param _version
+   */
   @ApiOperation({ summary: 'List blocks assigned to the operator user' })
   // @Auth()
   @AuthWithKeycloak()
@@ -90,13 +151,23 @@ export class OperatorController {
     @GetUser() user: JwtPayload,
     @Param('criteria') criteria: string,
     @Param('userId', ParseIntPipe) userId: number,
-    @Param('idDevice', ParseUUIDPipe) idDevice: string,
-    @Param('version', ParseIntPipe) version: number,
+    @Param('idDevice', ParseUUIDPipe) _idDevice: string,
+    @Param('version', ParseIntPipe) _version: number,
   ) {
     return this.operatorService.findAllBlocks(userId);
   }
 
-  @ApiOperation({ summary: 'List active parking fractions for a block (operator view)' })
+  /**
+   *
+   * @param paginationDto
+   * @param userId
+   * @param idDevice
+   * @param blockId
+   * @param _version
+   */
+  @ApiOperation({
+    summary: 'List active parking fractions for a block (operator view)',
+  })
   // @Auth()
   //@AuthWithKeycloak()
   @Get('find-all-fractions/:userId/:idDevice/:blockId/:version')
@@ -106,12 +177,27 @@ export class OperatorController {
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
     @Param('blockId', ParseIntPipe) blockId: number,
-    @Param('version', ParseIntPipe) version: number,
+    @Param('version', ParseIntPipe) _version: number,
   ) {
-    return this.operatorService.findAllFractions(blockId, userId, paginationDto);
+    return this.operatorService.findAllFractions(
+      blockId,
+      userId,
+      paginationDto,
+    );
   }
 
-  @ApiOperation({ summary: 'Get a single fraction detail by fractionId (operator view)' })
+  /**
+   *
+   * @param user
+   * @param paginationDto
+   * @param userId
+   * @param idDevice
+   * @param fractionId
+   * @param _version
+   */
+  @ApiOperation({
+    summary: 'Get a single fraction detail by fractionId (operator view)',
+  })
   // @Auth()
   @AuthWithKeycloak()
   @Get('find-fraction-by-id/:userId/:idDevice/:fractionId/:version')
@@ -121,55 +207,94 @@ export class OperatorController {
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
     @Param('fractionId', ParseIntPipe) fractionId: number,
-    @Param('version', ParseIntPipe) version: number,
-
+    @Param('version', ParseIntPipe) _version: number,
   ) {
     return this.operatorService.findFractionById(fractionId);
   }
 
-  @ApiOperation({ summary: 'Search active fractions by plate number or other criteria' })
+  /**
+   *
+   * @param user
+   * @param criteria
+   * @param _userId
+   * @param _idDevice
+   * @param _version
+   */
+  @ApiOperation({
+    summary: 'Search active fractions by plate number or other criteria',
+  })
   // @Auth()
   @AuthWithKeycloak()
   @Get('find-by-criteria/:criteria/:userId/:idDevice/:version')
   findAllFractionsByPlate(
     @GetUser() user: JwtPayload,
     @Param('criteria') criteria: string,
-    @Param('userId', ParseIntPipe) userId: number,
-    @Param('idDevice', ParseUUIDPipe) idDevice: string,
-    @Param('version', ParseIntPipe) version: number,
+    @Param('userId', ParseIntPipe) _userId: number,
+    @Param('idDevice', ParseUUIDPipe) _idDevice: string,
+    @Param('version', ParseIntPipe) _version: number,
   ) {
     return this.operatorService.findAllFractionsBycriteria(criteria);
   }
 
-  @ApiOperation({ summary: 'Get the current virtual server time (for operator clock sync)' })
+  /**
+   *
+   * @param _user
+   * @param _criteria
+   * @param _userId
+   * @param _idDevice
+   * @param _version
+   */
+  @ApiOperation({
+    summary: 'Get the current virtual server time (for operator clock sync)',
+  })
   // @Auth()
   @AuthWithKeycloak()
   @Get('time-virtual/:userId/:idDevice/:version')
   timeVirtual(
-    @GetUser() user: JwtPayload,
-    @Param('criteria') criteria: string,
-    @Param('userId', ParseIntPipe) userId: number,
-    @Param('idDevice', ParseUUIDPipe) idDevice: string,
-    @Param('version', ParseIntPipe) version: number,
+    @GetUser() _user: JwtPayload,
+    @Param('criteria') _criteria: string,
+    @Param('userId', ParseIntPipe) _userId: number,
+    @Param('idDevice', ParseUUIDPipe) _idDevice: string,
+    @Param('version', ParseIntPipe) _version: number,
   ) {
     return this.operatorService.timeVirtual();
   }
 
-  @ApiOperation({ summary: 'List physical card slots available for the given card identifier' })
+  /**
+   *
+   * @param user
+   * @param card
+   * @param _userId
+   * @param _idDevice
+   * @param _version
+   */
+  @ApiOperation({
+    summary: 'List physical card slots available for the given card identifier',
+  })
   // @Auth()
   @AuthWithKeycloak()
   @Get('find-all-physic/:userId/:idDevice/:card/:version')
   findAllPhysic(
     @GetUser() user: JwtPayload,
     @Param('card') card: string,
-    @Param('userId', ParseIntPipe) userId: number,
-    @Param('idDevice', ParseUUIDPipe) idDevice: string,
-    @Param('version', ParseIntPipe) version: number,
+    @Param('userId', ParseIntPipe) _userId: number,
+    @Param('idDevice', ParseUUIDPipe) _idDevice: string,
+    @Param('version', ParseIntPipe) _version: number,
   ) {
     return this.operatorService.findAllPhysic(card);
   }
 
-  @ApiOperation({ summary: 'Get slot pricing and availability by slot name/code (operator)' })
+  /**
+   *
+   * @param user
+   * @param userId
+   * @param idDevice
+   * @param searchSlot
+   * @param _version
+   */
+  @ApiOperation({
+    summary: 'Get slot pricing and availability by slot name/code (operator)',
+  })
   // @Auth()
   @AuthWithKeycloak()
   @Get('seach-slot/:userId/:idDevice/:searchSlot/:version')
@@ -178,12 +303,23 @@ export class OperatorController {
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
     @Param('searchSlot') searchSlot: string,
-    @Param('version', ParseIntPipe) version: number,
+    @Param('version', ParseIntPipe) _version: number,
   ) {
     return this.operatorService.getPriceSlot(userId, searchSlot);
   }
 
-  @ApiOperation({ summary: 'Find outstanding sanctions by identity card number (operator)' })
+  /**
+   *
+   * @param user
+   * @param userId
+   * @param idDevice
+   * @param identityCard
+   * @param version
+   * @param getIncidentDto
+   */
+  @ApiOperation({
+    summary: 'Find outstanding sanctions by identity card number (operator)',
+  })
   // @Auth()
   @AuthWithKeycloak()
   @Post('find-by-identity-card/:userId/:idDevice/:identityCard/:version')
@@ -195,6 +331,11 @@ export class OperatorController {
     @Param('version', ParseIntPipe) version: number,
     @Body() getIncidentDto: GetIncidentDto,
   ) {
-    return this.operatorService.findSanctionByIdentityCard(userId, idDevice, identityCard, getIncidentDto);
+    return this.operatorService.findSanctionByIdentityCard(
+      userId,
+      idDevice,
+      identityCard,
+      getIncidentDto,
+    );
   }
 }

@@ -1,4 +1,16 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, ParseUUIDPipe, Patch, Post, Query, Req } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseIntPipe,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+  Req,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Incident } from 'src/admin/incident/entities/incident.entity';
 import { IncidentPayment } from 'src/admin/incident-payment/entities/incident-payment.entity';
@@ -20,9 +32,23 @@ import { IncidentService } from './incident.service';
 @ApiBearerAuth('keycloak')
 @Controller('client/incident')
 export class IncidentController {
-  constructor(private readonly incidentService: IncidentService) { }
+  /**
+   *
+   * @param incidentService
+   */
+  constructor(private readonly incidentService: IncidentService) {}
 
-  @ApiOperation({ summary: 'Check outstanding fines by plate or identity card (external GIM)' })
+  /**
+   *
+   * @param userId
+   * @param idDevice
+   * @param version
+   * @param plate
+   * @param identityCard
+   */
+  @ApiOperation({
+    summary: 'Check outstanding fines by plate or identity card (external GIM)',
+  })
   @ApiStandardResponse({
     description: 'Outstanding fines summary',
     errorCodes: [ErrorCode.NONE],
@@ -31,7 +57,16 @@ export class IncidentController {
       fines: {
         isArray: true,
         type: 'object',
-        example: [{ fineId: '9981', registerDate: '2026-01-10T12:00:00.000Z', status: 'PENDIENTE', titleNumber: 'T-991882', amount: 10.5, plate: 'ABC123' }],
+        example: [
+          {
+            fineId: '9981',
+            registerDate: '2026-01-10T12:00:00.000Z',
+            status: 'PENDIENTE',
+            titleNumber: 'T-991882',
+            amount: 10.5,
+            plate: 'ABC123',
+          },
+        ],
       },
     },
   })
@@ -41,11 +76,23 @@ export class IncidentController {
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
     @Param('version', ParseIntPipe) version: number,
     @Query('plate') plate: string,
-    @Query('identityCard') identityCard: string
+    @Query('identityCard') identityCard: string,
   ) {
-    return this.incidentService.checkMyFractionsOutstanding(plate, identityCard);
+    return this.incidentService.checkMyFractionsOutstanding(
+      plate,
+      identityCard,
+    );
   }
 
+  /**
+   *
+   * @param user
+   * @param userId
+   * @param idDevice
+   * @param fractionId
+   * @param _version
+   * @param _request
+   */
   @ApiOperation({ summary: 'List sanctions/incidents linked to a fraction' })
   @ApiStandardResponse({
     description: 'Sanctions for the given fraction',
@@ -55,7 +102,16 @@ export class IncidentController {
       factionSanctions: {
         isArray: true,
         type: 'object',
-        example: [{ id: 1, description: 'Exceeded time', images: [], plate: 'ABC123', createdAt: '2026-01-10T12:00:00.000Z', reason: 'Overtime' }],
+        example: [
+          {
+            id: 1,
+            description: 'Exceeded time',
+            images: [],
+            plate: 'ABC123',
+            createdAt: '2026-01-10T12:00:00.000Z',
+            reason: 'Overtime',
+          },
+        ],
       },
     },
   })
@@ -66,20 +122,35 @@ export class IncidentController {
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
     @Param('fractionId', ParseIntPipe) fractionId: number,
-    @Param('version', ParseIntPipe) version: number,
-    @Req() request: Request,
+    @Param('version', ParseIntPipe) _version: number,
+    @Req() _request: Request,
   ) {
     return this.incidentService.findSanctionByFraction(fractionId);
   }
 
-  @ApiOperation({ summary: 'Find pending sanctions by identity card and sync with GIM' })
+  /**
+   *
+   * @param userId
+   * @param idDevice
+   * @param identityCard
+   * @param version
+   * @param getIncidentDto
+   */
+  @ApiOperation({
+    summary: 'Find pending sanctions by identity card and sync with GIM',
+  })
   @ApiStandardResponse({
-    description: 'Pending incidents for the given identity card, emitted to GIM if needed',
+    description:
+      'Pending incidents for the given identity card, emitted to GIM if needed',
     errorCodes: [ErrorCode.NONE, ErrorCode.NOT_FOUND, ErrorCode.NOT_VALID],
     data: {
       currentDate: { type: 'string', format: 'date-time' } as any,
       incidents: { model: Incident, isArray: true },
-      message: { type: 'string', example: 'No se pudo verificar la información del cliente, por favor inténtelo más tarde' },
+      message: {
+        type: 'string',
+        example:
+          'No se pudo verificar la información del cliente, por favor inténtelo más tarde',
+      },
     },
   })
   @Post('find-by-identity-card/:userId/:idDevice/:identityCard/:version')
@@ -90,9 +161,22 @@ export class IncidentController {
     @Param('version', ParseIntPipe) version: number,
     @Body() getIncidentDto: GetIncidentDto,
   ) {
-    return this.incidentService.findSanctionByIdentityCard(userId, idDevice, identityCard, getIncidentDto);
+    return this.incidentService.findSanctionByIdentityCard(
+      userId,
+      idDevice,
+      identityCard,
+      getIncidentDto,
+    );
   }
 
+  /**
+   *
+   * @param user
+   * @param userId
+   * @param idDevice
+   * @param version
+   * @param payIncidentDto
+   */
   @ApiOperation({ summary: 'Start payment for one or multiple incidents' })
   @ApiStandardResponse({
     description: 'Payment intent created, awaiting provider response',
@@ -116,48 +200,95 @@ export class IncidentController {
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
     @Param('version', ParseIntPipe) version: number,
-    @Body() payIncidentDto: PayIncidentDto
+    @Body() payIncidentDto: PayIncidentDto,
   ) {
     return this.incidentService.pay(idDevice, payIncidentDto);
   }
 
+  /**
+   *
+   * @param userId
+   * @param typePaymentResponsibility
+   * @param typePaymentMethod
+   * @param referenceId
+   * @param idDevice
+   * @param register
+   * @param _concept
+   */
   @ApiOperation({ summary: 'Webhook: provider payment success callback' })
   @ApiStandardResponse({
     description: 'Payment webhook processed',
     errorCodes: [ErrorCode.NONE, ErrorCode.NOT_FOUND],
     data: {},
   })
-  @Patch('on-response-pay/:idDevice/:userId/:referenceId/:typePaymentMethod/:register/:typePaymentResponsibility/')
+  @Patch(
+    'on-response-pay/:idDevice/:userId/:referenceId/:typePaymentMethod/:register/:typePaymentResponsibility/',
+  )
   onResponse(
     @Param('userId', ParseIntPipe) userId: number,
-    @Param('typePaymentResponsibility', ParseIntPipe) typePaymentResponsibility: number,
+    @Param('typePaymentResponsibility', ParseIntPipe)
+    typePaymentResponsibility: number,
     @Param('typePaymentMethod', ParseIntPipe) typePaymentMethod: number,
     @Param('referenceId') referenceId: string,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
     @Param('register') register: string,
-    @Param('regiconceptster') concept: string,
+    @Param('regiconceptster') _concept: string,
   ) {
-    return this.incidentService.onResponsePay(idDevice, userId, referenceId, typePaymentMethod, register, typePaymentResponsibility)
+    return this.incidentService.onResponsePay(
+      idDevice,
+      userId,
+      referenceId,
+      typePaymentMethod,
+      register,
+      typePaymentResponsibility,
+    );
   }
 
+  /**
+   *
+   * @param userId
+   * @param typePaymentResponsibility
+   * @param typePaymentMethod
+   * @param referenceId
+   * @param idDevice
+   * @param register
+   * @param _concept
+   */
   @ApiOperation({ summary: 'Webhook: provider payment error callback' })
   @ApiStandardResponse({
     description: 'Payment error webhook processed',
     data: {},
   })
-  @Delete('on-response-pay/:idDevice/:userId/:referenceId/:typePaymentMethod/:register/:typePaymentResponsibility/')
+  @Delete(
+    'on-response-pay/:idDevice/:userId/:referenceId/:typePaymentMethod/:register/:typePaymentResponsibility/',
+  )
   onResponsePayError(
     @Param('userId', ParseIntPipe) userId: number,
-    @Param('typePaymentResponsibility', ParseIntPipe) typePaymentResponsibility: number,
+    @Param('typePaymentResponsibility', ParseIntPipe)
+    typePaymentResponsibility: number,
     @Param('typePaymentMethod', ParseIntPipe) typePaymentMethod: number,
     @Param('referenceId') referenceId: string,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
     @Param('register') register: string,
-    @Param('regiconceptster') concept: string,
+    @Param('regiconceptster') _concept: string,
   ) {
-    return this.incidentService.onResponsePayError(idDevice, userId, referenceId, typePaymentMethod, register, typePaymentResponsibility)
+    return this.incidentService.onResponsePayError(
+      idDevice,
+      userId,
+      referenceId,
+      typePaymentMethod,
+      register,
+      typePaymentResponsibility,
+    );
   }
 
+  /**
+   *
+   * @param user
+   * @param userId
+   * @param idDevice
+   * @param reference
+   */
   @ApiOperation({ summary: 'Get payment transaction by reference id' })
   @ApiStandardResponse({
     description: 'Incident payment for the given reference',

@@ -30,23 +30,39 @@ export class KeycloakService {
   private serviceHubToken: string | null = null;
   private serviceHubTokenExpiresAt = 0; // timestamp in ms
 
+  /**
+   *
+   * @param commonGimService
+   * @param configService
+   */
   constructor(
     private readonly commonGimService: CommonGimService,
     private readonly configService: ConfigService,
   ) {
     this.gimBaseUrlLogin = this.configService.get<string>('GIM_BASE_URL_LOGIN'); // Default or Env
-    this.gim2RealmServiceHub = this.configService.get<string>('GIM2_REALM_SERVICE_HUB'); // Default or Env
-    this.gimBaseUrlLoginMunicipality = this.configService.get<string>('GIM_BASE_URL_LOGIN'); // Default or Env
-    this.gim2RealmMunicipality = this.configService.get<string>('GIM2_REALM_MUNICIPIO_K'); // Default or Env
+    this.gim2RealmServiceHub = this.configService.get<string>(
+      'GIM2_REALM_SERVICE_HUB',
+    ); // Default or Env
+    this.gimBaseUrlLoginMunicipality =
+      this.configService.get<string>('GIM_BASE_URL_LOGIN'); // Default or Env
+    this.gim2RealmMunicipality = this.configService.get<string>(
+      'GIM2_REALM_MUNICIPIO_K',
+    ); // Default or Env
     this.dominioAuth = this.configService.get<string>('DOMINIO_AUTH');
   }
 
   // ─── Smart-cached token ─────────────────────────────────────────────────────
 
+  /**
+   *
+   */
   private async getToken(): Promise<string> {
     const now = Date.now();
 
-    if (this.serviceHubToken && now < this.serviceHubTokenExpiresAt - TOKEN_REFRESH_MARGIN_MS) {
+    if (
+      this.serviceHubToken &&
+      now < this.serviceHubTokenExpiresAt - TOKEN_REFRESH_MARGIN_MS
+    ) {
       return this.serviceHubToken;
     }
 
@@ -64,6 +80,9 @@ export class KeycloakService {
   }
 
   // Always fetches a fresh token for municipal employees (realm Municipio K, client_credentials)
+  /**
+   *
+   */
   private async getTokenMunicipalityK(): Promise<string> {
     const result = await this.commonGimService.loginGimMunicipalityK();
 
@@ -74,15 +93,30 @@ export class KeycloakService {
     return result.data.access_token;
   }
 
+  /**
+   *
+   * @param token
+   */
   private authHeaders(token: string) {
-    return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+    return {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    };
   }
 
+  /**
+   *
+   * @param id
+   */
   private usersUrl(id?: string): string {
     const base = `${this.gimBaseUrlLogin}/admin/realms/${this.gim2RealmServiceHub}/users`;
     return id ? `${base}/${id}` : base;
   }
 
+  /**
+   *
+   * @param id
+   */
   private usersUrlMunicipality(id?: string): string {
     const base = `${this.gimBaseUrlLogin}/admin/realms/${this.gim2RealmMunicipality}/users`;
     return id ? `${base}/${id}` : base;
@@ -105,9 +139,18 @@ export class KeycloakService {
    *        HTTP response error (`error.response.status`).
    * @returns An `{ errorCode, message }` envelope describing the failure.
    */
-  private _buildKeycloakError(context: string, error: any): { errorCode: ErrorCode; message: string } {
-    const status: number = error?.response?.status ?? HttpStatus.INTERNAL_SERVER_ERROR;
-    const isConnectionError = ['ECONNABORTED', 'ETIMEDOUT', 'ECONNREFUSED', 'ENOTFOUND'].includes(error?.code);
+  private _buildKeycloakError(
+    context: string,
+    error: any,
+  ): { errorCode: ErrorCode; message: string } {
+    const status: number =
+      error?.response?.status ?? HttpStatus.INTERNAL_SERVER_ERROR;
+    const isConnectionError = [
+      'ECONNABORTED',
+      'ETIMEDOUT',
+      'ECONNREFUSED',
+      'ENOTFOUND',
+    ].includes(error?.code);
     const logMessage = `Error ${context} | status: ${status} | code: ${error?.code} | msg: ${error?.message}`;
 
     // A 401 is an expected client-side failure (bad credentials / unauthorized),
@@ -118,7 +161,8 @@ export class KeycloakService {
     if (isConnectionError) {
       return {
         errorCode: ErrorCode.RESPONSE,
-        message: 'No hay comunicación con el sistema municipal, por favor comuníquese con el administrador',
+        message:
+          'No hay comunicación con el sistema municipal, por favor comuníquese con el administrador',
       };
     }
 
@@ -126,26 +170,30 @@ export class KeycloakService {
       if (error?.response?.data?.error === 'invalid_grant') {
         return {
           errorCode: ErrorCode.UNAUTHORIZED,
-          message: 'Credenciales incorrectas, por favor verifique su usuario y contraseña',
+          message:
+            'Credenciales incorrectas, por favor verifique su usuario y contraseña',
         };
       }
       return {
         errorCode: ErrorCode.UNAUTHORIZED,
-        message: 'Usuario no autorizado en el sistema municipal, por favor comuníquese con el administrador',
+        message:
+          'Usuario no autorizado en el sistema municipal, por favor comuníquese con el administrador',
       };
     }
 
     if (status === 500) {
       return {
         errorCode: ErrorCode.RESPONSE,
-        message: 'Error con el sistema municipal, por favor comuníquese con el administrador',
+        message:
+          'Error con el sistema municipal, por favor comuníquese con el administrador',
       };
     }
 
     if (status === 409) {
       return {
         errorCode: ErrorCode.RESPONSE,
-        message: 'El usuario ya existe en el sistema municipal, por favor comuníquese con el administrador',
+        message:
+          'El usuario ya existe en el sistema municipal, por favor comuníquese con el administrador',
       };
     }
 
@@ -158,22 +206,31 @@ export class KeycloakService {
     if (rawMessage.includes('Account disabled')) {
       return {
         errorCode: ErrorCode.UNAUTHORIZED,
-        message: 'Su cuenta está deshabilitada en el sistema municipal. Por favor comuníquese con el administrador',
+        message:
+          'Su cuenta está deshabilitada en el sistema municipal. Por favor comuníquese con el administrador',
       };
     }
 
     return {
       errorCode: ErrorCode.RESPONSE,
-      message: 'Error al verificar el usuario en el municipio. Por favor comuníquese con el administrador.',
+      message:
+        'Error al verificar el usuario en el municipio. Por favor comuníquese con el administrador.',
     };
   }
 
   // ─── Endpoints ───────────────────────────────────────────────────────────────
 
+  /**
+   *
+   * @param dto
+   */
   async createUser(dto: CreateKeycloakUserDto) {
     const token = await this.getToken();
     if (!token)
-      return { errorCode: ErrorCode.NOT_FOUND, message: 'No se pudo obtener el token de Keycloak ServiceHub' };
+      return {
+        errorCode: ErrorCode.NOT_FOUND,
+        message: 'No se pudo obtener el token de Keycloak ServiceHub',
+      };
 
     try {
       const response = await axios.post(this.usersUrl(), dto, {
@@ -184,18 +241,33 @@ export class KeycloakService {
       const userId = location ? location.split('/').pop() : null;
 
       if (!userId)
-        return { errorCode: ErrorCode.NOT_FOUND, message: 'No se pudo obtener el ID del usuario del sistema municipal, por favor comuníquese con el administrador', userId };
-      return { errorCode: ErrorCode.NONE, message: 'Usuario creado exitosamente', userId };
-
+        return {
+          errorCode: ErrorCode.NOT_FOUND,
+          message:
+            'No se pudo obtener el ID del usuario del sistema municipal, por favor comuníquese con el administrador',
+          userId,
+        };
+      return {
+        errorCode: ErrorCode.NONE,
+        message: 'Usuario creado exitosamente',
+        userId,
+      };
     } catch (error: any) {
       return this._buildKeycloakError('createUser', error);
     }
   }
 
+  /**
+   *
+   * @param dto
+   */
   async createUserMunicipality(dto: CreateKeycloakUserDto) {
     const token = await this.getTokenMunicipalityK();
     if (!token)
-      return { errorCode: ErrorCode.NOT_FOUND, message: 'No se pudo obtener el token de Keycloak Municipal' };
+      return {
+        errorCode: ErrorCode.NOT_FOUND,
+        message: 'No se pudo obtener el token de Keycloak Municipal',
+      };
 
     try {
       const response = await axios.post(this.usersUrlMunicipality(), dto, {
@@ -206,39 +278,69 @@ export class KeycloakService {
       const userId = location ? location.split('/').pop() : null;
 
       if (!userId)
-        return { errorCode: ErrorCode.NOT_FOUND, message: 'No se pudo obtener el ID del usuario del sistema municipal, por favor comuníquese con el administrador', userId };
-      return { errorCode: ErrorCode.NONE, message: 'Usuario creado exitosamente', userId };
-
+        return {
+          errorCode: ErrorCode.NOT_FOUND,
+          message:
+            'No se pudo obtener el ID del usuario del sistema municipal, por favor comuníquese con el administrador',
+          userId,
+        };
+      return {
+        errorCode: ErrorCode.NONE,
+        message: 'Usuario creado exitosamente',
+        userId,
+      };
     } catch (error: any) {
       return this._buildKeycloakError('createUserMunicipality', error);
     }
   }
 
+  /**
+   *
+   * @param id
+   * @param dto
+   */
   async updateUser(id: string, dto: UpdateKeycloakUserDto) {
     const token = await this.getToken();
     if (!token)
-      return { errorCode: ErrorCode.NOT_FOUND, message: 'No se pudo obtener el token de Keycloak Municipal' };
+      return {
+        errorCode: ErrorCode.NOT_FOUND,
+        message: 'No se pudo obtener el token de Keycloak Municipal',
+      };
 
     try {
       await axios.put(this.usersUrl(id), dto, {
         headers: this.authHeaders(token),
       });
-      return { errorCode: ErrorCode.NONE, message: 'Usuario actualizado exitosamente' };
+      return {
+        errorCode: ErrorCode.NONE,
+        message: 'Usuario actualizado exitosamente',
+      };
     } catch (error: any) {
       return this._buildKeycloakError('updateUser', error);
     }
   }
 
+  /**
+   *
+   * @param id
+   * @param dto
+   */
   async updateUserMunicipality(id: string, dto: UpdateKeycloakUserDto) {
     const token = await this.getTokenMunicipalityK();
     if (!token)
-      return { errorCode: ErrorCode.NOT_FOUND, message: 'No se pudo obtener el token de Keycloak Municipal' };
+      return {
+        errorCode: ErrorCode.NOT_FOUND,
+        message: 'No se pudo obtener el token de Keycloak Municipal',
+      };
 
     try {
       await axios.put(this.usersUrlMunicipality(id), dto, {
         headers: this.authHeaders(token),
       });
-      return { errorCode: ErrorCode.NONE, message: 'Usuario actualizado exitosamente' };
+      return {
+        errorCode: ErrorCode.NONE,
+        message: 'Usuario actualizado exitosamente',
+      };
     } catch (error: any) {
       return this._buildKeycloakError('updateUserMunicipality', error);
     }
@@ -248,19 +350,30 @@ export class KeycloakService {
    * Habilita o deshabilita una cuenta de ciudadano (realm ServiceHub).
    * Envía solo el campo `enabled`; Keycloak hace un merge parcial, así que
    * el resto de datos del usuario (nombre, email, atributos) no se tocan.
+   * @param id
+   * @param enabled
    */
   async setUserStatus(id: string, enabled: boolean) {
     const token = await this.getToken();
     if (!token)
-      return { errorCode: ErrorCode.NOT_FOUND, message: 'No se pudo obtener el token de Keycloak ServiceHub' };
+      return {
+        errorCode: ErrorCode.NOT_FOUND,
+        message: 'No se pudo obtener el token de Keycloak ServiceHub',
+      };
 
     try {
-      await axios.put(this.usersUrl(id), { enabled }, {
-        headers: this.authHeaders(token),
-      });
+      await axios.put(
+        this.usersUrl(id),
+        { enabled },
+        {
+          headers: this.authHeaders(token),
+        },
+      );
       return {
         errorCode: ErrorCode.NONE,
-        message: enabled ? 'Cuenta habilitada exitosamente' : 'Cuenta deshabilitada exitosamente',
+        message: enabled
+          ? 'Cuenta habilitada exitosamente'
+          : 'Cuenta deshabilitada exitosamente',
         enabled,
       };
     } catch (error: any) {
@@ -270,19 +383,30 @@ export class KeycloakService {
 
   /**
    * Habilita o deshabilita una cuenta de empleado municipal (realm Municipio K).
+   * @param id
+   * @param enabled
    */
   async setUserStatusMunicipality(id: string, enabled: boolean) {
     const token = await this.getTokenMunicipalityK();
     if (!token)
-      return { errorCode: ErrorCode.NOT_FOUND, message: 'No se pudo obtener el token de Keycloak Municipal' };
+      return {
+        errorCode: ErrorCode.NOT_FOUND,
+        message: 'No se pudo obtener el token de Keycloak Municipal',
+      };
 
     try {
-      await axios.put(this.usersUrlMunicipality(id), { enabled }, {
-        headers: this.authHeaders(token),
-      });
+      await axios.put(
+        this.usersUrlMunicipality(id),
+        { enabled },
+        {
+          headers: this.authHeaders(token),
+        },
+      );
       return {
         errorCode: ErrorCode.NONE,
-        message: enabled ? 'Cuenta habilitada exitosamente' : 'Cuenta deshabilitada exitosamente',
+        message: enabled
+          ? 'Cuenta habilitada exitosamente'
+          : 'Cuenta deshabilitada exitosamente',
         enabled,
       };
     } catch (error: any) {
@@ -290,10 +414,17 @@ export class KeycloakService {
     }
   }
 
+  /**
+   *
+   * @param username
+   */
   async findByUsername(username: string) {
     const token = await this.getToken();
     if (!token)
-      return { errorCode: ErrorCode.NOT_FOUND, message: 'No se pudo obtener el token de Keycloak ServiceHub' };
+      return {
+        errorCode: ErrorCode.NOT_FOUND,
+        message: 'No se pudo obtener el token de Keycloak ServiceHub',
+      };
 
     try {
       const { data } = await axios.get(this.usersUrl(), {
@@ -302,18 +433,32 @@ export class KeycloakService {
       });
 
       if (data && data.length > 0)
-        return { errorCode: ErrorCode.NONE, message: 'Usuario encontrado exitosamente', data };
-      return { errorCode: ErrorCode.NOT_FOUND, message: 'Usuario no encontrado', data };
-
+        return {
+          errorCode: ErrorCode.NONE,
+          message: 'Usuario encontrado exitosamente',
+          data,
+        };
+      return {
+        errorCode: ErrorCode.NOT_FOUND,
+        message: 'Usuario no encontrado',
+        data,
+      };
     } catch (error: any) {
       return this._buildKeycloakError('findByUsername', error);
     }
   }
 
+  /**
+   *
+   * @param username
+   */
   async findByUsernameMunicipality(username: string) {
     const token = await this.getTokenMunicipalityK();
     if (!token)
-      return { errorCode: ErrorCode.NOT_FOUND, message: 'No se pudo obtener el token de Keycloak ServiceHub' };
+      return {
+        errorCode: ErrorCode.NOT_FOUND,
+        message: 'No se pudo obtener el token de Keycloak ServiceHub',
+      };
 
     try {
       const { data } = await axios.get(this.usersUrlMunicipality(), {
@@ -322,9 +467,16 @@ export class KeycloakService {
       });
 
       if (data && data.length > 0)
-        return { errorCode: ErrorCode.NONE, message: 'Usuario encontrado exitosamente', data };
-      return { errorCode: ErrorCode.NOT_FOUND, message: 'Usuario no encontrado', data };
-
+        return {
+          errorCode: ErrorCode.NONE,
+          message: 'Usuario encontrado exitosamente',
+          data,
+        };
+      return {
+        errorCode: ErrorCode.NOT_FOUND,
+        message: 'Usuario no encontrado',
+        data,
+      };
     } catch (error: any) {
       return this._buildKeycloakError('findByUsername', error);
     }
@@ -376,6 +528,10 @@ export class KeycloakService {
     }
   }
 
+  /**
+   *
+   * @param dto
+   */
   async loginClient(dto: LoginKeycloakClientDto) {
     const tokenUrl = `${this.gimBaseUrlLogin}/realms/${this.gim2RealmServiceHub}/protocol/openid-connect/token`;
     return this._passwordGrantLogin(
@@ -387,6 +543,10 @@ export class KeycloakService {
     );
   }
 
+  /**
+   *
+   * @param dto
+   */
   async loginClientMunicipality(dto: LoginKeycloakClientDto) {
     const tokenUrl = `${this.gimBaseUrlLoginMunicipality}/realms/${this.gim2RealmMunicipality}/protocol/openid-connect/token`;
     return this._passwordGrantLogin(
@@ -398,10 +558,17 @@ export class KeycloakService {
     );
   }
 
+  /**
+   *
+   * @param email
+   */
   async findByEmail(email: string) {
     const token = await this.getToken();
     if (!token)
-      return { errorCode: ErrorCode.NOT_FOUND, message: 'No se pudo obtener el token de Keycloak ServiceHub' };
+      return {
+        errorCode: ErrorCode.NOT_FOUND,
+        message: 'No se pudo obtener el token de Keycloak ServiceHub',
+      };
 
     try {
       const { data } = await axios.get(this.usersUrl(), {
@@ -410,22 +577,39 @@ export class KeycloakService {
       });
 
       if (data && data.length > 0)
-        return { errorCode: ErrorCode.NONE, message: 'Usuario encontrado exitosamente', data };
-      return { errorCode: ErrorCode.NOT_FOUND, message: 'Usuario no encontrado', data };
-
+        return {
+          errorCode: ErrorCode.NONE,
+          message: 'Usuario encontrado exitosamente',
+          data,
+        };
+      return {
+        errorCode: ErrorCode.NOT_FOUND,
+        message: 'Usuario no encontrado',
+        data,
+      };
     } catch (error: any) {
       return this._buildKeycloakError('findByEmail', error);
     }
   }
 
+  /**
+   *
+   * @param email
+   */
   async setUserPassword(email: string) {
     email = email?.trim();
     if (!email)
-      return { errorCode: ErrorCode.NOT_FOUND, message: 'El parámetro email es requerido' };
+      return {
+        errorCode: ErrorCode.NOT_FOUND,
+        message: 'El parámetro email es requerido',
+      };
 
     const token = await this.getToken();
     if (!token)
-      return { errorCode: ErrorCode.NOT_FOUND, message: 'No se pudo obtener el token de Keycloak ServiceHub' };
+      return {
+        errorCode: ErrorCode.NOT_FOUND,
+        message: 'No se pudo obtener el token de Keycloak ServiceHub',
+      };
 
     try {
       const { data } = await axios.get(this.usersUrl(), {
@@ -434,11 +618,18 @@ export class KeycloakService {
       });
 
       if (!data || data.length === 0)
-        return { errorCode: ErrorCode.NOT_FOUND, message: 'Usuario no encontrado', data };
+        return {
+          errorCode: ErrorCode.NOT_FOUND,
+          message: 'Usuario no encontrado',
+          data,
+        };
 
       const user = data[0];
       const userId = user.id;
-      const fullName = `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.username || email;
+      const fullName =
+        `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() ||
+        user.username ||
+        email;
       const newPassword = this._generateCode();
 
       await axios.put(
@@ -447,7 +638,11 @@ export class KeycloakService {
         { headers: this.authHeaders(token) },
       );
 
-      const emailSent = await this._sendPasswordEmail(fullName, email, newPassword);
+      const emailSent = await this._sendPasswordEmail(
+        fullName,
+        email,
+        newPassword,
+      );
       return {
         errorCode: emailSent ? ErrorCode.NONE : ErrorCode.RESPONSE,
         message: emailSent
@@ -461,14 +656,24 @@ export class KeycloakService {
     }
   }
 
+  /**
+   *
+   * @param email
+   */
   async setUserPasswordMunicipality(email: string) {
     email = email?.trim();
     if (!email)
-      return { errorCode: ErrorCode.NOT_FOUND, message: 'El parámetro email es requerido' };
+      return {
+        errorCode: ErrorCode.NOT_FOUND,
+        message: 'El parámetro email es requerido',
+      };
 
     const token = await this.getTokenMunicipalityK();
     if (!token)
-      return { errorCode: ErrorCode.NOT_FOUND, message: 'No se pudo obtener el token de Keycloak Municipal' };
+      return {
+        errorCode: ErrorCode.NOT_FOUND,
+        message: 'No se pudo obtener el token de Keycloak Municipal',
+      };
 
     try {
       const { data } = await axios.get(this.usersUrlMunicipality(), {
@@ -477,11 +682,18 @@ export class KeycloakService {
       });
 
       if (!data || data.length === 0)
-        return { errorCode: ErrorCode.NOT_FOUND, message: 'Usuario no encontrado', data };
+        return {
+          errorCode: ErrorCode.NOT_FOUND,
+          message: 'Usuario no encontrado',
+          data,
+        };
 
       const user = data[0];
       const userId = user.id;
-      const fullName = `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.username || email;
+      const fullName =
+        `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() ||
+        user.username ||
+        email;
       const newPassword = this._generateCode();
       await axios.put(
         `${this.usersUrlMunicipality(userId)}/reset-password`,
@@ -489,7 +701,11 @@ export class KeycloakService {
         { headers: this.authHeaders(token) },
       );
 
-      const emailSent = await this._sendPasswordEmail(fullName, email, newPassword);
+      const emailSent = await this._sendPasswordEmail(
+        fullName,
+        email,
+        newPassword,
+      );
 
       return {
         errorCode: emailSent ? ErrorCode.NONE : ErrorCode.RESPONSE,
@@ -504,14 +720,25 @@ export class KeycloakService {
     }
   }
 
+  /**
+   *
+   * @param email
+   * @param newPassword
+   */
   async changePassword(email: string, newPassword: string) {
     email = email?.trim();
     if (!email || !newPassword)
-      return { errorCode: ErrorCode.NOT_FOUND, message: 'email y newPassword son requeridos' };
+      return {
+        errorCode: ErrorCode.NOT_FOUND,
+        message: 'email y newPassword son requeridos',
+      };
 
     const token = await this.getToken();
     if (!token)
-      return { errorCode: ErrorCode.NOT_FOUND, message: 'No se pudo obtener el token de Keycloak ServiceHub' };
+      return {
+        errorCode: ErrorCode.NOT_FOUND,
+        message: 'No se pudo obtener el token de Keycloak ServiceHub',
+      };
 
     try {
       const { data } = await axios.get(this.usersUrl(), {
@@ -520,7 +747,10 @@ export class KeycloakService {
       });
 
       if (!data || data.length === 0)
-        return { errorCode: ErrorCode.NOT_FOUND, message: 'Usuario no encontrado' };
+        return {
+          errorCode: ErrorCode.NOT_FOUND,
+          message: 'Usuario no encontrado',
+        };
 
       const userId = data[0].id;
 
@@ -542,14 +772,25 @@ export class KeycloakService {
     }
   }
 
+  /**
+   *
+   * @param email
+   * @param newPassword
+   */
   async changePasswordMunicipality(email: string, newPassword: string) {
     email = email?.trim();
     if (!email || !newPassword)
-      return { errorCode: ErrorCode.NOT_FOUND, message: 'email y newPassword son requeridos' };
+      return {
+        errorCode: ErrorCode.NOT_FOUND,
+        message: 'email y newPassword son requeridos',
+      };
 
     const token = await this.getTokenMunicipalityK();
     if (!token)
-      return { errorCode: ErrorCode.NOT_FOUND, message: 'No se pudo obtener el token de Keycloak Municipal' };
+      return {
+        errorCode: ErrorCode.NOT_FOUND,
+        message: 'No se pudo obtener el token de Keycloak Municipal',
+      };
 
     try {
       const { data } = await axios.get(this.usersUrlMunicipality(), {
@@ -558,7 +799,10 @@ export class KeycloakService {
       });
 
       if (!data || data.length === 0)
-        return { errorCode: ErrorCode.NOT_FOUND, message: 'Usuario no encontrado' };
+        return {
+          errorCode: ErrorCode.NOT_FOUND,
+          message: 'Usuario no encontrado',
+        };
 
       const userId = data[0].id;
 
@@ -578,23 +822,48 @@ export class KeycloakService {
     }
   }
 
-  private async _sendPasswordEmail(fullName: string, email: string, password: string, phone?: string): Promise<boolean> {
+  /**
+   *
+   * @param fullName
+   * @param email
+   * @param password
+   * @param phone
+   */
+  private async _sendPasswordEmail(
+    fullName: string,
+    email: string,
+    password: string,
+    phone?: string,
+  ): Promise<boolean> {
     if (!this.dominioAuth) {
-      this.logger.warn('DOMINIO_AUTH not configured, password recovery email cannot be dispatched');
+      this.logger.warn(
+        'DOMINIO_AUTH not configured, password recovery email cannot be dispatched',
+      );
       return false;
     }
 
     const url = `${this.dominioAuth}api/auth/auth/mail/send-password`;
-    this.logger.log(`POST ${url} | body: ${JSON.stringify({ fullName, email, phone })}`);
+    this.logger.log(
+      `POST ${url} | body: ${JSON.stringify({ fullName, email, phone })}`,
+    );
 
     try {
       const response = await axios.post(
         url,
         { fullName, email, password, phone },
-        { headers: { 'Content-Type': 'application/json' }, validateStatus: () => true },
+        {
+          headers: { 'Content-Type': 'application/json' },
+          validateStatus: () => true,
+        },
       );
-      this.logger.log(`send-password response | status: ${response.status} | body: ${JSON.stringify(response.data)}`);
-      return response.status >= 200 && response.status < 300 && Boolean(response.data?.ok);
+      this.logger.log(
+        `send-password response | status: ${response.status} | body: ${JSON.stringify(response.data)}`,
+      );
+      return (
+        response.status >= 200 &&
+        response.status < 300 &&
+        Boolean(response.data?.ok)
+      );
     } catch (error: any) {
       this.logger.error(
         `Error sending email to ${email} | code: ${error?.code} | status: ${error?.response?.status} | data: ${JSON.stringify(error?.response?.data)} | msg: ${error?.message}`,
@@ -603,10 +872,17 @@ export class KeycloakService {
     }
   }
 
+  /**
+   *
+   * @param identification
+   */
   async findByIdentification(identification: string) {
     const token = await this.getToken();
     if (!token)
-      return { errorCode: ErrorCode.NOT_FOUND, message: 'No se pudo obtener el token de Keycloak ServiceHub' };
+      return {
+        errorCode: ErrorCode.NOT_FOUND,
+        message: 'No se pudo obtener el token de Keycloak ServiceHub',
+      };
 
     try {
       const { data } = await axios.get(this.usersUrl(), {
@@ -615,18 +891,32 @@ export class KeycloakService {
       });
 
       if (data && data.length > 0)
-        return { errorCode: ErrorCode.NONE, message: 'Usuario encontrado exitosamente', data };
-      return { errorCode: ErrorCode.NOT_FOUND, message: 'Usuario no encontrado', data };
-
+        return {
+          errorCode: ErrorCode.NONE,
+          message: 'Usuario encontrado exitosamente',
+          data,
+        };
+      return {
+        errorCode: ErrorCode.NOT_FOUND,
+        message: 'Usuario no encontrado',
+        data,
+      };
     } catch (error: any) {
       return this._buildKeycloakError('findByIdentification', error);
     }
   }
 
+  /**
+   *
+   * @param identification
+   */
   async findByIdentificationMunicipality(identification: string) {
     const token = await this.getTokenMunicipalityK();
     if (!token)
-      return { errorCode: ErrorCode.NOT_FOUND, message: 'No se pudo obtener el token de Keycloak Municipal' };
+      return {
+        errorCode: ErrorCode.NOT_FOUND,
+        message: 'No se pudo obtener el token de Keycloak Municipal',
+      };
 
     try {
       const { data } = await axios.get(this.usersUrlMunicipality(), {
@@ -635,47 +925,91 @@ export class KeycloakService {
       });
 
       if (data && data.length > 0)
-        return { errorCode: ErrorCode.NONE, message: 'Usuario encontrado exitosamente', data };
-      return { errorCode: ErrorCode.NOT_FOUND, message: 'Usuario no encontrado', data };
-
+        return {
+          errorCode: ErrorCode.NONE,
+          message: 'Usuario encontrado exitosamente',
+          data,
+        };
+      return {
+        errorCode: ErrorCode.NOT_FOUND,
+        message: 'Usuario no encontrado',
+        data,
+      };
     } catch (error: any) {
-      return this._buildKeycloakError('findByIdentificationMunicipality', error);
+      return this._buildKeycloakError(
+        'findByIdentificationMunicipality',
+        error,
+      );
     }
   }
 
+  /**
+   *
+   * @param userId
+   */
   async executeActionsEmail(userId: string) {
     const token = await this.getToken();
     if (!token)
-      return { errorCode: ErrorCode.NOT_FOUND, message: 'No se pudo obtener el token de Keycloak ServiceHub' };
+      return {
+        errorCode: ErrorCode.NOT_FOUND,
+        message: 'No se pudo obtener el token de Keycloak ServiceHub',
+      };
 
     try {
-      await axios.put(`${this.usersUrl(userId)}/execute-actions-email`, ['UPDATE_PASSWORD'], {
-        headers: this.authHeaders(token),
-      });
+      await axios.put(
+        `${this.usersUrl(userId)}/execute-actions-email`,
+        ['UPDATE_PASSWORD'],
+        {
+          headers: this.authHeaders(token),
+        },
+      );
     } catch (error: any) {
       return this._buildKeycloakError('executeActionsEmail', error);
     }
   }
 
-  async executeActionsEmailMunicipality(userId: string): Promise<{ errorCode: ErrorCode; message?: string }> {
+  /**
+   *
+   * @param userId
+   */
+  async executeActionsEmailMunicipality(
+    userId: string,
+  ): Promise<{ errorCode: ErrorCode; message?: string }> {
     const token = await this.getTokenMunicipalityK();
     if (!token)
-      return { errorCode: ErrorCode.NOT_FOUND, message: 'No se pudo obtener el token de Keycloak Municipal' };
+      return {
+        errorCode: ErrorCode.NOT_FOUND,
+        message: 'No se pudo obtener el token de Keycloak Municipal',
+      };
 
     try {
-      await axios.put(`${this.usersUrlMunicipality(userId)}/execute-actions-email`, ['VERIFY_EMAIL'], {
-        headers: this.authHeaders(token),
-      });
-      return { errorCode: ErrorCode.NONE, message: 'Correo de verificación enviado exitosamente' };
+      await axios.put(
+        `${this.usersUrlMunicipality(userId)}/execute-actions-email`,
+        ['VERIFY_EMAIL'],
+        {
+          headers: this.authHeaders(token),
+        },
+      );
+      return {
+        errorCode: ErrorCode.NONE,
+        message: 'Correo de verificación enviado exitosamente',
+      };
     } catch (error: any) {
       return this._buildKeycloakError('executeActionsEmailMunicipality', error);
     }
   }
 
+  /**
+   *
+   * @param email
+   */
   async findByEmailMunicipality(email: string) {
     const token = await this.getTokenMunicipalityK();
     if (!token)
-      return { errorCode: ErrorCode.NOT_FOUND, message: 'No se pudo obtener el token de Keycloak Municipal' };
+      return {
+        errorCode: ErrorCode.NOT_FOUND,
+        message: 'No se pudo obtener el token de Keycloak Municipal',
+      };
 
     try {
       const { data } = await axios.get(this.usersUrlMunicipality(), {
@@ -684,14 +1018,24 @@ export class KeycloakService {
       });
 
       if (data && data.length > 0)
-        return { errorCode: ErrorCode.NONE, message: 'Usuario encontrado exitosamente', data };
-      return { errorCode: ErrorCode.NOT_FOUND, message: 'Usuario no encontrado', data };
-
+        return {
+          errorCode: ErrorCode.NONE,
+          message: 'Usuario encontrado exitosamente',
+          data,
+        };
+      return {
+        errorCode: ErrorCode.NOT_FOUND,
+        message: 'Usuario no encontrado',
+        data,
+      };
     } catch (error: any) {
       return this._buildKeycloakError('findByEmail', error);
     }
   }
 
+  /**
+   *
+   */
   private _generateCode() {
     let code = '';
     for (let i = 0; i < 6; i++) {

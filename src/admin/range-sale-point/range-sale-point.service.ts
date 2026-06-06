@@ -21,13 +21,18 @@ import { RangeSalePoint } from './entities/range-sale-point.entity';
 export class RangeSalePointService {
   private readonly logger = new Logger('RangeSalePointService');
 
+  /**
+   *
+   * @param rangeSalePointRepository
+   * @param loggerService
+   */
   constructor(
     @InjectRepository(RangeSalePoint)
     private readonly rangeSalePointRepository: Repository<RangeSalePoint>,
 
     @Inject(LoggerService)
-    private readonly loggerService: LoggerService
-  ) { }
+    private readonly loggerService: LoggerService,
+  ) {}
 
   /**
    * Creates a new range sale point record and emits an audit log entry.
@@ -36,11 +41,21 @@ export class RangeSalePointService {
    * @param createRangeSalePointDto - DTO with range sale point fields.
    * @returns Object with errorCode and the persisted rangeSalePoint.
    */
-  async create(userId: number, createRangeSalePointDto: CreateRangeSalePointDto) {
+  async create(
+    userId: number,
+    createRangeSalePointDto: CreateRangeSalePointDto,
+  ) {
     try {
-      const rangeSalePoint = this.rangeSalePointRepository.create(createRangeSalePointDto);
+      const rangeSalePoint = this.rangeSalePointRepository.create(
+        createRangeSalePointDto,
+      );
       await this.rangeSalePointRepository.save(rangeSalePoint);
-      this.loggerService.saveRangeSalePointLogger({ id: rangeSalePoint.id, userId, typeOperation: TypeOperation.CREATE, rangeSalePoint });
+      this.loggerService.saveRangeSalePointLogger({
+        id: rangeSalePoint.id,
+        userId,
+        typeOperation: TypeOperation.CREATE,
+        rangeSalePoint,
+      });
       return { errorCode: ErrorCode.NONE, rangeSalePoint };
     } catch (error) {
       handleDbExceptions(error, this.logger);
@@ -56,9 +71,16 @@ export class RangeSalePointService {
    */
   async findAll(filterDto: FilterDto) {
     try {
-      const query = this.rangeSalePointRepository.createQueryBuilder('rsp')
-        .addSelect(`TO_CHAR(rsp."createdAt" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD HH24:MI:SS')`, 'rsp_createdAt')
-        .addSelect(`TO_CHAR(rsp."updatedAt" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD HH24:MI:SS')`, 'rsp_updatedAt');
+      const query = this.rangeSalePointRepository
+        .createQueryBuilder('rsp')
+        .addSelect(
+          `TO_CHAR(rsp."createdAt" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD HH24:MI:SS')`,
+          'rsp_createdAt',
+        )
+        .addSelect(
+          `TO_CHAR(rsp."updatedAt" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD HH24:MI:SS')`,
+          'rsp_updatedAt',
+        );
 
       const { conditions, parameters } = this._buildFilterConditions(filterDto);
       if (conditions.length) {
@@ -68,11 +90,13 @@ export class RangeSalePointService {
       query.orderBy('rsp.id', 'DESC');
 
       const result = await query.getRawAndEntities();
-      const rangeSalePoints = result.entities.map((entity: RangeSalePoint, i: number) => ({
-        ...entity,
-        createdAt: result.raw[i]?.rsp_createdAt ?? null,
-        updatedAt: result.raw[i]?.rsp_updatedAt ?? null,
-      }));
+      const rangeSalePoints = result.entities.map(
+        (entity: RangeSalePoint, i: number) => ({
+          ...entity,
+          createdAt: result.raw[i]?.rsp_createdAt ?? null,
+          updatedAt: result.raw[i]?.rsp_updatedAt ?? null,
+        }),
+      );
 
       return { errorCode: ErrorCode.NONE, rangeSalePoints };
     } catch (error) {
@@ -155,12 +179,24 @@ export class RangeSalePointService {
    * @param updateRangeSalePointDto - Partial DTO with updated fields.
    * @returns Object with errorCode and the updated rangeSalePoint.
    */
-  async update(userId: number, id: number, updateRangeSalePointDto: UpdateRangeSalePointDto) {
+  async update(
+    userId: number,
+    id: number,
+    updateRangeSalePointDto: UpdateRangeSalePointDto,
+  ) {
     try {
-      const rangeSalePoint = await this.rangeSalePointRepository.preload({ id, ...updateRangeSalePointDto });
+      const rangeSalePoint = await this.rangeSalePointRepository.preload({
+        id,
+        ...updateRangeSalePointDto,
+      });
       if (rangeSalePoint) {
         await this.rangeSalePointRepository.save(rangeSalePoint);
-        this.loggerService.saveRangeSalePointLogger({ id: rangeSalePoint.id, userId, typeOperation: TypeOperation.UPDATE, rangeSalePoint });
+        this.loggerService.saveRangeSalePointLogger({
+          id: rangeSalePoint.id,
+          userId,
+          typeOperation: TypeOperation.UPDATE,
+          rangeSalePoint,
+        });
         return { errorCode: ErrorCode.NONE, rangeSalePoint };
       }
     } catch (error) {
@@ -176,9 +212,16 @@ export class RangeSalePointService {
    * @returns The entity merged with formatted date strings, or null if not found.
    */
   private async _findOneWithFormattedDates(id: number) {
-    const result = await this.rangeSalePointRepository.createQueryBuilder('rsp')
-      .addSelect(`TO_CHAR(rsp."createdAt" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD HH24:MI:SS')`, 'rsp_createdAt')
-      .addSelect(`TO_CHAR(rsp."updatedAt" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD HH24:MI:SS')`, 'rsp_updatedAt')
+    const result = await this.rangeSalePointRepository
+      .createQueryBuilder('rsp')
+      .addSelect(
+        `TO_CHAR(rsp."createdAt" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD HH24:MI:SS')`,
+        'rsp_createdAt',
+      )
+      .addSelect(
+        `TO_CHAR(rsp."updatedAt" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD HH24:MI:SS')`,
+        'rsp_updatedAt',
+      )
       .where('rsp.id = :id', { id })
       .getRawAndEntities();
 
@@ -197,7 +240,10 @@ export class RangeSalePointService {
    * @param filterDto - Filter with optional userId and salePointId.
    * @returns Object with conditions array and named parameters record.
    */
-  private _buildFilterConditions(filterDto: FilterDto): { conditions: string[]; parameters: Record<string, any> } {
+  private _buildFilterConditions(filterDto: FilterDto): {
+    conditions: string[];
+    parameters: Record<string, any>;
+  } {
     const { userId, salePointId } = filterDto;
     const conditions: string[] = [];
     const parameters: Record<string, any> = {};

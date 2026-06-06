@@ -1,4 +1,11 @@
-import { Body, Controller, Param, ParseIntPipe, ParseUUIDPipe, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Param,
+  ParseIntPipe,
+  ParseUUIDPipe,
+  Post,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { CreateSupportTicketDto } from './dto/create-support-ticket.dto';
@@ -12,8 +19,18 @@ import { SupportTicketService } from './support-ticket.service';
 @ApiBearerAuth('keycloak')
 @Controller('client/support-ticket')
 export class SupportTicketController {
-  constructor(private readonly supportTicketService: SupportTicketService) { }
+  /**
+   *
+   * @param supportTicketService
+   */
+  constructor(private readonly supportTicketService: SupportTicketService) {}
 
+  /**
+   *
+   * @param createSupportTicketDto
+   * @param userId
+   * @param _idDevice
+   */
   @ApiOperation({ summary: 'Submit a new support ticket from the client app' })
   // @Auth()
   @Post('create/:userId/:idDevice')

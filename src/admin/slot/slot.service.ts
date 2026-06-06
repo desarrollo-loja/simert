@@ -20,17 +20,20 @@ import { Slot } from './entities/slot.entity';
  */
 @Injectable()
 export class SlotService {
-
   private readonly logger = new Logger(SlotService.name);
 
+  /**
+   *
+   * @param slotRepository
+   * @param loggerService
+   */
   constructor(
     @InjectRepository(Slot)
     private readonly slotRepository: Repository<Slot>,
 
     @Inject(LoggerService)
     private readonly loggerService: LoggerService,
-
-  ) { }
+  ) {}
 
   /**
    * Seeds the database with a single sample slot (internal / development use only).
@@ -38,10 +41,14 @@ export class SlotService {
    * @returns The created slot record.
    */
   async initializeDatabase() {
-    const slot1 = this.slotRepository.create({ slot: "1", zone: { id: 1 }, block: { id: 1 } });
+    const slot1 = this.slotRepository.create({
+      slot: '1',
+      zone: { id: 1 },
+      block: { id: 1 },
+    });
     await this.slotRepository.save(slot1);
 
-    return { slot1 }
+    return { slot1 };
   }
 
   /**
@@ -64,7 +71,12 @@ export class SlotService {
     try {
       const query = this.slotRepository.create({ ...createSlotDto });
       const slot = await this.slotRepository.save(query);
-      this.loggerService.saveSlotLogger({ id: slot.id, userId: userId, typeOperation: TypeOperation.CREATE, slot });
+      this.loggerService.saveSlotLogger({
+        id: slot.id,
+        userId: userId,
+        typeOperation: TypeOperation.CREATE,
+        slot,
+      });
       return { errorCode: ErrorCode.NONE, slot };
     } catch (error) {
       handleDbExceptions(error, this.logger);
@@ -80,11 +92,25 @@ export class SlotService {
   async findAll(paginationDto: FilterDto) {
     const { offset, limit, search } = paginationDto;
     try {
-      const query = await this.slotRepository.createQueryBuilder('sl')
-        .select(['sl.id', 'sl.slot', 'sl.isActivated', 'sl.isPaidParking', 'sl.lt', 'sl.lg', 'sl.status', 'sl.typeSlot',
-          'zone.id', 'zone.name', 'block.id', 'block.name', 'block.geofence'])
-        .innerJoin("sl.zone", "zone")
-        .innerJoin("sl.block", "block");
+      const query = await this.slotRepository
+        .createQueryBuilder('sl')
+        .select([
+          'sl.id',
+          'sl.slot',
+          'sl.isActivated',
+          'sl.isPaidParking',
+          'sl.lt',
+          'sl.lg',
+          'sl.status',
+          'sl.typeSlot',
+          'zone.id',
+          'zone.name',
+          'block.id',
+          'block.name',
+          'block.geofence',
+        ])
+        .innerJoin('sl.zone', 'zone')
+        .innerJoin('sl.block', 'block');
       if (search) {
         query.where('sl.slot ILIKE :search', { search: `%${search}%` });
       }
@@ -107,7 +133,8 @@ export class SlotService {
    */
   async findAllByfilter(blockId, zoneId) {
     try {
-      const slots = await this.slotRepository.createQueryBuilder('s')
+      const slots = await this.slotRepository
+        .createQueryBuilder('s')
         .select('s.id', 'id')
         .addSelect('s.slot', 'name')
         .addSelect('s.status', 'status')
@@ -142,10 +169,18 @@ export class SlotService {
     );
     if (conflict) return { ...conflict, slot: {} };
     try {
-      const slot = await this.slotRepository.preload({ id: id, ...updateSlotDto });
+      const slot = await this.slotRepository.preload({
+        id: id,
+        ...updateSlotDto,
+      });
       if (slot) {
         await this.slotRepository.save(slot);
-        this.loggerService.saveSlotLogger({ id: slot.id, userId: userId, typeOperation: TypeOperation.UPDATE, slot });
+        this.loggerService.saveSlotLogger({
+          id: slot.id,
+          userId: userId,
+          typeOperation: TypeOperation.UPDATE,
+          slot,
+        });
         return { errorCode: ErrorCode.NONE, slot };
       }
     } catch (error) {
@@ -162,7 +197,8 @@ export class SlotService {
    */
   async getSlotsByBlockByZone(blockId, zoneId) {
     try {
-      const slots = await this.slotRepository.createQueryBuilder('s')
+      const slots = await this.slotRepository
+        .createQueryBuilder('s')
         .select('s.id', 'id')
         .addSelect('s.slot', 'nameSlot')
         .addSelect('s.lt', 'ltSlot')
@@ -196,7 +232,8 @@ export class SlotService {
         return { slots: [] };
       }
 
-      const { conditions, parameters } = this._buildPolygonQueryParameters(filterDto);
+      const { conditions, parameters } =
+        this._buildPolygonQueryParameters(filterDto);
 
       // ST_AsText(b.geofence) as geofence,  -- Convert to WKT
       let query = `
@@ -248,17 +285,44 @@ export class SlotService {
    * @param filterDto Additional filters: `search`, `typeSlot`, `statusSlot`.
    * @returns `{ errorCode, slot }` — `NOT_FOUND` with empty array when no rows match.
    */
-  async findAllSlotBlockParking(blockId?: number, zoneId?: number, filterDto?: FilterDto) {
+  async findAllSlotBlockParking(
+    blockId?: number,
+    zoneId?: number,
+    filterDto?: FilterDto,
+  ) {
     try {
       const { search, typeSlot, statusSlot } = filterDto ?? {};
-      const query = this.slotRepository.createQueryBuilder('s')
-        .select(['s.id', 's.isActivated', 's.isPaidParking', 's.slot', 's.lt', 's.lg', 's.status', 's.typeSlot', 's.blockId', 'zone.id',
-          'zone.name', 'zone.isActivated', 'block.id', 'block.name', 'block.geofence', 'block.isActivated', 'fraction.id', 'fraction.statusId', 'fraction.image',
-          'fraction.plate', 'status.id'
+      const query = this.slotRepository
+        .createQueryBuilder('s')
+        .select([
+          's.id',
+          's.isActivated',
+          's.isPaidParking',
+          's.slot',
+          's.lt',
+          's.lg',
+          's.status',
+          's.typeSlot',
+          's.blockId',
+          'zone.id',
+          'zone.name',
+          'zone.isActivated',
+          'block.id',
+          'block.name',
+          'block.geofence',
+          'block.isActivated',
+          'fraction.id',
+          'fraction.statusId',
+          'fraction.image',
+          'fraction.plate',
+          'status.id',
         ])
-        .addSelect(`TO_CHAR(fraction."createdAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`, 'fraction_createdAt')
-        .innerJoin("s.zone", "zone")
-        .innerJoin("s.block", "block")
+        .addSelect(
+          `TO_CHAR(fraction."createdAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`,
+          'fraction_createdAt',
+        )
+        .innerJoin('s.zone', 'zone')
+        .innerJoin('s.block', 'block')
         .leftJoin('s.fractions', 'fraction')
         .leftJoin('fraction.status', 'status');
 
@@ -287,26 +351,29 @@ export class SlotService {
       const result = await query.getRawAndEntities();
 
       if (result.entities.length === 0)
-        return { errorCode: ErrorCode.NOT_FOUND, slot: [] }
+        return { errorCode: ErrorCode.NOT_FOUND, slot: [] };
 
       // raw has one row per (slot, fraction) pair, so map the formatted date by
       // fraction id and apply it to each nested fraction (a slot may have many).
       const fractionCreatedAtById = new Map<number, string>();
       for (const row of result.raw) {
         if (row.fraction_id != null) {
-          fractionCreatedAtById.set(row.fraction_id, row.fraction_createdAt ?? null);
+          fractionCreatedAtById.set(
+            row.fraction_id,
+            row.fraction_createdAt ?? null,
+          );
         }
       }
 
-      const slot = result.entities.map(entity => ({
+      const slot = result.entities.map((entity) => ({
         ...entity,
-        fractions: entity.fractions?.map(fraction => ({
+        fractions: entity.fractions?.map((fraction) => ({
           ...fraction,
           createdAt: fractionCreatedAtById.get(fraction.id) ?? null,
         })),
       }));
 
-      return { errorCode: ErrorCode.NONE, slot }
+      return { errorCode: ErrorCode.NONE, slot };
     } catch (error) {
       handleDbExceptions(error, this.logger);
     }
@@ -334,7 +401,10 @@ export class SlotService {
     `;
 
     try {
-      const result = await this.slotRepository.query(query, [tableSchema, tableNameOnly]);
+      const result = await this.slotRepository.query(query, [
+        tableSchema,
+        tableNameOnly,
+      ]);
       return result.length > 0;
     } catch {
       return false;
@@ -348,12 +418,11 @@ export class SlotService {
    * @returns Counts per status category (available, occupied, exceeded, etc.).
    */
   async findStatistics(filterDto: FilterDto) {
-
     try {
-
       const tableName = 'public.slot';
 
-      const { parameters, conditions } = this._buildStatisticsQueryParameters(filterDto);
+      const { parameters, conditions } =
+        this._buildStatisticsQueryParameters(filterDto);
 
       let query = `
               SELECT
@@ -374,13 +443,18 @@ export class SlotService {
       const slots = await this.slotRepository.query(query, parameters);
 
       if (slots.length === 0)
-        return { errorCode: ErrorCode.NOT_FOUND, message: 'No se encontraron resultados' };
-      return { errorCode: ErrorCode.NONE, message: 'Resultados encontrados', slots };
-
+        return {
+          errorCode: ErrorCode.NOT_FOUND,
+          message: 'No se encontraron resultados',
+        };
+      return {
+        errorCode: ErrorCode.NONE,
+        message: 'Resultados encontrados',
+        slots,
+      };
     } catch (error) {
       handleDbExceptions(error, this.logger);
     }
-
   }
 
   /**
@@ -422,7 +496,8 @@ export class SlotService {
    * @returns The zone id, or `undefined` when the slot does not exist.
    */
   private async _resolveZoneId(id: number): Promise<number | undefined> {
-    const raw = await this.slotRepository.createQueryBuilder('s')
+    const raw = await this.slotRepository
+      .createQueryBuilder('s')
       .select('s."zoneId"', 'zoneId')
       .where('s.id = :id', { id })
       .getRawOne<{ zoneId: number }>();
@@ -448,12 +523,13 @@ export class SlotService {
   ): Promise<{ errorCode: ErrorCode; message: string } | null> {
     if (!zoneId || !slot) return null;
 
-    const qb = this.slotRepository.createQueryBuilder('s')
+    const qb = this.slotRepository
+      .createQueryBuilder('s')
       .where('s.zoneId = :zoneId', { zoneId })
       .andWhere('s.slot = :slot', { slot });
     if (excludeId) qb.andWhere('s.id != :excludeId', { excludeId });
 
-    if (await qb.getCount() > 0) {
+    if ((await qb.getCount()) > 0) {
       return {
         errorCode: ErrorCode.NAMEUNIQUE,
         message: 'El nombre del slot ya está en uso en esta zona.',
@@ -462,5 +538,4 @@ export class SlotService {
 
     return null;
   }
-
 }

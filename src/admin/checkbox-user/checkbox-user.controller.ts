@@ -1,4 +1,15 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseIntPipe,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthWithKeycloak } from 'src/auth/decorators';
 import { FilterDto } from 'src/common/dto/filter.dto';
@@ -18,9 +29,23 @@ import { UpdateCheckboxUserDto } from './dto/update-checkbox-user.dto';
 @ApiBearerAuth('keycloak')
 @Controller('admin/checkbox-user')
 export class CheckboxUserController {
-  constructor(private readonly checkboxUserService: CheckboxUserService) { }
+  /**
+   *
+   * @param checkboxUserService
+   */
+  constructor(private readonly checkboxUserService: CheckboxUserService) {}
 
-  @ApiOperation({ summary: 'Digital consumption report: balance, top-ups and consumption per user' })
+  /**
+   *
+   * @param _userId
+   * @param _idDevice
+   * @param _version
+   * @param filterDto
+   */
+  @ApiOperation({
+    summary:
+      'Digital consumption report: balance, top-ups and consumption per user',
+  })
   @AuthWithKeycloak(TypeRol.ADMIN)
   @Get('report/:userId/:idDevice/:version')
   findReport(
@@ -32,7 +57,16 @@ export class CheckboxUserController {
     return this.checkboxUserService.findReport(filterDto);
   }
 
-  @ApiOperation({ summary: 'Total rows of the digital-consumption report (pagination)' })
+  /**
+   *
+   * @param _userId
+   * @param _idDevice
+   * @param _version
+   * @param filterDto
+   */
+  @ApiOperation({
+    summary: 'Total rows of the digital-consumption report (pagination)',
+  })
   @AuthWithKeycloak(TypeRol.ADMIN)
   @Get('report/total/:userId/:idDevice/:version')
   findReportTotal(
@@ -44,30 +78,53 @@ export class CheckboxUserController {
     return this.checkboxUserService.findReportTotal(filterDto);
   }
 
+  /**
+   *
+   * @param createCheckboxUserDto
+   */
   @ApiOperation({ summary: 'Create a new checkbox-user association' })
   @Post()
   create(@Body() createCheckboxUserDto: CreateCheckboxUserDto) {
     return this.checkboxUserService.create(createCheckboxUserDto);
   }
 
+  /**
+   *
+   */
   @ApiOperation({ summary: 'List all checkbox-user associations' })
   @Get()
   findAll() {
     return this.checkboxUserService.findAll();
   }
 
+  /**
+   *
+   * @param id
+   */
   @ApiOperation({ summary: 'Get a single checkbox-user association by id' })
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.checkboxUserService.findOne(+id);
   }
 
+  /**
+   *
+   * @param id
+   * @param updateCheckboxUserDto
+   */
   @ApiOperation({ summary: 'Update a checkbox-user association by id' })
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateCheckboxUserDto: UpdateCheckboxUserDto) {
+  update(
+    @Param('id') id: string,
+    @Body() updateCheckboxUserDto: UpdateCheckboxUserDto,
+  ) {
     return this.checkboxUserService.update(+id, updateCheckboxUserDto);
   }
 
+  /**
+   *
+   * @param id
+   */
   @ApiOperation({ summary: 'Delete a checkbox-user association by id' })
   @Delete(':id')
   remove(@Param('id') id: string) {

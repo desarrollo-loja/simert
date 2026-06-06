@@ -16,6 +16,10 @@ import { IncidentPayment } from './entities/incident-payment.entity';
 export class IncidentPaymentService {
   private readonly logger = new Logger(IncidentPaymentService.name);
 
+  /**
+   *
+   * @param incidentPaymentRepository
+   */
   constructor(
     @InjectRepository(IncidentPayment)
     private readonly incidentPaymentRepository: Repository<IncidentPayment>,

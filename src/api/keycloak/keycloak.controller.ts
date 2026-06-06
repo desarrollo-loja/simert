@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Param, Patch, Post, Put, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Put,
+  Query,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Auth } from 'src/auth/decorators/auth.decorator';
 import { GetUser } from 'src/auth/decorators/get-user.decorator';
@@ -23,16 +32,34 @@ import { KeycloakService } from './keycloak.service';
 @ApiBearerAuth('keycloak')
 @Controller('api/keycloak')
 export class KeycloakController {
-  constructor(private readonly keycloakService: KeycloakService) { }
+  /**
+   *
+   * @param keycloakService
+   */
+  constructor(private readonly keycloakService: KeycloakService) {}
 
   // POST api/keycloak/login-client
-  @ApiOperation({ summary: 'Login a ServiceHub client (citizen) against Keycloak realm GIM2_REALM_SERVICE_HUB' })
+  /**
+   *
+   * @param dto
+   */
+  @ApiOperation({
+    summary:
+      'Login a ServiceHub client (citizen) against Keycloak realm GIM2_REALM_SERVICE_HUB',
+  })
   @ApiStandardResponse({
-    description: 'Keycloak token response (access_token, refresh_token, expires_in, refresh_expires_in)',
+    description:
+      'Keycloak token response (access_token, refresh_token, expires_in, refresh_expires_in)',
     errorCodes: [ErrorCode.NONE],
     data: {
-      access_token: { type: 'string', example: 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...' },
-      refresh_token: { type: 'string', example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' },
+      access_token: {
+        type: 'string',
+        example: 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...',
+      },
+      refresh_token: {
+        type: 'string',
+        example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+      },
       expires_in: { type: 'number', example: 3600 },
       refresh_expires_in: { type: 'number', example: 1800 },
     },
@@ -43,13 +70,26 @@ export class KeycloakController {
   }
 
   // POST api/keycloak/login-client-municipality
-  @ApiOperation({ summary: 'Login a municipal employee against Keycloak realm GIM2_REALM_MUNICIPIO_K' })
+  /**
+   *
+   * @param dto
+   */
+  @ApiOperation({
+    summary:
+      'Login a municipal employee against Keycloak realm GIM2_REALM_MUNICIPIO_K',
+  })
   @ApiStandardResponse({
     description: 'Keycloak token response for a municipal user',
     errorCodes: [ErrorCode.NONE],
     data: {
-      access_token: { type: 'string', example: 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...' },
-      refresh_token: { type: 'string', example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' },
+      access_token: {
+        type: 'string',
+        example: 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...',
+      },
+      refresh_token: {
+        type: 'string',
+        example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+      },
       expires_in: { type: 'number', example: 3600 },
       refresh_expires_in: { type: 'number', example: 1800 },
     },
@@ -60,13 +100,21 @@ export class KeycloakController {
   }
 
   // POST api/keycloak/create-user
+  /**
+   *
+   * @param dto
+   */
   @ApiOperation({ summary: 'Create a ServiceHub user in Keycloak' })
   @ApiStandardResponse({
-    description: 'User created in Keycloak (userId is the Location header UUID)',
+    description:
+      'User created in Keycloak (userId is the Location header UUID)',
     errorCodes: [ErrorCode.NONE, ErrorCode.NOT_FOUND],
     data: {
       message: { type: 'string', example: 'Usuario creado exitosamente' },
-      userId: { type: 'string', example: 'b1b9e0f0-1234-4aaa-9999-abcdefabcdef' },
+      userId: {
+        type: 'string',
+        example: 'b1b9e0f0-1234-4aaa-9999-abcdefabcdef',
+      },
     },
   })
   @Post('create-user')
@@ -75,13 +123,20 @@ export class KeycloakController {
   }
 
   // POST api/keycloak/create-user municipal
+  /**
+   *
+   * @param dto
+   */
   @ApiOperation({ summary: 'Create a municipal employee user in Keycloak' })
   @ApiStandardResponse({
     description: 'Municipal user created in Keycloak',
     errorCodes: [ErrorCode.NONE, ErrorCode.NOT_FOUND],
     data: {
       message: { type: 'string', example: 'Usuario creado exitosamente' },
-      userId: { type: 'string', example: 'b1b9e0f0-1234-4aaa-9999-abcdefabcdef' },
+      userId: {
+        type: 'string',
+        example: 'b1b9e0f0-1234-4aaa-9999-abcdefabcdef',
+      },
     },
   })
   @Post('create-user-municipality')
@@ -90,6 +145,11 @@ export class KeycloakController {
   }
 
   // PUT api/keycloak/update-user/:id
+  /**
+   *
+   * @param id
+   * @param dto
+   */
   @ApiOperation({ summary: 'Update a ServiceHub user in Keycloak' })
   @ApiStandardResponse({
     description: 'User updated in Keycloak',
@@ -104,6 +164,11 @@ export class KeycloakController {
   }
 
   // PUT api/keycloak/update-user-municipality/:id
+  /**
+   *
+   * @param id
+   * @param dto
+   */
   @ApiOperation({ summary: 'Update a municipal employee user in Keycloak' })
   @ApiStandardResponse({
     description: 'Municipal user updated in Keycloak',
@@ -113,12 +178,21 @@ export class KeycloakController {
     },
   })
   @Put('update-user-municipality/:id')
-  updateUserMunicipality(@Param('id') id: string, @Body() dto: UpdateKeycloakUserDto) {
+  updateUserMunicipality(
+    @Param('id') id: string,
+    @Body() dto: UpdateKeycloakUserDto,
+  ) {
     return this.keycloakService.updateUserMunicipality(id, dto);
   }
 
   // GET api/keycloak/find-by-username/:username
-  @ApiOperation({ summary: 'Find a ServiceHub Keycloak user by exact username' })
+  /**
+   *
+   * @param username
+   */
+  @ApiOperation({
+    summary: 'Find a ServiceHub Keycloak user by exact username',
+  })
   @ApiStandardResponse({
     description: 'List of matching Keycloak users (empty if not found)',
     errorCodes: [ErrorCode.NONE, ErrorCode.NOT_FOUND],
@@ -127,17 +201,27 @@ export class KeycloakController {
       data: {
         isArray: true,
         type: 'object',
-        example: [{ id: 'uuid', username: 'johndoe', email: 'john@example.com', enabled: true }],
+        example: [
+          {
+            id: 'uuid',
+            username: 'johndoe',
+            email: 'john@example.com',
+            enabled: true,
+          },
+        ],
       },
     },
   })
-
   @Get('find-by-username/:username')
   findByUsername(@Param('username') username: string) {
     return this.keycloakService.findByUsername(username);
   }
 
   // GET api/keycloak/find-by-email?email=...
+  /**
+   *
+   * @param email
+   */
   @ApiOperation({ summary: 'Find a ServiceHub Keycloak user by exact email' })
   @ApiStandardResponse({
     description: 'List of matching Keycloak users (empty if not found)',
@@ -147,7 +231,14 @@ export class KeycloakController {
       data: {
         isArray: true,
         type: 'object',
-        example: [{ id: 'uuid', username: 'johndoe', email: 'john@example.com', enabled: true }],
+        example: [
+          {
+            id: 'uuid',
+            username: 'johndoe',
+            email: 'john@example.com',
+            enabled: true,
+          },
+        ],
       },
     },
   })
@@ -156,63 +247,113 @@ export class KeycloakController {
     return this.keycloakService.findByEmail(email);
   }
 
-  @ApiOperation({ summary: 'Reset a ServiceHub user password by email (generates temp password and emails it)' })
+  /**
+   *
+   * @param dto
+   */
+  @ApiOperation({
+    summary:
+      'Reset a ServiceHub user password by email (generates temp password and emails it)',
+  })
   @ApiStandardResponse({
-    description: 'Temp password generated in Keycloak and dispatched to parking_auth mail service',
+    description:
+      'Temp password generated in Keycloak and dispatched to parking_auth mail service',
     errorCodes: [ErrorCode.NONE, ErrorCode.NOT_FOUND],
     data: {
-      message: { type: 'string', example: 'Contraseña temporal generada y enviada al correo' },
-      userId: { type: 'string', example: 'b1b9e0f0-1234-4aaa-9999-abcdefabcdef' },
+      message: {
+        type: 'string',
+        example: 'Contraseña temporal generada y enviada al correo',
+      },
+      userId: {
+        type: 'string',
+        example: 'b1b9e0f0-1234-4aaa-9999-abcdefabcdef',
+      },
       emailSent: { type: 'boolean', example: true },
     },
   })
-
   @Post('reset-password')
   setUserPassword(@Body() dto: ResetPasswordDto) {
     return this.keycloakService.setUserPassword(dto.email);
   }
 
+  /**
+   *
+   * @param dto
+   */
   @ApiOperation({ summary: 'Reset a municipal employee password by email' })
   @ApiStandardResponse({
-    description: 'Temp password generated in Keycloak and dispatched to parking_auth mail service',
+    description:
+      'Temp password generated in Keycloak and dispatched to parking_auth mail service',
     errorCodes: [ErrorCode.NONE, ErrorCode.NOT_FOUND],
     data: {
-      message: { type: 'string', example: 'Contraseña temporal generada y enviada al correo' },
-      userId: { type: 'string', example: 'b1b9e0f0-1234-4aaa-9999-abcdefabcdef' },
+      message: {
+        type: 'string',
+        example: 'Contraseña temporal generada y enviada al correo',
+      },
+      userId: {
+        type: 'string',
+        example: 'b1b9e0f0-1234-4aaa-9999-abcdefabcdef',
+      },
       emailSent: { type: 'boolean', example: true },
     },
   })
-
   @Post('reset-password-municipality')
   setUserPasswordMunicipality(@Body() dto: ResetPasswordDto) {
     return this.keycloakService.setUserPasswordMunicipality(dto.email);
   }
 
-  @ApiOperation({ summary: 'Change own password (authenticated client). Email in body must match the JWT email.' })
+  /**
+   *
+   * @param user
+   * @param dto
+   */
+  @ApiOperation({
+    summary:
+      'Change own password (authenticated client). Email in body must match the JWT email.',
+  })
   @ApiStandardResponse({
-    description: 'Password updated in Keycloak (no email sent — the user already knows it)',
+    description:
+      'Password updated in Keycloak (no email sent — the user already knows it)',
     errorCodes: [ErrorCode.NONE, ErrorCode.NOT_FOUND],
     data: {
-      message: { type: 'string', example: 'Contraseña actualizada exitosamente' },
-      userId: { type: 'string', example: 'b1b9e0f0-1234-4aaa-9999-abcdefabcdef' },
+      message: {
+        type: 'string',
+        example: 'Contraseña actualizada exitosamente',
+      },
+      userId: {
+        type: 'string',
+        example: 'b1b9e0f0-1234-4aaa-9999-abcdefabcdef',
+      },
     },
   })
   @Auth()
   @Post('change-password')
-  changePassword(
-    @GetUser() user: JwtPayload,
-    @Body() dto: ChangePasswordDto,
-  ) {
+  changePassword(@GetUser() user: JwtPayload, @Body() dto: ChangePasswordDto) {
     return this.keycloakService.changePassword(dto.email, dto.newPassword);
   }
 
-  @ApiOperation({ summary: 'Change own password (authenticated municipal employee). Email in body must match the JWT email.' })
+  /**
+   *
+   * @param user
+   * @param dto
+   */
+  @ApiOperation({
+    summary:
+      'Change own password (authenticated municipal employee). Email in body must match the JWT email.',
+  })
   @ApiStandardResponse({
-    description: 'Password updated in Keycloak (no email sent — the user already knows it)',
+    description:
+      'Password updated in Keycloak (no email sent — the user already knows it)',
     errorCodes: [ErrorCode.NONE, ErrorCode.NOT_FOUND],
     data: {
-      message: { type: 'string', example: 'Contraseña actualizada exitosamente' },
-      userId: { type: 'string', example: 'b1b9e0f0-1234-4aaa-9999-abcdefabcdef' },
+      message: {
+        type: 'string',
+        example: 'Contraseña actualizada exitosamente',
+      },
+      userId: {
+        type: 'string',
+        example: 'b1b9e0f0-1234-4aaa-9999-abcdefabcdef',
+      },
     },
   })
   @Auth()
@@ -221,11 +362,20 @@ export class KeycloakController {
     @GetUser() user: JwtPayload,
     @Body() dto: ChangePasswordDto,
   ) {
-    return this.keycloakService.changePasswordMunicipality(dto.email, dto.newPassword);
+    return this.keycloakService.changePasswordMunicipality(
+      dto.email,
+      dto.newPassword,
+    );
   }
 
   // GET api/keycloak/find-by-identification?identification=...
-  @ApiOperation({ summary: 'Find a ServiceHub Keycloak user by exact identification' })
+  /**
+   *
+   * @param identification
+   */
+  @ApiOperation({
+    summary: 'Find a ServiceHub Keycloak user by exact identification',
+  })
   @ApiStandardResponse({
     description: 'List of matching Keycloak users (empty if not found)',
     errorCodes: [ErrorCode.NONE, ErrorCode.NOT_FOUND],
@@ -234,7 +384,14 @@ export class KeycloakController {
       data: {
         isArray: true,
         type: 'object',
-        example: [{ id: 'uuid', username: 'johndoe', email: 'john@example.com', enabled: true }],
+        example: [
+          {
+            id: 'uuid',
+            username: 'johndoe',
+            email: 'john@example.com',
+            enabled: true,
+          },
+        ],
       },
     },
   })
@@ -244,36 +401,59 @@ export class KeycloakController {
   }
 
   // GET api/keycloak/find-by-username/:username
+  /**
+   *
+   * @param username
+   */
   @ApiOperation({ summary: 'Find a municipal Keycloak user by exact username' })
   @ApiStandardResponse({
-    description: 'List of matching municipal Keycloak users (empty if not found)',
+    description:
+      'List of matching municipal Keycloak users (empty if not found)',
     errorCodes: [ErrorCode.NONE, ErrorCode.NOT_FOUND],
     data: {
       message: { type: 'string', example: 'Usuario encontrado exitosamente' },
       data: {
         isArray: true,
         type: 'object',
-        example: [{ id: 'uuid', username: 'admin01', email: 'admin@loja.gob.ec', enabled: true }],
+        example: [
+          {
+            id: 'uuid',
+            username: 'admin01',
+            email: 'admin@loja.gob.ec',
+            enabled: true,
+          },
+        ],
       },
     },
   })
-
   @Get('find-by-username-municipality/:username')
   findByUsernameMunicipality(@Param('username') username: string) {
     return this.keycloakService.findByUsernameMunicipality(username);
   }
 
   // GET api/keycloak/find-by-email?email=...
+  /**
+   *
+   * @param email
+   */
   @ApiOperation({ summary: 'Find a municipal Keycloak user by exact email' })
   @ApiStandardResponse({
-    description: 'List of matching municipal Keycloak users (empty if not found)',
+    description:
+      'List of matching municipal Keycloak users (empty if not found)',
     errorCodes: [ErrorCode.NONE, ErrorCode.NOT_FOUND],
     data: {
       message: { type: 'string', example: 'Usuario encontrado exitosamente' },
       data: {
         isArray: true,
         type: 'object',
-        example: [{ id: 'uuid', username: 'admin01', email: 'admin@loja.gob.ec', enabled: true }],
+        example: [
+          {
+            id: 'uuid',
+            username: 'admin01',
+            email: 'admin@loja.gob.ec',
+            enabled: true,
+          },
+        ],
       },
     },
   })
@@ -283,28 +463,54 @@ export class KeycloakController {
   }
 
   // GET api/keycloak/find-by-identification?identification=...
-  @ApiOperation({ summary: 'Find a municipal Keycloak user by exact identification' })
+  /**
+   *
+   * @param identification
+   */
+  @ApiOperation({
+    summary: 'Find a municipal Keycloak user by exact identification',
+  })
   @ApiStandardResponse({
-    description: 'List of matching municipal Keycloak users (empty if not found)',
+    description:
+      'List of matching municipal Keycloak users (empty if not found)',
     errorCodes: [ErrorCode.NONE, ErrorCode.NOT_FOUND],
     data: {
       message: { type: 'string', example: 'Usuario encontrado exitosamente' },
       data: {
         isArray: true,
         type: 'object',
-        example: [{ id: 'uuid', username: 'admin01', email: 'admin@loja.gob.ec', enabled: true }],
+        example: [
+          {
+            id: 'uuid',
+            username: 'admin01',
+            email: 'admin@loja.gob.ec',
+            enabled: true,
+          },
+        ],
       },
     },
   })
   @Get('find-by-identification-municipality')
-  findByIdentificationMunicipality(@Query('identification') identification: string) {
-    return this.keycloakService.findByIdentificationMunicipality(identification);
+  findByIdentificationMunicipality(
+    @Query('identification') identification: string,
+  ) {
+    return this.keycloakService.findByIdentificationMunicipality(
+      identification,
+    );
   }
 
   // PATCH api/keycloak/set-status
-  @ApiOperation({ summary: 'Enable or disable a ServiceHub user account in Keycloak (id travels in the body)' })
+  /**
+   *
+   * @param dto
+   */
+  @ApiOperation({
+    summary:
+      'Enable or disable a ServiceHub user account in Keycloak (id travels in the body)',
+  })
   @ApiStandardResponse({
-    description: 'Account status updated in Keycloak (enabled = true habilita, false deshabilita)',
+    description:
+      'Account status updated in Keycloak (enabled = true habilita, false deshabilita)',
     errorCodes: [ErrorCode.NONE, ErrorCode.NOT_FOUND],
     data: {
       message: { type: 'string', example: 'Cuenta deshabilitada exitosamente' },
@@ -317,9 +523,17 @@ export class KeycloakController {
   }
 
   // PATCH api/keycloak/set-status-municipality
-  @ApiOperation({ summary: 'Enable or disable a municipal employee account in Keycloak (id travels in the body)' })
+  /**
+   *
+   * @param dto
+   */
+  @ApiOperation({
+    summary:
+      'Enable or disable a municipal employee account in Keycloak (id travels in the body)',
+  })
   @ApiStandardResponse({
-    description: 'Account status updated in Keycloak (enabled = true habilita, false deshabilita)',
+    description:
+      'Account status updated in Keycloak (enabled = true habilita, false deshabilita)',
     errorCodes: [ErrorCode.NONE, ErrorCode.NOT_FOUND],
     data: {
       message: { type: 'string', example: 'Cuenta deshabilitada exitosamente' },
@@ -330,5 +544,4 @@ export class KeycloakController {
   setUserStatusMunicipality(@Body() dto: SetUserStatusDto) {
     return this.keycloakService.setUserStatusMunicipality(dto.id, dto.enabled);
   }
-
 }

@@ -1,7 +1,11 @@
 import { Module } from '@nestjs/common';
-import { PortalService } from './portal.service';
-import { PortalController } from './portal.controller';
 
+import { PortalController } from './portal.controller';
+import { PortalService } from './portal.service';
+
+/**
+ *
+ */
 @Module({
   controllers: [PortalController],
   providers: [PortalService],

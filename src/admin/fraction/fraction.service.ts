@@ -19,10 +19,14 @@ import { Fraction } from './entities/fraction.entity';
 export class FractionService {
   private readonly logger = new Logger('FractionService');
 
+  /**
+   *
+   * @param fractionRepository
+   */
   constructor(
     @InjectRepository(Fraction)
     private readonly fractionRepository: Repository<Fraction>,
-  ) { }
+  ) {}
 
   /**
    * Lists parking fractions with pagination, reading either from the live
@@ -68,7 +72,8 @@ export class FractionService {
       }
 
       if (tableExists || (!year && !month)) {
-        const { parameters, conditions } = this._buildQueryParameters(filterDto);
+        const { parameters, conditions } =
+          this._buildQueryParameters(filterDto);
         let query = `
         SELECT f.id, f."userId", f."transactionId", f.time, f."typeFraction",
         f.plate, f.alias, f.tint, f.image,
@@ -89,8 +94,13 @@ export class FractionService {
           query += ' WHERE ' + conditions.join(' AND ');
         }
 
-        const totalQuery = `SELECT COUNT(*) AS total FROM ${tableName} AS f   INNER JOIN slot ON f."slotId" = slot.id ` + (conditions.length > 0 ? ' WHERE ' + conditions.join(' AND ') : '');
-        const totalResult = await this.fractionRepository.query(totalQuery, parameters);
+        const totalQuery =
+          `SELECT COUNT(*) AS total FROM ${tableName} AS f   INNER JOIN slot ON f."slotId" = slot.id ` +
+          (conditions.length > 0 ? ' WHERE ' + conditions.join(' AND ') : '');
+        const totalResult = await this.fractionRepository.query(
+          totalQuery,
+          parameters,
+        );
         const total = totalResult[0].total;
 
         parameters.push(limit, offset);
@@ -99,7 +109,10 @@ export class FractionService {
 
         query += ` ORDER BY f.id DESC LIMIT $${paramLimit} OFFSET $${paramOffset};`;
 
-        const fractions = await this.fractionRepository.query(query, parameters);
+        const fractions = await this.fractionRepository.query(
+          query,
+          parameters,
+        );
 
         return { fractions, total, limit, offset };
       } else {
@@ -216,37 +229,50 @@ export class FractionService {
    * @returns `{ start, end }` formatted as `YYYY-MM-DD HH:mm:ss`, or empty
    *   strings if parsing fails.
    */
-  private _convertRangeToTimeZone = (startUTC: string, endUTC: string, timeZone: string): { start: string; end: string } => {
+  private _convertRangeToTimeZone = (
+    startUTC: string,
+    endUTC: string,
+    timeZone: string,
+  ): { start: string; end: string } => {
     try {
       // Extract hours and minutes from the timezone string (e.g. "-05:00").
-      const [sign, hours, minutes] = timeZone.match(/([+-])(\d{2}):(\d{2})/)?.slice(1) || [];
-      const timeZoneOffset = (parseInt(hours) * 60 + parseInt(minutes)) * (sign === "-" ? 1 : -1);
+      const [sign, hours, minutes] =
+        timeZone.match(/([+-])(\d{2}):(\d{2})/)?.slice(1) || [];
+      const timeZoneOffset =
+        (parseInt(hours) * 60 + parseInt(minutes)) * (sign === '-' ? 1 : -1);
 
       // "Z" forces UTC interpretation.
-      const startDateUTC = new Date(startUTC + "Z");
-      const endDateUTC = new Date(endUTC + "Z");
+      const startDateUTC = new Date(startUTC + 'Z');
+      const endDateUTC = new Date(endUTC + 'Z');
 
-      const startDateInTimeZone = new Date(startDateUTC.getTime() + timeZoneOffset * 60 * 1000);
-      const endDateInTimeZone = new Date(endDateUTC.getTime() + timeZoneOffset * 60 * 1000);
+      const startDateInTimeZone = new Date(
+        startDateUTC.getTime() + timeZoneOffset * 60 * 1000,
+      );
+      const endDateInTimeZone = new Date(
+        endDateUTC.getTime() + timeZoneOffset * 60 * 1000,
+      );
 
       const formatDate = (date: Date) =>
         date.getUTCFullYear() +
-        "-" +
-        String(date.getUTCMonth() + 1).padStart(2, "0") +
-        "-" +
-        String(date.getUTCDate()).padStart(2, "0") +
-        " " +
-        String(date.getUTCHours()).padStart(2, "0") +
-        ":" +
-        String(date.getUTCMinutes()).padStart(2, "0") +
-        ":" +
-        String(date.getUTCSeconds()).padStart(2, "0");
+        '-' +
+        String(date.getUTCMonth() + 1).padStart(2, '0') +
+        '-' +
+        String(date.getUTCDate()).padStart(2, '0') +
+        ' ' +
+        String(date.getUTCHours()).padStart(2, '0') +
+        ':' +
+        String(date.getUTCMinutes()).padStart(2, '0') +
+        ':' +
+        String(date.getUTCSeconds()).padStart(2, '0');
 
-      return { start: formatDate(startDateInTimeZone), end: formatDate(endDateInTimeZone) };
-    } catch (error) {
+      return {
+        start: formatDate(startDateInTimeZone),
+        end: formatDate(endDateInTimeZone),
+      };
+    } catch {
       return { start: '', end: '' };
     }
-  }
+  };
 
   /**
    * Returns aggregated totals: unique vehicles, unique clients, and total
@@ -260,12 +286,14 @@ export class FractionService {
   async findAllTotalVehicleClientTime(filterDto: FilterDto) {
     const { year, month } = filterDto;
     try {
-      const { tableName, tableExists, invalid } = await this._resolveStatisticsFractionTable(year, month);
+      const { tableName, tableExists, invalid } =
+        await this._resolveStatisticsFractionTable(year, month);
       if (invalid) {
         return { fractions: [] };
       }
       if (tableExists || (!year && !month)) {
-        const { parameters, conditions } = this._buildQueryParameters(filterDto);
+        const { parameters, conditions } =
+          this._buildQueryParameters(filterDto);
         let query = `
           SELECT
           COUNT(DISTINCT f.plate) AS totalVehicle,
@@ -281,7 +309,10 @@ export class FractionService {
         if (conditions.length > 0) {
           query += ' WHERE ' + conditions.join(' AND ');
         }
-        const fractions = await this.fractionRepository.query(query, parameters);
+        const fractions = await this.fractionRepository.query(
+          query,
+          parameters,
+        );
         return { fractions };
       } else {
         return { fractions: [] };
@@ -303,7 +334,8 @@ export class FractionService {
   async findAllTotalOccupationRotationParking(filterDto: FilterDto) {
     const { year, month, zoneId, blockId, slotId } = filterDto;
     try {
-      const { tableName, tableExists, invalid } = await this._resolveStatisticsFractionTable(year, month);
+      const { tableName, tableExists, invalid } =
+        await this._resolveStatisticsFractionTable(year, month);
       if (invalid) {
         return { fractions: [] };
       }
@@ -331,10 +363,14 @@ export class FractionService {
         if (slotConditions.length > 0) {
           queryTotalSlot += ' WHERE ' + slotConditions.join(' AND ');
         }
-        const totalSlot = await this.fractionRepository.query(queryTotalSlot, slotParameters);
+        const totalSlot = await this.fractionRepository.query(
+          queryTotalSlot,
+          slotParameters,
+        );
         const total = totalSlot[0].total;
 
-        const { parameters, conditions } = this._buildQueryParameters(filterDto);
+        const { parameters, conditions } =
+          this._buildQueryParameters(filterDto);
         let query = `
           SELECT
             COUNT(*) AS "totalParking",
@@ -350,19 +386,29 @@ export class FractionService {
         if (conditions.length > 0) {
           query += ' WHERE ' + conditions.join(' AND ');
         }
-        const fractions = await this.fractionRepository.query(query, parameters);
+        const fractions = await this.fractionRepository.query(
+          query,
+          parameters,
+        );
 
         if (fractions.length > 0) {
           fractions[0].totalSlot = total;
-          fractions[0].occupation = (+fractions[0].totalSlotOccupation * 100 / +total).toFixed(2);
-          fractions[0].rotation = (+fractions[0].totalParking / +total).toFixed(2);
+          fractions[0].occupation = (
+            (+fractions[0].totalSlotOccupation * 100) /
+            +total
+          ).toFixed(2);
+          fractions[0].rotation = (+fractions[0].totalParking / +total).toFixed(
+            2,
+          );
         }
         return { fractions };
       } else {
         return { fractions: [] };
       }
     } catch (error) {
-      this.logger.error(`findAllTotalOccupationRotationParking error: ${error}`);
+      this.logger.error(
+        `findAllTotalOccupationRotationParking error: ${error}`,
+      );
     }
   }
 
@@ -378,13 +424,15 @@ export class FractionService {
   async findAllStatistics(filterDto: FilterDto) {
     const { year, month } = filterDto;
     try {
-      const { tableName, tableExists, invalid } = await this._resolveStatisticsFractionTable(year, month);
+      const { tableName, tableExists, invalid } =
+        await this._resolveStatisticsFractionTable(year, month);
       if (invalid) {
         return { fractions: [] };
       }
 
       if (tableExists || (!year && !month)) {
-        const { parameters, conditions } = this._buildQueryParameters(filterDto);
+        const { parameters, conditions } =
+          this._buildQueryParameters(filterDto);
         let query = `
           SELECT z.id AS "idZone", z.name AS "nameZone", b.id AS "idBlock", b.name AS "nameBlock", f.time,
           COUNT(f."zoneId") AS "totalZone",
@@ -402,7 +450,10 @@ export class FractionService {
         }
 
         query += `   GROUP BY     z."id", z.name,    b."id", b.name, f.time ; `;
-        const fractions = await this.fractionRepository.query(query, parameters);
+        const fractions = await this.fractionRepository.query(
+          query,
+          parameters,
+        );
         return { fractions };
       } else {
         return { fractions: [] };
@@ -444,9 +495,15 @@ export class FractionService {
       // Build the data source dynamically from the monthly archives in range
       // plus the live table when the range reaches the most recent days.
       if (dateFrom && dateTo) {
-        const fromSource = await this._buildStatisticsFractionRangeSource(dateFrom, dateTo);
+        const fromSource = await this._buildStatisticsFractionRangeSource(
+          dateFrom,
+          dateTo,
+        );
         if (!fromSource) {
-          return { errorCode: ErrorCode.NOT_FOUND, message: 'No se encontraron resultados' };
+          return {
+            errorCode: ErrorCode.NOT_FOUND,
+            message: 'No se encontraron resultados',
+          };
         }
         return await this._runStatisticsFractionQuery(fromSource, filterDto);
       }
@@ -458,13 +515,15 @@ export class FractionService {
 
       if (year && month) {
         if (!this._isValidYearMonth(year, month)) {
-          return { errorCode: ErrorCode.NOT_FOUND, message: 'No se encontraron resultados' };
+          return {
+            errorCode: ErrorCode.NOT_FOUND,
+            message: 'No se encontraron resultados',
+          };
         }
         const monthPadded = month.toString().padStart(2, '0');
         const tableNameAux = `${schema}."${year}_${monthPadded}_fraction"`;
         tableExists = await this._tableExists(tableNameAux);
-        if (tableExists)
-          tableName = tableNameAux;
+        if (tableExists) tableName = tableNameAux;
       }
 
       return await this._runStatisticsFractionQuery(tableName, filterDto);
@@ -484,14 +543,24 @@ export class FractionService {
    * @returns `{ errorCode, message, fractions }`, or
    *   `{ errorCode: NOT_FOUND, message }` when the query returns no rows.
    */
-  private async _runStatisticsFractionQuery(fromSource: string, filterDto: FilterDto) {
+  private async _runStatisticsFractionQuery(
+    fromSource: string,
+    filterDto: FilterDto,
+  ) {
     const { parameters, conditions } = this._buildQueryParameters(filterDto);
     const query = this._buildStatisticsFractionQuery(fromSource, conditions);
     const fractions = await this.fractionRepository.query(query, parameters);
 
     if (fractions.length === 0)
-      return { errorCode: ErrorCode.NOT_FOUND, message: 'No se encontraron resultados' };
-    return { errorCode: ErrorCode.NONE, message: 'Resultados encontrados', fractions };
+      return {
+        errorCode: ErrorCode.NOT_FOUND,
+        message: 'No se encontraron resultados',
+      };
+    return {
+      errorCode: ErrorCode.NONE,
+      message: 'Resultados encontrados',
+      fractions,
+    };
   }
 
   /**
@@ -504,7 +573,10 @@ export class FractionService {
    *   {@link _buildQueryParameters} (joined with AND when present).
    * @returns The complete raw SQL string ready for `repository.query`.
    */
-  private _buildStatisticsFractionQuery(fromSource: string, conditions: string[]): string {
+  private _buildStatisticsFractionQuery(
+    fromSource: string,
+    conditions: string[],
+  ): string {
     let query = `
               SELECT
                 TO_CHAR(f."createdAt", 'YYYY-MM-DD') AS date,
@@ -559,7 +631,10 @@ export class FractionService {
 
     const selects: string[] = [];
 
-    for (const { year, month } of this._enumerateRangeMonths(dateFrom, dateTo)) {
+    for (const { year, month } of this._enumerateRangeMonths(
+      dateFrom,
+      dateTo,
+    )) {
       const monthPadded = month.toString().padStart(2, '0');
       const historicalTable = `${schema}."${year}_${monthPadded}_fraction"`;
       if (await this._tableExists(historicalTable)) {
@@ -623,7 +698,9 @@ export class FractionService {
    * @param value Date string expected to start with `YYYY-MM`.
    * @returns `{ year, month }` when valid, otherwise `null`.
    */
-  private _extractYearMonth(value: string): { year: number; month: number } | null {
+  private _extractYearMonth(
+    value: string,
+  ): { year: number; month: number } | null {
     if (!value) {
       return null;
     }
@@ -668,7 +745,11 @@ export class FractionService {
     if (!match) {
       return null;
     }
-    const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+    const date = new Date(
+      Number(match[1]),
+      Number(match[2]) - 1,
+      Number(match[3]),
+    );
     date.setHours(0, 0, 0, 0);
     return date;
   }
@@ -755,7 +836,10 @@ export class FractionService {
   `;
 
     try {
-      const result = await this.fractionRepository.query(query, [tableSchema, tableNameOnly]);
+      const result = await this.fractionRepository.query(query, [
+        tableSchema,
+        tableNameOnly,
+      ]);
       return result[0].exists;
     } catch (error) {
       this.logger.error(error);
@@ -774,7 +858,10 @@ export class FractionService {
    * @returns `{ parameters, conditions }` ready to be spliced into a raw
    *   SQL query with positional `$N` placeholders.
    */
-  private _buildQueryParameters(filterDto: FilterDto): { parameters: any[]; conditions: string[] } {
+  private _buildQueryParameters(filterDto: FilterDto): {
+    parameters: any[];
+    conditions: string[];
+  } {
     const {
       typeFraction,
       zoneId,
@@ -830,7 +917,11 @@ export class FractionService {
     }
 
     if (typeSize) {
-      if (typeSize === TypeSizeVehicle.VEHICLE || typeSize === TypeSizeVehicle.OTHERS || typeSize === TypeSizeVehicle.UNDEFINED) {
+      if (
+        typeSize === TypeSizeVehicle.VEHICLE ||
+        typeSize === TypeSizeVehicle.OTHERS ||
+        typeSize === TypeSizeVehicle.UNDEFINED
+      ) {
         conditions.push(`f."plate" ~ '[0-9]$'`);
       } else if (typeSize === TypeSizeVehicle.BIKE) {
         conditions.push(`f."plate" ~ '[A-Za-z]$'`);
@@ -844,12 +935,14 @@ export class FractionService {
     if (isTimeZone) {
       if (fromCreatedAt && toCreatedAt && timeZoneUTC) {
         conditions.push(
-          `f."createdAt" AT TIME ZONE 'UTC' AT TIME ZONE ${addParam(timeZoneUTC)} BETWEEN ${addParam(fromCreatedAt)} AND ${addParam(toCreatedAt)}`
+          `f."createdAt" AT TIME ZONE 'UTC' AT TIME ZONE ${addParam(timeZoneUTC)} BETWEEN ${addParam(fromCreatedAt)} AND ${addParam(toCreatedAt)}`,
         );
       }
     } else {
       if (dateFrom && dateTo) {
-        conditions.push(`DATE(f."register") BETWEEN ${addParam(dateFrom)} AND ${addParam(dateTo)}`);
+        conditions.push(
+          `DATE(f."register") BETWEEN ${addParam(dateFrom)} AND ${addParam(dateTo)}`,
+        );
       }
     }
 
@@ -857,9 +950,11 @@ export class FractionService {
   }
 
   /**
+   * @param filterDto
    * @deprecated Use {@link _buildQueryParameters} instead.
    * Kept as a pass-through alias so any external callers are not broken
    * while the codebase migrates to the renamed method.
    */
-  buildParametersConditions = (filterDto: FilterDto) => this._buildQueryParameters(filterDto);
+  buildParametersConditions = (filterDto: FilterDto) =>
+    this._buildQueryParameters(filterDto);
 }

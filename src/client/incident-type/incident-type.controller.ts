@@ -1,4 +1,10 @@
-import { Controller, Get, Param, ParseIntPipe, ParseUUIDPipe } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  ParseIntPipe,
+  ParseUUIDPipe,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { IncidentType } from 'src/admin/incident-type/entities/incident-type.entity';
 import { ApiStandardResponse } from 'src/common/decorators/api-standard-response.decorator';
@@ -14,14 +20,21 @@ import { IncidentTypeService } from './incident-type.service';
  * Base route: `client/incident-type`. Delegates all business logic to {@link IncidentTypeService}.
  */
 @ApiTags('Client - Incident Type')
-
 @ApiBearerAuth('keycloak')
-
 @Controller('client/incident-type')
 export class IncidentTypeController {
-  constructor(private readonly incidentTypeService: IncidentTypeService) { }
+  /**
+   *
+   * @param incidentTypeService
+   */
+  constructor(private readonly incidentTypeService: IncidentTypeService) {}
 
   // @Auth()
+  /**
+   *
+   * @param _userId
+   * @param _idDevice
+   */
   @ApiOperation({ summary: 'Get all activated incident types' })
   @ApiStandardResponse({
     description: 'Active incident types ordered by creation date',
@@ -33,9 +46,9 @@ export class IncidentTypeController {
   @Get('get-incident-type/:userId/:idDevice')
   getIncidentType(
     // @GetUser() user: JwtPayload,
-    @Param('userId', ParseIntPipe) userId: number,
-    @Param('idDevice', ParseUUIDPipe) idDevice: string) {
+    @Param('userId', ParseIntPipe) _userId: number,
+    @Param('idDevice', ParseUUIDPipe) _idDevice: string,
+  ) {
     return this.incidentTypeService.getIncidentType();
   }
-
 }

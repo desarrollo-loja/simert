@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Param, ParseIntPipe, ParseUUIDPipe, Patch, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseIntPipe,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthWithKeycloak, GetUser } from 'src/auth/decorators';
 import { JwtPayload } from 'src/auth/interfaces';
@@ -15,8 +24,20 @@ import { ScheduleService } from './schedule.service';
 @ApiBearerAuth('keycloak')
 @Controller('admin/schedule')
 export class ScheduleController {
-  constructor(private readonly scheduleService: ScheduleService) { }
+  /**
+   *
+   * @param scheduleService
+   */
+  constructor(private readonly scheduleService: ScheduleService) {}
 
+  /**
+   *
+   * @param user
+   * @param userId
+   * @param idDevice
+   * @param version
+   * @param createScheduleDto
+   */
   @ApiOperation({ summary: 'Create a new parking schedule for a block' })
   // @Auth()
   @AuthWithKeycloak()
@@ -31,17 +52,31 @@ export class ScheduleController {
     return this.scheduleService.create(userId, createScheduleDto);
   }
 
+  /**
+   *
+   * @param user
+   * @param id
+   */
   @ApiOperation({ summary: 'List all schedules for a given block id' })
   // @Auth()
   @AuthWithKeycloak()
   @Get('by-block/:id/:userId/:idDevice/:version')
   findAllScheduleByBlock(
     @GetUser() user: JwtPayload,
-    @Param('id', ParseIntPipe) id: number
+    @Param('id', ParseIntPipe) id: number,
   ) {
     return this.scheduleService.findAllScheduleByBlock(id);
   }
 
+  /**
+   *
+   * @param user
+   * @param id
+   * @param userId
+   * @param idDevice
+   * @param version
+   * @param updateScheduleDto
+   */
   @ApiOperation({ summary: 'Activate or deactivate a schedule by id' })
   // @Auth()
   @AuthWithKeycloak()
@@ -52,12 +87,22 @@ export class ScheduleController {
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
     @Param('version', ParseIntPipe) version: number,
-    @Body() updateScheduleDto: UpdateScheduleDto
+    @Body() updateScheduleDto: UpdateScheduleDto,
   ) {
     return this.scheduleService.updateActive(userId, id, updateScheduleDto);
   }
 
-  @ApiOperation({ summary: 'Update schedule properties (time ranges, days, etc.)' })
+  /**
+   *
+   * @param user
+   * @param userId
+   * @param idDevice
+   * @param version
+   * @param updateScheduleDto
+   */
+  @ApiOperation({
+    summary: 'Update schedule properties (time ranges, days, etc.)',
+  })
   // @Auth()
   @AuthWithKeycloak()
   @Patch(':userId/:idDevice/:version')
@@ -66,7 +111,7 @@ export class ScheduleController {
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
     @Param('version', ParseIntPipe) version: number,
-    @Body() updateScheduleDto: UpdateScheduleDto
+    @Body() updateScheduleDto: UpdateScheduleDto,
   ) {
     return this.scheduleService.update(userId, updateScheduleDto);
   }

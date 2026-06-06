@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Param, ParseIntPipe, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseIntPipe,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthWithKeycloak, GetUser } from 'src/auth/decorators';
 import { JwtPayload } from 'src/auth/interfaces';
@@ -16,8 +26,20 @@ import { RangeService } from './range.service';
 @ApiBearerAuth('keycloak')
 @Controller('admin/range')
 export class RangeController {
-  constructor(private readonly rangeService: RangeService) { }
+  /**
+   *
+   * @param rangeService
+   */
+  constructor(private readonly rangeService: RangeService) {}
 
+  /**
+   *
+   * @param user
+   * @param userId
+   * @param idDevice
+   * @param version
+   * @param createRangeDto
+   */
   @ApiOperation({ summary: 'Create a new price range for a block' })
   @AuthWithKeycloak()
   @Post('create/:userId/:idDevice/:version')
@@ -26,11 +48,20 @@ export class RangeController {
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
     @Param('version', ParseIntPipe) version: number,
-    @Body() createRangeDto: CreateRangeDto
+    @Body() createRangeDto: CreateRangeDto,
   ) {
     return this.rangeService.create(userId, createRangeDto);
   }
 
+  /**
+   *
+   * @param user
+   * @param userId
+   * @param idDevice
+   * @param id
+   * @param version
+   * @param updateRangeDto
+   */
   @ApiOperation({ summary: 'Update an existing price range' })
   @AuthWithKeycloak()
   @Patch('update/:userId/:idDevice/:id/:version')
@@ -40,11 +71,19 @@ export class RangeController {
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
     @Param('id') id: string,
     @Param('version', ParseIntPipe) version: number,
-    @Body() updateRangeDto: UpdateRangeDto
+    @Body() updateRangeDto: UpdateRangeDto,
   ) {
     return this.rangeService.update(userId, +id, updateRangeDto);
   }
 
+  /**
+   *
+   * @param user
+   * @param userId
+   * @param idDevice
+   * @param version
+   * @param filterDto
+   */
   @ApiOperation({ summary: 'List price ranges with optional filters' })
   @AuthWithKeycloak()
   @Get('findAll/:userId/:idDevice/:version')
@@ -58,6 +97,13 @@ export class RangeController {
     return this.rangeService.findAll(filterDto);
   }
 
+  /**
+   *
+   * @param user
+   * @param userId
+   * @param idDevice
+   * @param filterDto
+   */
   @ApiOperation({ summary: 'Count total price ranges matching filters' })
   @AuthWithKeycloak()
   @Get('findAllTotal/:userId/:idDevice/:version')
@@ -70,7 +116,17 @@ export class RangeController {
     return this.rangeService.findAllTotal(filterDto);
   }
 
-  @ApiOperation({ summary: 'Verify whether a valid range exists for the given filters' })
+  /**
+   *
+   * @param user
+   * @param userId
+   * @param idDevice
+   * @param version
+   * @param filterDto
+   */
+  @ApiOperation({
+    summary: 'Verify whether a valid range exists for the given filters',
+  })
   @AuthWithKeycloak()
   @Get('verifyRange/:userId/:idDevice/:version')
   verifyRange(

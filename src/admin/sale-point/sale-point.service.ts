@@ -21,13 +21,18 @@ import { SalePoint } from './entities/sale-point.entity';
 export class SalePointService {
   private readonly logger = new Logger('SalePointService');
 
+  /**
+   *
+   * @param salePointRepository
+   * @param loggerService
+   */
   constructor(
     @InjectRepository(SalePoint)
     private readonly salePointRepository: Repository<SalePoint>,
 
     @Inject(LoggerService)
-    private readonly loggerService: LoggerService
-  ) { }
+    private readonly loggerService: LoggerService,
+  ) {}
 
   /**
    * Creates a new sale point and emits an audit log entry.
@@ -40,7 +45,12 @@ export class SalePointService {
     try {
       const salePoint = this.salePointRepository.create(createSalePointDto);
       await this.salePointRepository.save(salePoint);
-      this.loggerService.saveSalePointLogger({ id: salePoint.id, userId, typeOperation: TypeOperation.CREATE, salePoint });
+      this.loggerService.saveSalePointLogger({
+        id: salePoint.id,
+        userId,
+        typeOperation: TypeOperation.CREATE,
+        salePoint,
+      });
       return { errorCode: ErrorCode.NONE, salePoint };
     } catch (error) {
       handleDbExceptions(error, this.logger);
@@ -61,7 +71,9 @@ export class SalePointService {
       });
       return { errorCode: ErrorCode.NONE, exists: !!salePoint };
     } catch (error) {
-      this.logger.error(`Error checking if sale point exists for userId ${userId}: ${error.message}`);
+      this.logger.error(
+        `Error checking if sale point exists for userId ${userId}: ${error.message}`,
+      );
       return { errorCode: ErrorCode.UNKNOWN, exists: false };
     }
   }
@@ -76,27 +88,44 @@ export class SalePointService {
    */
   async findAll(filterDto: FilterDto) {
     try {
-      const query = this.salePointRepository.createQueryBuilder('sp')
+      const query = this.salePointRepository
+        .createQueryBuilder('sp')
         .select([
-          'sp.id', 'sp.userId',
-          'sp.type', 'sp.mode', 'sp.lt', 'sp.lg', 'sp.title', 'sp.subTitle',
-          'sp.alias', 'sp.names', 'sp.number', 'sp.email',
-          'sp.countryCode', 'sp.phone',
-          'sp.qr', 'sp.isApproved', 'sp.userIdApproved', 'sp.billing_data',
-          'z.id', 'z.name',
-          'bl.id', 'bl.name',
+          'sp.id',
+          'sp.userId',
+          'sp.type',
+          'sp.mode',
+          'sp.lt',
+          'sp.lg',
+          'sp.title',
+          'sp.subTitle',
+          'sp.alias',
+          'sp.names',
+          'sp.number',
+          'sp.email',
+          'sp.countryCode',
+          'sp.phone',
+          'sp.qr',
+          'sp.isApproved',
+          'sp.userIdApproved',
+          'sp.billing_data',
+          'z.id',
+          'z.name',
+          'bl.id',
+          'bl.name',
         ])
         .leftJoin('sp.zone', 'z')
         .leftJoin('sp.block', 'bl')
         .leftJoin(
-          (subQuery) => subQuery
-            .select('l_inner.userId', 'userId')
-            .addSelect('l_inner.latitude', 'latitude')
-            .addSelect('l_inner.longitude', 'longitude')
-            .from(L, 'l_inner')
-            .distinctOn(['l_inner.userId'])
-            .orderBy('l_inner.userId')
-            .addOrderBy('l_inner.timestamp', 'DESC'),
+          (subQuery) =>
+            subQuery
+              .select('l_inner.userId', 'userId')
+              .addSelect('l_inner.latitude', 'latitude')
+              .addSelect('l_inner.longitude', 'longitude')
+              .from(L, 'l_inner')
+              .distinctOn(['l_inner.userId'])
+              .orderBy('l_inner.userId')
+              .addOrderBy('l_inner.timestamp', 'DESC'),
           'l',
           'l."userId" = sp.userId AND sp.mode = 1',
         )
@@ -137,7 +166,8 @@ export class SalePointService {
     try {
       const { limit = 20, offset = 0 } = filterDto;
 
-      const query = this.salePointRepository.createQueryBuilder('sp')
+      const query = this.salePointRepository
+        .createQueryBuilder('sp')
         .select(['sp.id', 'sp.title', 'sp.subTitle']);
 
       const { conditions, parameters } = this._buildFilterConditions(filterDto);
@@ -184,12 +214,24 @@ export class SalePointService {
    * @param updateSalePointDto - Partial DTO with updated fields.
    * @returns Object with errorCode and the updated salePoint.
    */
-  async update(userId: number, id: number, updateSalePointDto: UpdateSalePointDto) {
+  async update(
+    userId: number,
+    id: number,
+    updateSalePointDto: UpdateSalePointDto,
+  ) {
     try {
-      const salePoint = await this.salePointRepository.preload({ id, ...updateSalePointDto });
+      const salePoint = await this.salePointRepository.preload({
+        id,
+        ...updateSalePointDto,
+      });
       if (salePoint) {
         await this.salePointRepository.save(salePoint);
-        this.loggerService.saveSalePointLogger({ id: salePoint.id, userId, typeOperation: TypeOperation.UPDATE, salePoint });
+        this.loggerService.saveSalePointLogger({
+          id: salePoint.id,
+          userId,
+          typeOperation: TypeOperation.UPDATE,
+          salePoint,
+        });
         return { errorCode: ErrorCode.NONE, salePoint };
       }
     } catch (error) {
@@ -203,7 +245,10 @@ export class SalePointService {
    * @param filterDto - Filter with optional userId, search, zoneId, blockId, isApproved.
    * @returns Object with conditions array and named parameters record.
    */
-  private _buildFilterConditions(filterDto: FilterDto): { conditions: string[]; parameters: Record<string, any> } {
+  private _buildFilterConditions(filterDto: FilterDto): {
+    conditions: string[];
+    parameters: Record<string, any>;
+  } {
     const { userId, search, zoneId, blockId, isApproved } = filterDto;
     const conditions: string[] = [];
     const parameters: Record<string, any> = {};
@@ -214,7 +259,9 @@ export class SalePointService {
     }
 
     if (search) {
-      conditions.push('(sp.title ILIKE :search OR sp.subTitle ILIKE :search OR sp.names ILIKE :search)');
+      conditions.push(
+        '(sp.title ILIKE :search OR sp.subTitle ILIKE :search OR sp.names ILIKE :search)',
+      );
       parameters['search'] = `%${search}%`;
     }
 

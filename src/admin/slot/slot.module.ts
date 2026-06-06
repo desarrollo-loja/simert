@@ -6,10 +6,12 @@ import { LoggerModule } from 'src/common/logger.module';
 import { Slot } from './entities/slot.entity';
 import { SlotController } from './slot.controller';
 import { SlotService } from './slot.service';
+/**
+ *
+ */
 @Module({
   controllers: [SlotController],
   providers: [SlotService],
   imports: [TypeOrmModule.forFeature([Slot]), AuthModule, LoggerModule],
-
 })
-export class SlotModule { }
+export class SlotModule {}

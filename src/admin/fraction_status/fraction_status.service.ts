@@ -15,10 +15,14 @@ import { FractionStatus } from './entities/fraction_status.entity';
 export class FractionStatusService {
   private readonly logger = new Logger('FractionStatusService');
 
+  /**
+   *
+   * @param fractionStatusRepository
+   */
   constructor(
     @InjectRepository(FractionStatus)
     private readonly fractionStatusRepository: Repository<FractionStatus>,
-  ) { }
+  ) {}
 
   /**
    * Returns all status-history entries for a given fraction, optionally
@@ -40,7 +44,10 @@ export class FractionStatusService {
    *   `status` table for the human-readable label.
    * @throws Delegates DB errors to {@link handleDbExceptions}.
    */
-  async findAllFractionState(fractionId: number | string, filterDto: FilterDto) {
+  async findAllFractionState(
+    fractionId: number | string,
+    filterDto: FilterDto,
+  ) {
     const { year, month } = filterDto;
     try {
       // Live table uses an explicit double-quoted camelCase identifier so PostgreSQL
@@ -52,8 +59,12 @@ export class FractionStatusService {
         const y = Number(year);
         const m = Number(month);
         if (
-          Number.isInteger(y) && y >= 2000 && y <= 2100 &&
-          Number.isInteger(m) && m >= 1 && m <= 12
+          Number.isInteger(y) &&
+          y >= 2000 &&
+          y <= 2100 &&
+          Number.isInteger(m) &&
+          m >= 1 &&
+          m <= 12
         ) {
           // Historical partition names start with a digit, so they must be double-quoted.
           tableName = `"${y}_${m}_fraction_status"`;
@@ -73,7 +84,9 @@ export class FractionStatusService {
             INNER JOIN status s ON s.id=fs."statusId"
             WHERE fs."fractionId" =  $1
           `;
-      const fractionStatus = await this.fractionStatusRepository.query(query, [safeFractionId]);
+      const fractionStatus = await this.fractionStatusRepository.query(query, [
+        safeFractionId,
+      ]);
       return { fractionStatus };
     } catch (error) {
       handleDbExceptions(error, this.logger);

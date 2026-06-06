@@ -30,6 +30,12 @@ import { Incident } from './entities/incident.entity';
 export class IncidentService {
   private readonly logger = new Logger(IncidentService.name);
 
+  /**
+   *
+   * @param incidentRepository
+   * @param loggerService
+   * @param commonGimService
+   */
   constructor(
     @InjectRepository(Incident)
     private readonly incidentRepository: Repository<Incident>,
@@ -39,7 +45,7 @@ export class IncidentService {
 
     @Inject(CommonGimService)
     private readonly commonGimService: CommonGimService,
-  ) { }
+  ) {}
 
   /**
    * Validates that `year` and `month` are safe integers within sensible bounds
@@ -56,8 +62,12 @@ export class IncidentService {
     const y = Number(year);
     const m = Number(month);
     return (
-      Number.isInteger(y) && y >= 2000 && y <= 2100 &&
-      Number.isInteger(m) && m >= 1 && m <= 12
+      Number.isInteger(y) &&
+      y >= 2000 &&
+      y <= 2100 &&
+      Number.isInteger(m) &&
+      m >= 1 &&
+      m <= 12
     );
   }
 
@@ -125,7 +135,11 @@ export class IncidentService {
         '"createdAt", "updatedAt", "incidentCategory", "nroTicket", "identityCard", ' +
         '"fullNameClient", "emailClient", "amount", "reference", "address", "vehicleType", ' +
         '"controllerReportPdfUrl", "nroObligation", "internalState"';
-      const rangeSource = await this._buildIncidentRangeSource(dateFrom, dateTo, columns);
+      const rangeSource = await this._buildIncidentRangeSource(
+        dateFrom,
+        dateTo,
+        columns,
+      );
       if (!rangeSource) {
         return { incidents: [], errorCode: ErrorCode.NONE };
       }
@@ -134,7 +148,8 @@ export class IncidentService {
       table = await this._resolveIncidentTable(filterDto);
     }
 
-    const { conditions, parameters } = this._buildConditionsAndParametersPg(filterDto);
+    const { conditions, parameters } =
+      this._buildConditionsAndParametersPg(filterDto);
 
     // Appends a value to the parameters array and returns its $N placeholder.
     const appendParam = (value: any) => {
@@ -223,12 +238,8 @@ export class IncidentService {
   async findAllTotal(filterDto: IncidentFilterDto) {
     const table = await this._resolveIncidentTable(filterDto);
 
-    const { conditions, parameters } = this._buildConditionsAndParametersPg(filterDto);
-
-    const appendParam = (value: any) => {
-      parameters.push(value);
-      return `$${parameters.length}`;
-    };
+    const { conditions, parameters } =
+      this._buildConditionsAndParametersPg(filterDto);
 
     let queryInfo = `SELECT COUNT(*) as total FROM ${table} i`;
 
@@ -280,10 +291,12 @@ export class IncidentService {
       const conditions: string[] = [];
 
       // Bind each transactionId to its own $N placeholder to prevent SQL injection.
-      const placeholders = transactionIds.map((id) => {
-        parameters.push(id);
-        return `$${parameters.length}`;
-      }).join(', ');
+      const placeholders = transactionIds
+        .map((id) => {
+          parameters.push(id);
+          return `$${parameters.length}`;
+        })
+        .join(', ');
       conditions.push(`i."transactionId" IN (${placeholders})`);
 
       if (dateFrom && dateTo) {
@@ -420,11 +433,14 @@ export class IncidentService {
    * verified against `information_schema` through {@link _tableExists}.
    *
    * @param filterDto Filter carrying the optional `year`/`month` period.
+   * @param filterDto.year
+   * @param filterDto.month
    * @returns The resolved incident and fraction table identifiers.
    */
-  private async _resolveSanctionTables(
-    filterDto: { year?: number; month?: number },
-  ): Promise<{ tableNameIncident: string; tableNameFraction: string }> {
+  private async _resolveSanctionTables(filterDto: {
+    year?: number;
+    month?: number;
+  }): Promise<{ tableNameIncident: string; tableNameFraction: string }> {
     const { year, month } = filterDto;
     const schema = 'history';
 
@@ -493,7 +509,11 @@ export class IncidentService {
   ) {
     try {
       // Strip routing-only fields before writing to any table.
-      const { year: dtoYear, month: dtoMonth, ...fieldsToUpdate } = updateIncidentDto;
+      const {
+        year: dtoYear,
+        month: dtoMonth,
+        ...fieldsToUpdate
+      } = updateIncidentDto;
 
       // Case 1: transactional flag set — update the main `public.incident` table.
       // Uses update() directly to avoid TypeORM's dirty-checking skipping JSON
@@ -504,7 +524,9 @@ export class IncidentService {
           return { incident: null, errorCode: ErrorCode.NOT_FOUND };
         }
         await this.incidentRepository.update(id, fieldsToUpdate as any);
-        const incident = await this.incidentRepository.findOne({ where: { id } });
+        const incident = await this.incidentRepository.findOne({
+          where: { id },
+        });
 
         this.loggerService.saveIncidentLogger({
           id,
@@ -547,7 +569,11 @@ export class IncidentService {
         return { incident: null, errorCode: ErrorCode.NONE };
       }
 
-      const incident = await this._updateHistoricalRow(table, fieldsToUpdate, id);
+      const incident = await this._updateHistoricalRow(
+        table,
+        fieldsToUpdate,
+        id,
+      );
 
       if (incident) {
         this.loggerService.saveIncidentLogger({
@@ -575,7 +601,11 @@ export class IncidentService {
    * @param userId            Optional audit-log actor ID.
    * @returns Object with the updated `incident` and `errorCode`.
    */
-  async updateStatusGim(id: number, updateIncidentDto: UpdateIncidentDto, userId?: number) {
+  async updateStatusGim(
+    id: number,
+    updateIncidentDto: UpdateIncidentDto,
+    userId?: number,
+  ) {
     try {
       const exists = await this.incidentRepository.findOne({ where: { id } });
       if (!exists) {
@@ -620,7 +650,9 @@ export class IncidentService {
     const directory = process.env.ALFRESCO_DIR;
 
     if (!alfrescoBaseUrl || !username || !password) {
-      this.logger.error('Alfresco configuration is missing in environment variables');
+      this.logger.error(
+        'Alfresco configuration is missing in environment variables',
+      );
       return null;
     }
 
@@ -880,9 +912,7 @@ export class IncidentService {
    *   array (each row: `incidentTypeId`, `total`, `name`).
    */
   async findStatistics(filterDto: IncidentFilterDto) {
-
     try {
-
       const { dateFrom, dateTo } = filterDto;
 
       // Resolve the FROM source. With a date range, union the monthly archives
@@ -897,14 +927,22 @@ export class IncidentService {
           '"identityCard", "nroTicket", "nroObligation", "fullNameClient", "zoneId", ' +
           '"blockId", "statusIncident", "internalState", "controllerId", ' +
           '"blockOperatorId", "incidentCategory", "createdAt"';
-        const rangeSource = await this._buildIncidentRangeSource(dateFrom, dateTo, columns);
+        const rangeSource = await this._buildIncidentRangeSource(
+          dateFrom,
+          dateTo,
+          columns,
+        );
         if (!rangeSource) {
-          return { errorCode: ErrorCode.NOT_FOUND, message: 'No se encontraron resultados' };
+          return {
+            errorCode: ErrorCode.NOT_FOUND,
+            message: 'No se encontraron resultados',
+          };
         }
         fromSource = rangeSource;
       }
 
-      const { parameters, conditions } = this._buildConditionsAndParametersPg(filterDto);
+      const { parameters, conditions } =
+        this._buildConditionsAndParametersPg(filterDto);
 
       let query = `
               SELECT
@@ -923,13 +961,18 @@ export class IncidentService {
       const incidents = await this.incidentRepository.query(query, parameters);
 
       if (incidents.length === 0)
-        return { errorCode: ErrorCode.NOT_FOUND, message: 'No se encontraron resultados' };
-      return { errorCode: ErrorCode.NONE, message: 'Resultados encontrados', incidents };
-
+        return {
+          errorCode: ErrorCode.NOT_FOUND,
+          message: 'No se encontraron resultados',
+        };
+      return {
+        errorCode: ErrorCode.NONE,
+        message: 'Resultados encontrados',
+        incidents,
+      };
     } catch (error) {
       handleDbExceptions(error, this.logger);
     }
-
   }
 
   /**
@@ -943,12 +986,11 @@ export class IncidentService {
    *   array (each row: `incidentTypeId`, `total`, `name`).
    */
   async findStatisticsByFraction(filterDto: IncidentFilterDto) {
-
     try {
-
       const tableName = 'public.incident';
 
-      const { parameters, conditions } = this._buildConditionsAndParametersPg(filterDto);
+      const { parameters, conditions } =
+        this._buildConditionsAndParametersPg(filterDto);
 
       let query = `
               SELECT
@@ -968,13 +1010,18 @@ export class IncidentService {
       const incidents = await this.incidentRepository.query(query, parameters);
 
       if (incidents.length === 0)
-        return { errorCode: ErrorCode.NOT_FOUND, message: 'No se encontraron resultados' };
-      return { errorCode: ErrorCode.NONE, message: 'Resultados encontrados', incidents };
-
+        return {
+          errorCode: ErrorCode.NOT_FOUND,
+          message: 'No se encontraron resultados',
+        };
+      return {
+        errorCode: ErrorCode.NONE,
+        message: 'Resultados encontrados',
+        incidents,
+      };
     } catch (error) {
       handleDbExceptions(error, this.logger);
     }
-
   }
 
   /**
@@ -1013,7 +1060,10 @@ export class IncidentService {
 
     const selects: string[] = [];
 
-    for (const { year, month } of this._enumerateRangeMonths(dateFrom, dateTo)) {
+    for (const { year, month } of this._enumerateRangeMonths(
+      dateFrom,
+      dateTo,
+    )) {
       const monthPadded = month.toString().padStart(2, '0');
       const historicalTable = `${schema}."${year}_${monthPadded}_incident"`;
       if (await this._tableExists(historicalTable)) {
@@ -1077,7 +1127,9 @@ export class IncidentService {
    * @param value Date string expected to start with `YYYY-MM`.
    * @returns `{ year, month }` when valid, otherwise `null`.
    */
-  private _extractYearMonth(value: string): { year: number; month: number } | null {
+  private _extractYearMonth(
+    value: string,
+  ): { year: number; month: number } | null {
     if (!value) {
       return null;
     }
@@ -1122,7 +1174,11 @@ export class IncidentService {
     if (!match) {
       return null;
     }
-    const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+    const date = new Date(
+      Number(match[1]),
+      Number(match[2]) - 1,
+      Number(match[3]),
+    );
     date.setHours(0, 0, 0, 0);
     return date;
   }
@@ -1149,15 +1205,21 @@ export class IncidentService {
   ): { start: string; end: string } {
     try {
       // Extract hours and minutes from the timezone string (e.g. "-05:00").
-      const [sign, hours, minutes] = timeZone.match(/([+-])(\d{2}):(\d{2})/)?.slice(1) || [];
-      const timeZoneOffset = (parseInt(hours) * 60 + parseInt(minutes)) * (sign === '-' ? 1 : -1);
+      const [sign, hours, minutes] =
+        timeZone.match(/([+-])(\d{2}):(\d{2})/)?.slice(1) || [];
+      const timeZoneOffset =
+        (parseInt(hours) * 60 + parseInt(minutes)) * (sign === '-' ? 1 : -1);
 
       // "Z" forces UTC interpretation of the local wall-clock string.
       const startDateUTC = new Date(startUTC + 'Z');
       const endDateUTC = new Date(endUTC + 'Z');
 
-      const startDateInTimeZone = new Date(startDateUTC.getTime() + timeZoneOffset * 60 * 1000);
-      const endDateInTimeZone = new Date(endDateUTC.getTime() + timeZoneOffset * 60 * 1000);
+      const startDateInTimeZone = new Date(
+        startDateUTC.getTime() + timeZoneOffset * 60 * 1000,
+      );
+      const endDateInTimeZone = new Date(
+        endDateUTC.getTime() + timeZoneOffset * 60 * 1000,
+      );
 
       const formatDate = (date: Date) =>
         date.getUTCFullYear() +
@@ -1172,7 +1234,10 @@ export class IncidentService {
         ':' +
         String(date.getUTCSeconds()).padStart(2, '0');
 
-      return { start: formatDate(startDateInTimeZone), end: formatDate(endDateInTimeZone) };
+      return {
+        start: formatDate(startDateInTimeZone),
+        end: formatDate(endDateInTimeZone),
+      };
     } catch (error) {
       this.logger.error(`_convertRangeToTimeZone error: ${error?.message}`);
       return { start: '', end: '' };
@@ -1199,9 +1264,8 @@ export class IncidentService {
    */
   private _buildConditionsAndParametersPg(
     filterDto: IncidentFilterDto,
-    excludeStatus = []
+    excludeStatus = [],
   ): { conditions: string[]; parameters: any[] } {
-
     const {
       search = '',
       incidentTypeId,
@@ -1216,7 +1280,6 @@ export class IncidentService {
       incidentCategory,
       controllerId,
       identityCard,
-
     } = filterDto;
 
     const conditions: string[] = [];
@@ -1229,16 +1292,22 @@ export class IncidentService {
 
     // Ignore empty/whitespace strings and literal 'undefined'/'null'
     // sent by clients that stringify missing values.
-    if (search && search.trim() && search.trim() !== 'undefined' && search.trim() !== 'null' && search.trim() !== '') {
+    if (
+      search &&
+      search.trim() &&
+      search.trim() !== 'undefined' &&
+      search.trim() !== 'null' &&
+      search.trim() !== ''
+    ) {
       const like = `%${search}%`;
       conditions.push(
         `(i."description" ILIKE ${addParam(like)}` +
-        ` OR i."plate" ILIKE ${addParam(like)}` +
-        ` OR i."supervisorObservations" ILIKE ${addParam(like)}` +
-        ` OR i."identityCard" ILIKE ${addParam(like)}` +
-        ` OR i."nroTicket" ILIKE ${addParam(like)}` +
-        ` OR i."nroObligation" ILIKE ${addParam(like)}` +
-        ` OR i."fullNameClient" ILIKE ${addParam(like)})`,
+          ` OR i."plate" ILIKE ${addParam(like)}` +
+          ` OR i."supervisorObservations" ILIKE ${addParam(like)}` +
+          ` OR i."identityCard" ILIKE ${addParam(like)}` +
+          ` OR i."nroTicket" ILIKE ${addParam(like)}` +
+          ` OR i."nroObligation" ILIKE ${addParam(like)}` +
+          ` OR i."fullNameClient" ILIKE ${addParam(like)})`,
       );
     }
 
@@ -1295,7 +1364,9 @@ export class IncidentService {
         `${dateTo} 23:59:59`,
         TypeTimeZone.ECUADOR,
       );
-      conditions.push(`i."createdAt" BETWEEN ${addParam(start)} AND ${addParam(end)}`);
+      conditions.push(
+        `i."createdAt" BETWEEN ${addParam(start)} AND ${addParam(end)}`,
+      );
     }
 
     if (excludeStatus.length > 0) {
@@ -1319,13 +1390,14 @@ export class IncidentService {
    * @returns Object with the `fractionSanction` rows, `limit`, and `offset`.
    */
   async findAllFractionSanction(filterDto: FilterDto) {
-
     try {
       const { limit = 10, offset = 0, typeFractionId } = filterDto;
 
-      const { tableNameIncident, tableNameFraction } = await this._resolveSanctionTables(filterDto);
+      const { tableNameIncident, tableNameFraction } =
+        await this._resolveSanctionTables(filterDto);
 
-      const { parameters, conditions } = this._buildConditionsAndParametersPg(filterDto);
+      const { parameters, conditions } =
+        this._buildConditionsAndParametersPg(filterDto);
 
       if (typeFractionId) {
         parameters.push(typeFractionId);
@@ -1361,14 +1433,16 @@ export class IncidentService {
       query += ` LIMIT $${parameters.length + 1} OFFSET $${parameters.length + 2}`;
       parameters.push(safeLimit, safeOffset);
 
-      const fractionSanction = await this.incidentRepository.query(query, parameters);
+      const fractionSanction = await this.incidentRepository.query(
+        query,
+        parameters,
+      );
 
       return {
         fractionSanction,
         limit,
         offset,
       };
-
     } catch (error) {
       handleDbExceptions(error, this.logger);
     }
@@ -1387,13 +1461,14 @@ export class IncidentService {
    * @returns Object with the numeric `total`.
    */
   async findAllFractionSanctionTotal(filterDto: FilterDto) {
-
     try {
       const { typeFractionId } = filterDto;
 
-      const { tableNameIncident, tableNameFraction } = await this._resolveSanctionTables(filterDto);
+      const { tableNameIncident, tableNameFraction } =
+        await this._resolveSanctionTables(filterDto);
 
-      const { parameters, conditions } = this._buildConditionsAndParametersPg(filterDto);
+      const { parameters, conditions } =
+        this._buildConditionsAndParametersPg(filterDto);
 
       if (typeFractionId) {
         parameters.push(typeFractionId);
@@ -1415,7 +1490,10 @@ export class IncidentService {
         query += ' WHERE ' + conditions.join(' AND ');
       }
 
-      const fractionSanction = await this.incidentRepository.query(query, parameters);
+      const fractionSanction = await this.incidentRepository.query(
+        query,
+        parameters,
+      );
 
       let total = 0;
       if (fractionSanction.length > 0) {
@@ -1423,9 +1501,8 @@ export class IncidentService {
       }
 
       return {
-        total
+        total,
       };
-
     } catch (error) {
       handleDbExceptions(error, this.logger);
     }
@@ -1455,9 +1532,13 @@ export class IncidentService {
     if (keys.length === 0) return null;
 
     const params: any[] = [];
-    const setClauses = keys.map(key => {
+    const setClauses = keys.map((key) => {
       const value = fields[key];
-      params.push(value !== null && typeof value === 'object' ? JSON.stringify(value) : value);
+      params.push(
+        value !== null && typeof value === 'object'
+          ? JSON.stringify(value)
+          : value,
+      );
       return `"${key}" = $${params.length}`;
     });
     params.push(id);
@@ -1494,7 +1575,10 @@ export class IncidentService {
     ) AS "exists";
   `;
 
-    const result = await this.incidentRepository.query(query, [tableSchema, tableName2]);
+    const result = await this.incidentRepository.query(query, [
+      tableSchema,
+      tableName2,
+    ]);
     return !!result[0]?.exists;
   }
 
@@ -1526,9 +1610,11 @@ export class IncidentService {
     try {
       const { typeFractionId } = filterDto;
 
-      const { tableNameIncident, tableNameFraction } = await this._resolveSanctionTables(filterDto);
+      const { tableNameIncident, tableNameFraction } =
+        await this._resolveSanctionTables(filterDto);
 
-      const { parameters, conditions } = this._buildConditionsAndParametersPg(filterDto);
+      const { parameters, conditions } =
+        this._buildConditionsAndParametersPg(filterDto);
 
       if (typeFractionId) {
         parameters.push(typeFractionId);
@@ -1552,12 +1638,14 @@ export class IncidentService {
         query += ' WHERE ' + conditions.join(' AND ');
       }
 
-      const fractionSanction = await this.incidentRepository.query(query, parameters);
+      const fractionSanction = await this.incidentRepository.query(
+        query,
+        parameters,
+      );
 
       return {
-        fractionSanction
+        fractionSanction,
       };
-
     } catch (error) {
       handleDbExceptions(error, this.logger);
     }
@@ -1585,9 +1673,11 @@ export class IncidentService {
   async findAllStatisticsFractionSanction(filterDto: IncidentFilterDto) {
     const { typeFractionId } = filterDto;
     try {
-      const { tableNameIncident, tableNameFraction } = await this._resolveSanctionTables(filterDto);
+      const { tableNameIncident, tableNameFraction } =
+        await this._resolveSanctionTables(filterDto);
 
-      const { parameters, conditions } = this._buildConditionsAndParametersPg(filterDto);
+      const { parameters, conditions } =
+        this._buildConditionsAndParametersPg(filterDto);
 
       if (typeFractionId) {
         parameters.push(typeFractionId);
@@ -1622,12 +1712,14 @@ export class IncidentService {
 
       query += ' GROUP BY i."zoneId" , i."blockId" , fraction.time';
 
-      const fractionSanction = await this.incidentRepository.query(query, parameters);
+      const fractionSanction = await this.incidentRepository.query(
+        query,
+        parameters,
+      );
 
       return {
-        fractionSanction
-      }
-
+        fractionSanction,
+      };
     } catch (error) {
       handleDbExceptions(error, this.logger);
     }
@@ -1650,27 +1742,41 @@ export class IncidentService {
    * @returns Object with the synchronized `incidents` array, `errorCode`, and
    *   a status `message`.
    */
-  async findAndSincronizeToEmit(userId: number, idDevice: string, filterDto: IncidentFilterDto, isTransacional: number) {
+  async findAndSincronizeToEmit(
+    userId: number,
+    idDevice: string,
+    filterDto: IncidentFilterDto,
+    isTransacional: number,
+  ) {
     const { year, month } = filterDto;
     let table = 'public.incident';
-    let isHistorical = false;
 
     if (year && month) {
       if (!this._isValidYearMonth(year, month)) {
-        return { incidents: [], errorCode: ErrorCode.NONE, message: 'No se encontro la tabla' };
+        return {
+          incidents: [],
+          errorCode: ErrorCode.NONE,
+          message: 'No se encontro la tabla',
+        };
       }
       const monthString = month.toString().padStart(2, '0');
       const historicalTable = `history."${year}_${monthString}_incident"`;
 
       if (await this._tableExists(historicalTable)) {
         table = historicalTable;
-        isHistorical = true;
       } else {
-        return { incidents: [], errorCode: ErrorCode.NONE, message: 'No se encontro la tabla' };
+        return {
+          incidents: [],
+          errorCode: ErrorCode.NONE,
+          message: 'No se encontro la tabla',
+        };
       }
     }
 
-    const { conditions, parameters } = this._buildConditionsAndParametersPg(filterDto, [IncidentStatus.SUPPLIED, IncidentStatus.PAYED]);
+    const { conditions, parameters } = this._buildConditionsAndParametersPg(
+      filterDto,
+      [IncidentStatus.SUPPLIED, IncidentStatus.PAYED],
+    );
 
     let queryInfo = `
     SELECT
@@ -1688,7 +1794,10 @@ export class IncidentService {
     queryInfo += ';';
 
     try {
-      const incidents = await this.incidentRepository.query(queryInfo, parameters);
+      const incidents = await this.incidentRepository.query(
+        queryInfo,
+        parameters,
+      );
 
       if (incidents.length === 0)
         return { errorCode: ErrorCode.NOT_FOUND, incidents };
@@ -1696,24 +1805,29 @@ export class IncidentService {
       const incidentsSupplied = [];
       let messageInfo = 'Incidencias sincronizadas correctamente';
       for (const incident of incidents) {
-
-        const validateIncident = await this.commonGimService.findObligationsByCitation(userId, idDevice, incident.nroTicket, incident.identityCard);
-
-        if (validateIncident.errorCode === ErrorCode.NONE) {
-
-          const validateStatus = await this.commonGimService.validateStatusWithGim(
+        const validateIncident =
+          await this.commonGimService.findObligationsByCitation(
             userId,
             idDevice,
-            validateIncident.data,
-            incident.id,
-            incident,
-            isTransacional,
+            incident.nroTicket,
+            incident.identityCard,
           );
+
+        if (validateIncident.errorCode === ErrorCode.NONE) {
+          const validateStatus =
+            await this.commonGimService.validateStatusWithGim(
+              userId,
+              idDevice,
+              validateIncident.data,
+              incident.id,
+              incident,
+              isTransacional,
+            );
           if (validateStatus.errorCode !== ErrorCode.NONE) {
             return {
               errorCode: ErrorCode.NOT_FOUND,
               message: validateStatus.message,
-              data: validateStatus.data
+              data: validateStatus.data,
             };
           }
 
@@ -1727,7 +1841,11 @@ export class IncidentService {
         }
       }
 
-      return { incidents: incidentsSupplied, errorCode: ErrorCode.NONE, message: messageInfo };
+      return {
+        incidents: incidentsSupplied,
+        errorCode: ErrorCode.NONE,
+        message: messageInfo,
+      };
     } catch (error) {
       handleDbExceptions(error, this.logger);
     }
@@ -1762,9 +1880,11 @@ export class IncidentService {
     queryInfo += ` ORDER BY i."updatedAt" DESC LIMIT $1 OFFSET $2;`;
 
     try {
-      const incidents = await this.incidentRepository.query(queryInfo, [safeLimit, safeOffset]);
-      return { errorCode: ErrorCode.NONE, incidents }
-
+      const incidents = await this.incidentRepository.query(queryInfo, [
+        safeLimit,
+        safeOffset,
+      ]);
+      return { errorCode: ErrorCode.NONE, incidents };
     } catch (error) {
       handleDbExceptions(error, this.logger);
     }
@@ -1797,28 +1917,49 @@ export class IncidentService {
    * @returns Object with the updated `incident`, `errorCode`, and an optional
    *   `message` on failure.
    */
-  async advanceNextProcess(userId: number, idDevice: string, incidentDto: IncidentDto, isTransacional: number) {
+  async advanceNextProcess(
+    userId: number,
+    idDevice: string,
+    incidentDto: IncidentDto,
+    isTransacional: number,
+  ) {
     if (!incidentDto.identityCard) {
-      return { errorCode: ErrorCode.NOT_FOUND, message: 'La incidencia no tiene una cedula ruc o pasaporte vinculado' };
+      return {
+        errorCode: ErrorCode.NOT_FOUND,
+        message: 'La incidencia no tiene una cedula ruc o pasaporte vinculado',
+      };
     }
 
     if (!incidentDto.nroTicket) {
-      return { errorCode: ErrorCode.NOT_FOUND, message: 'La incidencia no tiene un numero de boleta vinculado' };
+      return {
+        errorCode: ErrorCode.NOT_FOUND,
+        message: 'La incidencia no tiene un numero de boleta vinculado',
+      };
     }
 
-    const validateIncident = await this.commonGimService.findObligationsByCitation(userId, idDevice, incidentDto.nroTicket, incidentDto.identityCard);
+    const validateIncident =
+      await this.commonGimService.findObligationsByCitation(
+        userId,
+        idDevice,
+        incidentDto.nroTicket,
+        incidentDto.identityCard,
+      );
 
     let internalState = incidentDto.internalState;
 
     // Workflow transition: each handler advances to the next department.
     // REVENUE_DEPARTMENT is terminal and stays in place.
-    if (incidentDto.internalState === InternalStateIncident.SIMERT_ADMINISTRATION) {
+    if (
+      incidentDto.internalState === InternalStateIncident.SIMERT_ADMINISTRATION
+    ) {
       internalState = InternalStateIncident.TRAFFIC_POLICE_STATION;
-    }
-    else if (incidentDto.internalState === InternalStateIncident.TRAFFIC_POLICE_STATION) {
+    } else if (
+      incidentDto.internalState === InternalStateIncident.TRAFFIC_POLICE_STATION
+    ) {
       internalState = InternalStateIncident.REVENUE_DEPARTMENT;
-    }
-    else if (incidentDto.internalState === InternalStateIncident.REVENUE_DEPARTMENT) {
+    } else if (
+      incidentDto.internalState === InternalStateIncident.REVENUE_DEPARTMENT
+    ) {
       internalState = InternalStateIncident.REVENUE_DEPARTMENT;
     }
 
@@ -1836,10 +1977,14 @@ export class IncidentService {
     // Case 1: transactional flag set — try main `public.incident` table first,
     // then fall through to historical if not found there.
     if (isTransacional) {
-      const exists = await this.incidentRepository.findOne({ where: { id: incidentId } });
+      const exists = await this.incidentRepository.findOne({
+        where: { id: incidentId },
+      });
       if (exists) {
         await this.incidentRepository.update(incidentId, fieldsToUpdate);
-        const incident = await this.incidentRepository.findOne({ where: { id: incidentId } });
+        const incident = await this.incidentRepository.findOne({
+          where: { id: incidentId },
+        });
 
         this.loggerService.saveIncidentLogger({
           id: incidentId,
@@ -1859,7 +2004,11 @@ export class IncidentService {
     // Path C (Case 1 fallback only): last resort — no date available at all.
     let table: string;
 
-    if (incidentDto.year && incidentDto.month && this._isValidYearMonth(incidentDto.year, incidentDto.month)) {
+    if (
+      incidentDto.year &&
+      incidentDto.month &&
+      this._isValidYearMonth(incidentDto.year, incidentDto.month)
+    ) {
       const monthStr = String(incidentDto.month).padStart(2, '0');
       table = `history."${incidentDto.year}_${monthStr}_incident"`;
     } else if (incidentDto.createdAt) {
@@ -1881,7 +2030,11 @@ export class IncidentService {
       });
 
       if (!current?.createdAt) {
-        return { incident: null, errorCode: ErrorCode.NOT_FOUND, message: 'No se encontro la incidencia para actualizar' };
+        return {
+          incident: null,
+          errorCode: ErrorCode.NOT_FOUND,
+          message: 'No se encontro la incidencia para actualizar',
+        };
       }
 
       const date = new Date(current.createdAt);
@@ -1892,13 +2045,25 @@ export class IncidentService {
 
     const exists = await this._tableExists(table);
     if (!exists) {
-      return { incident: null, errorCode: ErrorCode.NOT_FOUND, message: 'No se encontro la incidencia para actualizar' };
+      return {
+        incident: null,
+        errorCode: ErrorCode.NOT_FOUND,
+        message: 'No se encontro la incidencia para actualizar',
+      };
     }
 
-    const incident = await this._updateHistoricalRow(table, fieldsToUpdate, incidentId);
+    const incident = await this._updateHistoricalRow(
+      table,
+      fieldsToUpdate,
+      incidentId,
+    );
 
     if (!incident) {
-      return { incident: null, errorCode: ErrorCode.NOT_FOUND, message: 'No se encontro la incidencia para actualizar' };
+      return {
+        incident: null,
+        errorCode: ErrorCode.NOT_FOUND,
+        message: 'No se encontro la incidencia para actualizar',
+      };
     }
 
     this.loggerService.saveIncidentLogger({
@@ -1909,7 +2074,5 @@ export class IncidentService {
     });
 
     return { incident, errorCode: ErrorCode.NONE };
-
   }
-
 }

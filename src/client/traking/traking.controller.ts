@@ -1,5 +1,19 @@
-import { Body, Controller, Get, Param, ParseIntPipe, ParseUUIDPipe, Patch, Query } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseIntPipe,
+  ParseUUIDPipe,
+  Patch,
+  Query,
+} from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiQuery,
+  ApiTags,
+} from '@nestjs/swagger';
 
 import { PlotLocationDto } from './dto/plot-location.dto';
 import { TrakingService } from './traking.service';
@@ -12,9 +26,20 @@ import { TrakingService } from './traking.service';
 @ApiBearerAuth('keycloak')
 @Controller('client/traking')
 export class TrakingController {
-  constructor(private readonly trakingService: TrakingService) { }
+  /**
+   *
+   * @param trakingService
+   */
+  constructor(private readonly trakingService: TrakingService) {}
 
-  @ApiOperation({ summary: 'Plot (record) the current user location (tracking_controller DB)' })
+  /**
+   *
+   * @param userId
+   * @param plotLocationDto
+   */
+  @ApiOperation({
+    summary: 'Plot (record) the current user location (tracking_controller DB)',
+  })
   @Patch('p/:userId')
   plot(
     @Param('userId', ParseIntPipe) userId: number,
@@ -23,25 +48,47 @@ export class TrakingController {
     return this.trakingService.plot(userId, plotLocationDto);
   }
 
+  /**
+   *
+   * @param userId
+   * @param _idDevice
+   */
   @ApiOperation({ summary: 'Get full location tracking history for a user' })
   @Get('tracking-by-user-id/:userId/:idDevice/:version')
   getTrackingByUserId(
     @Param('userId', ParseIntPipe) userId: number,
-    @Param('idDevice', ParseUUIDPipe) idDevice: string,
+    @Param('idDevice', ParseUUIDPipe) _idDevice: string,
   ) {
     return this.trakingService.getTrackingByUserId(userId);
   }
 
-  @ApiOperation({ summary: 'Get latest location for multiple users (comma-separated userIds)' })
+  /**
+   *
+   * @param userIds
+   * @param _idDevice
+   */
+  @ApiOperation({
+    summary: 'Get latest location for multiple users (comma-separated userIds)',
+  })
   @Get('trackings/:userIds/:idDevice/:version')
   getTrackings(
     @Param('userIds') userIds: string,
-    @Param('idDevice', ParseUUIDPipe) idDevice: string
+    @Param('idDevice', ParseUUIDPipe) _idDevice: string,
   ) {
     return this.trakingService.getTrackings(userIds);
   }
 
-  @ApiOperation({ summary: 'Get all tracking records for a user within a date range (from/to)' })
+  /**
+   *
+   * @param userId
+   * @param idDevice
+   * @param fromString
+   * @param toString
+   */
+  @ApiOperation({
+    summary:
+      'Get all tracking records for a user within a date range (from/to)',
+  })
   @Get('all-tracking/:userId/:idDevice/:from/:to/:version')
   getAllTracking(
     @Param('userId', ParseIntPipe) userId: number,
@@ -65,10 +112,18 @@ export class TrakingController {
    *
    * Kept separate from `all-tracking` so production traffic using the
    * existing route is not affected.
+   * @param userId
+   * @param idDevice
+   * @param fromString
+   * @param toString
+   * @param year
+   * @param month
+   * @param limitRaw
+   * @param offsetRaw
    */
   @ApiOperation({
     summary:
-      'Get tracking records for a user within a SINGLE monthly partition (year+month required). Supports optional limit/offset pagination for the table view.'
+      'Get tracking records for a user within a SINGLE monthly partition (year+month required). Supports optional limit/offset pagination for the table view.',
   })
   @ApiQuery({ name: 'year', required: true, type: Number })
   @ApiQuery({ name: 'month', required: true, type: Number })
@@ -88,8 +143,17 @@ export class TrakingController {
     const from = new Date(fromString);
     const to = new Date(toString);
     const limit = limitRaw !== undefined ? parseInt(limitRaw, 10) : undefined;
-    const offset = offsetRaw !== undefined ? parseInt(offsetRaw, 10) : undefined;
-    return this.trakingService.getAllTrackingHistory(userId, from, to, year, month, limit, offset);
+    const offset =
+      offsetRaw !== undefined ? parseInt(offsetRaw, 10) : undefined;
+    return this.trakingService.getAllTrackingHistory(
+      userId,
+      from,
+      to,
+      year,
+      month,
+      limit,
+      offset,
+    );
   }
 
   /**
@@ -97,10 +161,17 @@ export class TrakingController {
    * lat/lng (no metadata, no JSON columns) and applies server-side
    * downsampling so the browser doesn't choke when the partition has
    * tens of thousands of points.
+   * @param userId
+   * @param idDevice
+   * @param fromString
+   * @param toString
+   * @param year
+   * @param month
+   * @param maxPointsRaw
    */
   @ApiOperation({
     summary:
-      'Get the downsampled lat/lng polyline for a user in a single monthly partition'
+      'Get the downsampled lat/lng polyline for a user in a single monthly partition',
   })
   @ApiQuery({ name: 'year', required: true, type: Number })
   @ApiQuery({ name: 'month', required: true, type: Number })
@@ -119,7 +190,13 @@ export class TrakingController {
     const to = new Date(toString);
     const maxPoints =
       maxPointsRaw !== undefined ? parseInt(maxPointsRaw, 10) : undefined;
-    return this.trakingService.getTrackingPolyline(userId, from, to, year, month, maxPoints);
+    return this.trakingService.getTrackingPolyline(
+      userId,
+      from,
+      to,
+      year,
+      month,
+      maxPoints,
+    );
   }
-
 }

@@ -22,6 +22,11 @@ import { Catalog } from './entities/catalog.entity';
 export class CatalogService {
   private readonly logger = new Logger('CatalogService');
 
+  /**
+   *
+   * @param catalogRepository
+   * @param loggerService
+   */
   constructor(
     @InjectRepository(Catalog)
     private readonly catalogRepository: Repository<Catalog>,
@@ -83,21 +88,36 @@ export class CatalogService {
           'c.description AS "description"',
           'c.isActivated AS "isActivated"',
         ])
-        .addSelect(`TO_CHAR(c."createdAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`, 'createdAt')
-        .addSelect(`TO_CHAR(c."updatedAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`, 'updatedAt')
+        .addSelect(
+          `TO_CHAR(c."createdAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`,
+          'createdAt',
+        )
+        .addSelect(
+          `TO_CHAR(c."updatedAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`,
+          'updatedAt',
+        )
         .orderBy('c.id', 'DESC');
 
       if (search) {
-        query.andWhere('(c.name ILIKE :search OR c.description ILIKE :search)', {
-          search: `%${search}%`,
-        });
+        query.andWhere(
+          '(c.name ILIKE :search OR c.description ILIKE :search)',
+          {
+            search: `%${search}%`,
+          },
+        );
       }
 
       const total = await query.getCount();
 
       const catalog = await query.limit(take).offset(skip).getRawMany();
 
-      return { errorCode: ErrorCode.NONE, catalog, total, offset: skip, limit: take };
+      return {
+        errorCode: ErrorCode.NONE,
+        catalog,
+        total,
+        offset: skip,
+        limit: take,
+      };
     } catch (error) {
       handleDbExceptions(error, this.logger);
     }
@@ -115,7 +135,10 @@ export class CatalogService {
    */
   async update(id: number, userId: number, updateCatalogDto: UpdateCatalogDto) {
     try {
-      const catalog = await this.catalogRepository.preload({ id, ...updateCatalogDto });
+      const catalog = await this.catalogRepository.preload({
+        id,
+        ...updateCatalogDto,
+      });
       if (catalog) {
         await this.catalogRepository.save(catalog);
         this.loggerService.saveCatalogLogger({

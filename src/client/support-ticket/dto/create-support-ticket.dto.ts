@@ -14,6 +14,9 @@ import { SupportRequestType } from 'src/common/glob/type/support_request_type';
 import { SupportTicketStatus } from 'src/common/glob/type/support_ticket_status';
 import { SupportTicketType } from 'src/common/glob/type/support_ticket_type';
 
+/**
+ *
+ */
 export class CreateSupportTicketDto {
   @IsOptional()
   @IsNumber()

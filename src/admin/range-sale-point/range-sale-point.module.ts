@@ -7,14 +7,17 @@ import { RangeSalePoint } from './entities/range-sale-point.entity';
 import { RangeSalePointController } from './range-sale-point.controller';
 import { RangeSalePointService } from './range-sale-point.service';
 
+/**
+ *
+ */
 @Module({
-    controllers: [RangeSalePointController],
-    providers: [RangeSalePointService],
-    imports: [
-        TypeOrmModule.forFeature([RangeSalePoint]),
-        AuthModule,
-        LoggerModule
-    ],
-    exports: [RangeSalePointService]
+  controllers: [RangeSalePointController],
+  providers: [RangeSalePointService],
+  imports: [
+    TypeOrmModule.forFeature([RangeSalePoint]),
+    AuthModule,
+    LoggerModule,
+  ],
+  exports: [RangeSalePointService],
 })
-export class RangeSalePointModule { }
+export class RangeSalePointModule {}

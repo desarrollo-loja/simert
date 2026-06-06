@@ -1,10 +1,4 @@
-import {
-  Controller,
-  Get,
-  Param,
-  ParseIntPipe,
-  Query,
-} from '@nestjs/common';
+import { Controller, Get, Param, ParseIntPipe, Query } from '@nestjs/common';
 import {
   ApiExtraModels,
   ApiOperation,
@@ -14,9 +8,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 
-import {
-  OccupancySummaryResponseDto,
-} from './dto/availability-response.dto';
+import { OccupancySummaryResponseDto } from './dto/availability-response.dto';
 import {
   SectorAvailabilityResponseDto,
   ZoneAvailabilityResponseDto,
@@ -56,10 +48,18 @@ import { PublicService } from './public.service';
 )
 @Controller('public')
 export class PublicController {
+  /**
+   *
+   * @param publicService
+   */
   constructor(private readonly publicService: PublicService) {}
 
   // ─── Zones ───────────────────────────────────────────────────────
 
+  /**
+   *
+   * @param filter
+   */
   @Get('zones')
   @ApiOperation({
     summary: 'List all active zones',
@@ -68,9 +68,24 @@ export class PublicController {
       'Supports optional name search via the `search` query parameter. ' +
       'Use this endpoint to populate zone selectors, dropdowns, or list views.',
   })
-  @ApiQuery({ name: 'search', required: false, description: 'Case-insensitive search on zone name', example: 'centro' })
-  @ApiQuery({ name: 'limit', required: false, description: 'Max records to return (1-100, default 50)', example: 20 })
-  @ApiQuery({ name: 'offset', required: false, description: 'Records to skip for pagination (default 0)', example: 0 })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    description: 'Case-insensitive search on zone name',
+    example: 'centro',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    description: 'Max records to return (1-100, default 50)',
+    example: 20,
+  })
+  @ApiQuery({
+    name: 'offset',
+    required: false,
+    description: 'Records to skip for pagination (default 0)',
+    example: 0,
+  })
   @ApiResponse({
     status: 200,
     description: 'List of active zones with total count',
@@ -80,6 +95,9 @@ export class PublicController {
     return this.publicService.findAllZones(filter);
   }
 
+  /**
+   *
+   */
   @Get('zones/availability/summary')
   @ApiOperation({
     summary: 'General occupancy summary',
@@ -97,6 +115,10 @@ export class PublicController {
     return this.publicService.findOccupancySummary();
   }
 
+  /**
+   *
+   * @param id
+   */
   @Get('zones/:id')
   @ApiOperation({
     summary: 'Get zone detail',
@@ -115,6 +137,10 @@ export class PublicController {
     return this.publicService.findZoneById(id);
   }
 
+  /**
+   *
+   * @param id
+   */
   @Get('zones/:id/availability')
   @ApiOperation({
     summary: 'Zone availability with sector breakdown',
@@ -136,6 +162,10 @@ export class PublicController {
 
   // ─── Sectors ─────────────────────────────────────────────────────
 
+  /**
+   *
+   * @param filter
+   */
   @Get('sectors')
   @ApiOperation({
     summary: 'List all active sectors',
@@ -146,10 +176,30 @@ export class PublicController {
       'Each sector includes timing configuration (time limit, grace period, fraction duration), ' +
       'location data (neighborhood, streets), and display properties.',
   })
-  @ApiQuery({ name: 'search', required: false, description: 'Case-insensitive search on sector name', example: 'parque' })
-  @ApiQuery({ name: 'zoneId', required: false, description: 'Filter by parent zone ID', example: 1 })
-  @ApiQuery({ name: 'limit', required: false, description: 'Max records to return (1-100, default 50)', example: 20 })
-  @ApiQuery({ name: 'offset', required: false, description: 'Records to skip for pagination (default 0)', example: 0 })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    description: 'Case-insensitive search on sector name',
+    example: 'parque',
+  })
+  @ApiQuery({
+    name: 'zoneId',
+    required: false,
+    description: 'Filter by parent zone ID',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    description: 'Max records to return (1-100, default 50)',
+    example: 20,
+  })
+  @ApiQuery({
+    name: 'offset',
+    required: false,
+    description: 'Records to skip for pagination (default 0)',
+    example: 0,
+  })
   @ApiResponse({
     status: 200,
     description: 'List of active sectors with total count',
@@ -159,6 +209,10 @@ export class PublicController {
     return this.publicService.findAllSectors(filter);
   }
 
+  /**
+   *
+   * @param id
+   */
   @Get('sectors/:id')
   @ApiOperation({
     summary: 'Get sector detail',
@@ -178,6 +232,10 @@ export class PublicController {
     return this.publicService.findSectorById(id);
   }
 
+  /**
+   *
+   * @param id
+   */
   @Get('sectors/:id/schedules')
   @ApiOperation({
     summary: 'Get sector operating schedules',
@@ -197,6 +255,10 @@ export class PublicController {
     return this.publicService.findSchedulesBySector(id);
   }
 
+  /**
+   *
+   * @param id
+   */
   @Get('sectors/:id/availability')
   @ApiOperation({
     summary: 'Sector slot availability',
@@ -218,6 +280,10 @@ export class PublicController {
 
   // ─── Map ─────────────────────────────────────────────────────────
 
+  /**
+   *
+   * @param filter
+   */
   @Get('map')
   @ApiOperation({
     summary: 'Map-optimized zone and sector data',
@@ -228,11 +294,22 @@ export class PublicController {
       'ready for direct use with mapping libraries (Google Maps, Leaflet, Mapbox). ' +
       'Supports filtering by zone ID or name search.',
   })
-  @ApiQuery({ name: 'search', required: false, description: 'Case-insensitive search on zone name', example: 'centro' })
-  @ApiQuery({ name: 'zoneId', required: false, description: 'Filter to a specific zone', example: 1 })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    description: 'Case-insensitive search on zone name',
+    example: 'centro',
+  })
+  @ApiQuery({
+    name: 'zoneId',
+    required: false,
+    description: 'Filter to a specific zone',
+    example: 1,
+  })
   @ApiResponse({
     status: 200,
-    description: 'Zones with sectors, geofences and availability for map rendering',
+    description:
+      'Zones with sectors, geofences and availability for map rendering',
     type: MapDataResponseDto,
   })
   findMapData(@Query() filter: PublicFilterDto) {

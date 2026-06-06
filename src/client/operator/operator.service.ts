@@ -1,4 +1,9 @@
-import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { BlockOperator } from 'src/admin/block_operator/entities/block_operator.entity';
 import { CheckboxUser } from 'src/admin/checkbox-user/entities/checkbox-user.entity';
@@ -25,7 +30,10 @@ import { StatusRange } from 'src/common/glob/status/status_range';
 import { StatusSlot } from 'src/common/glob/status/status_slot';
 import { SystemConfigKey } from 'src/common/glob/system-config-key';
 import { TypeFraction } from 'src/common/glob/type/type_fraction';
-import { IncidentCategory, IncidentStatus } from 'src/common/glob/type/type_incident';
+import {
+  IncidentCategory,
+  IncidentStatus,
+} from 'src/common/glob/type/type_incident';
 import { TypeNotification } from 'src/common/glob/type/type_notification';
 import { OptionalDataInterface } from 'src/common/intefaces/optional-data.interface';
 import { DataSource, Repository } from 'typeorm';
@@ -44,16 +52,50 @@ import { IncrementOperatorDto } from './dto/increment-operator.dto';
  */
 @Injectable()
 export class OperatorService {
-
   private readonly logger = new Logger('OperatorService');
 
   private readonly columsFraction: string[] = [
-    'f.id', 'f.typeFraction', 'f.userId', 'f.time', 'f.card', 'f.plate', 'f.tint', 'f.alias', 'f.image', 'f.transactionId', 'f.registerAt', 'f.departureDate', 'f.optionalData',
+    'f.id',
+    'f.typeFraction',
+    'f.userId',
+    'f.time',
+    'f.card',
+    'f.plate',
+    'f.tint',
+    'f.alias',
+    'f.image',
+    'f.transactionId',
+    'f.registerAt',
+    'f.departureDate',
+    'f.optionalData',
     'status',
-    'block.name', 'block.neighborhood', 'block.mainStreet', 'block.sideStreet', 'block.timePerFraction',
-    'slot.slot', 'slot.status'
+    'block.name',
+    'block.neighborhood',
+    'block.mainStreet',
+    'block.sideStreet',
+    'block.timePerFraction',
+    'slot.slot',
+    'slot.status',
   ];
 
+  /**
+   *
+   * @param fractionRepository
+   * @param blockOperatorRepository
+   * @param slotRepository
+   * @param fractionSatusRepository
+   * @param physicRepository
+   * @param zoneRepository
+   * @param rangeRepository
+   * @param checkboxUserRepository
+   * @param incidentRepository
+   * @param incidentTypeRepository
+   * @param commonService
+   * @param commonCacheService
+   * @param dinardapAntService
+   * @param dataSource
+   * @param gimService
+   */
   constructor(
     @InjectRepository(Fraction)
     private readonly fractionRepository: Repository<Fraction>,
@@ -95,13 +137,22 @@ export class OperatorService {
     private readonly dataSource: DataSource,
 
     private readonly gimService: GimService,
+  ) {}
 
-  ) { }
-
-  async createIncident(userId: number, idDevice: string, createIncidentDto: CreateIncidentDto) {
+  /**
+   *
+   * @param userId
+   * @param idDevice
+   * @param createIncidentDto
+   */
+  async createIncident(
+    userId: number,
+    idDevice: string,
+    createIncidentDto: CreateIncidentDto,
+  ) {
     try {
-
-      const { fractionId, incidentCategory, incidentTypeId } = createIncidentDto;
+      const { fractionId, incidentCategory, incidentTypeId } =
+        createIncidentDto;
 
       const plate = (createIncidentDto.plate ?? '').trim();
       let antEmailClient: string = null;
@@ -109,7 +160,8 @@ export class OperatorService {
       let antIdentityCard: string = null;
 
       if (plate) {
-        const antResult = await this.dinardapAntService.getUserDataByPlateAnt(plate);
+        const antResult =
+          await this.dinardapAntService.getUserDataByPlateAnt(plate);
         if (antResult.errorCode === ErrorCode.NONE) {
           antEmailClient = antResult.data.email || null;
           antFullNameClient = antResult.data.fullName || null;
@@ -129,8 +181,14 @@ export class OperatorService {
         }
 
         const salaryBasic = await this.commonCacheService.getSalary();
-        amount = ((Number(queryTypeIncident.percentage) * salaryBasic.salary) / 100).toFixed(2);
-        optionalData.push({ key: SystemConfigKey.BASIC_SALARY, value: salaryBasic.salary });
+        amount = (
+          (Number(queryTypeIncident.percentage) * salaryBasic.salary) /
+          100
+        ).toFixed(2);
+        optionalData.push({
+          key: SystemConfigKey.BASIC_SALARY,
+          value: salaryBasic.salary,
+        });
       }
 
       const register = this.commonService.getDate();
@@ -167,8 +225,16 @@ export class OperatorService {
           status: { id: StatusFraction.SANCTIONED },
         });
 
-        await this._saveSatus(queryFraction, StatusFraction.SANCTIONED, StatusMoment.NOTIFIED);
-        await this._notifyChageStatus(queryFraction.userId, StatusFraction.SANCTIONED, fractionId);
+        await this._saveSatus(
+          queryFraction,
+          StatusFraction.SANCTIONED,
+          StatusMoment.NOTIFIED,
+        );
+        await this._notifyChageStatus(
+          queryFraction.userId,
+          StatusFraction.SANCTIONED,
+          fractionId,
+        );
 
         await this.slotRepository.update(queryFraction.slot.id, {
           status: StatusSlot.SANCTIONED,
@@ -181,15 +247,26 @@ export class OperatorService {
     }
   }
 
+  /**
+   *
+   * @param card
+   */
   async findAllPhysic(card: string) {
     try {
-
-      const queryVerifyTiraje = await this.rangeRepository.createQueryBuilder('r')
+      const queryVerifyTiraje = await this.rangeRepository
+        .createQueryBuilder('r')
         .select(['r.id', 'r.from', 'r.to'])
-        .where('CAST(:card AS bigint) BETWEEN CAST(r.from AS bigint) AND CAST(r.to AS bigint)', { card })
+        .where(
+          'CAST(:card AS bigint) BETWEEN CAST(r.from AS bigint) AND CAST(r.to AS bigint)',
+          { card },
+        )
         .andWhere('r.isActivated = :isActivated', { isActivated: true })
-        .andWhere('r.status NOT IN (:...status)', { status: [StatusRange.CLOSED, StatusRange.DEPLETED] })
-        .andWhere('r.authorizationDate <= :currentDate', { currentDate: new Date() })
+        .andWhere('r.status NOT IN (:...status)', {
+          status: [StatusRange.CLOSED, StatusRange.DEPLETED],
+        })
+        .andWhere('r.authorizationDate <= :currentDate', {
+          currentDate: new Date(),
+        })
         .orderBy('r.id', 'DESC')
         .getOne();
 
@@ -197,9 +274,13 @@ export class OperatorService {
         return { errorCode: ErrorCode.NOT_FOUND, physic: [], range: false };
       }
 
-      const physicResult = await this.physicRepository.createQueryBuilder('p')
+      const physicResult = await this.physicRepository
+        .createQueryBuilder('p')
         .select(['p.id', 'p.zoneId', 'p.checkboxes', 'p.timeByBlock'])
-        .addSelect(`TO_CHAR(p."registerAt", 'YYYY-MM-DD HH24:MI:SS')`, 'p_registerAt')
+        .addSelect(
+          `TO_CHAR(p."registerAt", 'YYYY-MM-DD HH24:MI:SS')`,
+          'p_registerAt',
+        )
         .where('p.card = :card', { card })
         .getRawAndEntities();
 
@@ -216,21 +297,49 @@ export class OperatorService {
     }
   }
 
-  async incrementTime(idDevice: string, incrementOperatorDto: IncrementOperatorDto) {
-    const { userId, transactionId, fractionId, checkboxes, obsolete, physicId } = incrementOperatorDto;
+  /**
+   *
+   * @param idDevice
+   * @param incrementOperatorDto
+   */
+  async incrementTime(
+    idDevice: string,
+    incrementOperatorDto: IncrementOperatorDto,
+  ) {
+    const {
+      userId,
+      transactionId,
+      fractionId,
+      checkboxes,
+      obsolete,
+      physicId,
+    } = incrementOperatorDto;
     const register = this.commonService.getDate();
 
-    const fractionCheck = await this.fractionRepository.findOne({ where: { userId, transactionId } });
+    const fractionCheck = await this.fractionRepository.findOne({
+      where: { userId, transactionId },
+    });
 
     if (fractionCheck) {
       return { errorCode: ErrorCode.TRANSACTION_REPIT };
     }
 
-    const fractionOld = await this.fractionRepository.createQueryBuilder('f')
-      .select(['f.id', 'f.time', 'f.typeFraction', 'f.registerAt', 'slot.id', 'slot.slot', 'block.id', 'zone.id', 'block.timePerFraction'])
-      .innerJoin("f.block", "block")
-      .innerJoin("f.zone", "zone")
-      .innerJoin("f.slot", "slot")
+    const fractionOld = await this.fractionRepository
+      .createQueryBuilder('f')
+      .select([
+        'f.id',
+        'f.time',
+        'f.typeFraction',
+        'f.registerAt',
+        'slot.id',
+        'slot.slot',
+        'block.id',
+        'zone.id',
+        'block.timePerFraction',
+      ])
+      .innerJoin('f.block', 'block')
+      .innerJoin('f.zone', 'zone')
+      .innerJoin('f.slot', 'slot')
       .where('f.id = :fractionId', { fractionId })
       .getOne();
 
@@ -241,7 +350,6 @@ export class OperatorService {
     const queryRunner = this.dataSource.createQueryRunner();
 
     try {
-
       await queryRunner.connect();
       await queryRunner.startTransaction();
 
@@ -262,9 +370,17 @@ export class OperatorService {
       await queryRunner.manager.save(fraction);
       await queryRunner.commitTransaction();
 
-      this._saveSatus(fractionOld, StatusFraction.FINISHED_BY_INCREMENT, StatusMoment.NOTIFIED);
+      this._saveSatus(
+        fractionOld,
+        StatusFraction.FINISHED_BY_INCREMENT,
+        StatusMoment.NOTIFIED,
+      );
 
-      this._saveSatus(fraction, StatusFraction.INCREMENTED, StatusMoment.NOTIFIED);
+      this._saveSatus(
+        fraction,
+        StatusFraction.INCREMENTED,
+        StatusMoment.NOTIFIED,
+      );
       this._notifyChageStatus(userId, StatusFraction.INCREMENTED, fraction.id);
 
       const f = await this._findFractionById(fraction.id);
@@ -273,7 +389,6 @@ export class OperatorService {
 
       const currentDate = new Date();
       return { errorCode: ErrorCode.NONE, currentDate, fraction: f };
-
     } catch (error) {
       if (queryRunner.isTransactionActive) {
         await queryRunner.rollbackTransaction();
@@ -286,28 +401,41 @@ export class OperatorService {
     return { errorCode: ErrorCode.UNAUTHORIZED };
   }
 
+  /**
+   *
+   * @param createOperatorDto
+   */
   async parking(createOperatorDto: CreateOperatorDto) {
-    const { userId, transactionId, checkboxes, obsolete, physicId } = createOperatorDto;
+    const { userId, transactionId, checkboxes, obsolete, physicId } =
+      createOperatorDto;
     const register = this.commonService.getDate();
 
-    const slot = await this.slotRepository.createQueryBuilder('s')
-      .select(['s.id', 's.status', 'block.id', 'zone.id', 'block.timePerFraction'])
-      .innerJoin("s.block", "block")
-      .innerJoin("s.zone", "zone")
+    const slot = await this.slotRepository
+      .createQueryBuilder('s')
+      .select([
+        's.id',
+        's.status',
+        'block.id',
+        'zone.id',
+        'block.timePerFraction',
+      ])
+      .innerJoin('s.block', 'block')
+      .innerJoin('s.zone', 'zone')
       .where('s.slot = :slot', { slot: createOperatorDto.slot })
       .getOne();
 
     this.logger.log(`Slot found: ${slot}`);
 
     if (!slot) {
-      return { errorCode: ErrorCode.NOT_FOUND }
+      return { errorCode: ErrorCode.NOT_FOUND };
     }
 
     if (slot.status == StatusSlot.OCCUPIED) {
-      return { errorCode: ErrorCode.OCCUPIED }
+      return { errorCode: ErrorCode.OCCUPIED };
     }
 
-    const physicTotal = await this.physicRepository.createQueryBuilder('p')
+    const physicTotal = await this.physicRepository
+      .createQueryBuilder('p')
       .select('COALESCE(SUM(p.checkboxes), 0)', 'totalCheckbox')
       .where('p.userId = :userId', { userId })
       .andWhere('p.card = :card', { card: createOperatorDto.card })
@@ -315,16 +443,20 @@ export class OperatorService {
 
     const totalCheckbox = Number(physicTotal?.totalCheckbox ?? 0);
 
-    this.logger.log(`Total checkboxes consumed by user ${userId} with card ${createOperatorDto.card}: ${totalCheckbox}`);
+    this.logger.log(
+      `Total checkboxes consumed by user ${userId} with card ${createOperatorDto.card}: ${totalCheckbox}`,
+    );
 
     if (createOperatorDto.initialRow <= totalCheckbox) {
-      return { errorCode: ErrorCode.OCCUPIED }
+      return { errorCode: ErrorCode.OCCUPIED };
     }
 
-    let fractionCheck = await this.fractionRepository.findOne({ where: { userId, transactionId } });
+    let fractionCheck = await this.fractionRepository.findOne({
+      where: { userId, transactionId },
+    });
 
     if (fractionCheck) {
-      return { errorCode: ErrorCode.TRANSACTION_REPIT }
+      return { errorCode: ErrorCode.TRANSACTION_REPIT };
     }
 
     const queryRunner = this.dataSource.createQueryRunner();
@@ -353,7 +485,7 @@ export class OperatorService {
         zone: slot.zone,
         status: { id: StatusFraction.REQUESTED },
         typeFraction: createOperatorDto.typeFraction,
-        registerAt: fromTime
+        registerAt: fromTime,
       });
 
       await queryRunner.manager.save(fraction);
@@ -372,7 +504,6 @@ export class OperatorService {
       await this._savePhysic(fraction, obsolete, physicId);
 
       return { errorCode: ErrorCode.NONE, currentDate, fraction: f };
-
     } catch (error) {
       if (queryRunner.isTransactionActive) {
         await queryRunner.rollbackTransaction();
@@ -385,16 +516,29 @@ export class OperatorService {
     return { errorCode: ErrorCode.UNAUTHORIZED };
   }
 
+  /**
+   *
+   * @param userId
+   */
   async findAllBlocks(userId: number) {
     try {
-
       const currentDate = new Date();
 
-      const blocks = await this.blockOperatorRepository.createQueryBuilder('bo')
+      const blocks = await this.blockOperatorRepository
+        .createQueryBuilder('bo')
         .select([
-          'bo.id', 'bo.from', 'bo.to', 'bo.isInitialized', 'bo.isFinalized',
-          'block.id', 'block.name', 'block.neighborhood', 'block.mainStreet', 'block.sideStreet',
-          'zone.id', 'zone.name'
+          'bo.id',
+          'bo.from',
+          'bo.to',
+          'bo.isInitialized',
+          'bo.isFinalized',
+          'block.id',
+          'block.name',
+          'block.neighborhood',
+          'block.mainStreet',
+          'block.sideStreet',
+          'zone.id',
+          'zone.name',
         ])
         .innerJoin('bo.block', 'block')
         .innerJoin('block.zone', 'zone')
@@ -411,15 +555,32 @@ export class OperatorService {
     }
   }
 
-  async findAllFractions(blockId: number, userId: number, paginationDto: PaginationDto) {
+  /**
+   *
+   * @param blockId
+   * @param userId
+   * @param paginationDto
+   */
+  async findAllFractions(
+    blockId: number,
+    userId: number,
+    paginationDto: PaginationDto,
+  ) {
     const { offset, limit } = paginationDto;
     try {
-
       // Independent queries by blockId, executed in parallel
-      const slotQuery = this.slotRepository.createQueryBuilder('slot')
+      const slotQuery = this.slotRepository
+        .createQueryBuilder('slot')
         .select([
-          'slot.id', 'slot.slot', 'slot.status',
-          'block.id', 'block.name', 'block.neighborhood', 'block.mainStreet', 'block.sideStreet', 'block.timePerFraction',
+          'slot.id',
+          'slot.slot',
+          'slot.status',
+          'block.id',
+          'block.name',
+          'block.neighborhood',
+          'block.mainStreet',
+          'block.sideStreet',
+          'block.timePerFraction',
         ])
         .innerJoin('slot.block', 'block')
         .innerJoin('block.zone', 'zone')
@@ -431,25 +592,45 @@ export class OperatorService {
         .andWhere('block.lt != :zero AND block.lg != :zero', { zero: 0 })
         .andWhere('zone.lt != :zero AND zone.lg != :zero', { zero: 0 });
 
-      const fractionQuery = this.fractionRepository.createQueryBuilder('f')
+      const fractionQuery = this.fractionRepository
+        .createQueryBuilder('f')
         .select([
-          'f.id', 'f.typeFraction', 'f.userId', 'f.time', 'f.card', 'f.plate', 'f.tint', 'f.alias', 'f.image', 'f.transactionId', 'f.optionalData',
+          'f.id',
+          'f.typeFraction',
+          'f.userId',
+          'f.time',
+          'f.card',
+          'f.plate',
+          'f.tint',
+          'f.alias',
+          'f.image',
+          'f.transactionId',
+          'f.optionalData',
           'status',
           'fSlot.id',
         ])
-        .addSelect(`TO_CHAR(f."registerAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`, 'f_registerAt')
-        .addSelect(`TO_CHAR(f."departureDate", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`, 'f_departureDate')
+        .addSelect(
+          `TO_CHAR(f."registerAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`,
+          'f_registerAt',
+        )
+        .addSelect(
+          `TO_CHAR(f."departureDate", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`,
+          'f_departureDate',
+        )
         .innerJoin('f.status', 'status')
         .innerJoin('f.slot', 'fSlot')
         .where('f.blockId = :blockId', { blockId })
         .andWhere('fSlot.lt != :zero AND fSlot.lg != :zero', { zero: 0 })
         .innerJoin(
-          qb => qb.subQuery()
-            .select('MAX(sub.id)', 'maxid')
-            .from(Fraction, 'sub')
-            .where('sub.blockId = :blockId', { blockId })
-            .groupBy('sub.slot'),
-          'latest', 'latest.maxid = f.id',
+          (qb) =>
+            qb
+              .subQuery()
+              .select('MAX(sub.id)', 'maxid')
+              .from(Fraction, 'sub')
+              .where('sub.blockId = :blockId', { blockId })
+              .groupBy('sub.slot'),
+          'latest',
+          'latest.maxid = f.id',
         );
 
       // Parallel execution — neither awaits the other
@@ -465,29 +646,43 @@ export class OperatorService {
       }));
 
       // Merge with Map O(n)
-      const fractionBySlotId = new Map(fractions.map(f => [f.slot.id, f]));
+      const fractionBySlotId = new Map(fractions.map((f) => [f.slot.id, f]));
 
-      const slotsWithFractions = slots.map(slot => ({
+      const slotsWithFractions = slots.map((slot) => ({
         ...slot,
         fraction: fractionBySlotId.get(slot.id) ?? null,
       }));
 
       const currentDate = new Date();
-      return { errorCode: ErrorCode.NONE, currentDate, fractions: slotsWithFractions };
+      return {
+        errorCode: ErrorCode.NONE,
+        currentDate,
+        fractions: slotsWithFractions,
+      };
     } catch (error) {
       handleDbExceptions(error, this.logger);
     }
   }
 
+  /**
+   *
+   * @param criteria
+   */
   async findAllFractionsBycriteria(criteria: string) {
     try {
-      const fractions = await this.fractionRepository.createQueryBuilder('f')
+      const fractions = await this.fractionRepository
+        .createQueryBuilder('f')
         .select(this.columsFraction)
         .innerJoin('f.status', 'status')
         .innerJoin('f.block', 'block')
         .innerJoin('f.slot', 'slot')
-        .where('(f.plate = :plate OR f.card = :card)', { plate: criteria, card: criteria })
-        .andWhere('f.status != :statusByOperator', { statusByOperator: StatusFraction.FINISHED_BY_INCREMENT })
+        .where('(f.plate = :plate OR f.card = :card)', {
+          plate: criteria,
+          card: criteria,
+        })
+        .andWhere('f.status != :statusByOperator', {
+          statusByOperator: StatusFraction.FINISHED_BY_INCREMENT,
+        })
         .getMany();
 
       const currentDate = new Date();
@@ -498,23 +693,36 @@ export class OperatorService {
     }
   }
 
+  /**
+   *
+   * @param fractionId
+   */
   async findFractionById(fractionId: number) {
     const currentDate = new Date();
     const f = await this._findFractionById(fractionId);
     return { errorCode: ErrorCode.NONE, currentDate, fraction: f };
   }
 
+  /**
+   *
+   */
   timeVirtual() {
     const currentDate = new Date();
     return { errorCode: ErrorCode.NONE, currentDate, time: '00:05:00' };
   }
 
+  /**
+   *
+   */
   private async _findNextIdVirtual() {
     const currentDate = new Date();
 
-    const fraction = await this.fractionRepository.createQueryBuilder('f')
+    const fraction = await this.fractionRepository
+      .createQueryBuilder('f')
       .select(['f.id', 'f.card'])
-      .where('f.typeFraction = :typeFraction', { typeFraction: TypeFraction.VIRTUAL.toString() }) // Convert to string
+      .where('f.typeFraction = :typeFraction', {
+        typeFraction: TypeFraction.VIRTUAL.toString(),
+      }) // Convert to string
       .orderBy('f.id', 'DESC')
       .limit(1)
       .getOne();
@@ -524,10 +732,13 @@ export class OperatorService {
     }
     try {
       const virtual = fraction.card;
-      const parts = virtual.split("-");
+      const parts = virtual.split('-');
       const lastCounter = parts[parts.length - 1];
       const nextCounter = String(Number(lastCounter) + 1).padStart(4, '0');
-      const formattedDate = currentDate.toISOString().slice(2, 10).replace(/-/g, '');
+      const formattedDate = currentDate
+        .toISOString()
+        .slice(2, 10)
+        .replace(/-/g, '');
       const uniqueNumber = `${formattedDate}-${nextCounter}`;
       return uniqueNumber;
     } catch (error) {
@@ -535,6 +746,9 @@ export class OperatorService {
     }
   }
 
+  /**
+   *
+   */
   private async _generateFirstUniqueNumber() {
     // Get the current date and format it as "YEAR-MONTH-DAY"
     const currentDate = new Date().toISOString().slice(2, 10).replace(/-/g, '');
@@ -544,20 +758,30 @@ export class OperatorService {
     return `${currentDate}-${formattedCounter}`;
   }
 
+  /**
+   *
+   * @param fractionId
+   */
   private async _findFractionById(fractionId: number) {
-    const fraction = await this.fractionRepository.createQueryBuilder('f')
+    const fraction = await this.fractionRepository
+      .createQueryBuilder('f')
       .select(this.columsFraction)
       .where('f.id = :fractionId', { fractionId })
       .innerJoin('f.status', 'status')
-      .innerJoin("f.block", "block")
+      .innerJoin('f.block', 'block')
       .innerJoin('f.slot', 'slot')
       .getOne();
     return fraction;
   }
 
+  /**
+   *
+   * @param userId
+   * @param fractionId
+   */
   async finished(userId: number, fractionId: number) {
-
-    const fraction = await this.fractionRepository.createQueryBuilder('f')
+    const fraction = await this.fractionRepository
+      .createQueryBuilder('f')
       .select(['f.id', 'f.userId', 'status.id', 's.id'])
       .innerJoin('f.status', 'status')
       .innerJoin('f.slot', 's')
@@ -569,11 +793,22 @@ export class OperatorService {
       return { errorCode: ErrorCode.NOT_FOUND };
     }
 
-    await this.slotRepository.save({ id: fraction.slot.id, status: StatusSlot.AVAILABLE });
+    await this.slotRepository.save({
+      id: fraction.slot.id,
+      status: StatusSlot.AVAILABLE,
+    });
 
-    await this._saveSatus(fraction, StatusFraction.FINISHED_BY_OPERATOR, StatusMoment.NOTIFIED);
+    await this._saveSatus(
+      fraction,
+      StatusFraction.FINISHED_BY_OPERATOR,
+      StatusMoment.NOTIFIED,
+    );
     // Notify the fraction owner (could be the controller or the client)
-    await this._notifyChageStatus(fraction.userId, StatusFraction.FINISHED_BY_OPERATOR, fraction.id);
+    await this._notifyChageStatus(
+      fraction.userId,
+      StatusFraction.FINISHED_BY_OPERATOR,
+      fraction.id,
+    );
 
     return { errorCode: ErrorCode.NONE };
   }
@@ -588,7 +823,11 @@ export class OperatorService {
    * @param registerAt Timestamp the physic should be registered with.
    * @returns A transient (unsaved) `Physic` entity.
    */
-  private _buildPhysicEntity(fraction: Fraction, checkboxes: number, registerAt: Date): Physic {
+  private _buildPhysicEntity(
+    fraction: Fraction,
+    checkboxes: number,
+    registerAt: Date,
+  ): Physic {
     return this.physicRepository.create({
       userId: fraction.userId,
       card: fraction.card,
@@ -608,7 +847,9 @@ export class OperatorService {
    * @returns Key-value pairs with the vehicle `plate` and the server-side
    *          registration date (`register`) formatted as `YYYY-MM-DD`.
    */
-  private _buildPhysicOptionalData(fraction: Fraction): OptionalDataInterface[] {
+  private _buildPhysicOptionalData(
+    fraction: Fraction,
+  ): OptionalDataInterface[] {
     const now = new Date();
     const register = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
@@ -618,12 +859,26 @@ export class OperatorService {
     ];
   }
 
-  private async _savePhysic(fraction: Fraction, obsolete: number, physicId: number) {
+  /**
+   *
+   * @param fraction
+   * @param obsolete
+   * @param physicId
+   */
+  private async _savePhysic(
+    fraction: Fraction,
+    obsolete: number,
+    physicId: number,
+  ) {
     if (obsolete > 0) {
       const registerAtMinusOneDay = new Date(fraction.registerAt);
       registerAtMinusOneDay.setDate(registerAtMinusOneDay.getDate() - 1);
 
-      const physic = this._buildPhysicEntity(fraction, obsolete, registerAtMinusOneDay);
+      const physic = this._buildPhysicEntity(
+        fraction,
+        obsolete,
+        registerAtMinusOneDay,
+      );
       await this.physicRepository.save(physic);
     }
 
@@ -638,38 +893,77 @@ export class OperatorService {
         },
       );
     } else {
-      const physic = this._buildPhysicEntity(fraction, fraction.checkboxes, fraction.registerAt);
+      const physic = this._buildPhysicEntity(
+        fraction,
+        fraction.checkboxes,
+        fraction.registerAt,
+      );
       await this.physicRepository.save(physic);
     }
   }
 
-  private async _saveSatus(fraction: Fraction, statusId: number, moment: number) {
+  /**
+   *
+   * @param fraction
+   * @param statusId
+   * @param moment
+   */
+  private async _saveSatus(
+    fraction: Fraction,
+    statusId: number,
+    moment: number,
+  ) {
     // Check if a record already exists for the given status and fractionId
     const existingFractionStatus = await this.fractionSatusRepository.findOne({
-      where: { fraction: { id: fraction.id }, status: { id: statusId }, },
+      where: { fraction: { id: fraction.id }, status: { id: statusId } },
     });
 
     if (existingFractionStatus) {
       existingFractionStatus.moment = moment;
       await this.fractionSatusRepository.save(existingFractionStatus);
-    }
-    else {
+    } else {
       // Always save the fraction status
-      const fractionSatus = this.fractionSatusRepository.create({ fraction, moment, status: { id: statusId } });
+      const fractionSatus = this.fractionSatusRepository.create({
+        fraction,
+        moment,
+        status: { id: statusId },
+      });
       await this.fractionSatusRepository.save(fractionSatus);
     }
     if (statusId === StatusFraction.FINISHED_BY_OPERATOR) {
-      if (fraction.status.id === StatusFraction.EXCEEDED_TIME || fraction.status.id === StatusFraction.SANCTIONED) {
-        await this.fractionRepository.save({ ...fraction, status: { id: StatusFraction.FINISHED_BY_CONTROLLER }, });
+      if (
+        fraction.status.id === StatusFraction.EXCEEDED_TIME ||
+        fraction.status.id === StatusFraction.SANCTIONED
+      ) {
+        await this.fractionRepository.save({
+          ...fraction,
+          status: { id: StatusFraction.FINISHED_BY_CONTROLLER },
+        });
       } else {
-        await this.fractionRepository.save({ ...fraction, status: { id: StatusFraction.FINISHED_BY_OPERATOR }, });
+        await this.fractionRepository.save({
+          ...fraction,
+          status: { id: StatusFraction.FINISHED_BY_OPERATOR },
+        });
       }
     } else {
-      await this.fractionRepository.save({ ...fraction, status: { id: statusId }, });
+      await this.fractionRepository.save({
+        ...fraction,
+        status: { id: statusId },
+      });
     }
   }
 
-  private async _notifyChageStatus(userId: number, status: number, fractionId: number) {
+  /**
+   *
+   * @param userId
+   * @param status
+   * @param fractionId
+   */
+  private async _notifyChageStatus(
+    userId: number,
+    status: number,
+    fractionId: number,
+  ) {
     const notification = new CreateNotificationDto({
       userId,
       notification: {
@@ -678,55 +972,98 @@ export class OperatorService {
           fractionId,
           status,
         },
-      }
+      },
     });
     this.commonService.notify(notification);
   }
 
+  /**
+   *
+   * @param userId
+   * @param searchSlot
+   */
   async getPriceSlot(userId: number, searchSlot: string) {
-
     try {
+      const [slot, checkboxes] = await Promise.all([
+        this.slotRepository
+          .createQueryBuilder('s')
+          .select([
+            's.id',
+            's.typeSlot',
+            's.isPaidParking',
+            's.status',
+            'block.id',
+            'block.name',
+            'zone.id',
+            'zone.name',
+            'block.timeLimit',
+            'block.timeGrace',
+            'block.timePerFraction',
+            'schedules.id',
+            'schedules.isActivated',
+            'schedules.dayOfWeekInit',
+            'schedules.dayOfWeekEnd',
+            'schedules.openingTime',
+            'schedules.closingTime',
+            'blockOperator.id',
+            'blockOperator.from',
+            'blockOperator.to',
+          ])
+          .innerJoin('s.block', 'block')
+          .innerJoin('s.zone', 'zone')
+          .innerJoin('block.blocksOperator', 'blockOperator')
+          .leftJoin('block.schedules', 'schedules')
+          .where('s.slot = :slot', { slot: searchSlot })
+          .andWhere('blockOperator.userId = :userId', { userId })
+          .andWhere('blockOperator.isActivated = :isActivated', {
+            isActivated: true,
+          })
+          .andWhere(':date BETWEEN blockOperator.from AND blockOperator.to', {
+            date: new Date(),
+          })
+          .orderBy('schedules.dayOfWeekInit', 'ASC') // 👈 orden principal
+          .getOne(),
 
-      const [slot, checkboxes] = await Promise.all(
-        [
-          this.slotRepository.createQueryBuilder('s')
-            .select(['s.id', 's.typeSlot', 's.isPaidParking', 's.status', 'block.id', 'block.name', 'zone.id', 'zone.name', 'block.timeLimit', 'block.timeGrace', 'block.timePerFraction', 'schedules.id', 'schedules.isActivated', 'schedules.dayOfWeekInit', 'schedules.dayOfWeekEnd', 'schedules.openingTime', 'schedules.closingTime', 'blockOperator.id', 'blockOperator.from', 'blockOperator.to'])
-            .innerJoin("s.block", "block")
-            .innerJoin("s.zone", "zone")
-            .innerJoin("block.blocksOperator", "blockOperator")
-            .leftJoin('block.schedules', 'schedules')
-            .where('s.slot = :slot', { slot: searchSlot })
-            .andWhere('blockOperator.userId = :userId', { userId })
-            .andWhere('blockOperator.isActivated = :isActivated', { isActivated: true })
-            .andWhere(':date BETWEEN blockOperator.from AND blockOperator.to', {
-              date: new Date(),
-            })
-            .orderBy('schedules.dayOfWeekInit', 'ASC')  // 👈 orden principal
-            .getOne(),
+        this.checkboxUserRepository
+          .createQueryBuilder('cb')
+          .select(['cb.checkboxes'])
+          .where('cb.userId = :userId', { userId })
+          .getOne(),
+      ]);
 
-          this.checkboxUserRepository.createQueryBuilder('cb')
-            .select(['cb.checkboxes'])
-            .where('cb.userId = :userId', { userId })
-            .getOne()
-        ]);
-
-      if (!slot)
-        return { errorCode: ErrorCode.NOT_FOUND }
+      if (!slot) return { errorCode: ErrorCode.NOT_FOUND };
 
       if (slot.status === StatusSlot.AVAILABLE) {
-        return { errorCode: ErrorCode.NONE, slot, checkboxes: checkboxes ? checkboxes.checkboxes : 0 };
-
+        return {
+          errorCode: ErrorCode.NONE,
+          slot,
+          checkboxes: checkboxes ? checkboxes.checkboxes : 0,
+        };
       }
-      return { errorCode: ErrorCode.OCCUPIED, slot, checkboxes: checkboxes ? checkboxes.checkboxes : 0 };
+      return {
+        errorCode: ErrorCode.OCCUPIED,
+        slot,
+        checkboxes: checkboxes ? checkboxes.checkboxes : 0,
+      };
     } catch (error) {
       handleDbExceptions(error, this.logger);
     }
   }
 
-  async findSanctionByIdentityCard(userId: number, idDevice: string, identityCard: string, getIncidentDto: GetIncidentDto) {
-
+  /**
+   *
+   * @param userId
+   * @param idDevice
+   * @param identityCard
+   * @param _getIncidentDto
+   */
+  async findSanctionByIdentityCard(
+    userId: number,
+    idDevice: string,
+    identityCard: string,
+    _getIncidentDto: GetIncidentDto,
+  ) {
     try {
-
       let tableName = 'public.incident';
       const currentDate = new Date();
 
@@ -734,14 +1071,17 @@ export class OperatorService {
       let paramIndex = 1;
 
       const buildWhere = () => {
-
         // Only notifications that are fines
         let where = `WHERE i."incidentCategory" = $${paramIndex++}`;
         params.push(IncidentCategory.NOTIFICATION);
 
         // Not paid at the municipality
         where += ` AND i."statusIncident" IN ($${paramIndex++}, $${paramIndex++}, $${paramIndex++})`;
-        params.push(IncidentStatus.ENTERED, IncidentStatus.APPROVED, IncidentStatus.SUPPLIED);
+        params.push(
+          IncidentStatus.ENTERED,
+          IncidentStatus.APPROVED,
+          IncidentStatus.SUPPLIED,
+        );
 
         // Not paid internally
         where += ` AND (i."statusPayment" != $${paramIndex++} OR i."statusPayment" IS NULL)`;
@@ -771,25 +1111,37 @@ export class OperatorService {
 
       const query = `${baseSelect(tableName)} ${buildWhere()}`;
 
-      const incidents: Incident[] = await this.incidentRepository.query(query, params);
+      const incidents: Incident[] = await this.incidentRepository.query(
+        query,
+        params,
+      );
 
       if (incidents.length === 0)
         return { errorCode: ErrorCode.NOT_FOUND, currentDate, incidents };
 
       for (const incident of incidents) {
-
         // Check if the debt was already emitted in GIM and update the status
-        const findObligation = await this.gimService.findObligationsByCitation(incident.nroTicket, incident.identityCard);
+        const findObligation = await this.gimService.findObligationsByCitation(
+          incident.nroTicket,
+          incident.identityCard,
+        );
         if (findObligation.errorCode === ErrorCode.NONE) {
-          const validateStatus = await this.gimService._validateStatusSistemWithGim(findObligation.data.obligations);
+          const validateStatus =
+            await this.gimService._validateStatusSistemWithGim(
+              findObligation.data.obligations,
+            );
           if (validateStatus.errorCode === ErrorCode.NONE) {
-            const onResponseExternal = this._formatOnExternalResponse(incident.onResponseExternal, findObligation.data);
+            const onResponseExternal = this._formatOnExternalResponse(
+              incident.onResponseExternal,
+              findObligation.data,
+            );
             await this.incidentRepository.update(incident.id, {
               bondId: +findObligation.data.obligations[0].obligationId,
-              nroObligation: findObligation.data.obligations[0].obligationNumber.toString(),
+              nroObligation:
+                findObligation.data.obligations[0].obligationNumber.toString(),
               statusIncident: validateStatus.statusIncident,
               amount: findObligation.data.obligations[0].total,
-              onResponseExternal
+              onResponseExternal,
             });
           }
           continue;
@@ -797,20 +1149,38 @@ export class OperatorService {
       }
 
       // Re-query to return only those still in pending states
-      const updatedIncidents = await this.incidentRepository.query(query, params);
+      const updatedIncidents = await this.incidentRepository.query(
+        query,
+        params,
+      );
 
       if (updatedIncidents.length === 0)
-        return { errorCode: ErrorCode.NOT_FOUND, currentDate, incidents: updatedIncidents };
+        return {
+          errorCode: ErrorCode.NOT_FOUND,
+          currentDate,
+          incidents: updatedIncidents,
+        };
 
-      return { errorCode: ErrorCode.NONE, currentDate, incidents: updatedIncidents };
-
+      return {
+        errorCode: ErrorCode.NONE,
+        currentDate,
+        incidents: updatedIncidents,
+      };
     } catch (error) {
       this.logger.error(`GIM emit incident ${error?.message}`);
       handleDbExceptions(error, this.logger);
     }
   }
 
-  private _formatOnExternalResponse(onResponseExternal: any[], onResponseExternalData: object): any[] {
+  /**
+   *
+   * @param onResponseExternal
+   * @param onResponseExternalData
+   */
+  private _formatOnExternalResponse(
+    onResponseExternal: any[],
+    onResponseExternalData: object,
+  ): any[] {
     const result = [...(onResponseExternal ?? [])];
     if (onResponseExternalData) result.push(onResponseExternalData);
     return result;

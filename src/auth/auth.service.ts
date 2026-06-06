@@ -6,6 +6,4 @@ import { Injectable } from '@nestjs/common';
  * is reserved for future local auth extensions.
  */
 @Injectable()
-export class AuthService {
-
-}
+export class AuthService {}

@@ -1,15 +1,18 @@
-import { IsPositive } from "class-validator";
+import { IsPositive } from 'class-validator';
 
+/**
+ *
+ */
 export class CreateRangeSalePointTransactionDto {
-    @IsPositive()
-    userIdSell: number;
+  @IsPositive()
+  userIdSell: number;
 
-    @IsPositive()
-    userIdBuy: number;
+  @IsPositive()
+  userIdBuy: number;
 
-    @IsPositive()
-    amount: number;
+  @IsPositive()
+  amount: number;
 
-    @IsPositive()
-    rangeSalePointId: number;
+  @IsPositive()
+  rangeSalePointId: number;
 }

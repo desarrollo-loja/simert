@@ -3,6 +3,9 @@ import { IsNumber, IsOptional, Min } from 'class-validator';
 
 import { CreateIncidentDto } from './create-incident.dto';
 
+/**
+ *
+ */
 export class UpdateIncidentDto extends PartialType(CreateIncidentDto) {
   @IsNumber()
   @IsOptional()

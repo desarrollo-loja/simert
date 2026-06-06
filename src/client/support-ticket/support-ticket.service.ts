@@ -17,11 +17,20 @@ import { CreateSupportTicketDto } from './dto/create-support-ticket.dto';
 export class SupportTicketService {
   private readonly logger = new Logger(SupportTicketService.name);
 
+  /**
+   *
+   * @param supportTicketRepository
+   */
   constructor(
     @InjectRepository(SupportTicket)
     private readonly supportTicketRepository: Repository<SupportTicket>,
-  ) { }
+  ) {}
 
+  /**
+   *
+   * @param userId
+   * @param createSupportTicketDto
+   */
   async create(userId: number, createSupportTicketDto: CreateSupportTicketDto) {
     try {
       // Use the userId from the DTO if provided, otherwise fall back to the parameter
@@ -38,7 +47,8 @@ export class SupportTicketService {
         ...createSupportTicketDto,
       });
 
-      const savedTicket = await this.supportTicketRepository.save(supportTicket);
+      const savedTicket =
+        await this.supportTicketRepository.save(supportTicket);
 
       // Generate reference ticket number
       const ticketNumber = `ST-${savedTicket.id.toString().padStart(6, '0')}`;

@@ -7,10 +7,16 @@ import { BlockOperatorController } from './block_operator.controller';
 import { BlockOperatorService } from './block_operator.service';
 import { BlockOperator } from './entities/block_operator.entity';
 
+/**
+ *
+ */
 @Module({
   controllers: [BlockOperatorController],
   providers: [BlockOperatorService],
-  imports: [TypeOrmModule.forFeature([BlockOperator]), AuthModule, LoggerModule],
-
+  imports: [
+    TypeOrmModule.forFeature([BlockOperator]),
+    AuthModule,
+    LoggerModule,
+  ],
 })
-export class BlockOperatorModule { }
+export class BlockOperatorModule {}

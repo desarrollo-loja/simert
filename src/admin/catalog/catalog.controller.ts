@@ -1,7 +1,17 @@
-import { Body, Controller, Get, Param, ParseIntPipe, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseIntPipe,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { FilterDto } from "../../common/dto/filter.dto";
+import { FilterDto } from '../../common/dto/filter.dto';
 import { CatalogService } from './catalog.service';
 import { CreateCatalogDto } from './dto/create-catalog.dto';
 import { UpdateCatalogDto } from './dto/update-catalog.dto';
@@ -15,6 +25,10 @@ import { UpdateCatalogDto } from './dto/update-catalog.dto';
 @ApiBearerAuth('keycloak')
 @Controller('admin/catalog')
 export class CatalogController {
+  /**
+   *
+   * @param catalogService
+   */
   constructor(private readonly catalogService: CatalogService) {}
 
   /**

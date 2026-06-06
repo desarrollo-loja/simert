@@ -6,10 +6,12 @@ import { FractionStatus } from './entities/fraction_status.entity';
 import { FractionStatusController } from './fraction_status.controller';
 import { FractionStatusService } from './fraction_status.service';
 
+/**
+ *
+ */
 @Module({
   controllers: [FractionStatusController],
   providers: [FractionStatusService],
   imports: [TypeOrmModule.forFeature([FractionStatus]), AuthModule],
-
 })
-export class FractionStatusModule { }
+export class FractionStatusModule {}

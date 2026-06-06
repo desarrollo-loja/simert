@@ -58,6 +58,9 @@ import { DataModule } from './data/data.module';
 import { IncidentCheckModule } from './incident/incident.module';
 import { PublicModule } from './public/public.module';
 
+/**
+ *
+ */
 @Module({
   imports: [
     ConfigModule.forRoot(),
@@ -67,7 +70,7 @@ import { PublicModule } from './public/public.module';
       host: process.env.DB_HOST_CACHE,
       port: +process.env.DB_PORT_CACHE,
       password: process.env.DB_PASSWORD_CACHE,
-      prefix: process.env.NODE_ENV === 'production' ? `P|` : `D|`,  // Prefijo basado en el entorno para generar keys diferentes para ambos entornos del mismo recurso
+      prefix: process.env.NODE_ENV === 'production' ? `P|` : `D|`, // Prefijo basado en el entorno para generar keys diferentes para ambos entornos del mismo recurso
       // Default cache TTL is 5 s; override per method as needed:
       // ttl: 10, // seconds
       // max: 20, // maximum number of items in cache
@@ -86,7 +89,7 @@ import { PublicModule } from './public/public.module';
       // ---- NI EN DESARROLLO -----
       //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
       entities: [],
-      autoLoadEntities: true,// Siempre true
+      autoLoadEntities: true, // Siempre true
       // keepConnectionAlive: true,// Siempre true
       // legacySpatialSupport: false,// Siempre true
       //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -99,7 +102,11 @@ import { PublicModule } from './public/public.module';
       // dropSchema: false,// NUNCA ACTIVAR
       // ALERTA NO MODIFICAR NUNCA--
       // ----------- OJO -----------
-      extra: { connectionLimit: process.env.T_CONNECTIONLIMIT ? +process.env.T_CONNECTIONLIMIT : 10 },
+      extra: {
+        connectionLimit: process.env.T_CONNECTIONLIMIT
+          ? +process.env.T_CONNECTIONLIMIT
+          : 10,
+      },
       schema: 'public',
       //logging: ['query', 'error'],
     }),
@@ -117,7 +124,7 @@ import { PublicModule } from './public/public.module';
       // ---- NI EN DESARROLLO -----
       //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
       entities: [],
-      autoLoadEntities: false,// Siempre true
+      autoLoadEntities: false, // Siempre true
       //keepConnectionAlive: true,// Siempre true
       //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
       // debug: true,
@@ -125,7 +132,11 @@ import { PublicModule } from './public/public.module';
       // dropSchema: false,// NUNCA ACTIVAR
       // ALERTA NO MODIFICAR NUNCA--
       // ----------- OJO -----------,
-      extra: { connectionLimit: process.env.H_CONNECTIONLIMIT ? +process.env.H_CONNECTIONLIMIT : 10 },
+      extra: {
+        connectionLimit: process.env.H_CONNECTIONLIMIT
+          ? +process.env.H_CONNECTIONLIMIT
+          : 10,
+      },
     }),
     TypeOrmModule.forRoot({
       name: 'tracking_controller',
@@ -140,7 +151,7 @@ import { PublicModule } from './public/public.module';
       // ---- NI EN DESARROLLO -----
       //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
       entities: [],
-      autoLoadEntities: false,// Siempre true
+      autoLoadEntities: false, // Siempre true
       //keepConnectionAlive: true,// Siempre true
       //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
       // debug: true,
@@ -149,7 +160,11 @@ import { PublicModule } from './public/public.module';
       // dropSchema: false,// NUNCA ACTIVAR
       // ALERTA NO MODIFICAR NUNCA--
       // ----------- OJO -----------,
-      extra: { connectionLimit: process.env.H_CONNECTIONLIMIT ? +process.env.H_CONNECTIONLIMIT : 10 },
+      extra: {
+        connectionLimit: process.env.H_CONNECTIONLIMIT
+          ? +process.env.H_CONNECTIONLIMIT
+          : 10,
+      },
     }),
     LoggerModule,
     CommonModule,
@@ -206,6 +221,10 @@ import { PublicModule } from './public/public.module';
   controllers: [AppController],
 })
 export class AppModule implements NestModule {
+  /**
+   *
+   * @param consumer
+   */
   configure(consumer: MiddlewareConsumer) {
     consumer.apply(ResponseTimeMiddleware).forRoutes('*');
   }

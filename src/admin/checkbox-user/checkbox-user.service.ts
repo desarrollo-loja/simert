@@ -26,10 +26,14 @@ import { CheckboxUser } from './entities/checkbox-user.entity';
 export class CheckboxUserService {
   private readonly logger = new Logger('CheckboxUserService');
 
+  /**
+   *
+   * @param checkboxUserRepository
+   */
   constructor(
     @InjectRepository(CheckboxUser)
     private readonly checkboxUserRepository: Repository<CheckboxUser>,
-  ) { }
+  ) {}
 
   /**
    * Paginated rows of the digital-consumption report.
@@ -46,7 +50,10 @@ export class CheckboxUserService {
       const qb = this.checkboxUserRepository
         .createQueryBuilder('cu')
         .select(['cu.userId', 'cu.checkboxes'])
-        .addSelect(`TO_CHAR(cu."createdAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`, 'cu_createdAt')
+        .addSelect(
+          `TO_CHAR(cu."createdAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`,
+          'cu_createdAt',
+        )
         .orderBy('cu.id', 'DESC')
         .limit(limit)
         .offset(offset);
@@ -88,22 +95,42 @@ export class CheckboxUserService {
   // Kept as stubs: real CheckboxUser lifecycle is owned by the client
   // services (parking session + paid checkbox purchase).
 
+  /**
+   *
+   * @param _createCheckboxUserDto
+   */
   create(_createCheckboxUserDto: CreateCheckboxUserDto) {
     return 'This action adds a new checkboxUser';
   }
 
+  /**
+   *
+   */
   findAll() {
     return `This action returns all checkboxUser`;
   }
 
+  /**
+   *
+   * @param id
+   */
   findOne(id: number) {
     return `This action returns a #${id} checkboxUser`;
   }
 
+  /**
+   *
+   * @param id
+   * @param _updateCheckboxUserDto
+   */
   update(id: number, _updateCheckboxUserDto: UpdateCheckboxUserDto) {
     return `This action updates a #${id} checkboxUser`;
   }
 
+  /**
+   *
+   * @param id
+   */
   remove(id: number) {
     return `This action removes a #${id} checkboxUser`;
   }

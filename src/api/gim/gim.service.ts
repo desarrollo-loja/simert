@@ -14,10 +14,16 @@ import { EmissionSanctionDto } from 'src/common/dto/emission-sanction.dto';
 import { RegisterDepositGimDto } from 'src/common/dto/register-deposit-gim.dto';
 // import handleDbExceptions from 'src/common/exceptions/error.db.exception';
 import { ErrorCode } from 'src/common/glob/error';
-import { ResponseCodeGim, StatusObligation } from 'src/common/glob/responses-gim';
+import {
+  ResponseCodeGim,
+  StatusObligation,
+} from 'src/common/glob/responses-gim';
 import { getMaritalStatusName } from 'src/common/glob/status/status_marital';
 import { getGenreNameById, TypeGenre } from 'src/common/glob/type/type_genre';
-import { mapIdentificationTypeToGim, TypeIdentifyCard } from 'src/common/glob/type/type_identifycard';
+import {
+  mapIdentificationTypeToGim,
+  TypeIdentifyCard,
+} from 'src/common/glob/type/type_identifycard';
 import { IncidentStatus } from 'src/common/glob/type/type_incident';
 import { TypeMaritalStatus } from 'src/common/glob/type/type_maritalStatus';
 import { TypeSizeVehicle } from 'src/common/glob/type/type_size_vehicle';
@@ -29,8 +35,21 @@ import { CreateGimDto } from './dto/create-gim.dto';
 import FindBondNumberDto from './dto/find-bond-number';
 import { GetClientGimDto } from './dto/get-client-gim.dto';
 import { consts } from './helpers/consts.enum';
-import { CreateNaturalPersonResponse, DepositResponse, EmisionTitleCreditCardResponse, EmitInfractionSimertResponse, FindTaxPayerResponse, Obligation, ObligationsClientResponse, ObligationsResponse, VehicleTypesGimResponse } from './interfaces/gim-responses.interfaces';
+import {
+  CreateNaturalPersonResponse,
+  DepositResponse,
+  EmisionTitleCreditCardResponse,
+  EmitInfractionSimertResponse,
+  FindTaxPayerResponse,
+  Obligation,
+  ObligationsClientResponse,
+  ObligationsResponse,
+  VehicleTypesGimResponse,
+} from './interfaces/gim-responses.interfaces';
 
+/**
+ *
+ */
 @Injectable()
 export class GimService {
   private readonly logger = new Logger('GimService');
@@ -39,6 +58,15 @@ export class GimService {
   private readonly gim2RealmMunicipio: string;
   private token: string;
 
+  /**
+   *
+   * @param commonAuthService
+   * @param configService
+   * @param incidentService
+   * @param incidentTypeService
+   * @param commonGimService
+   * @param dinardapAntService
+   */
   constructor(
     private readonly commonAuthService: CommonAuthService,
     private readonly configService: ConfigService,
@@ -49,10 +77,15 @@ export class GimService {
   ) {
     this.gimBaseUrl = this.configService.get<string>('GIM_BASE_URL'); // Default or Env
     this.gimBaseUrlLogin = this.configService.get<string>('GIM_BASE_URL_LOGIN'); // Default or Env
-    this.gim2RealmMunicipio = this.configService.get<string>('GIM2_REALM_MUNICIPIO'); // Default or Env
+    this.gim2RealmMunicipio = this.configService.get<string>(
+      'GIM2_REALM_MUNICIPIO',
+    ); // Default or Env
     // this.token = this.configService.get<string>('GIM_TOKEN'); // YA NO SE USA
   }
 
+  /**
+   *
+   */
   public getToken(): string {
     this.token = this.commonGimService.getTokenGim2();
     return this.token;
@@ -69,7 +102,7 @@ export class GimService {
   private _authJsonHeaders(): Record<string, string> {
     return {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${this.getToken()}`,
+      Authorization: `Bearer ${this.getToken()}`,
     };
   }
 
@@ -107,7 +140,10 @@ export class GimService {
    * @param body Request payload serialized as JSON.
    * @returns The parsed response body returned by GIM.
    */
-  private async _postToExternalApi<T>(endpointPath: string, body: unknown): Promise<T> {
+  private async _postToExternalApi<T>(
+    endpointPath: string,
+    body: unknown,
+  ): Promise<T> {
     const url = `${this.gimBaseUrl}/api/external/${endpointPath}`;
     const { data } = await axios.post<T>(url, body, {
       headers: this._authJsonHeaders(),
@@ -115,24 +151,43 @@ export class GimService {
     return data;
   }
 
-  async issueIncidentGim(createGimDto: CreateGimDto, incidentId: number, isTransacional: number): Promise<{ errorCode: number, data: CreateGimDto | null | any, message?: string }> {
+  /**
+   *
+   * @param createGimDto
+   * @param incidentId
+   * @param isTransacional
+   */
+  async issueIncidentGim(
+    createGimDto: CreateGimDto,
+    incidentId: number,
+    isTransacional: number,
+  ): Promise<{
+    errorCode: number;
+    data: CreateGimDto | null | any;
+    message?: string;
+  }> {
     try {
-
       // VERIFICAR SI TENGO CEDULA, EMAIL, NOMBRE Y RECIDENTID EN OBTIONAL DATA
       let dataUserComplete = false;
-      if (createGimDto.identityCard && createGimDto.emailClient && createGimDto.fullNameClient) {
+      if (
+        createGimDto.identityCard &&
+        createGimDto.emailClient &&
+        createGimDto.fullNameClient
+      ) {
         dataUserComplete = true;
       }
 
       if (!dataUserComplete) {
         // OBTENER DATOS DESDE LA ANT (cedula, nombre, apellido, correo y mail)
-        const antData = await this.dinardapAntService.getUserDataByPlateAnt(createGimDto.plate);
+        const antData = await this.dinardapAntService.getUserDataByPlateAnt(
+          createGimDto.plate,
+        );
 
         if (antData.errorCode !== ErrorCode.NONE) {
           return {
             errorCode: ErrorCode.NOT_FOUND,
             message: 'Error al obtener la cedula desde la ANT',
-            data: antData
+            data: antData,
           };
         }
         createGimDto.identityCard = antData.data.identityCard;
@@ -143,16 +198,21 @@ export class GimService {
       }
 
       let residentIdComplete = false;
-      if (createGimDto.optionalData.find((item) => item.key === 'residentId')?.value) {
+      if (
+        createGimDto.optionalData.find((item) => item.key === 'residentId')
+          ?.value
+      ) {
         residentIdComplete = true;
       }
 
       if (!residentIdComplete) {
         // OBTENER EL CLIENTE DESDE EL GIM CON LA CEDULA Y SACAR EL RESIDENT ID
-        const dataUserGim = await this.getUserByIdentityCardGim(createGimDto.identityCard);
+        const dataUserGim = await this.getUserByIdentityCardGim(
+          createGimDto.identityCard,
+        );
 
         if (dataUserGim.errorCode !== ErrorCode.NONE) {
-          //CREAR EL CLIETE EN EL GIM SI NO EXISTE VERIFICAR SIE S RUC O PERSONA FINAL 
+          //CREAR EL CLIETE EN EL GIM SI NO EXISTE VERIFICAR SIE S RUC O PERSONA FINAL
           const createClientGimDto = new CreateClientGimDto();
           createClientGimDto.identityCard = createGimDto.identityCard;
           createClientGimDto.emailClient = createGimDto.emailClient;
@@ -160,34 +220,53 @@ export class GimService {
           createClientGimDto.lastName = createGimDto.lastName;
           createClientGimDto.controllerId = createGimDto.controllerId;
 
-          const createClientGim = await this.createNewNaturalPersonGim(createClientGimDto);
+          const createClientGim =
+            await this.createNewNaturalPersonGim(createClientGimDto);
 
           if (createClientGim.errorCode !== ErrorCode.NONE) {
             return {
               errorCode: ErrorCode.NOT_FOUND,
               message: 'Error al crear el cliente en el GIM',
-              data: createClientGim
+              data: createClientGim,
             };
           }
           // AGREGAR EL RESIDENT ID AL DTO PARA GUARDARLO EN NUESTRA BASE DE DATOS
           createGimDto.optionalData = createGimDto.optionalData || [];
-          createGimDto.optionalData.push({ key: 'residentId', value: createClientGim.residentDTO.id });
+          createGimDto.optionalData.push({
+            key: 'residentId',
+            value: createClientGim.residentDTO.id,
+          });
         } else {
           // AGREGAR EL RESIDENT ID AL DTO PARA GUARDARLO EN NUESTRA BASE DE DATOS
           createGimDto.optionalData = createGimDto.optionalData || [];
-          createGimDto.optionalData.push({ key: 'residentId', value: dataUserGim.taxpayer.id });
+          createGimDto.optionalData.push({
+            key: 'residentId',
+            value: dataUserGim.taxpayer.id,
+          });
         }
       }
 
       // Check whether the debt was already issued in GIM
-      const debtData = await this.findObligationsByCitation(createGimDto.nroTicket, createGimDto.identityCard);
+      const debtData = await this.findObligationsByCitation(
+        createGimDto.nroTicket,
+        createGimDto.identityCard,
+      );
 
       if (debtData.errorCode === ErrorCode.NONE) {
-        const validateStatus = await this._validateStatusSistemWithGim(debtData.data.obligations);
+        const validateStatus = await this._validateStatusSistemWithGim(
+          debtData.data.obligations,
+        );
         if (validateStatus.errorCode === ErrorCode.NONE) {
           createGimDto.statusIncident = validateStatus.statusIncident;
-          const updateDto = this._buildAntDataResponse(debtData.data.obligations[0], validateStatus.statusIncident);
-          await this.incidentService.update(incidentId, updateDto, isTransacional);
+          const updateDto = this._buildAntDataResponse(
+            debtData.data.obligations[0],
+            validateStatus.statusIncident,
+          );
+          await this.incidentService.update(
+            incidentId,
+            updateDto,
+            isTransacional,
+          );
         }
         return validateStatus;
       }
@@ -199,47 +278,61 @@ export class GimService {
         return {
           errorCode: ErrorCode.NOT_FOUND,
           message: responeEmit.data?.message,
-          data: responeEmit.data
+          data: responeEmit.data,
         };
       }
 
       const obligation = {
         obligationId: +responeEmit.data.bondId,
-        obligationNumber: responeEmit.data.bondNumber.toString()
-      } as Obligation
+        obligationNumber: responeEmit.data.bondNumber.toString(),
+      } as Obligation;
 
       // Re-query to refresh the amount to pay; only runs on the first issuance
-      const findObligation = await this.findObligationsByCitation(createGimDto.nroTicket, createGimDto.identityCard);
+      const findObligation = await this.findObligationsByCitation(
+        createGimDto.nroTicket,
+        createGimDto.identityCard,
+      );
       if (findObligation.errorCode === ErrorCode.NONE) {
-        obligation.total = findObligation.data?.obligations?.[0]?.total || createGimDto.amount;
+        obligation.total =
+          findObligation.data?.obligations?.[0]?.total || createGimDto.amount;
       }
 
-      const updateDto = this._buildAntDataResponse(obligation, IncidentStatus.SUPPLIED);
+      const updateDto = this._buildAntDataResponse(
+        obligation,
+        IncidentStatus.SUPPLIED,
+      );
       await this.incidentService.update(incidentId, updateDto, isTransacional);
 
       return {
         errorCode: ErrorCode.NONE,
         message: 'Deuda emitida correctamente',
-        data: updateDto
+        data: updateDto,
       };
-
     } catch (error) {
       this.logger.error(`Error emitirIncidenteGim: ${error.message}`);
       return {
         errorCode: ErrorCode.NOT_FOUND,
-        message: 'Error al generar la deuda en el GIM notificar al administrador',
-        data: null
+        message:
+          'Error al generar la deuda en el GIM notificar al administrador',
+        data: null,
       };
     }
   }
 
-  private _buildAntDataResponse(obligation: Obligation, statusIncident: IncidentStatus): UpdateIncidentDto {
+  /**
+   *
+   * @param obligation
+   * @param statusIncident
+   */
+  private _buildAntDataResponse(
+    obligation: Obligation,
+    statusIncident: IncidentStatus,
+  ): UpdateIncidentDto {
     const updateDto = new UpdateIncidentDto();
     updateDto.bondId = obligation.obligationId;
     updateDto.nroObligation = obligation.obligationNumber;
     updateDto.statusIncident = statusIncident;
-    if (obligation.total)
-      updateDto.amount = obligation.total;
+    if (obligation.total) updateDto.amount = obligation.total;
 
     // let currentOptionalData = incident.optionalData;
     // let currentOnResponseExternal = incident.onResponseExternal;
@@ -261,22 +354,34 @@ export class GimService {
     return updateDto;
   }
 
-  private _buildObligationDataResponse(obligation: Obligation, statusIncident: IncidentStatus, incident: Incident): UpdateIncidentDto {
+  /**
+   *
+   * @param obligation
+   * @param statusIncident
+   * @param incident
+   */
+  private _buildObligationDataResponse(
+    obligation: Obligation,
+    statusIncident: IncidentStatus,
+    incident: Incident,
+  ): UpdateIncidentDto {
     const updateDto = new UpdateIncidentDto();
     updateDto.bondId = obligation.obligationId;
     updateDto.nroObligation = obligation.obligationNumber;
     updateDto.statusIncident = statusIncident;
-    if (obligation.total)
-      updateDto.amount = obligation.total;
+    if (obligation.total) updateDto.amount = obligation.total;
 
     let currentOptionalData = incident.optionalData;
     let currentOnResponseExternal = incident.onResponseExternal;
 
     if (obligation.taxpayerId != null) {
       const optionalData = [...(currentOptionalData ?? [])];
-      const idx = optionalData.findIndex(item => item.key === 'residentId');
+      const idx = optionalData.findIndex((item) => item.key === 'residentId');
       if (idx >= 0) {
-        optionalData[idx] = { ...optionalData[idx], value: obligation.taxpayerId };
+        optionalData[idx] = {
+          ...optionalData[idx],
+          value: obligation.taxpayerId,
+        };
       } else {
         optionalData.push({ key: 'residentId', value: obligation.taxpayerId });
       }
@@ -284,18 +389,30 @@ export class GimService {
     }
 
     // onResponseExternal: push obligation al array existente
-    updateDto.onResponseExternal = [...(currentOnResponseExternal ?? []), obligation];
+    updateDto.onResponseExternal = [
+      ...(currentOnResponseExternal ?? []),
+      obligation,
+    ];
 
     return updateDto;
   }
 
-  async getUserByIdentityCardGim(identificationNumber: string): Promise<{ errorCode: number } & Partial<FindTaxPayerResponse>> {
+  /**
+   *
+   * @param identificationNumber
+   */
+  async getUserByIdentityCardGim(
+    identificationNumber: string,
+  ): Promise<{ errorCode: number } & Partial<FindTaxPayerResponse>> {
     try {
       const body = {
         identificationNumber: identificationNumber,
       };
 
-      const data = await this._postToExternalApi<FindTaxPayerResponse>('findTaxPayer', body);
+      const data = await this._postToExternalApi<FindTaxPayerResponse>(
+        'findTaxPayer',
+        body,
+      );
 
       if (data.ok && +data.code === 200) {
         return {
@@ -308,7 +425,6 @@ export class GimService {
         errorCode: ErrorCode.NOT_FOUND,
         taxpayer: null,
       };
-
     } catch (error: any) {
       this.logger.error(`Error getUserByIdentityCardGim: ${error.message}`);
 
@@ -319,23 +435,39 @@ export class GimService {
     }
   }
 
-  async createNewNaturalPersonGim(createClientGimDto: CreateClientGimDto): Promise<{ errorCode: number, data?: any } & Partial<CreateNaturalPersonResponse>> {
+  /**
+   *
+   * @param createClientGimDto
+   */
+  async createNewNaturalPersonGim(
+    createClientGimDto: CreateClientGimDto,
+  ): Promise<
+    { errorCode: number; data?: any } & Partial<CreateNaturalPersonResponse>
+  > {
     try {
       // For local development testing only
       // createGimDto.identityCard = '1104187768';
 
       // Check the user in our own system first
-      const user = await this.commonAuthService.filterByIdentityCard(createClientGimDto.controllerId, createClientGimDto.identityCard);
+      const user = await this.commonAuthService.filterByIdentityCard(
+        createClientGimDto.controllerId,
+        createClientGimDto.identityCard,
+      );
 
       let body = null;
 
       if (user.errorCode !== ErrorCode.NONE) {
-
         body = {
-          identificationType: mapIdentificationTypeToGim(TypeIdentifyCard.NATIONAL_IDENTITY_DOCUMENT),
+          identificationType: mapIdentificationTypeToGim(
+            TypeIdentifyCard.NATIONAL_IDENTITY_DOCUMENT,
+          ),
           identificationNumber: createClientGimDto.identityCard?.trim(),
-          firstName: this._removeAccents(createClientGimDto.firstName || 'Usuario'),
-          lastName: this._removeAccents(createClientGimDto.firstName || 'Usuario'),
+          firstName: this._removeAccents(
+            createClientGimDto.firstName || 'Usuario',
+          ),
+          lastName: this._removeAccents(
+            createClientGimDto.firstName || 'Usuario',
+          ),
           country: consts.COUNTRY_GIM,
           city: consts.CITY_GIM,
           neighborhood: '',
@@ -344,10 +476,10 @@ export class GimService {
           phoneNumber: '',
           isForeigner: false,
           birthday: new Date().toISOString().split('T')[0], // current UTC date as YYYY-MM-DD
-          gender: (TypeGenre.UNDEFINED), // already returns the correct string
-          maritalStatus: (TypeMaritalStatus.SINGLE), // already returns the correct string
+          gender: TypeGenre.UNDEFINED, // already returns the correct string
+          maritalStatus: TypeMaritalStatus.SINGLE, // already returns the correct string
           isDead: false,
-          isHandicaped: false
+          isHandicaped: false,
         };
 
         // return {
@@ -356,11 +488,12 @@ export class GimService {
         //   data: null
         // };
       } else {
-
         const phoneNumber = this._normalizeEcuadorPhone(user.data[0].phone);
 
         body = {
-          identificationType: mapIdentificationTypeToGim(user.data[0].identificationType),
+          identificationType: mapIdentificationTypeToGim(
+            user.data[0].identificationType,
+          ),
           identificationNumber: createClientGimDto.identityCard?.trim(),
           firstName: this._removeAccents(user.data[0].firstName),
           lastName: this._removeAccents(user.data[0].lastName),
@@ -379,12 +512,19 @@ export class GimService {
         };
       }
 
-      console.log("body createNewNaturalPersonGim", JSON.stringify(body));
+      console.log('body createNewNaturalPersonGim', JSON.stringify(body));
 
-      const data = await this._postToExternalApi<CreateNaturalPersonResponse>('createNewNaturalPerson', body);
+      const data = await this._postToExternalApi<CreateNaturalPersonResponse>(
+        'createNewNaturalPerson',
+        body,
+      );
 
       if (user && user.errorCode === ErrorCode.NONE)
-        this.commonAuthService.updateResidentId(user.data[0].id, createClientGimDto.identityCard, data.residentDTO.id);
+        this.commonAuthService.updateResidentId(
+          user.data[0].id,
+          createClientGimDto.identityCard,
+          data.residentDTO.id,
+        );
 
       if (data.ok && +data.code === 200) {
         return {
@@ -406,7 +546,6 @@ export class GimService {
         errorCode: ErrorCode.NOT_FOUND,
         residentDTO: null,
       };
-
     } catch (error: any) {
       this.logger.error(` ${error}`);
       this.logger.error(`Error createClientGim: ${error.message}`);
@@ -418,30 +557,58 @@ export class GimService {
     }
   }
 
-  async createNewNaturalPersonGimNoExist(createClientGimNotExistDto: CreateClientGimNotExistDto): Promise<{ errorCode: number, data?: any } & Partial<CreateNaturalPersonResponse>> {
+  /**
+   *
+   * @param createClientGimNotExistDto
+   */
+  async createNewNaturalPersonGimNoExist(
+    createClientGimNotExistDto: CreateClientGimNotExistDto,
+  ): Promise<
+    { errorCode: number; data?: any } & Partial<CreateNaturalPersonResponse>
+  > {
     try {
-      const phoneNumber = this._normalizeEcuadorPhone(createClientGimNotExistDto.phoneNumber);
+      const phoneNumber = this._normalizeEcuadorPhone(
+        createClientGimNotExistDto.phoneNumber,
+      );
 
       const body = {
-        identificationType: mapIdentificationTypeToGim(createClientGimNotExistDto.identificationType),
-        identificationNumber: createClientGimNotExistDto.identificationNumber?.trim(),
-        firstName: this._removeAccents(createClientGimNotExistDto.firstName || 'Usuario'),
-        lastName: this._removeAccents(createClientGimNotExistDto.lastName || createClientGimNotExistDto.firstName || 'Usuario'),
+        identificationType: mapIdentificationTypeToGim(
+          createClientGimNotExistDto.identificationType,
+        ),
+        identificationNumber:
+          createClientGimNotExistDto.identificationNumber?.trim(),
+        firstName: this._removeAccents(
+          createClientGimNotExistDto.firstName || 'Usuario',
+        ),
+        lastName: this._removeAccents(
+          createClientGimNotExistDto.lastName ||
+            createClientGimNotExistDto.firstName ||
+            'Usuario',
+        ),
         country: consts.COUNTRY_GIM,
         city: consts.CITY_GIM,
-        neighborhood: this._removeAccents(createClientGimNotExistDto.neighborhood),
-        address: this._removeAccents(createClientGimNotExistDto.address || consts.CITY_GIM),
+        neighborhood: this._removeAccents(
+          createClientGimNotExistDto.neighborhood,
+        ),
+        address: this._removeAccents(
+          createClientGimNotExistDto.address || consts.CITY_GIM,
+        ),
         email: createClientGimNotExistDto.email?.trim().toLowerCase(),
         phoneNumber,
         isForeigner: !!createClientGimNotExistDto.isForeigner,
         birthday: createClientGimNotExistDto.birthday?.split('T')[0], // por si viene con hora
         gender: getGenreNameById(createClientGimNotExistDto.gender), // ya devuelve string correcto
-        maritalStatus: getMaritalStatusName(createClientGimNotExistDto.maritalStatus), // ya devuelve string correcto
+        maritalStatus: getMaritalStatusName(
+          createClientGimNotExistDto.maritalStatus,
+        ), // ya devuelve string correcto
         isDead: false,
         isHandicaped: !!createClientGimNotExistDto.isHandicaped,
       };
 
-      const data = await this._postToExternalApi<CreateNaturalPersonResponse>('createNewNaturalPerson', body);
+      const data = await this._postToExternalApi<CreateNaturalPersonResponse>(
+        'createNewNaturalPerson',
+        body,
+      );
 
       if (data.ok && +data.code === 200) {
         return {
@@ -463,7 +630,6 @@ export class GimService {
         errorCode: ErrorCode.NOT_FOUND,
         residentDTO: null,
       };
-
     } catch (error: any) {
       this.logger.error(` ${error}`);
       this.logger.error(`Error createClientGim: ${error.message}`);
@@ -475,7 +641,13 @@ export class GimService {
     }
   }
 
-  async verifateIncidentGim(id: string): Promise<{ errorCode: number } & Partial<FindTaxPayerResponse>> {
+  /**
+   *
+   * @param id
+   */
+  async verifateIncidentGim(
+    id: string,
+  ): Promise<{ errorCode: number } & Partial<FindTaxPayerResponse>> {
     try {
       const url = `${this.gimBaseUrl}/api/external/verifateIncidentSimert`;
 
@@ -496,7 +668,6 @@ export class GimService {
         errorCode: ErrorCode.NOT_FOUND,
         taxpayer: null,
       };
-
     } catch (error: any) {
       this.logger.error(`Error verifateIncidentGim: ${error.message}`);
 
@@ -508,17 +679,26 @@ export class GimService {
   }
 
   // Issue the debt directly into GIM
-  async emitInfractionGim(createGimDto: CreateGimDto): Promise<{ errorCode: number, data: EmitInfractionSimertResponse | null, message?: string }> {
-
+  /**
+   *
+   * @param createGimDto
+   */
+  async emitInfractionGim(createGimDto: CreateGimDto): Promise<{
+    errorCode: number;
+    data: EmitInfractionSimertResponse | null;
+    message?: string;
+  }> {
     try {
       // OBTENER EL TIPO DE INCIDENTE
-      const typeIncident = await this.incidentTypeService.getTypeIncidentById(createGimDto.incidentTypeId);
+      const typeIncident = await this.incidentTypeService.getTypeIncidentById(
+        createGimDto.incidentTypeId,
+      );
 
       if (typeIncident.errorCode !== ErrorCode.NONE) {
         return {
           errorCode: ErrorCode.NOT_FOUND,
           message: typeIncident.message,
-          data: null
+          data: null,
         };
       }
 
@@ -532,20 +712,29 @@ export class GimService {
       // | `notificationNumber`  | String | No      | Printed ticket serial/notification number.
       // | `vehicleType`         | Long   | No      | Vehicle-type ID (per GIM catalog).
       // | `address`             | String | No      | Location where the infraction occurred.
-      const residentId = createGimDto.optionalData.find((item: any) => item.key === 'residentId')?.value;
+      const residentId = createGimDto.optionalData.find(
+        (item: any) => item.key === 'residentId',
+      )?.value;
       const body = {
         residentId: Number(residentId), // Default or map
         entryCode: typeIncident.incidentType.code,
         description: createGimDto.description,
         reference: createGimDto.reference, // Placeholder as per user example, ideally map from address/coords
-        infringementDate: new Date(createGimDto.createdAt).toISOString().split('T')[0],
+        infringementDate: new Date(createGimDto.createdAt)
+          .toISOString()
+          .split('T')[0],
         numberPlate: createGimDto.plate,
         notificationNumber: createGimDto.nroTicket,
-        vehicleType: createGimDto.vehicleType ? Number(createGimDto.vehicleType) : TypeSizeVehicle.VEHICLE,
+        vehicleType: createGimDto.vehicleType
+          ? Number(createGimDto.vehicleType)
+          : TypeSizeVehicle.VEHICLE,
         address: createGimDto.address, // Placeholder
       };
 
-      const data = await this._postToExternalApi<EmitInfractionSimertResponse>('emitSimertSanction', body);
+      const data = await this._postToExternalApi<EmitInfractionSimertResponse>(
+        'emitSimertSanction',
+        body,
+      );
 
       if (data && data.ok && +data.code === ResponseCodeGim.SUCCESS) {
         return { errorCode: ErrorCode.NONE, data };
@@ -554,13 +743,13 @@ export class GimService {
       if (!data.ok && data.code === '400') {
         return {
           errorCode: ErrorCode.NOT_FOUND,
-          message: 'Fuera del horario, jornada no aperturada, comuniquese con el administrador',
-          data
+          message:
+            'Fuera del horario, jornada no aperturada, comuniquese con el administrador',
+          data,
         };
       }
 
       return { errorCode: ErrorCode.NOT_FOUND, message: data.message, data };
-
     } catch (error) {
       const responseData = error?.response?.data;
 
@@ -572,19 +761,24 @@ export class GimService {
           if (innerMessage.includes('SIMERT_SANCTION_ENTRY_CODES')) {
             const rubroMatch = innerMessage.match(/rubro\s+(\d+)/i);
             const rubro = rubroMatch?.[1] ?? '';
-            this.logger.warn(`emitInfractionGim catch rubro no permitido: ${innerMessage}`);
+            this.logger.warn(
+              `emitInfractionGim catch rubro no permitido: ${innerMessage}`,
+            );
             return {
               errorCode: ErrorCode.NOT_FOUND,
               message: `El rubro ${rubro}, no esta correctamente definido o no esta permitido por favor comuniquese con el administrador`,
-              data: responseData
+              data: responseData,
             };
           }
 
-          this.logger.warn(`emitInfractionGim catch jornada cerrada: ${innerMessage}`);
+          this.logger.warn(
+            `emitInfractionGim catch jornada cerrada: ${innerMessage}`,
+          );
           return {
             errorCode: ErrorCode.NOT_FOUND,
-            message: 'Fuera del horario, jornada no aperturada en el municipio, comuniquese con el administrador',
-            data: responseData
+            message:
+              'Fuera del horario, jornada no aperturada en el municipio, comuniquese con el administrador',
+            data: responseData,
           };
         }
 
@@ -592,38 +786,50 @@ export class GimService {
           return {
             errorCode: ErrorCode.HTTP_ERROR_REINTENT,
             message: responseData.message,
-            data: responseData
+            data: responseData,
           };
         }
       }
 
       return {
         errorCode: ErrorCode.HTTP_ERROR_REINTENT,
-        message: 'Error interno del municipio al generar la deuda, por favor intente más tarde',
-        data: null
+        message:
+          'Error interno del municipio al generar la deuda, por favor intente más tarde',
+        data: null,
       };
     }
   }
 
   // Look up an obligation by ticket number
-  async findBondByNumber(findBondNumberDto: FindBondNumberDto): Promise<{ errorCode: number, data: any, message?: string }> {
+  /**
+   *
+   * @param findBondNumberDto
+   */
+  async findBondByNumber(
+    findBondNumberDto: FindBondNumberDto,
+  ): Promise<{ errorCode: number; data: any; message?: string }> {
     try {
       const url = `${this.gimBaseUrl}/api/external/findBondByNumber`;
       const body = {
         bondNumber: findBondNumberDto.nroTicket,
-        identificationNumber: findBondNumberDto.identityCard
+        identificationNumber: findBondNumberDto.identityCard,
       };
       const { data } = await axios.post(url, body);
-      if (data && data.ok && +data.code === ResponseCodeGim.SUCCESS && data.bond) {
+      if (
+        data &&
+        data.ok &&
+        +data.code === ResponseCodeGim.SUCCESS &&
+        data.bond
+      ) {
         return {
           errorCode: ErrorCode.NONE,
-          data: data.data
+          data: data.data,
         };
       } else {
         return {
           errorCode: ErrorCode.NOT_FOUND,
           message: 'No se encontro la deuda',
-          data: null
+          data: null,
         };
       }
     } catch (error) {
@@ -631,35 +837,58 @@ export class GimService {
       return {
         errorCode: ErrorCode.NOT_FOUND,
         message: error.message,
-        data: null
+        data: null,
       };
     }
   }
 
   // Look up an obligation by ticket number AND identity card (returns ALL the
   // person's debts across every status — not just pending ones)
-  async findObligationsByCitation(number: string, identityCard: string): Promise<{ errorCode: number, data: ObligationsResponse, message?: string }> {
+  /**
+   *
+   * @param number
+   * @param identityCard
+   */
+  async findObligationsByCitation(
+    number: string,
+    identityCard: string,
+  ): Promise<{
+    errorCode: number;
+    data: ObligationsResponse;
+    message?: string;
+  }> {
     try {
       const body = {
         citationNumber: number, // Ticket number
-        identificationNumber: identityCard // Identity card
+        identificationNumber: identityCard, // Identity card
       };
-      const data = await this._postToExternalApi<ObligationsResponse>('findObligationsByCitation', body);
+      const data = await this._postToExternalApi<ObligationsResponse>(
+        'findObligationsByCitation',
+        body,
+      );
       // An empty obligations list means the debt has not been issued yet
-      if (data && data.ok && +data.code === ResponseCodeGim.SUCCESS && data.obligations && data.obligations.length > 0) {
-
+      if (
+        data &&
+        data.ok &&
+        +data.code === ResponseCodeGim.SUCCESS &&
+        data.obligations &&
+        data.obligations.length > 0
+      ) {
         if (data.obligations.length > 1)
-          this.logger.debug('El número de obligaciones por citación es de: ', data.obligations.length);
+          this.logger.debug(
+            'El número de obligaciones por citación es de: ',
+            data.obligations.length,
+          );
 
         return {
           errorCode: ErrorCode.NONE,
-          data: data
+          data: data,
         };
       } else {
         return {
           errorCode: ErrorCode.NOT_FOUND,
           message: 'No se encontro la deuda',
-          data: null
+          data: null,
         };
       }
     } catch (error) {
@@ -667,68 +896,118 @@ export class GimService {
       return {
         errorCode: ErrorCode.NOT_FOUND,
         message: error.message,
-        data: null
+        data: null,
       };
     }
   }
 
   // Look up obligations by plate (returns ALL debts associated with the plate)
-  async findObligationsByLicensePlate(licensePlate: string): Promise<{ errorCode: number, data: ObligationsResponse, message?: string }> {
+  /**
+   *
+   * @param licensePlate
+   */
+  async findObligationsByLicensePlate(licensePlate: string): Promise<{
+    errorCode: number;
+    data: ObligationsResponse;
+    message?: string;
+  }> {
     try {
       const body = {
-        licensePlate: licensePlate
+        licensePlate: licensePlate,
       };
-      const data = await this._postToExternalApi<ObligationsResponse>('findObligationsByLicensePlate', body);
+      const data = await this._postToExternalApi<ObligationsResponse>(
+        'findObligationsByLicensePlate',
+        body,
+      );
       // An empty obligations list means the debt has not been issued yet
-      if (data && data.ok && +data.code === ResponseCodeGim.SUCCESS && data.obligations && data.obligations.length > 0) {
-
+      if (
+        data &&
+        data.ok &&
+        +data.code === ResponseCodeGim.SUCCESS &&
+        data.obligations &&
+        data.obligations.length > 0
+      ) {
         if (data.obligations.length > 1)
-          this.logger.debug('El número de obligaciones por placa es de: ', data.obligations.length);
+          this.logger.debug(
+            'El número de obligaciones por placa es de: ',
+            data.obligations.length,
+          );
 
         return {
           errorCode: ErrorCode.NONE,
-          data: data
+          data: data,
         };
       } else {
         return {
           errorCode: ErrorCode.NOT_FOUND,
           message: 'No se encontro la deuda',
-          data: null
+          data: null,
         };
       }
     } catch (error) {
-      this.logger.error(`Error findObligationsByLicensePlate: ${error.message}`);
+      this.logger.error(
+        `Error findObligationsByLicensePlate: ${error.message}`,
+      );
       return {
         errorCode: ErrorCode.NOT_FOUND,
         message: error.message,
-        data: null
+        data: null,
       };
     }
   }
 
-  public async validateStatusSistemWithGim(debtDataObligations: Obligation[], incidentId: number, createGimDto: CreateGimDto, isTransacional: number) {
+  /**
+   *
+   * @param debtDataObligations
+   * @param incidentId
+   * @param createGimDto
+   * @param isTransacional
+   */
+  public async validateStatusSistemWithGim(
+    debtDataObligations: Obligation[],
+    incidentId: number,
+    createGimDto: CreateGimDto,
+    isTransacional: number,
+  ) {
     try {
-
-      const validateStatus = await this._validateStatusSistemWithGim(debtDataObligations);
+      const validateStatus =
+        await this._validateStatusSistemWithGim(debtDataObligations);
       if (validateStatus.errorCode === ErrorCode.NONE) {
         createGimDto.statusIncident = validateStatus.statusIncident;
-        const updateDto = this._buildAntDataResponse(debtDataObligations[0], validateStatus.statusIncident);
-        await this.incidentService.update(incidentId, updateDto, isTransacional);
+        const updateDto = this._buildAntDataResponse(
+          debtDataObligations[0],
+          validateStatus.statusIncident,
+        );
+        await this.incidentService.update(
+          incidentId,
+          updateDto,
+          isTransacional,
+        );
       }
       return validateStatus;
-
     } catch (error) {
       this.logger.error(`Error validateStatusSistemWithGim: ${error.message}`);
       return {
         errorCode: ErrorCode.NOT_FOUND,
         message: error.message,
-        data: null
+        data: null,
       };
     }
   }
 
   // VALIDAMOS CADA ESTADO DEL GIM CON LO QUE TENEMOS EN NUESTRO SISTEMA
-  public async _validateStatusSistemWithGim(debtDataObligations: Obligation[]): Promise<{ errorCode: number, data: any, statusIncident: IncidentStatus | null, message?: string }> {
+  /**
+   *
+   * @param debtDataObligations
+   */
+  public async _validateStatusSistemWithGim(
+    debtDataObligations: Obligation[],
+  ): Promise<{
+    errorCode: number;
+    data: any;
+    statusIncident: IncidentStatus | null;
+    message?: string;
+  }> {
     try {
       const obligation = debtDataObligations[0];
       const { status } = obligation;
@@ -795,24 +1074,35 @@ export class GimService {
             errorCode: ErrorCode.NOT_FOUND,
             message: 'Error al validar el estado de la deuda en el GIM',
             data: debtDataObligations,
-            statusIncident: null
+            statusIncident: null,
           };
       }
-      return { errorCode: ErrorCode.NONE, message, statusIncident, data: debtDataObligations };
-
+      return {
+        errorCode: ErrorCode.NONE,
+        message,
+        statusIncident,
+        data: debtDataObligations,
+      };
     } catch (error) {
       this.logger.error(`Error validateStatusSistemWithGim: ${error.message}`);
       return {
         errorCode: ErrorCode.NOT_FOUND,
         message: error?.message,
         data: null,
-        statusIncident: null
+        statusIncident: null,
       };
     }
   }
 
   // Validar Open Till
-  async validateOpenTill(): Promise<{ errorCode: number; data: any; message?: string }> {
+  /**
+   *
+   */
+  async validateOpenTill(): Promise<{
+    errorCode: number;
+    data: any;
+    message?: string;
+  }> {
     try {
       const data = await this._postToExternalApi<any>('validateOpenTill', {});
 
@@ -820,7 +1110,7 @@ export class GimService {
         return {
           errorCode: ErrorCode.NOT_FOUND,
           message: 'Fuera del horario laboral, por favor intente más tarde',
-          data: data.data
+          data: data.data,
         };
       }
 
@@ -828,26 +1118,35 @@ export class GimService {
         return {
           errorCode: ErrorCode.NONE,
           message: 'Dentro del horario laboral',
-          data: data.data
+          data: data.data,
         };
       }
 
       return {
         errorCode: ErrorCode.NOT_FOUND,
-        message: 'No se logró verificar el horario laboral, por favor intente más tarde',
+        message:
+          'No se logró verificar el horario laboral, por favor intente más tarde',
         data: null,
       };
     } catch (error: any) {
-
-      this.logger.error('Errro validateOpenTill ', error?.response?.status, error?.code, error?.message)
+      this.logger.error(
+        'Errro validateOpenTill ',
+        error?.response?.status,
+        error?.code,
+        error?.message,
+      );
       const status = error?.response?.status;
-      const isTimeout = error?.code === 'ECONNABORTED' || error?.code === 'ETIMEDOUT';
+      const isTimeout =
+        error?.code === 'ECONNABORTED' || error?.code === 'ETIMEDOUT';
 
       if (isTimeout) {
-        this.logger.error(`Error validateOpenTill: timeout al conectar con el municipio`);
+        this.logger.error(
+          `Error validateOpenTill: timeout al conectar con el municipio`,
+        );
         return {
           errorCode: ErrorCode.HTTP_ERROR_REINTENT,
-          message: 'No hay comunicación con el municipio, por favor intente más tarde',
+          message:
+            'No hay comunicación con el municipio, por favor intente más tarde',
           data: null,
         };
       }
@@ -856,16 +1155,20 @@ export class GimService {
         this.logger.error(`Error validateOpenTill: no autorizado (401)`);
         return {
           errorCode: ErrorCode.HTTP_ERROR_REINTENT,
-          message: 'No se pudo verificar al usuario, por favor intente más tarde',
+          message:
+            'No se pudo verificar al usuario, por favor intente más tarde',
           data: null,
         };
       }
 
       if (status === 500) {
-        this.logger.error(`Error validateOpenTill: error interno del municipio (500)`);
+        this.logger.error(
+          `Error validateOpenTill: error interno del municipio (500)`,
+        );
         return {
           errorCode: ErrorCode.HTTP_ERROR_REINTENT,
-          message: 'Ocurrió un error al verificar el horario laboral del municipio, por favor intente más tarde',
+          message:
+            'Ocurrió un error al verificar el horario laboral del municipio, por favor intente más tarde',
           data: null,
         };
       }
@@ -873,14 +1176,22 @@ export class GimService {
       this.logger.error(`Error validateOpenTill: ${error?.message}`);
       return {
         errorCode: ErrorCode.HTTP_ERROR_REINTENT,
-        message: 'Ocurrió un error al verificar el horario laboral del municipio, por favor intente más tarde',
+        message:
+          'Ocurrió un error al verificar el horario laboral del municipio, por favor intente más tarde',
         data: null,
       };
     }
   }
 
   // GIM login to obtain a Keycloak access_token
-  async loginGim(): Promise<{ errorCode: number; data: KeycloakTokenResponse | null; message?: string }> {
+  /**
+   *
+   */
+  async loginGim(): Promise<{
+    errorCode: number;
+    data: KeycloakTokenResponse | null;
+    message?: string;
+  }> {
     try {
       const url = `${this.gimBaseUrlLogin}/realms/${this.gim2RealmMunicipio}/protocol/openid-connect/token`;
 
@@ -892,12 +1203,16 @@ export class GimService {
       form.append('password', process.env.GIM_PASSWORD ?? '');
       form.append('client_secret', process.env.GIM_CLIENT_SECRET ?? '');
 
-      const { data } = await axios.post<KeycloakTokenResponse>(url, form.toString(), {
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          Accept: '*/*',
+      const { data } = await axios.post<KeycloakTokenResponse>(
+        url,
+        form.toString(),
+        {
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            Accept: '*/*',
+          },
         },
-      });
+      );
 
       // Keycloak responds directly (no "ok" / "data" envelope like other GIM endpoints)
       if (data?.access_token) {
@@ -922,11 +1237,21 @@ export class GimService {
   }
 
   // Fetch the vehicle-type catalog from GIM
-  async findVehicleTypesForSimert(): Promise<{ errorCode: number, data: any, message?: string }> {
+  /**
+   *
+   */
+  async findVehicleTypesForSimert(): Promise<{
+    errorCode: number;
+    data: any;
+    message?: string;
+  }> {
     try {
       const body = {}; // Empty body, as the endpoint requires
 
-      const data = await this._postToExternalApi<VehicleTypesGimResponse>('findVehicleTypesForSimert', body);
+      const data = await this._postToExternalApi<VehicleTypesGimResponse>(
+        'findVehicleTypesForSimert',
+        body,
+      );
 
       // Example response shape:
       // {
@@ -942,13 +1267,13 @@ export class GimService {
 
         return {
           errorCode: ErrorCode.NONE,
-          data: sorted // Returns vehicleTypes; adjust mapping if the contract changes
+          data: sorted, // Returns vehicleTypes; adjust mapping if the contract changes
         };
       } else {
         return {
           errorCode: ErrorCode.NOT_FOUND,
           message: 'No se encontraron tipos de vehículos',
-          data: null
+          data: null,
         };
       }
     } catch (error) {
@@ -956,13 +1281,19 @@ export class GimService {
       return {
         errorCode: ErrorCode.NOT_FOUND,
         message: error.message,
-        data: null
+        data: null,
       };
     }
   }
 
   // Issue a credit-card title (simert card) in GIM
-  async emissionTitleCreditCard(emissionCreditCardDto: EmissionCreditCardDto): Promise<{ errorCode: number, data: any, message?: string }> {
+  /**
+   *
+   * @param emissionCreditCardDto
+   */
+  async emissionTitleCreditCard(
+    emissionCreditCardDto: EmissionCreditCardDto,
+  ): Promise<{ errorCode: number; data: any; message?: string }> {
     try {
       const body = {
         residentId: emissionCreditCardDto.residentId,
@@ -972,47 +1303,66 @@ export class GimService {
         quantity: emissionCreditCardDto.quantity,
       };
 
-      const data = await this._postToExternalApi<EmisionTitleCreditCardResponse>('emitSimertCard', body);
+      const data =
+        await this._postToExternalApi<EmisionTitleCreditCardResponse>(
+          'emitSimertCard',
+          body,
+        );
 
       if (data && data.ok && +data.code === 200) {
         return {
           errorCode: ErrorCode.NONE,
-          data: data
+          data: data,
         };
       } else {
         return {
           errorCode: ErrorCode.NOT_FOUND,
           message: 'No se logró realizar la emisión de la tarjeta',
-          data: null
+          data: null,
         };
       }
     } catch (error) {
-      this.logger.error(`Error emisionTitleCreditCard: ${error.response?.data}`);
+      this.logger.error(
+        `Error emisionTitleCreditCard: ${error.response?.data}`,
+      );
       return {
         errorCode: ErrorCode.NOT_FOUND,
-        message: error.response?.data?.message || 'error de catch de emitSimertCard',
-        data: error.response?.data || null
+        message:
+          error.response?.data?.message || 'error de catch de emitSimertCard',
+        data: error.response?.data || null,
       };
     }
   }
 
   // Register a deposit in GIM
-  async registerDeposit(registerDepositGimDto: RegisterDepositGimDto): Promise<{ errorCode: number, data: any, message?: string }> {
+  /**
+   *
+   * @param registerDepositGimDto
+   */
+  async registerDeposit(
+    registerDepositGimDto: RegisterDepositGimDto,
+  ): Promise<{ errorCode: number; data: any; message?: string }> {
     try {
-      const body = { ...registerDepositGimDto, amount: Number(registerDepositGimDto.amount) }
+      const body = {
+        ...registerDepositGimDto,
+        amount: Number(registerDepositGimDto.amount),
+      };
 
-      const data = await this._postToExternalApi<DepositResponse>('registerDeposit', body);
+      const data = await this._postToExternalApi<DepositResponse>(
+        'registerDeposit',
+        body,
+      );
 
       if (data && data.ok && data.reference && data.total) {
         return {
           errorCode: ErrorCode.NONE,
-          data: data
+          data: data,
         };
       } else {
         return {
           errorCode: ErrorCode.NOT_FOUND,
           message: 'No se logró realizar el depósito',
-          data: data || null
+          data: data || null,
         };
       }
     } catch (error) {
@@ -1020,43 +1370,62 @@ export class GimService {
       this.logger.error(`Error registerDeposit: ${error.response?.data}`);
       return {
         errorCode: ErrorCode.NOT_FOUND,
-        message: error.response?.data?.message || 'error de catch de registerDeposit',
-        data: error.response?.data || null
+        message:
+          error.response?.data?.message || 'error de catch de registerDeposit',
+        data: error.response?.data || null,
       };
     }
   }
 
   // Buscar obligaciones cliente
-  async findObligations(getClientGimDto: GetClientGimDto): Promise<{ errorCode: number, data: any, message?: string }> {
+  /**
+   *
+   * @param getClientGimDto
+   */
+  async findObligations(
+    getClientGimDto: GetClientGimDto,
+  ): Promise<{ errorCode: number; data: any; message?: string }> {
     try {
-      const body = { identificationNumber: getClientGimDto.identificationNumber };
+      const body = {
+        identificationNumber: getClientGimDto.identificationNumber,
+      };
 
-      const data = await this._postToExternalApi<ObligationsClientResponse>('findStatement', body);
+      const data = await this._postToExternalApi<ObligationsClientResponse>(
+        'findStatement',
+        body,
+      );
 
       if (data && data.ok && data.bonds?.length > 0) {
         return {
           errorCode: ErrorCode.NONE,
-          data: data
+          data: data,
         };
       } else {
         return {
           errorCode: ErrorCode.NOT_FOUND,
           message: 'No se lograron obtener las obligaciones',
-          data: null
+          data: null,
         };
       }
     } catch (error) {
       this.logger.error(`Error findObligations: ${error.response?.data}`);
       return {
         errorCode: ErrorCode.NOT_FOUND,
-        message: error.response?.data?.message || 'error de catch de findObligations',
-        data: error.response?.data || null
+        message:
+          error.response?.data?.message || 'error de catch de findObligations',
+        data: error.response?.data || null,
       };
     }
   }
 
   // Emit a traffic sanction in GIM
-  async emitSanction(emissionSanctionDto: EmissionSanctionDto): Promise<{ errorCode: number, data: any, message?: string }> {
+  /**
+   *
+   * @param emissionSanctionDto
+   */
+  async emitSanction(
+    emissionSanctionDto: EmissionSanctionDto,
+  ): Promise<{ errorCode: number; data: any; message?: string }> {
     try {
       const body = {
         entryCode: emissionSanctionDto.entryCode,
@@ -1069,34 +1438,46 @@ export class GimService {
         vehicleType: emissionSanctionDto.vehicleType,
       };
 
-      const data = await this._postToExternalApi<EmitInfractionSimertResponse>('emitSanction', body);
+      const data = await this._postToExternalApi<EmitInfractionSimertResponse>(
+        'emitSanction',
+        body,
+      );
 
       if (data && data.ok && data.code === '200') {
         return {
           errorCode: ErrorCode.NONE,
-          data: data
+          data: data,
         };
       } else {
         return {
           errorCode: ErrorCode.NOT_FOUND,
           message: 'No se logró realizar la emisión de la sanción',
-          data: null
+          data: null,
         };
       }
     } catch (error) {
       this.logger.error(`Error emitSanction: ${error.response?.data}`);
       return {
         errorCode: ErrorCode.NOT_FOUND,
-        message: error.response?.data?.message || 'error de catch de emitSanction',
-        data: error.response?.data || null
+        message:
+          error.response?.data?.message || 'error de catch de emitSanction',
+        data: error.response?.data || null,
       };
     }
   }
 
-  async emitInfractionSimert(createGimDto: CreateGimDto, id: number, isTransacional: number) {
-
+  /**
+   *
+   * @param createGimDto
+   * @param id
+   * @param isTransacional
+   */
+  async emitInfractionSimert(
+    createGimDto: CreateGimDto,
+    id: number,
+    isTransacional: number,
+  ) {
     try {
-
       // MANDAMOS A  EMITIR LA DEUDA EN EL GIM
       const responeEmit = await this.emitInfractionGim(createGimDto);
 
@@ -1104,34 +1485,33 @@ export class GimService {
         return {
           errorCode: ErrorCode.NOT_FOUND,
           message: responeEmit.data?.message,
-          data: responeEmit.data
+          data: responeEmit.data,
         };
       }
 
       const obligation = {
         obligationId: +responeEmit.data.bondId,
-        obligationNumber: responeEmit.data.bondNumber.toString()
-      } as Obligation
-      const updateDto = this._buildAntDataResponse(obligation, IncidentStatus.SUPPLIED);
+        obligationNumber: responeEmit.data.bondNumber.toString(),
+      } as Obligation;
+      const updateDto = this._buildAntDataResponse(
+        obligation,
+        IncidentStatus.SUPPLIED,
+      );
       await this.incidentService.update(id, updateDto, isTransacional);
 
       return {
         errorCode: ErrorCode.NONE,
         message: 'Deuda emitida correctamente',
-        data: updateDto
+        data: updateDto,
       };
-
     } catch (error) {
-
       this.logger.error(`Error emitInfractionSimert: ${error.message}`);
       return {
         errorCode: ErrorCode.NOT_FOUND,
-        message: 'Error al generar la deuda en el GIM notificar al administrador',
-        data: null
+        message:
+          'Error al generar la deuda en el GIM notificar al administrador',
+        data: null,
       };
-
     }
-
   }
-
 }

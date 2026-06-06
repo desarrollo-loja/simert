@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Param, ParseIntPipe, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseIntPipe,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthWithKeycloak, GetUser } from 'src/auth/decorators';
 import { JwtPayload } from 'src/auth/interfaces';
@@ -14,9 +24,23 @@ import { CheckboxService } from './checkbox.service';
 @ApiBearerAuth('keycloak')
 @Controller('admin/checkbox')
 export class CheckboxController {
-  constructor(private readonly checkboxService: CheckboxService) { }
+  /**
+   *
+   * @param checkboxService
+   */
+  constructor(private readonly checkboxService: CheckboxService) {}
 
-  @ApiOperation({ summary: 'List all checkboxes with optional filters (admin)' })
+  /**
+   *
+   * @param user
+   * @param userId
+   * @param idDevice
+   * @param version
+   * @param filterDto
+   */
+  @ApiOperation({
+    summary: 'List all checkboxes with optional filters (admin)',
+  })
   @AuthWithKeycloak()
   @Get(':userId/:idDevice/:version')
   findAll(
@@ -29,7 +53,15 @@ export class CheckboxController {
     return this.checkboxService.findAll(filterDto);
   }
 
-  @ApiOperation({ summary: 'List checkboxes filtered by transactionIds (id, transactionId, statusIncident, onResponseExternal)' })
+  /**
+   *
+   * @param user
+   * @param filterDto
+   */
+  @ApiOperation({
+    summary:
+      'List checkboxes filtered by transactionIds (id, transactionId, statusIncident, onResponseExternal)',
+  })
   @AuthWithKeycloak()
   @Patch('find-all-by-transaction-id/:userId/:idDevice/:version')
   findAllByTransactionId(
@@ -41,7 +73,13 @@ export class CheckboxController {
 
   // ─── Internal endpoints consumed by CommonCheckboxService ─────────────
 
-  @ApiOperation({ summary: 'List paid checkboxes with no linked incident (statusIncident = NULL)' })
+  /**
+   *
+   */
+  @ApiOperation({
+    summary:
+      'List paid checkboxes with no linked incident (statusIncident = NULL)',
+  })
   /**
    * Returns PAID checkboxes whose statusIncident is NULL.
    * GET /admin/checkbox/common/paid-without-incident
@@ -51,7 +89,12 @@ export class CheckboxController {
     return this.checkboxService.findPaidWithoutIncident();
   }
 
-  @ApiOperation({ summary: 'List paid checkboxes with a pending GIM incident status' })
+  /**
+   *
+   */
+  @ApiOperation({
+    summary: 'List paid checkboxes with a pending GIM incident status',
+  })
   /**
    * Returns PAID checkboxes with a statusIncident pending in GIM.
    * GET /admin/checkbox/common/paid-pending-incident
@@ -61,7 +104,14 @@ export class CheckboxController {
     return this.checkboxService.findPaidWithPendingIncident();
   }
 
-  @ApiOperation({ summary: 'Update a checkbox by id (partial update, any field except id)' })
+  /**
+   *
+   * @param id
+   * @param fields
+   */
+  @ApiOperation({
+    summary: 'Update a checkbox by id (partial update, any field except id)',
+  })
   /**
    * Updates a checkbox by its id.
    * PATCH /admin/checkbox/common/update/:id
@@ -75,6 +125,10 @@ export class CheckboxController {
     return this.checkboxService.updateCheckboxById(id, fields);
   }
 
+  /**
+   *
+   * @param id
+   */
   @ApiOperation({ summary: 'Move a checkbox record to its history table' })
   /**
    * Transfers a checkbox to the corresponding historical table.

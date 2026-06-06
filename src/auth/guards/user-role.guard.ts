@@ -1,20 +1,38 @@
-import { CanActivate, ExecutionContext, ForbiddenException, Injectable } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+  Injectable,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Observable } from 'rxjs';
 
 import { META_ROLES } from '../decorators/role-protected.decorator';
+/**
+ *
+ */
 @Injectable()
 export class UserRoleGuard implements CanActivate {
+  /**
+   *
+   * @param reflector
+   */
+  constructor(private readonly reflector: Reflector) {}
 
-  constructor(
-    private readonly reflector: Reflector,
-  ) { }
-
-  canActivate(context: ExecutionContext): boolean | Promise<boolean> | Observable<boolean> {
+  /**
+   *
+   * @param context
+   */
+  canActivate(
+    context: ExecutionContext,
+  ): boolean | Promise<boolean> | Observable<boolean> {
     const req = context.switchToHttp().getRequest();
 
-    const validRoles: string[] = this.reflector.get(META_ROLES, context.getHandler());
-    
+    const validRoles: string[] = this.reflector.get(
+      META_ROLES,
+      context.getHandler(),
+    );
+
     // Si no hay roles requeridos para la ruta, permitimos el acceso
     if (!validRoles || validRoles.length === 0) return true;
 
@@ -38,5 +56,4 @@ export class UserRoleGuard implements CanActivate {
     // Si no tiene ninguno de los roles, lanzamos 403
     throw new ForbiddenException(`User need a valid role: [ ${validRoles} ]`);
   }
-
 }

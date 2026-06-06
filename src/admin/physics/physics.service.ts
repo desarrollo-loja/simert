@@ -15,10 +15,14 @@ import { Physic } from './entities/physic.entity';
 export class PhysicsService {
   private readonly logger = new Logger('PhysicsService');
 
+  /**
+   *
+   * @param physicRepository
+   */
   constructor(
     @InjectRepository(Physic)
-    private readonly physicRepository: Repository<Physic>
-  ) { }
+    private readonly physicRepository: Repository<Physic>,
+  ) {}
 
   /**
    * Retrieves a paginated list of physical card usage records.
@@ -72,7 +76,11 @@ export class PhysicsService {
         LIMIT $${parameters.length + 1} OFFSET $${parameters.length + 2}
       `;
 
-      const physics = await this.physicRepository.query(sql, [...parameters, limit, offset]);
+      const physics = await this.physicRepository.query(sql, [
+        ...parameters,
+        limit,
+        offset,
+      ]);
 
       return { errorCode: ErrorCode.NONE, physics };
     } catch (error) {
@@ -90,10 +98,12 @@ export class PhysicsService {
    */
   async findAllTotalUnique(filterDto: FilterDto) {
     try {
-      const query = this.physicRepository.createQueryBuilder('p')
+      const query = this.physicRepository
+        .createQueryBuilder('p')
         .select('COUNT(DISTINCT p.card)', 'total');
 
-      const { conditions, parameters } = this._buildConditionsAndParameters(filterDto);
+      const { conditions, parameters } =
+        this._buildConditionsAndParameters(filterDto);
       if (conditions.length) {
         query.andWhere(conditions.join(' AND '), parameters);
       }
@@ -119,7 +129,8 @@ export class PhysicsService {
     try {
       const query = this.physicRepository.createQueryBuilder('p');
 
-      const { conditions, parameters } = this._buildConditionsAndParameters(filterDto);
+      const { conditions, parameters } =
+        this._buildConditionsAndParameters(filterDto);
       if (conditions.length) {
         query.andWhere(conditions.join(' AND '), parameters);
       }
@@ -190,7 +201,10 @@ export class PhysicsService {
    * @returns The `whereClause` string (empty when no filters are provided) and
    *   the ordered `parameters` array aligned with the `$1..$N` placeholders.
    */
-  private _buildRawFilter(filterDto: FilterDto): { whereClause: string; parameters: any[] } {
+  private _buildRawFilter(filterDto: FilterDto): {
+    whereClause: string;
+    parameters: any[];
+  } {
     const { userId, zoneId, search, dateFrom, timeByBlock } = filterDto;
     const conditions: string[] = [];
     const parameters: any[] = [];
@@ -220,7 +234,9 @@ export class PhysicsService {
       conditions.push(`p."timeByBlock" = $${parameters.length}`);
     }
 
-    const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+    const whereClause = conditions.length
+      ? `WHERE ${conditions.join(' AND ')}`
+      : '';
     return { whereClause, parameters };
   }
 }

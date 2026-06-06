@@ -12,17 +12,24 @@ import { Repository } from 'typeorm';
  */
 @Injectable()
 export class IncidentTypeService {
-
   private readonly logger = new Logger(IncidentTypeService.name);
 
+  /**
+   *
+   * @param incidentTypeRepository
+   * @param loggerService
+   */
   constructor(
     @InjectRepository(IncidentType)
     private readonly incidentTypeRepository: Repository<IncidentType>,
 
     @Inject(LoggerService)
     private readonly loggerService: LoggerService,
-  ) { }
+  ) {}
 
+  /**
+   *
+   */
   async getIncidentType() {
     try {
       const incidentTypes = await this.incidentTypeRepository.find({
@@ -35,5 +42,4 @@ export class IncidentTypeService {
       handleDbExceptions(error, this.logger);
     }
   }
-
 }

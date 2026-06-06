@@ -2,6 +2,9 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsArray, IsInt, IsOptional, IsPositive } from 'class-validator';
 
+/**
+ *
+ */
 export class FindUniqueUsersBlockOperatorDto {
   @ApiPropertyOptional({ type: [Number], description: 'Filter by block IDs' })
   @IsArray()

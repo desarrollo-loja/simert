@@ -15,14 +15,28 @@ import { IncidentPaymentService } from './incident-payment.service';
 @ApiBearerAuth('keycloak')
 @Controller('admin/incident-payment')
 export class IncidentPaymentController {
-  constructor(private readonly incidentPaymentService: IncidentPaymentService) { }
+  /**
+   *
+   * @param incidentPaymentService
+   */
+  constructor(
+    private readonly incidentPaymentService: IncidentPaymentService,
+  ) {}
 
-  @ApiOperation({ summary: 'List incident payments filtered by transactionIds (id, transactionId, optionalData)' })
+  /**
+   *
+   * @param user
+   * @param filterDto
+   */
+  @ApiOperation({
+    summary:
+      'List incident payments filtered by transactionIds (id, transactionId, optionalData)',
+  })
   @AuthWithKeycloak(TypeRol.ADMIN)
   @Patch('find-all-by-transaction-id/:userId/:idDevice/:version')
   findAllByTransactionId(
     @GetUser() user: JwtPayload,
-    @Body() filterDto: FilterDto
+    @Body() filterDto: FilterDto,
   ) {
     return this.incidentPaymentService.findAllByTransactionId(filterDto);
   }

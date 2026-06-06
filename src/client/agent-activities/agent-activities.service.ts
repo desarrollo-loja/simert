@@ -25,6 +25,12 @@ import { UpdateAgentActivityDto } from './dto/update-agent-activity.dto';
 export class AgentActivitiesService {
   private readonly logger = new Logger(AgentActivitiesService.name);
 
+  /**
+   *
+   * @param agentActivityRepository
+   * @param blockOperatorRepository
+   * @param loggerService
+   */
   constructor(
     @InjectRepository(AgentActivity)
     private readonly agentActivityRepository: Repository<AgentActivity>,
@@ -34,8 +40,7 @@ export class AgentActivitiesService {
 
     @Inject(LoggerService)
     private readonly loggerService: LoggerService,
-
-  ) { }
+  ) {}
 
   /**
    * Creates an agent activity entry and updates the related BlockOperator session state.
@@ -46,7 +51,9 @@ export class AgentActivitiesService {
    */
   async create(userId: number, createAgentActivityDto: CreateAgentActivityDto) {
     try {
-      const dataBlockOperator = await this.findOneByBlockOperatorId({ blockOperatorId: createAgentActivityDto.blockOperatorId });
+      const dataBlockOperator = await this.findOneByBlockOperatorId({
+        blockOperatorId: createAgentActivityDto.blockOperatorId,
+      });
       if (dataBlockOperator.errorCode !== ErrorCode.NONE) {
         return { errorCode: ErrorCode.NOT_FOUND };
       }
@@ -54,19 +61,35 @@ export class AgentActivitiesService {
       if (!dataBlockOperator.blockOperator) {
         return { errorCode: ErrorCode.NOT_FOUND };
       }
-      
+
       const dataBlockOperatorOne = dataBlockOperator.blockOperator;
       const { isFinalized, isInitialized } = dataBlockOperatorOne;
-      if (isFinalized && createAgentActivityDto.type === TypeActivity.START_SHIFT) {
+      if (
+        isFinalized &&
+        createAgentActivityDto.type === TypeActivity.START_SHIFT
+      ) {
         return { errorCode: ErrorCode.BLOCK_OPERATOR_ALREADY_FINALIZED };
       }
 
-      if (isFinalized && isInitialized && createAgentActivityDto.type === TypeActivity.END_SHIFT) {
-        return { errorCode: ErrorCode.BLOCK_OPERATOR_ALREADY_INITIALIZED_AND_FINALIZED };
+      if (
+        isFinalized &&
+        isInitialized &&
+        createAgentActivityDto.type === TypeActivity.END_SHIFT
+      ) {
+        return {
+          errorCode: ErrorCode.BLOCK_OPERATOR_ALREADY_INITIALIZED_AND_FINALIZED,
+        };
       }
-      const query = this.agentActivityRepository.create({ ...createAgentActivityDto });
+      const query = this.agentActivityRepository.create({
+        ...createAgentActivityDto,
+      });
       const agentActivity = await this.agentActivityRepository.save(query);
-      this.loggerService.saveAgentActivitiesLogger({ id: agentActivity.id, userId: userId, typeOperation: TypeOperation.CREATE, agentActivities: agentActivity });
+      this.loggerService.saveAgentActivitiesLogger({
+        id: agentActivity.id,
+        userId: userId,
+        typeOperation: TypeOperation.CREATE,
+        agentActivities: agentActivity,
+      });
       let isInitializedSend = isInitialized;
       let isFinalizedSend = isFinalized;
 
@@ -80,14 +103,23 @@ export class AgentActivitiesService {
       const dataUpdateBlockOperator: UpdateBlockOperatorDto = {
         isInitialized: isInitializedSend,
         isFinalized: isFinalizedSend,
-        ...(isInitializedSend && !isInitialized && { dateInitialized: new Date() }),
+        ...(isInitializedSend &&
+          !isInitialized && { dateInitialized: new Date() }),
         ...(isFinalizedSend && !isFinalized && { dateFinalized: new Date() }),
-      }
+      };
 
-      const blockOperator = await this.blockOperatorRepository.preload({ id: createAgentActivityDto.blockOperatorId, ...dataUpdateBlockOperator });
+      const blockOperator = await this.blockOperatorRepository.preload({
+        id: createAgentActivityDto.blockOperatorId,
+        ...dataUpdateBlockOperator,
+      });
       if (blockOperator) {
         await this.blockOperatorRepository.save(blockOperator);
-        this.loggerService.saveBlockOperatorLogger({ id: blockOperator.id, userId, typeOperation: TypeOperation.UPDATE, blockOperator });
+        this.loggerService.saveBlockOperatorLogger({
+          id: blockOperator.id,
+          userId,
+          typeOperation: TypeOperation.UPDATE,
+          blockOperator,
+        });
       }
       return { errorCode: ErrorCode.NONE, agentActivity };
     } catch (error) {
@@ -104,12 +136,13 @@ export class AgentActivitiesService {
   async findOneByBlockOperatorId(filterDto: FilterDto) {
     const { blockOperatorId } = filterDto;
     try {
-      const blockOperator = await this.blockOperatorRepository.createQueryBuilder('bo')
+      const blockOperator = await this.blockOperatorRepository
+        .createQueryBuilder('bo')
         .select([
           'bo.id',
           'bo.isActivated',
           'bo.isInitialized',
-          'bo.isFinalized'
+          'bo.isFinalized',
         ])
         .where('bo.id = :blockOperatorId', { blockOperatorId })
         .getOne();
@@ -128,12 +161,24 @@ export class AgentActivitiesService {
    * @param updateAgentActivityDto Partial activity payload.
    * @returns Error-code envelope with the updated {@link AgentActivity}.
    */
-  async update(userId: number, id: number, updateAgentActivityDto: UpdateAgentActivityDto) {
+  async update(
+    userId: number,
+    id: number,
+    updateAgentActivityDto: UpdateAgentActivityDto,
+  ) {
     try {
-      const agentActivity = await this.agentActivityRepository.preload({ id, ...updateAgentActivityDto });
+      const agentActivity = await this.agentActivityRepository.preload({
+        id,
+        ...updateAgentActivityDto,
+      });
       if (agentActivity) {
         await this.agentActivityRepository.save(agentActivity);
-        this.loggerService.saveAgentActivitiesLogger({ id: agentActivity.id, userId: userId, typeOperation: TypeOperation.UPDATE, agentActivities: agentActivity });
+        this.loggerService.saveAgentActivitiesLogger({
+          id: agentActivity.id,
+          userId: userId,
+          typeOperation: TypeOperation.UPDATE,
+          agentActivities: agentActivity,
+        });
         return { errorCode: ErrorCode.NONE, agentActivity };
       }
     } catch (error) {

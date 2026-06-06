@@ -24,6 +24,14 @@ const CHECKBOXES_PER_UNIT = 12;
 export class RangeSalePointTransactionService {
   private readonly logger = new Logger('RangeSalePointTransactionService');
 
+  /**
+   *
+   * @param rangeSalePointTransactionRepository
+   * @param rangeSalePointRepository
+   * @param checkboxUserRepository
+   * @param loggerService
+   * @param dataSource
+   */
   constructor(
     @InjectRepository(RangeSalePointTransaction)
     private readonly rangeSalePointTransactionRepository: Repository<RangeSalePointTransaction>,
@@ -38,7 +46,7 @@ export class RangeSalePointTransactionService {
     private readonly loggerService: LoggerService,
 
     private readonly dataSource: DataSource,
-  ) { }
+  ) {}
 
   /**
    * Returns a paginated list of transactions joined with sale point information.
@@ -84,12 +92,18 @@ export class RangeSalePointTransactionService {
       }
 
       if (filterDto.offset !== undefined && filterDto.offset !== null) {
-        const safeOffset = Math.max(0, Math.floor(Number(filterDto.offset)) || 0);
+        const safeOffset = Math.max(
+          0,
+          Math.floor(Number(filterDto.offset)) || 0,
+        );
         parameters.push(safeOffset);
         sql += ` OFFSET $${parameters.length}`;
       }
 
-      const transactions = await this.rangeSalePointTransactionRepository.query(sql, parameters);
+      const transactions = await this.rangeSalePointTransactionRepository.query(
+        sql,
+        parameters,
+      );
       return { errorCode: ErrorCode.NONE, transactions };
     } catch (error) {
       handleDbExceptions(error, this.logger);
@@ -120,7 +134,10 @@ export class RangeSalePointTransactionService {
     sql += ';';
 
     try {
-      const result = await this.rangeSalePointTransactionRepository.query(sql, parameters);
+      const result = await this.rangeSalePointTransactionRepository.query(
+        sql,
+        parameters,
+      );
       const total = result[0]?.total || 0;
       return { total: Number(total), errorCode: ErrorCode.NONE };
     } catch (error) {
@@ -139,21 +156,32 @@ export class RangeSalePointTransactionService {
    * @param createRangeSalePointTransactionDto - Transaction payload.
    * @returns Object with errorCode, message, created transaction, and updated rangeSalePoint.
    */
-  async create(userId: number, createRangeSalePointTransactionDto: CreateRangeSalePointTransactionDto) {
-    const { rangeSalePointId, amount, userIdBuy, userIdSell } = createRangeSalePointTransactionDto;
+  async create(
+    userId: number,
+    createRangeSalePointTransactionDto: CreateRangeSalePointTransactionDto,
+  ) {
+    const { rangeSalePointId, amount, userIdBuy, userIdSell } =
+      createRangeSalePointTransactionDto;
 
-    const rangeSalePoint = await this.rangeSalePointRepository.createQueryBuilder('rsp')
+    const rangeSalePoint = await this.rangeSalePointRepository
+      .createQueryBuilder('rsp')
       .select(['rsp.id', 'rsp.sold', 'salePoint.id'])
       .innerJoin('rsp.salePoint', 'salePoint')
       .where('rsp.id = :rangeSalePointId', { rangeSalePointId })
       .getOne();
 
     if (!rangeSalePoint) {
-      return { errorCode: ErrorCode.NOT_FOUND, message: 'No se encontro el rango de venta' };
+      return {
+        errorCode: ErrorCode.NOT_FOUND,
+        message: 'No se encontro el rango de venta',
+      };
     }
 
     if (rangeSalePoint.sold - amount < 0) {
-      return { errorCode: ErrorCode.NOT_FOUND, message: 'No hay valores suficientes para la venta' };
+      return {
+        errorCode: ErrorCode.NOT_FOUND,
+        message: 'No hay valores suficientes para la venta',
+      };
     }
 
     const queryRunner = this.dataSource.createQueryRunner();
@@ -166,7 +194,9 @@ export class RangeSalePointTransactionService {
         .createQueryBuilder()
         .select('rsp')
         .from(RangeSalePoint, 'rsp')
-        .where('rsp.id = :rangeSalePointId', { rangeSalePointId: rangeSalePoint.id })
+        .where('rsp.id = :rangeSalePointId', {
+          rangeSalePointId: rangeSalePoint.id,
+        })
         .setLock('pessimistic_write')
         .getOne();
 
@@ -186,7 +216,11 @@ export class RangeSalePointTransactionService {
       lockedRangeSalePoint.sold -= amount;
       await queryRunner.manager.save(lockedRangeSalePoint);
 
-      await this._creditCheckboxUser(queryRunner, userIdBuy, amount * CHECKBOXES_PER_UNIT);
+      await this._creditCheckboxUser(
+        queryRunner,
+        userIdBuy,
+        amount * CHECKBOXES_PER_UNIT,
+      );
 
       await queryRunner.commitTransaction();
       return {
@@ -202,7 +236,10 @@ export class RangeSalePointTransactionService {
       await queryRunner.release();
     }
 
-    return { errorCode: ErrorCode.NOT_VALID, message: 'Ocurrio un error al crear la transaccion' };
+    return {
+      errorCode: ErrorCode.NOT_VALID,
+      message: 'Ocurrio un error al crear la transaccion',
+    };
   }
 
   /**
@@ -214,7 +251,11 @@ export class RangeSalePointTransactionService {
    * @param userIdBuy - ID of the user receiving checkboxes.
    * @param checkboxesToAdd - Number of checkboxes to credit.
    */
-  private async _creditCheckboxUser(queryRunner: any, userIdBuy: number, checkboxesToAdd: number) {
+  private async _creditCheckboxUser(
+    queryRunner: any,
+    userIdBuy: number,
+    checkboxesToAdd: number,
+  ) {
     const existingCheckboxUser = await this.checkboxUserRepository.findOne({
       where: { userId: userIdBuy },
     });
@@ -238,8 +279,19 @@ export class RangeSalePointTransactionService {
    * @param filterDto - Filter options to translate into SQL conditions.
    * @returns Object with conditions array and positional parameters array.
    */
-  private _buildSqlConditions(filterDto: FilterDto): { conditions: string[]; parameters: any[] } {
-    const { userId, userIdBuy, userIdSell, rangeSalePointId, dateFrom, dateTo, salePointId } = filterDto;
+  private _buildSqlConditions(filterDto: FilterDto): {
+    conditions: string[];
+    parameters: any[];
+  } {
+    const {
+      userId,
+      userIdBuy,
+      userIdSell,
+      rangeSalePointId,
+      dateFrom,
+      dateTo,
+      salePointId,
+    } = filterDto;
     const conditions: string[] = [];
     const parameters: any[] = [];
 
@@ -261,7 +313,9 @@ export class RangeSalePointTransactionService {
     }
 
     if (rangeSalePointId) {
-      conditions.push(`rspt."rangeSalePointId" = ${addParam(rangeSalePointId)}`);
+      conditions.push(
+        `rspt."rangeSalePointId" = ${addParam(rangeSalePointId)}`,
+      );
     }
 
     if (salePointId) {
@@ -269,7 +323,9 @@ export class RangeSalePointTransactionService {
     }
 
     if (dateFrom && dateTo) {
-      conditions.push(`rspt."createdAt" BETWEEN ${addParam(dateFrom)} AND ${addParam(dateTo)}`);
+      conditions.push(
+        `rspt."createdAt" BETWEEN ${addParam(dateFrom)} AND ${addParam(dateTo)}`,
+      );
     }
 
     return { conditions, parameters };

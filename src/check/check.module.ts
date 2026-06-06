@@ -4,15 +4,24 @@ import { BlockOperator } from 'src/admin/block_operator/entities/block_operator.
 import { Catalog } from 'src/admin/catalog/entities/catalog.entity';
 import { Checkbox } from 'src/admin/checkbox/entities/checkbox.entity';
 import { Fraction } from 'src/admin/fraction/entities/fraction.entity';
-import { AuthModule } from 'src/auth/auth.module';
 import { GimModule } from 'src/api/gim/gim.module';
+import { AuthModule } from 'src/auth/auth.module';
 import { CommonCacheModule } from 'src/common/common.cache.module';
 import { CommonModule } from 'src/common/common.module';
 
 import { CheckService } from './check.service';
 
+/**
+ *
+ */
 @Module({
   providers: [CheckService],
-  imports: [TypeOrmModule.forFeature([Fraction, Checkbox, BlockOperator, Catalog]), CommonModule, AuthModule, GimModule, CommonCacheModule]
+  imports: [
+    TypeOrmModule.forFeature([Fraction, Checkbox, BlockOperator, Catalog]),
+    CommonModule,
+    AuthModule,
+    GimModule,
+    CommonCacheModule,
+  ],
 })
-export class CheckModule { }
+export class CheckModule {}

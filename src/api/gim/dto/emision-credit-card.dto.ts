@@ -1,19 +1,21 @@
-import { IsNumber, IsString } from "class-validator";
+import { IsNumber, IsString } from 'class-validator';
 
+/**
+ *
+ */
 export class EmisionCreditCardDto {
+  @IsString()
+  entryCode: string;
 
-    @IsString()
-    entryCode: string;
+  @IsNumber()
+  residentId: number;
 
-    @IsNumber()
-    residentId: number;
+  @IsString()
+  description: string;
 
-    @IsString()
-    description: string;
+  @IsString()
+  reference: string;
 
-    @IsString()
-    reference: string;
-    
-    @IsNumber()
-    quantity: number;
+  @IsNumber()
+  quantity: number;
 }

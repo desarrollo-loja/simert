@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Param, ParseIntPipe, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseIntPipe,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthWithKeycloak, GetUser } from 'src/auth/decorators';
 import { JwtPayload } from 'src/auth/interfaces';
@@ -21,7 +31,11 @@ import { BlockOperator } from './entities/block_operator.entity';
 @ApiBearerAuth('keycloak')
 @Controller('admin/block-operator')
 export class BlockOperatorController {
-  constructor(private readonly blockOperatorService: BlockOperatorService) { }
+  /**
+   *
+   * @param blockOperatorService
+   */
+  constructor(private readonly blockOperatorService: BlockOperatorService) {}
 
   /**
    * Creates a new block operator shift assignment linking a municipal agent
@@ -47,7 +61,7 @@ export class BlockOperatorController {
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
     @Param('version', ParseIntPipe) version: number,
-    @Body() createBlockOperatorDto: CreateBlockOperatorDto
+    @Body() createBlockOperatorDto: CreateBlockOperatorDto,
   ) {
     return this.blockOperatorService.create(userId, createBlockOperatorDto);
   }
@@ -63,7 +77,9 @@ export class BlockOperatorController {
    * @param filterDto - Query filters: blockId, date, userId.
    * @returns Array of matching {@link BlockOperator} records.
    */
-  @ApiOperation({ summary: 'List block operator shifts filtered by block and date' })
+  @ApiOperation({
+    summary: 'List block operator shifts filtered by block and date',
+  })
   @ApiStandardResponse({
     description: 'Block operator shifts matching the filter',
     errorCodes: [ErrorCode.NONE],
@@ -92,9 +108,12 @@ export class BlockOperatorController {
    * @param filterDto - Query filters: userId, isInitialized, isFinalized.
    * @returns Array of active {@link BlockOperator} records with joined block info.
    */
-  @ApiOperation({ summary: 'List active block operator shifts for a given user' })
+  @ApiOperation({
+    summary: 'List active block operator shifts for a given user',
+  })
   @ApiStandardResponse({
-    description: 'Active shifts (filtered by isInitialized and isFinalized) for the user',
+    description:
+      'Active shifts (filtered by isInitialized and isFinalized) for the user',
     errorCodes: [ErrorCode.NONE],
     data: { blockOperators: { model: BlockOperator, isArray: true } },
   })
@@ -121,7 +140,9 @@ export class BlockOperatorController {
    * @param filterDto - Query filters: blockId, dateFrom, dateTo.
    * @returns Array of matching {@link BlockOperator} records.
    */
-  @ApiOperation({ summary: 'List block operator shifts filtered by block and date range' })
+  @ApiOperation({
+    summary: 'List block operator shifts filtered by block and date range',
+  })
   @ApiStandardResponse({
     description: 'Block operator shifts matching the block/date range filter',
     errorCodes: [ErrorCode.NONE],
@@ -162,7 +183,7 @@ export class BlockOperatorController {
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
     @Param('version', ParseIntPipe) version: number,
-    @Body() updateBlockOperatorDto: UpdateBlockOperatorDto
+    @Body() updateBlockOperatorDto: UpdateBlockOperatorDto,
   ) {
     return this.blockOperatorService.update(userId, id, updateBlockOperatorDto);
   }
@@ -179,15 +200,27 @@ export class BlockOperatorController {
    * @param findUniqueUsersDto - Optional blockIds and userId filters.
    * @returns Array of unique user records with blockId, blockName, zoneId, zoneName.
    */
-  @ApiOperation({ summary: 'Unique user IDs with active shifts where NOW() is within from–to, isInitialized=true, isFinalized=false' })
+  @ApiOperation({
+    summary:
+      'Unique user IDs with active shifts where NOW() is within from–to, isInitialized=true, isFinalized=false',
+  })
   @ApiStandardResponse({
-    description: 'Unique users with their block and zone info for active shifts',
+    description:
+      'Unique users with their block and zone info for active shifts',
     errorCodes: [ErrorCode.NONE],
     data: {
       users: {
         isArray: true,
         type: 'object',
-        example: [{ userId: 1, blockId: 2, blockName: 'Bloque A', zoneId: 3, zoneName: 'Zona Norte' }],
+        example: [
+          {
+            userId: 1,
+            blockId: 2,
+            blockName: 'Bloque A',
+            zoneId: 3,
+            zoneName: 'Zona Norte',
+          },
+        ],
       },
     },
   })
@@ -212,7 +245,10 @@ export class BlockOperatorController {
    * @param _version - Route param: client version (version handshake, unused by service).
    * @returns Array of option objects: `{ name, label, id, value }`.
    */
-  @ApiOperation({ summary: 'Simplified list of all block operator shifts formatted as name/label/value options' })
+  @ApiOperation({
+    summary:
+      'Simplified list of all block operator shifts formatted as name/label/value options',
+  })
   @ApiStandardResponse({
     description: 'Options list built from all block operator shifts',
     errorCodes: [ErrorCode.NONE],
@@ -220,7 +256,14 @@ export class BlockOperatorController {
       blockOperators: {
         isArray: true,
         type: 'object',
-        example: [{ name: '2024-01-01 - 2024-01-02', label: '2024-01-01 - 2024-01-02', id: 1, value: 1 }],
+        example: [
+          {
+            name: '2024-01-01 - 2024-01-02',
+            label: '2024-01-01 - 2024-01-02',
+            id: 1,
+            value: 1,
+          },
+        ],
       },
     },
   })

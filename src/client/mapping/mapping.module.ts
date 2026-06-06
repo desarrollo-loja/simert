@@ -9,9 +9,16 @@ import { LoggerModule } from 'src/common/logger.module';
 import { MappingController } from './mapping.controller';
 import { MappingService } from './mapping.service';
 
+/**
+ *
+ */
 @Module({
   controllers: [MappingController],
   providers: [MappingService],
-  imports: [TypeOrmModule.forFeature([Zone, Block, Slot]), AuthModule, LoggerModule]
+  imports: [
+    TypeOrmModule.forFeature([Zone, Block, Slot]),
+    AuthModule,
+    LoggerModule,
+  ],
 })
 export class MappingModule {}

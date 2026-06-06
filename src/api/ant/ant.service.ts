@@ -16,7 +16,11 @@ export interface AntDataResponse {
 
 type AntLookupResult =
   | { errorCode: ErrorCode.NONE; data: AntDataResponse }
-  | { errorCode: Exclude<ErrorCode, ErrorCode.NONE>; data: null; message?: string };
+  | {
+      errorCode: Exclude<ErrorCode, ErrorCode.NONE>;
+      data: null;
+      message?: string;
+    };
 
 /**
  * Service that integrates with the ANT (Agencia Nacional de Tránsito) SOAP
@@ -36,11 +40,18 @@ export class AntService {
     trimValues: true,
   });
 
+  /**
+   *
+   * @param configService
+   */
   constructor(private readonly configService: ConfigService) {
     this.antBaseUrl = this.configService.get<string>('ANT_BASE_URL');
     // this.antApiKey = this.configService.get<string>('ANT_API_KEY');
   }
 
+  /**
+   *
+   */
   async findAll() {
     try {
       // Stubbed ANT data for local development
@@ -55,6 +66,10 @@ export class AntService {
     }
   }
 
+  /**
+   *
+   * @param plate
+   */
   async getUserDataByPlateAnt(plate: string): Promise<AntLookupResult> {
     const antData = await this._getAntDataByPlate(plate);
 
@@ -70,10 +85,16 @@ export class AntService {
   }
 
   // RECURSO EN FORMATO DE PROTOCOLO SOAP LLAMADO consultarVehiculo
-  private async _getAntDataByPlate(plate: string): Promise<AntDataResponse | null> {
+  /**
+   *
+   * @param plate
+   */
+  private async _getAntDataByPlate(
+    plate: string,
+  ): Promise<AntDataResponse | null> {
     if (!this.antBaseUrl) {
       this.logger.error('ANT_BASE_URL no configurado');
-      
+
       return null;
     }
 
@@ -91,8 +112,8 @@ export class AntService {
     `.trim();
 
     const config: AxiosRequestConfig = {
-      method: 'POST',// SOAP siempre usa POST
-        // La URL base es la IP indicada sin el ?wsdl 
+      method: 'POST', // SOAP siempre usa POST
+      // La URL base es la IP indicada sin el ?wsdl
       url,
       data: xmlBody,
       timeout: 15000,
@@ -134,37 +155,48 @@ export class AntService {
 
       // Non-zero / non-200 code means failure — adjust condition if the service uses 200.
       if (code && code !== 200) {
-        this.logger.warn(`ANT responded code=${code} message=${payload?.message ?? ''}`);
+        this.logger.warn(
+          `ANT responded code=${code} message=${payload?.message ?? ''}`,
+        );
         // Could also return null here depending on desired behavior.
       }
 
       return this._buildAntDataResponse(vehicle);
     } catch (error: any) {
-      this.logger.error(`ANT lookup failed plate=${plate}: ${error?.message ?? error}`);
+      this.logger.error(
+        `ANT lookup failed plate=${plate}: ${error?.message ?? error}`,
+      );
       return null;
     }
   }
 
-  private async _buildAntDataResponse(vehicle: AntDataByPlateResponse | any): Promise<AntDataResponse | null> {
+  /**
+   *
+   * @param vehicle
+   */
+  private async _buildAntDataResponse(
+    vehicle: AntDataByPlateResponse | any,
+  ): Promise<AntDataResponse | null> {
     // const fullName = responseData?.vehicle?.nombrePotencialProp + responseData?.vehicle?.apellido1 + responseData?.vehicle?.apellido2;
     const firstName = vehicle?.nombrePropAnterior ?? '';
-    const lastName = `${vehicle?.apellido1 ?? ''} ${vehicle?.apellido2 ?? ''}`.trim();
+    const lastName =
+      `${vehicle?.apellido1 ?? ''} ${vehicle?.apellido2 ?? ''}`.trim();
     const fullName = `${firstName} ${lastName}`.trim();
 
     const identityCard = vehicle?.cedulaPropAnterior ?? '';
     const email = vehicle?.correo ?? '';
 
     if (!fullName && !identityCard && !email) {
-        // If we got nothing relevant.
-        return null;
+      // If we got nothing relevant.
+      return null;
     }
-    
+
     return {
-        fullName: String(fullName || '').trim(),
-        identityCard: String(identityCard || '').trim(),
-        email: String(email || '').trim(),
-        firstName: String(firstName || '').trim(),
-        lastName: String(lastName || '').trim(),
+      fullName: String(fullName || '').trim(),
+      identityCard: String(identityCard || '').trim(),
+      email: String(email || '').trim(),
+      firstName: String(firstName || '').trim(),
+      lastName: String(lastName || '').trim(),
     };
   }
 }

@@ -6,9 +6,12 @@ import { L } from './entities/l.entity';
 import { LController } from './l.controller';
 import { LService } from './l.service';
 
+/**
+ *
+ */
 @Module({
   controllers: [LController],
   providers: [LService],
   imports: [TypeOrmModule.forFeature([L]), AuthModule],
 })
-export class LModule { }
+export class LModule {}

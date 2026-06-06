@@ -18,16 +18,20 @@ import { Range } from './entities/range.entity';
  */
 @Injectable()
 export class RangeService {
-
   private readonly logger = new Logger('rangeService');
 
+  /**
+   *
+   * @param rangeRepository
+   * @param loggerService
+   */
   constructor(
     @InjectRepository(Range)
     private readonly rangeRepository: Repository<Range>,
 
     @Inject(LoggerService)
     private readonly loggerService: LoggerService,
-  ) { }
+  ) {}
 
   /**
    * Creates a new price range record and emits an audit log entry.
@@ -43,7 +47,12 @@ export class RangeService {
     try {
       const rangeEntity = this.rangeRepository.create({ ...createRangeDto });
       const range = await this.rangeRepository.save(rangeEntity);
-      this.loggerService.saveRangeLogger({ id: range.id, userId, typeOperation: TypeOperation.CREATE, range });
+      this.loggerService.saveRangeLogger({
+        id: range.id,
+        userId,
+        typeOperation: TypeOperation.CREATE,
+        range,
+      });
 
       return { errorCode: ErrorCode.NONE, range };
     } catch (error) {
@@ -69,14 +78,22 @@ export class RangeService {
    */
   async update(userId: number, id: number, updateRangeDto: UpdateRangeDto) {
     try {
-      const rangeEntity = await this.rangeRepository.preload({ id, ...updateRangeDto });
+      const rangeEntity = await this.rangeRepository.preload({
+        id,
+        ...updateRangeDto,
+      });
 
       if (!rangeEntity) {
         throw new Error('Range not found');
       }
 
       const range = await this.rangeRepository.save(rangeEntity);
-      this.loggerService.saveRangeLogger({ id: range.id, userId, typeOperation: TypeOperation.UPDATE, range });
+      this.loggerService.saveRangeLogger({
+        id: range.id,
+        userId,
+        typeOperation: TypeOperation.UPDATE,
+        range,
+      });
 
       return { errorCode: ErrorCode.NONE, range };
     } catch (error) {
@@ -123,11 +140,22 @@ export class RangeService {
 
     // Columns reported in the detail's first "(...)=" group, normalized (drop
     // double quotes and spaces): e.g. 'batchNumber', 'description', 'from,to'.
-    const reportedColumns = (detail.match(/\(([^)]+)\)\s*=/)?.[1] ?? '').replace(/["\s]/g, '');
+    const reportedColumns = (
+      detail.match(/\(([^)]+)\)\s*=/)?.[1] ?? ''
+    ).replace(/["\s]/g, '');
 
-    if (constraint === 'uqRangeDescription' || reportedColumns === 'description') return ErrorCode.DESCRIPTIONUNIQUE;
-    if (constraint === 'uqRangeBatchNumber' || reportedColumns === 'batchNumber') return ErrorCode.BATCHNUMBERUNIQUE;
-    if (constraint === 'uqRangeFromTo' || reportedColumns === 'from,to') return ErrorCode.RANGEUNIQUE;
+    if (
+      constraint === 'uqRangeDescription' ||
+      reportedColumns === 'description'
+    )
+      return ErrorCode.DESCRIPTIONUNIQUE;
+    if (
+      constraint === 'uqRangeBatchNumber' ||
+      reportedColumns === 'batchNumber'
+    )
+      return ErrorCode.BATCHNUMBERUNIQUE;
+    if (constraint === 'uqRangeFromTo' || reportedColumns === 'from,to')
+      return ErrorCode.RANGEUNIQUE;
     return ErrorCode.RANGEUNIQUE;
   }
 
@@ -140,18 +168,35 @@ export class RangeService {
   async findAll(filterDto: FilterDto) {
     try {
       const { limit = 10, offset = 0, search, statusId } = filterDto;
-      const query = this.rangeRepository.createQueryBuilder('range')
+      const query = this.rangeRepository
+        .createQueryBuilder('range')
         .select([
-          'range.id', 'range.from', 'range.to', 'range.isActivated',
+          'range.id',
+          'range.from',
+          'range.to',
+          'range.isActivated',
           'range.description',
-          'range.batchNumber', 'range.type', 'range.status',
+          'range.batchNumber',
+          'range.type',
+          'range.status',
         ])
-        .addSelect(`TO_CHAR(range."authorizationDate", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`, 'range_authorizationDate')
-        .addSelect(`TO_CHAR(range."createdAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`, 'range_createdAt')
-        .addSelect(`TO_CHAR(range."updatedAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`, 'range_updatedAt');
+        .addSelect(
+          `TO_CHAR(range."authorizationDate", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`,
+          'range_authorizationDate',
+        )
+        .addSelect(
+          `TO_CHAR(range."createdAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`,
+          'range_createdAt',
+        )
+        .addSelect(
+          `TO_CHAR(range."updatedAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`,
+          'range_updatedAt',
+        );
 
       if (search) {
-        query.andWhere('range.description ILIKE :search', { search: `%${search}%` });
+        query.andWhere('range.description ILIKE :search', {
+          search: `%${search}%`,
+        });
       }
 
       if (statusId) {
@@ -183,7 +228,8 @@ export class RangeService {
   async verifyRange(filterDto: FilterDto) {
     try {
       const { search, from, to } = filterDto;
-      const query = this.rangeRepository.createQueryBuilder('range')
+      const query = this.rangeRepository
+        .createQueryBuilder('range')
         .select(['range.id', 'range.from', 'range.to'])
         .where(
           `(range."from" ~ '^[0-9]+$' AND range."to" ~ '^[0-9]+$')
@@ -192,11 +238,13 @@ export class RangeService {
               OR
               (:to   >= range.from::bigint AND :to   <= range.to::bigint)
             )`,
-          { from, to }
+          { from, to },
         );
 
       if (search) {
-        query.andWhere('range.description ILIKE :search', { search: `%${search}%` });
+        query.andWhere('range.description ILIKE :search', {
+          search: `%${search}%`,
+        });
       }
 
       const ranges = await query.getMany();

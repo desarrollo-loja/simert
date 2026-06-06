@@ -1,4 +1,15 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseIntPipe,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthWithKeycloak, GetUser } from 'src/auth/decorators';
 import { JwtPayload } from 'src/auth/interfaces';
@@ -19,16 +30,26 @@ import { ZoneService } from './zone.service';
 @ApiBearerAuth('keycloak')
 @Controller('admin/zone')
 export class ZoneController {
+  /**
+   *
+   * @param zoneService
+   */
+  constructor(private readonly zoneService: ZoneService) {}
 
-  constructor(private readonly zoneService: ZoneService) { }
-
+  /**
+   *
+   * @param user
+   * @param userId
+   * @param idDevice
+   * @param version
+   * @param createZoneDto
+   */
   @ApiOperation({ summary: 'Create a new zone' })
   @ApiStandardResponse({
     description: 'Zone created or unique-name violation',
     errorCodes: [ErrorCode.NONE, ErrorCode.NAMEUNIQUE],
     data: { zone: { model: Zone } },
   })
-
   @AuthWithKeycloak()
   @Post(':userId/:idDevice/:version')
   createParking(
@@ -36,18 +57,25 @@ export class ZoneController {
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
     @Param('version', ParseIntPipe) version: number,
-    @Body() createZoneDto: CreateZoneDto
+    @Body() createZoneDto: CreateZoneDto,
   ) {
     return this.zoneService.create(userId, createZoneDto);
   }
 
+  /**
+   *
+   * @param user
+   * @param userId
+   * @param idDevice
+   * @param version
+   * @param filterDto
+   */
   @ApiOperation({ summary: 'List all zones (full payload, parsed geofence)' })
   @ApiStandardResponse({
     description: 'List of zones with parsed geofence',
     errorCodes: [ErrorCode.NONE],
     data: { zones: { model: Zone, isArray: true } },
   })
-
   @AuthWithKeycloak()
   @Get(':userId/:idDevice/:version')
   findAll(
@@ -60,6 +88,14 @@ export class ZoneController {
     return this.zoneService.findAll(filterDto);
   }
 
+  /**
+   *
+   * @param user
+   * @param userId
+   * @param idDevice
+   * @param version
+   * @param filterDto
+   */
   @ApiOperation({ summary: 'List active zones (id, name only)' })
   @ApiStandardResponse({
     description: 'Active zones reduced list',
@@ -72,7 +108,6 @@ export class ZoneController {
       },
     },
   })
-
   @AuthWithKeycloak()
   @Get('find-all-active/:userId/:idDevice/:version')
   findAllByActive(
@@ -85,6 +120,14 @@ export class ZoneController {
     return this.zoneService.findAllByActive(filterDto);
   }
 
+  /**
+   *
+   * @param user
+   * @param userId
+   * @param idDevice
+   * @param version
+   * @param filterDto
+   */
   @ApiOperation({ summary: 'List active zones (alias)' })
   @ApiStandardResponse({
     description: 'Active zones reduced list',
@@ -97,7 +140,6 @@ export class ZoneController {
       },
     },
   })
-
   @AuthWithKeycloak()
   @Get('find-all-actives/:userId/:idDevice/:version')
   findAllByActives(
@@ -110,25 +152,38 @@ export class ZoneController {
     return this.zoneService.findAllByActives(filterDto);
   }
 
-  @ApiOperation({ summary: 'Zones for parking map (id, name, geofence, color)' })
+  /**
+   *
+   * @param paginationDto
+   */
+  @ApiOperation({
+    summary: 'Zones for parking map (id, name, geofence, color)',
+  })
   @ApiStandardResponse({
     description: 'Zones with parsed geofence for parking map',
     data: { zones: { model: Zone, isArray: true } },
   })
   @Get('filter/parking')
-  findAllByfilterParking(
-    @Query() paginationDto: FilterDto,
-  ) {
+  findAllByfilterParking(@Query() paginationDto: FilterDto) {
     return this.zoneService.findAllByFilterParking(paginationDto);
   }
 
+  /**
+   *
+   * @param user
+   * @param id
+   * @param userId
+   * @param idDevice
+   * @param version
+   * @param updateZoneDto
+   */
   @ApiOperation({ summary: 'Update a zone' })
   @ApiStandardResponse({
-    description: 'Zone updated or unique-name violation. Empty object when id is not found.',
+    description:
+      'Zone updated or unique-name violation. Empty object when id is not found.',
     errorCodes: [ErrorCode.NONE, ErrorCode.NAMEUNIQUE],
     data: { zone: { model: Zone } },
   })
-
   @AuthWithKeycloak()
   @Patch(':id/:userId/:idDevice/:version')
   update(
@@ -137,11 +192,19 @@ export class ZoneController {
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
     @Param('version', ParseIntPipe) version: number,
-    @Body() updateZoneDto: UpdateZoneDto
+    @Body() updateZoneDto: UpdateZoneDto,
   ) {
     return this.zoneService.update(userId, id, updateZoneDto);
   }
 
+  /**
+   *
+   * @param user
+   * @param id
+   * @param userId
+   * @param _idDevice
+   * @param _version
+   */
   @ApiOperation({ summary: 'Delete a zone by id (soft delete)' })
   @ApiStandardResponse({
     description: 'Zone deleted. Empty object when id is not found.',
@@ -154,8 +217,8 @@ export class ZoneController {
     @GetUser() user: JwtPayload,
     @Param('id', ParseIntPipe) id: number,
     @Param('userId', ParseIntPipe) userId: number,
-    @Param('idDevice', ParseUUIDPipe) idDevice: string,
-    @Param('version', ParseIntPipe) version: number,
+    @Param('idDevice', ParseUUIDPipe) _idDevice: string,
+    @Param('version', ParseIntPipe) _version: number,
   ) {
     return this.zoneService.remove(userId, id);
   }

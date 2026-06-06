@@ -8,9 +8,16 @@ import { LoggerModule } from 'src/common/logger.module';
 import { AgentActivitiesController } from './agent-activities.controller';
 import { AgentActivitiesService } from './agent-activities.service';
 
+/**
+ *
+ */
 @Module({
   controllers: [AgentActivitiesController],
   providers: [AgentActivitiesService],
-  imports: [TypeOrmModule.forFeature([AgentActivity, BlockOperator]), AuthModule, LoggerModule],
+  imports: [
+    TypeOrmModule.forFeature([AgentActivity, BlockOperator]),
+    AuthModule,
+    LoggerModule,
+  ],
 })
-export class AgentActivitiesModule { }
+export class AgentActivitiesModule {}

@@ -14,13 +14,16 @@ import { AgentActivity } from './entities/agent-activity.entity';
  */
 @Injectable()
 export class AgentActivitiesService {
-
   private readonly logger = new Logger('AgentActivitiesService');
 
+  /**
+   *
+   * @param agentActivityRepository
+   */
   constructor(
     @InjectRepository(AgentActivity)
     private readonly agentActivityRepository: Repository<AgentActivity>,
-  ) { }
+  ) {}
 
   /**
    * Returns a paginated list of agent activity records joined with their
@@ -33,7 +36,8 @@ export class AgentActivitiesService {
   async findAll(filterDto: FilterDto) {
     const { limit = 10, offset = 0 } = filterDto;
     try {
-      const { parameters, conditions } = this._buildParametersConditions(filterDto);
+      const { parameters, conditions } =
+        this._buildParametersConditions(filterDto);
 
       let query = `
         SELECT aa.id, aa."blockId", aa.type,
@@ -55,7 +59,10 @@ export class AgentActivitiesService {
 
       query += ` ORDER BY aa.id DESC LIMIT $${paramLimit} OFFSET $${paramOffset};`;
 
-      const agentActivities = await this.agentActivityRepository.query(query, parameters);
+      const agentActivities = await this.agentActivityRepository.query(
+        query,
+        parameters,
+      );
       return { errorCode: ErrorCode.NONE, agentActivities };
     } catch (error) {
       handleDbExceptions(error, this.logger);
@@ -71,7 +78,8 @@ export class AgentActivitiesService {
    */
   async findAllTotal(filterDto: FilterDto) {
     try {
-      const { parameters, conditions } = this._buildParametersConditions(filterDto);
+      const { parameters, conditions } =
+        this._buildParametersConditions(filterDto);
 
       let query = `
         SELECT COUNT(*) AS total
@@ -83,7 +91,10 @@ export class AgentActivitiesService {
         query += ' WHERE ' + conditions.join(' AND ');
       }
 
-      const agentActivities = await this.agentActivityRepository.query(query, parameters);
+      const agentActivities = await this.agentActivityRepository.query(
+        query,
+        parameters,
+      );
 
       return { errorCode: ErrorCode.NONE, total: agentActivities[0].total };
     } catch (error) {
@@ -114,7 +125,9 @@ export class AgentActivitiesService {
     }
 
     if (dateFrom && dateTo) {
-      conditions.push(`aa."createdAt" BETWEEN ${addParam(dateFrom)} AND ${addParam(dateTo)}`);
+      conditions.push(
+        `aa."createdAt" BETWEEN ${addParam(dateFrom)} AND ${addParam(dateTo)}`,
+      );
     }
 
     return { parameters, conditions };

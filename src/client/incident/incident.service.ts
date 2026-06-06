@@ -1,4 +1,9 @@
-import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import axios, { AxiosRequestConfig } from 'axios';
 import { Fraction } from 'src/admin/fraction/entities/fraction.entity';
@@ -34,7 +39,10 @@ import { StatusMoment } from 'src/common/glob/status/status_moment';
 import { StatusPayment } from 'src/common/glob/status/status_payment';
 import { StatusSlot } from 'src/common/glob/status/status_slot';
 import { SystemConfigKey } from 'src/common/glob/system-config-key';
-import { IncidentCategory, IncidentStatus } from 'src/common/glob/type/type_incident';
+import {
+  IncidentCategory,
+  IncidentStatus,
+} from 'src/common/glob/type/type_incident';
 import { TypeNotification } from 'src/common/glob/type/type_notification';
 import { TypePaymentMethod } from 'src/common/glob/type/type_payment_method';
 import { TypePaymentResponsibility } from 'src/common/glob/type/type_payment_responsibility';
@@ -62,12 +70,30 @@ export class IncidentService {
   private readonly logger = new Logger(IncidentService.name);
 
   private readonly antBaseUrl = process.env.ANT_BASE_URL; // e.g. https://ant.your-domain.com
-  private readonly antApiKey = process.env.ANT_API_KEY;   // if applicable
+  private readonly antApiKey = process.env.ANT_API_KEY; // if applicable
   private readonly gimBaseUrl = process.env.GIM_BASE_URL;
   private readonly gimApiKey = process.env.GIM_API_KEY;
   private readonly domainSimert: string = process.env.DOMINIO_SIMERT;
-  private readonly timerMinuteDeuna: number = 1000 * 60 * Number(process.env.TIMER_MINUTE_DEUNA);
+  private readonly timerMinuteDeuna: number =
+    1000 * 60 * Number(process.env.TIMER_MINUTE_DEUNA);
 
+  /**
+   *
+   * @param incidentRepository
+   * @param incidentTypeRepository
+   * @param incidentPaymentRepository
+   * @param fractionRepository
+   * @param fractionStatusRepository
+   * @param slotRepository
+   * @param commonAntService
+   * @param commonGimService
+   * @param commonService
+   * @param commonCacheService
+   * @param dinardapAntService
+   * @param gimService
+   * @param dataSource
+   * @param commonAuthService
+   */
   constructor(
     @InjectRepository(Incident)
     private readonly incidentRepository: Repository<Incident>,
@@ -105,7 +131,7 @@ export class IncidentService {
     private readonly dataSource: DataSource,
 
     private readonly commonAuthService: CommonAuthService,
-  ) { }
+  ) {}
 
   /**
    * Creates a new incident record, enriching it with ANT vehicle data when a plate
@@ -116,9 +142,14 @@ export class IncidentService {
    * @param createIncidentDto Incident payload including type, plate and location.
    * @returns Error-code envelope with the persisted {@link Incident}.
    */
-  async create(userId: number, idDevice: string, createIncidentDto: CreateIncidentDto) {
+  async create(
+    userId: number,
+    idDevice: string,
+    createIncidentDto: CreateIncidentDto,
+  ) {
     try {
-      const { fractionId, incidentCategory, incidentTypeId } = createIncidentDto;
+      const { fractionId, incidentCategory, incidentTypeId } =
+        createIncidentDto;
 
       // 1) Query ANT by plate and set emailClient, fullNameClient, identityCard
       const plate = (createIncidentDto.plate ?? '').trim();
@@ -127,7 +158,8 @@ export class IncidentService {
       let antIdentityCard: string = null;
 
       if (plate) {
-        const antResult = await this.dinardapAntService.getUserDataByPlateAnt(plate);
+        const antResult =
+          await this.dinardapAntService.getUserDataByPlateAnt(plate);
         if (antResult.errorCode === ErrorCode.NONE) {
           antEmailClient = antResult.data.email || null;
           antFullNameClient = antResult.data.fullName || null;
@@ -140,9 +172,8 @@ export class IncidentService {
 
       // Calculate the incident amount
       if (incidentCategory === IncidentCategory.NOTIFICATION) {
-
         const queryTypeIncident = await this.incidentTypeRepository.findOne({
-          where: { id: incidentTypeId, },
+          where: { id: incidentTypeId },
         });
         if (!queryTypeIncident) {
           throw new BadRequestException('Tipo de incidente no encontrado');
@@ -150,8 +181,14 @@ export class IncidentService {
 
         const salaryBasic = await this.commonCacheService.getSalary();
 
-        amount = ((Number(queryTypeIncident.percentage) * salaryBasic.salary) / 100).toFixed(2);
-        optionalData.push({ key: SystemConfigKey.BASIC_SALARY, value: salaryBasic.salary });
+        amount = (
+          (Number(queryTypeIncident.percentage) * salaryBasic.salary) /
+          100
+        ).toFixed(2);
+        optionalData.push({
+          key: SystemConfigKey.BASIC_SALARY,
+          value: salaryBasic.salary,
+        });
       }
 
       // 2) Create and save the incident (same flow)
@@ -188,13 +225,20 @@ export class IncidentService {
           status: { id: StatusFraction.SANCTIONED },
         });
 
-        await this._saveSatusFraction(queryFraction, StatusFraction.SANCTIONED, StatusMoment.NOTIFIED);
-        await this._notifyChageStatusFraction(queryFraction.userId, StatusFraction.SANCTIONED, fractionId);
+        await this._saveSatusFraction(
+          queryFraction,
+          StatusFraction.SANCTIONED,
+          StatusMoment.NOTIFIED,
+        );
+        await this._notifyChageStatusFraction(
+          queryFraction.userId,
+          StatusFraction.SANCTIONED,
+          fractionId,
+        );
 
         await this.slotRepository.update(queryFraction.slot.id, {
           status: StatusSlot.SANCTIONED,
         });
-
       }
 
       return { incident: savedIncident, errorCode: ErrorCode.NONE };
@@ -203,6 +247,10 @@ export class IncidentService {
     }
   }
 
+  /**
+   *
+   * @param plate
+   */
   private async _getEmailFromAntByPlate(plate: string): Promise<string | null> {
     if (!this.antBaseUrl) {
       this.logger.error('ANT_BASE_URL is missing in env vars');
@@ -249,8 +297,10 @@ export class IncidentService {
    * @returns Outstanding fines summary with totals.
    * @throws BadRequestException when neither plate nor identityCard is supplied.
    */
-  async checkMyFractionsOutstanding(plate?: string, identityCard?: string,): Promise<FinesResponse> {
-
+  async checkMyFractionsOutstanding(
+    plate?: string,
+    identityCard?: string,
+  ): Promise<FinesResponse> {
     if (!plate && !identityCard) {
       throw new BadRequestException('Debe enviar plate o identityCard');
     }
@@ -272,27 +322,27 @@ export class IncidentService {
       };
 
       const dataresponseTest = {
-        "errorCode": 0,
-        "total": 2,
-        "fines": [
+        errorCode: 0,
+        total: 2,
+        fines: [
           {
-            "fineId": "9981",
-            "registerDate": "2026-01-10T12:00:00.000Z",
-            "status": "PENDIENTE",
-            "titleNumber": "T-991882",
-            "amount": 10.50,
-            "plate": "ABC123",
+            fineId: '9981',
+            registerDate: '2026-01-10T12:00:00.000Z',
+            status: 'PENDIENTE',
+            titleNumber: 'T-991882',
+            amount: 10.5,
+            plate: 'ABC123',
           },
           {
-            "fineId": "9982",
-            "registerDate": "2026-01-15T09:30:00.000Z",
-            "status": "PENDIENTE",
-            "titleNumber": "T-991883",
-            "amount": 200,
-            "plate": "ABC123",
-          }
-        ]
-      }
+            fineId: '9982',
+            registerDate: '2026-01-15T09:30:00.000Z',
+            status: 'PENDIENTE',
+            titleNumber: 'T-991883',
+            amount: 200,
+            plate: 'ABC123',
+          },
+        ],
+      };
 
       return dataresponseTest;
 
@@ -317,9 +367,8 @@ export class IncidentService {
       return {
         total: fines.length,
         fines,
-        errorCode: ErrorCode.NONE
+        errorCode: ErrorCode.NONE,
       };
-
     } catch (error) {
       this.logger.error(
         `Error consultando GIM: ${JSON.stringify(error.response?.data || error.message)}`,
@@ -337,10 +386,17 @@ export class IncidentService {
    * @returns Error-code envelope with `factionSanctions` raw rows and `currentDate`.
    */
   async findSanctionByFraction(fractionId: number) {
-
     try {
-      const factionSanctions = await this.incidentRepository.createQueryBuilder('i')
-        .select(['i.id AS id', 'i.description AS description', 'i.images AS images', 'i.plate AS plate', 'i.createdAt AS createdAt', 'it.name AS reason'])
+      const factionSanctions = await this.incidentRepository
+        .createQueryBuilder('i')
+        .select([
+          'i.id AS id',
+          'i.description AS description',
+          'i.images AS images',
+          'i.plate AS plate',
+          'i.createdAt AS createdAt',
+          'it.name AS reason',
+        ])
         .innerJoin(IncidentType, 'it', 'it.id = i.incidentTypeId')
         .where('i.fractionId = :fractionId', { fractionId })
         .getRawMany();
@@ -360,12 +416,16 @@ export class IncidentService {
    * @param idDevice Device identifier used for GIM integration calls.
    * @param identityCard Owner's identity card to look up.
    * @param getIncidentDto Optional date-range filter.
+   * @param _getIncidentDto
    * @returns Error-code envelope with `incidents` and `currentDate`.
    */
-  async findSanctionByIdentityCard(userId: number, idDevice: string, identityCard: string, getIncidentDto: GetIncidentDto) {
-
+  async findSanctionByIdentityCard(
+    userId: number,
+    idDevice: string,
+    identityCard: string,
+    _getIncidentDto: GetIncidentDto,
+  ) {
     try {
-
       // Validate that the till is open
       const openTill = await this.gimService.validateOpenTill();
       if (openTill.errorCode !== ErrorCode.NONE) return openTill;
@@ -377,14 +437,17 @@ export class IncidentService {
       let paramIndex = 1;
 
       const buildWhere = () => {
-
         // Only notifications that are fines
         let where = `WHERE i."incidentCategory" = $${paramIndex++}`;
         params.push(IncidentCategory.NOTIFICATION);
 
         // Not already paid at the municipality
         where += ` AND i."statusIncident" IN ($${paramIndex++}, $${paramIndex++}, $${paramIndex++})`;
-        params.push(IncidentStatus.ENTERED, IncidentStatus.APPROVED, IncidentStatus.SUPPLIED);
+        params.push(
+          IncidentStatus.ENTERED,
+          IncidentStatus.APPROVED,
+          IncidentStatus.SUPPLIED,
+        );
 
         // Not paid internally either
         where += ` AND (i."statusPayment" != $${paramIndex++} OR i."statusPayment" IS NULL)`;
@@ -415,33 +478,54 @@ export class IncidentService {
 
       const query = `${baseSelect(tableName)} ${buildWhere()}`;
 
-      const incidents: Incident[] = await this.incidentRepository.query(query, params);
+      const incidents: Incident[] = await this.incidentRepository.query(
+        query,
+        params,
+      );
 
       if (incidents.length === 0)
         return { errorCode: ErrorCode.NOT_FOUND, currentDate, incidents };
 
       // ResidentId is required for issuing the obligation
-      const residentResult = await this._getResidentId(userId, idDevice, identityCard, incidents);
+      const residentResult = await this._getResidentId(
+        userId,
+        idDevice,
+        identityCard,
+        incidents,
+      );
       if (!residentResult.residentId) {
-        return { errorCode: ErrorCode.NOT_VALID, message: 'No se pudo verificar la información del cliente, por favor inténtelo más tarde' };
+        return {
+          errorCode: ErrorCode.NOT_VALID,
+          message:
+            'No se pudo verificar la información del cliente, por favor inténtelo más tarde',
+        };
       }
       const residentId = residentResult.residentId; // GIM customer id
       const issued = []; // Track issued items to retrieve the amount to pay
 
       for (const incident of incidents) {
-
         // Check whether the debt was already issued in GIM and update the status
-        const findObligation = await this.gimService.findObligationsByCitation(incident.nroTicket, incident.identityCard);
+        const findObligation = await this.gimService.findObligationsByCitation(
+          incident.nroTicket,
+          incident.identityCard,
+        );
         if (findObligation.errorCode === ErrorCode.NONE) {
-          const validateStatus = await this.gimService._validateStatusSistemWithGim(findObligation.data.obligations);
+          const validateStatus =
+            await this.gimService._validateStatusSistemWithGim(
+              findObligation.data.obligations,
+            );
           if (validateStatus.errorCode === ErrorCode.NONE) {
-            const onResponseExternal = this._formatOnExternalResponse(incident.onResponseExternal, findObligation.data);
+            const onResponseExternal = this._formatOnExternalResponse(
+              incident.onResponseExternal,
+              findObligation.data,
+            );
             await this.incidentRepository.update(incident.id, {
               bondId: +findObligation.data.obligations[0].obligationId,
-              nroObligation: findObligation.data.obligations[0].obligationNumber.toString(),
+              nroObligation:
+                findObligation.data.obligations[0].obligationNumber.toString(),
               statusIncident: validateStatus.statusIncident,
               amount: findObligation.data.obligations[0].total,
-              onResponseExternal
+              onResponseExternal,
             });
           }
           continue;
@@ -449,7 +533,10 @@ export class IncidentService {
 
         // Create the debt in GIM
 
-        const optionalData = this._formatOptionalData(incident.optionalData, residentId);
+        const optionalData = this._formatOptionalData(
+          incident.optionalData,
+          residentId,
+        );
 
         const dto = new CreateGimDto();
         dto.nroTicket = incident.nroTicket;
@@ -465,74 +552,130 @@ export class IncidentService {
         dto.reference = incident.reference;
 
         const emitResult = await this.gimService.emitInfractionGim(dto);
-        this.logger.debug('GIM obligation emission result', emitResult)
+        this.logger.debug('GIM obligation emission result', emitResult);
         if (emitResult.errorCode === ErrorCode.NONE) {
-          issued.push({ incidenId: incident.id, nroTicket: incident.nroTicket, identityCard: identityCard });
-          const onResponseExternal = this._formatOnExternalResponse(incident.onResponseExternal, emitResult.data);
+          issued.push({
+            incidenId: incident.id,
+            nroTicket: incident.nroTicket,
+            identityCard: identityCard,
+          });
+          const onResponseExternal = this._formatOnExternalResponse(
+            incident.onResponseExternal,
+            emitResult.data,
+          );
           await this.incidentRepository.update(incident.id, {
             bondId: +emitResult.data.bondId,
             nroObligation: emitResult.data.bondNumber.toString(),
             statusIncident: IncidentStatus.SUPPLIED,
             optionalData,
-            onResponseExternal
+            onResponseExternal,
           });
           incident.onResponseExternal = onResponseExternal;
         } else return emitResult;
       }
 
-      const incidentMap = new Map(
-        incidents.map(i => [i.id, i])
+      const incidentMap = new Map(incidents.map((i) => [i.id, i]));
+
+      await Promise.all(
+        issued.map(async (issue) => {
+          const incident = incidentMap.get(issue.incidenId);
+          if (!incident) return;
+
+          const findObligation =
+            await this.gimService.findObligationsByCitation(
+              issue.nroTicket,
+              issue.identityCard,
+            );
+
+          if (findObligation.errorCode === ErrorCode.NONE) {
+            const onResponseExternal = this._formatOnExternalResponse(
+              incident.onResponseExternal,
+              findObligation.data,
+            );
+            await this.incidentRepository.update(issue.incidenId, {
+              amount:
+                findObligation.data?.obligations?.[0]?.total || incident.amount,
+              onResponseExternal,
+            });
+            incident.onResponseExternal = onResponseExternal;
+          } else return;
+        }),
       );
 
-      await Promise.all(issued.map(async (issue) => {
-        const incident = incidentMap.get(issue.incidenId);
-        if (!incident) return;
-
-        const findObligation = await this.gimService.findObligationsByCitation(issue.nroTicket, issue.identityCard);
-
-        if (findObligation.errorCode === ErrorCode.NONE) {
-          const onResponseExternal = this._formatOnExternalResponse(incident.onResponseExternal, findObligation.data);
-          await this.incidentRepository.update(issue.incidenId, {
-            amount: findObligation.data?.obligations?.[0]?.total || incident.amount,
-            onResponseExternal
-          });
-          incident.onResponseExternal = onResponseExternal;
-        } else return;
-      }));
-
       // Re-query to return only those still in pending states
-      const updatedIncidents = await this.incidentRepository.query(query, params);
+      const updatedIncidents = await this.incidentRepository.query(
+        query,
+        params,
+      );
 
       if (updatedIncidents.length === 0)
-        return { errorCode: ErrorCode.NOT_FOUND, currentDate, incidents: updatedIncidents };
+        return {
+          errorCode: ErrorCode.NOT_FOUND,
+          currentDate,
+          incidents: updatedIncidents,
+        };
 
-      return { errorCode: ErrorCode.NONE, currentDate, incidents: updatedIncidents };
-
+      return {
+        errorCode: ErrorCode.NONE,
+        currentDate,
+        incidents: updatedIncidents,
+      };
     } catch (error) {
       this.logger.error(`GIM emit incident ${error?.message}`);
       handleDbExceptions(error, this.logger);
     }
   }
 
-  private _formatOptionalData(optionalData: OptionalDataInterface[], residentId: number): OptionalDataInterface[] {
+  /**
+   *
+   * @param optionalData
+   * @param residentId
+   */
+  private _formatOptionalData(
+    optionalData: OptionalDataInterface[],
+    residentId: number,
+  ): OptionalDataInterface[] {
     const result = [...(optionalData ?? [])];
-    const idx = result.findIndex(item => item.key === 'residentId');
+    const idx = result.findIndex((item) => item.key === 'residentId');
     if (idx >= 0) return result;
     result.push({ key: 'residentId', value: residentId });
     return result;
   }
 
-  private _formatOnExternalResponse(onResponseExternal: any[], onResponseExternalData: object): any[] {
+  /**
+   *
+   * @param onResponseExternal
+   * @param onResponseExternalData
+   */
+  private _formatOnExternalResponse(
+    onResponseExternal: any[],
+    onResponseExternalData: object,
+  ): any[] {
     const result = [...(onResponseExternal ?? [])];
     if (onResponseExternalData) result.push(onResponseExternalData);
     return result;
   }
 
-  private async _getResidentId(userId: number, idDevice: string, identityCard: string, incidents: Incident[]): Promise<{ residentId: number | null }> {
+  /**
+   *
+   * @param userId
+   * @param idDevice
+   * @param identityCard
+   * @param incidents
+   */
+  private async _getResidentId(
+    userId: number,
+    idDevice: string,
+    identityCard: string,
+    incidents: Incident[],
+  ): Promise<{ residentId: number | null }> {
     let residentId: number = null;
 
     // 1) Check whether the user exists and already has residentId in our DB
-    const user = await this.commonAuthService.filterByIdentityCard(userId, identityCard);
+    const user = await this.commonAuthService.filterByIdentityCard(
+      userId,
+      identityCard,
+    );
     const userFound = user.errorCode === ErrorCode.NONE;
     if (userFound) {
       residentId = user.data.residentId || null;
@@ -541,12 +684,19 @@ export class IncidentService {
     if (residentId) return { residentId };
 
     // 2) If residentId is not in our DB, search for it in GIM
-    const userGim = await this.commonGimService.getUserByIdentificationNumber(idDevice, identityCard);
+    const userGim = await this.commonGimService.getUserByIdentificationNumber(
+      idDevice,
+      identityCard,
+    );
     if (userGim.errorCode === ErrorCode.NONE && userGim.data?.id) {
       residentId = userGim.data.id;
       // If the user already exists in our DB but didn't have residentId, persist it
       if (userFound) {
-        this.commonAuthService.updateResidentId(userId, identityCard, residentId);
+        this.commonAuthService.updateResidentId(
+          userId,
+          identityCard,
+          residentId,
+        );
       }
       return { residentId };
     }
@@ -554,10 +704,14 @@ export class IncidentService {
     // 3) If it doesn't exist in GIM, create it.
     // Use auth data when available, otherwise the incident's data.
     const incidentFallback = incidents?.[0];
-    const fullName = userFound ? null : (incidentFallback?.fullNameClient || 'Usuario');
+    const fullName = userFound
+      ? null
+      : incidentFallback?.fullNameClient || 'Usuario';
     const firstName = userFound ? user.data.firstName : fullName;
     const lastName = userFound ? user.data.lastName : fullName;
-    const emailClient = userFound ? user.data.email : incidentFallback?.emailClient;
+    const emailClient = userFound
+      ? user.data.email
+      : incidentFallback?.emailClient;
 
     const createClientGimDto: CreateClientGimDto = {
       controllerId: userId,
@@ -567,16 +721,23 @@ export class IncidentService {
       emailClient,
     };
 
-    const createUserGim = await this.commonGimService.createClientGim(idDevice, createClientGimDto);
+    const createUserGim = await this.commonGimService.createClientGim(
+      idDevice,
+      createClientGimDto,
+    );
     if (createUserGim.errorCode === ErrorCode.NONE && createUserGim.data?.id) {
       residentId = createUserGim.data.id;
       if (userFound) {
-        this.commonAuthService.updateResidentId(userId, identityCard, residentId);
+        this.commonAuthService.updateResidentId(
+          userId,
+          identityCard,
+          residentId,
+        );
       }
     } else {
       this.logger.warn(
         `_getResidentId: no se pudo crear cliente en GIM para identityCard=${identityCard}, ` +
-        `userFound=${userFound}, createUserGim=${JSON.stringify(createUserGim)}`,
+          `userFound=${userFound}, createUserGim=${JSON.stringify(createUserGim)}`,
       );
     }
 
@@ -593,25 +754,41 @@ export class IncidentService {
    * @returns Error-code envelope. On success returns `AWAITS_RESPONSE` with the payment record.
    */
   async pay(idDevice: string, payIncidentDto: PayIncidentDto) {
-
     // Validate that the till is open
     const openTill = await this.gimService.validateOpenTill();
     if (openTill.errorCode !== ErrorCode.NONE) return openTill;
 
-    const { userId, transactionId, typePaymentMethod, optionalData, identityCard, credentialId, incidents, amount, billing_data } = payIncidentDto;
+    const {
+      userId,
+      transactionId,
+      typePaymentMethod,
+      optionalData,
+      identityCard,
+      credentialId,
+      incidents,
+      billing_data,
+    } = payIncidentDto;
 
     let urlDeuna = '';
     let urlAhorita = '';
     let urlPlaceToPay = '';
 
-    this.logger.debug('Entering pay function')
-    this.logger.debug(payIncidentDto)
+    this.logger.debug('Entering pay function');
+    this.logger.debug(payIncidentDto);
 
-    if (typePaymentMethod === TypePaymentMethod.DEUNA || typePaymentMethod === TypePaymentMethod.DEUNAV2) {
-      if ((!identityCard || identityCard.length < 10)) {
+    if (
+      typePaymentMethod === TypePaymentMethod.DEUNA ||
+      typePaymentMethod === TypePaymentMethod.DEUNAV2
+    ) {
+      if (!identityCard || identityCard.length < 10) {
         return { errorCode: ErrorCode.RESPONSE };
       }
-      const response = await this.commonService.checkDeUnaByIdentityCard(idDevice, identityCard, userId, credentialId);
+      const response = await this.commonService.checkDeUnaByIdentityCard(
+        idDevice,
+        identityCard,
+        userId,
+        credentialId,
+      );
       if (!response || response['errorCode'] !== ErrorCode.NONE) {
         return { errorCode: ErrorCode.WAIT_TRANSACTION_PREVIEWS };
       }
@@ -619,10 +796,15 @@ export class IncidentService {
     }
 
     if (typePaymentMethod === TypePaymentMethod.PLACE_TO_PAY) {
-      if ((!identityCard || identityCard.length < 10)) {
+      if (!identityCard || identityCard.length < 10) {
         return { errorCode: ErrorCode.RESPONSE };
       }
-      const response = await this.commonService.checkPlaceToPayByIdentityCard(idDevice, identityCard, userId, credentialId);
+      const response = await this.commonService.checkPlaceToPayByIdentityCard(
+        idDevice,
+        identityCard,
+        userId,
+        credentialId,
+      );
       if (!response || response['errorCode'] !== ErrorCode.NONE) {
         return { errorCode: ErrorCode.WAIT_TRANSACTION_PREVIEWS };
       }
@@ -640,57 +822,68 @@ export class IncidentService {
 
     try {
       const concept = await this._buildPaymentConcept(
-        incidents.map(incident => incident.id),
+        incidents.map((incident) => incident.id),
         optionalData,
       );
 
       const ownerName = await this._getOwnerName(incidents[0].id);
 
       const codes = incidents
-        .map(incident => (incident.code ?? '').trim())
-        .filter(code => code.length > 0)
+        .map((incident) => (incident.code ?? '').trim())
+        .filter((code) => code.length > 0)
         .join(', ');
 
-      const debitAmounDto = await this._parseDebitAmounDto(concept, payIncidentDto);
+      const debitAmounDto = await this._parseDebitAmounDto(
+        concept,
+        payIncidentDto,
+      );
 
       // Verify
 
       const queryRunner = this.dataSource.createQueryRunner();
 
       try {
-
         await queryRunner.connect();
         await queryRunner.startTransaction();
-        const register = this.commonService.getDate()
+        const register = this.commonService.getDate();
 
         const referenceId = uuidv4().replace(/-/g, '');
 
-        const payments: CreateIncidentPaymentDto[] = incidents.map(incident => ({
-          incidentId: incident.id,
-          transactionId,
-          typePaymentMethod,
-          moment: StatusMoment.REQUESTED,
-          statusPayment: StatusPayment.WAITING,
-          referenceId,
-          register,
-          userId,
-          amount: incident.amount,
-          billing_data,
-          optionalData: [{ key: 'register', value: incident.register }],
-        }));
+        const payments: CreateIncidentPaymentDto[] = incidents.map(
+          (incident) => ({
+            incidentId: incident.id,
+            transactionId,
+            typePaymentMethod,
+            moment: StatusMoment.REQUESTED,
+            statusPayment: StatusPayment.WAITING,
+            referenceId,
+            register,
+            userId,
+            amount: incident.amount,
+            billing_data,
+            optionalData: [{ key: 'register', value: incident.register }],
+          }),
+        );
 
         await queryRunner.manager.insert(IncidentPayment, payments);
 
         switch (typePaymentMethod) {
           case TypePaymentMethod.DEUNAV2:
-
-            const responseDeunaV2 = await this._payDeunaV2(idDevice, debitAmounDto, payIncidentDto, typePaymentResponsibility, referenceId, codes, ownerName);
+            const responseDeunaV2 = await this._payDeunaV2(
+              idDevice,
+              debitAmounDto,
+              payIncidentDto,
+              typePaymentResponsibility,
+              referenceId,
+              codes,
+              ownerName,
+            );
             if (responseDeunaV2['errorCode'] === ErrorCode.NONE) {
               urlDeuna = responseDeunaV2['deeplink'];
               await queryRunner.manager.update(
                 IncidentPayment,
                 { referenceId },
-                { url: urlDeuna }
+                { url: urlDeuna },
               );
             } else {
               throw new Error('call buy TypePaymentMethod DeunaV2 not found');
@@ -698,15 +891,22 @@ export class IncidentService {
             break;
 
           case TypePaymentMethod.AHORITA:
-
-            const responseAhorita = await this._payAhorita(idDevice, debitAmounDto, payIncidentDto, typePaymentResponsibility, referenceId, codes, ownerName);
+            const responseAhorita = await this._payAhorita(
+              idDevice,
+              debitAmounDto,
+              payIncidentDto,
+              typePaymentResponsibility,
+              referenceId,
+              codes,
+              ownerName,
+            );
 
             if (responseAhorita['errorCode'] === ErrorCode.NONE) {
               urlAhorita = responseAhorita['deeplink'];
               await queryRunner.manager.update(
                 IncidentPayment,
                 { referenceId },
-                { url: urlAhorita }
+                { url: urlAhorita },
               );
             } else {
               throw new Error('call buy TypePaymentMethod Ahorita not found');
@@ -714,19 +914,27 @@ export class IncidentService {
             break;
 
           case TypePaymentMethod.PLACE_TO_PAY:
-
-            const responsePlaceToPay = await this._payPlaceToPay(idDevice, debitAmounDto, payIncidentDto, typePaymentResponsibility, referenceId, codes, ownerName);
+            const responsePlaceToPay = await this._payPlaceToPay(
+              idDevice,
+              debitAmounDto,
+              payIncidentDto,
+              typePaymentResponsibility,
+              referenceId,
+              codes,
+              ownerName,
+            );
 
             if (responsePlaceToPay['errorCode'] === ErrorCode.NONE) {
               urlPlaceToPay = responsePlaceToPay['deeplink'];
               await queryRunner.manager.update(
                 IncidentPayment,
                 { referenceId },
-                { url: urlPlaceToPay }
+                { url: urlPlaceToPay },
               );
-
             } else {
-              throw new Error('call buy TypePaymentMethod PlaceToPay not found');
+              throw new Error(
+                'call buy TypePaymentMethod PlaceToPay not found',
+              );
             }
             break;
 
@@ -737,15 +945,22 @@ export class IncidentService {
         if (queryRunner.isTransactionActive)
           await queryRunner.commitTransaction();
 
-        const incidentPaymentBuying = await this.incidentPaymentRepository.findOne({
-          where: {
-            referenceId: referenceId,
-          },
-          select: ['id', 'createdAt', 'typePaymentMethod', 'statusPayment', 'url', 'referenceId'],
-        });
+        const incidentPaymentBuying =
+          await this.incidentPaymentRepository.findOne({
+            where: {
+              referenceId: referenceId,
+            },
+            select: [
+              'id',
+              'createdAt',
+              'typePaymentMethod',
+              'statusPayment',
+              'url',
+              'referenceId',
+            ],
+          });
 
         return { errorCode: ErrorCode.AWAITS_RESPONSE, incidentPaymentBuying };
-
       } catch (error) {
         if (queryRunner.isTransactionActive) {
           await queryRunner.rollbackTransaction();
@@ -756,10 +971,7 @@ export class IncidentService {
       }
 
       return { errorCode: ErrorCode.UNAUTHORIZED };
-
-    } catch (error) {
-    }
-
+    } catch {}
   }
 
   /**
@@ -781,20 +993,25 @@ export class IncidentService {
     incidentIds: number[],
     optionalData?: OptionalDataInterface[],
   ): Promise<string> {
-    const incidents = (await this.incidentRepository.find({
-      where: { id: In(incidentIds) },
-      select: ['nroObligation'],
-    })) ?? [];
+    const incidents =
+      (await this.incidentRepository.find({
+        where: { id: In(incidentIds) },
+        select: ['nroObligation'],
+      })) ?? [];
 
     const bondNumbersText = incidents
-      .map(incident => incident.nroObligation)
+      .map((incident) => incident.nroObligation)
       .filter(Boolean)
-      .map(nroObligation => `#${nroObligation}`)
+      .map((nroObligation) => `#${nroObligation}`)
       .join(', ');
 
-    let concept = bondNumbersText ? `Pago de multa ${bondNumbersText}` : 'Pago de multa';
+    let concept = bondNumbersText
+      ? `Pago de multa ${bondNumbersText}`
+      : 'Pago de multa';
 
-    const conceptElement = optionalData?.find(element => element.key === 'concept');
+    const conceptElement = optionalData?.find(
+      (element) => element.key === 'concept',
+    );
     if (conceptElement) {
       concept = `${conceptElement.value} | ${concept}`;
     }
@@ -819,27 +1036,29 @@ export class IncidentService {
     return incident?.fullNameClient ?? '';
   }
 
-  private async _parseDebitAmounDto(concept: string, payIncidentDto: PayIncidentDto) {
-
+  /**
+   *
+   * @param concept
+   * @param payIncidentDto
+   */
+  private async _parseDebitAmounDto(
+    concept: string,
+    payIncidentDto: PayIncidentDto,
+  ) {
     try {
-      const { credentialId, amount, userId, transactionId, optionalData, commission,
-      } = payIncidentDto;
+      const { credentialId, amount, userId, transactionId, commission } =
+        payIncidentDto;
 
       const register = this.commonService.getDate();
 
-      let useGif: boolean = false;
-
-      if (optionalData) {
-        const useGifElement = optionalData.find(element => element.key === 'useGif');
-        useGif = !!useGifElement?.value;
-      }
-
-      const purchase_data: PurchaseDataDto[] = [new PurchaseDataDto({
-        quantity: 1,
-        product: concept,
-        price: amount,
-        total: amount,
-      })];
+      const purchase_data: PurchaseDataDto[] = [
+        new PurchaseDataDto({
+          quantity: 1,
+          product: concept,
+          price: amount,
+          total: amount,
+        }),
+      ];
 
       const debitAmounDto = new DebitAmounDto({
         register,
@@ -848,16 +1067,17 @@ export class IncidentService {
         userId,
         transactionId,
         transactionReason: { id: IdTransactionReason.PAY_INCIDENT },
-        billing_data: { ...payIncidentDto.billing_data, typeService: TypeService.PARKING },
+        billing_data: {
+          ...payIncidentDto.billing_data,
+          typeService: TypeService.PARKING,
+        },
         purchase_data,
         credentialId,
         commission,
       });
 
       return debitAmounDto;
-
-    } catch (error) {
-    }
+    } catch {}
   }
 
   /**
@@ -888,15 +1108,32 @@ export class IncidentService {
     returnIfEmpty: boolean,
   ): void {
     setTimeout(async () => {
-      const incidentPayments = await this.incidentPaymentRepository.find({ where: { referenceId: referenceId } });
+      const incidentPayments = await this.incidentPaymentRepository.find({
+        where: { referenceId: referenceId },
+      });
       if (!incidentPayments) return;
       if (returnIfEmpty && incidentPayments.length === 0) return;
-      if (incidentPayments.every(incidentPayment => incidentPayment.statusPayment === StatusPayment.PAID)) {
+      if (
+        incidentPayments.every(
+          (incidentPayment) =>
+            incidentPayment.statusPayment === StatusPayment.PAID,
+        )
+      ) {
         return this.logger.log(paidLogMessage);
       }
       this.logger.warn('No se pago en 5 minutos se liberaron los checkbox');
-      this._saveResponsePay(incidentPayments, StatusMoment.RESPONSE, StatusPayment.ERROR);
-      this._notifyChageStatus(userId, StatusPayment.ERROR, referenceId, amount, typePaymentMethod);
+      this._saveResponsePay(
+        incidentPayments,
+        StatusMoment.RESPONSE,
+        StatusPayment.ERROR,
+      );
+      this._notifyChageStatus(
+        userId,
+        StatusPayment.ERROR,
+        referenceId,
+        amount,
+        typePaymentMethod,
+      );
     }, this.timerMinuteDeuna);
   }
 
@@ -917,9 +1154,21 @@ export class IncidentService {
     amount: string,
     typePaymentMethod: TypePaymentMethod,
   ): Promise<{ errorCode: number }> {
-    const incidentPayments = await this.incidentPaymentRepository.find({ where: { referenceId: referenceId } });
-    this._saveResponsePay(incidentPayments, StatusMoment.RESPONSE, StatusPayment.ERROR);
-    this._notifyChageStatus(userId, StatusPayment.ERROR, referenceId, amount, typePaymentMethod);
+    const incidentPayments = await this.incidentPaymentRepository.find({
+      where: { referenceId: referenceId },
+    });
+    this._saveResponsePay(
+      incidentPayments,
+      StatusMoment.RESPONSE,
+      StatusPayment.ERROR,
+    );
+    this._notifyChageStatus(
+      userId,
+      StatusPayment.ERROR,
+      referenceId,
+      amount,
+      typePaymentMethod,
+    );
     return { errorCode: ErrorCode.RESPONSE };
   }
 
@@ -978,17 +1227,43 @@ export class IncidentService {
       // Wait 3 minutes to verify whether the PAYMENT happened. If it occurred earlier in response to the
       // webhook the client was already notified; otherwise we verify the transaction before reversing.
       this._scheduleUnconfirmedPaymentReversal(
-        referenceId, userId, amount, typePaymentMethod, paidLogMessage, returnIfEmpty,
+        referenceId,
+        userId,
+        amount,
+        typePaymentMethod,
+        paidLogMessage,
+        returnIfEmpty,
       );
       return { errorCode: ErrorCode.NONE, deeplink: response['deeplink'] };
     }
-    return this._handleProviderPaymentFailure(referenceId, userId, amount, typePaymentMethod);
+    return this._handleProviderPaymentFailure(
+      referenceId,
+      userId,
+      amount,
+      typePaymentMethod,
+    );
   }
 
-  private async _payDeunaV2(idDevice: string, debitAmounDto: DebitAmounDto, payIncidentDto: PayIncidentDto, typePaymentResponsibility: TypePaymentResponsibility, referenceId: string, codes: string, ownerName: string) {
-
-    const { userId, typePaymentMethod, credentialId, amount
-    } = payIncidentDto;
+  /**
+   *
+   * @param idDevice
+   * @param debitAmounDto
+   * @param payIncidentDto
+   * @param typePaymentResponsibility
+   * @param referenceId
+   * @param codes
+   * @param ownerName
+   */
+  private async _payDeunaV2(
+    idDevice: string,
+    debitAmounDto: DebitAmounDto,
+    payIncidentDto: PayIncidentDto,
+    typePaymentResponsibility: TypePaymentResponsibility,
+    referenceId: string,
+    codes: string,
+    ownerName: string,
+  ) {
+    const { userId, typePaymentMethod, credentialId, amount } = payIncidentDto;
     const { register } = debitAmounDto;
 
     if (!typePaymentResponsibility) {
@@ -1004,21 +1279,58 @@ export class IncidentService {
       idTransactionReason: IdTransactionReason.PAY_INCIDENT,
       concept: debitAmounDto.concept,
       purchase_data: debitAmounDto.purchase_data,
-      billing_data: { ...debitAmounDto.billing_data, code: codes, ownerName } as BillingDataDto,
+      billing_data: {
+        ...debitAmounDto.billing_data,
+        code: codes,
+        ownerName,
+      } as BillingDataDto,
       transactionId: debitAmounDto.transactionId,
       userId,
-      webhook: this._buildPaymentResponseWebhook(idDevice, userId, referenceId, typePaymentMethod, register, typePaymentResponsibility),
-    })
+      webhook: this._buildPaymentResponseWebhook(
+        idDevice,
+        userId,
+        referenceId,
+        typePaymentMethod,
+        register,
+        typePaymentResponsibility,
+      ),
+    });
 
-    const response = await this.commonService.payDeUnaV2(idDevice, registerDeunaDto);
+    const response = await this.commonService.payDeUnaV2(
+      idDevice,
+      registerDeunaDto,
+    );
 
     return this._finalizeProviderResponse(
-      response, referenceId, userId, amount, typePaymentMethod,
-      'Se pago correctamente con de una en menos de 3 minutos', false,
+      response,
+      referenceId,
+      userId,
+      amount,
+      typePaymentMethod,
+      'Se pago correctamente con de una en menos de 3 minutos',
+      false,
     );
   }
 
-  private async _payAhorita(idDevice: string, debitAmounDto: DebitAmounDto, payIncidentDto: PayIncidentDto, typePaymentResponsibility: TypePaymentResponsibility, referenceId: string, codes: string, ownerName: string) {
+  /**
+   *
+   * @param idDevice
+   * @param debitAmounDto
+   * @param payIncidentDto
+   * @param typePaymentResponsibility
+   * @param referenceId
+   * @param codes
+   * @param ownerName
+   */
+  private async _payAhorita(
+    idDevice: string,
+    debitAmounDto: DebitAmounDto,
+    payIncidentDto: PayIncidentDto,
+    typePaymentResponsibility: TypePaymentResponsibility,
+    referenceId: string,
+    codes: string,
+    ownerName: string,
+  ) {
     const { userId, typePaymentMethod, credentialId, amount } = payIncidentDto;
     const { register } = debitAmounDto;
 
@@ -1035,22 +1347,58 @@ export class IncidentService {
       idTransactionReason: IdTransactionReason.PAY_INCIDENT,
       concept: debitAmounDto.concept,
       purchase_data: debitAmounDto.purchase_data,
-      billing_data: { ...debitAmounDto.billing_data, code: codes, ownerName } as BillingDataDto,
+      billing_data: {
+        ...debitAmounDto.billing_data,
+        code: codes,
+        ownerName,
+      } as BillingDataDto,
       transactionId: debitAmounDto.transactionId,
       userId,
-      webhook: this._buildPaymentResponseWebhook(idDevice, userId, referenceId, typePaymentMethod, register, typePaymentResponsibility),
-    })
+      webhook: this._buildPaymentResponseWebhook(
+        idDevice,
+        userId,
+        referenceId,
+        typePaymentMethod,
+        register,
+        typePaymentResponsibility,
+      ),
+    });
 
-    const response = await this.commonService.payAhorita(idDevice, registerAhoritaDto);
+    const response = await this.commonService.payAhorita(
+      idDevice,
+      registerAhoritaDto,
+    );
 
     return this._finalizeProviderResponse(
-      response, referenceId, userId, amount, typePaymentMethod,
-      'Se pago correctamente con ahorita en menos de 3 minutos', false,
+      response,
+      referenceId,
+      userId,
+      amount,
+      typePaymentMethod,
+      'Se pago correctamente con ahorita en menos de 3 minutos',
+      false,
     );
   }
 
-  private async _payPlaceToPay(idDevice: string, debitAmounDto: DebitAmounDto, payIncidentDto: PayIncidentDto, typePaymentResponsibility: TypePaymentResponsibility, referenceId: string, codes: string, ownerName: string) {
-
+  /**
+   *
+   * @param idDevice
+   * @param debitAmounDto
+   * @param payIncidentDto
+   * @param typePaymentResponsibility
+   * @param referenceId
+   * @param codes
+   * @param ownerName
+   */
+  private async _payPlaceToPay(
+    idDevice: string,
+    debitAmounDto: DebitAmounDto,
+    payIncidentDto: PayIncidentDto,
+    typePaymentResponsibility: TypePaymentResponsibility,
+    referenceId: string,
+    codes: string,
+    ownerName: string,
+  ) {
     const { userId, typePaymentMethod, credentialId, amount } = payIncidentDto;
     const { register } = debitAmounDto;
 
@@ -1067,41 +1415,77 @@ export class IncidentService {
       idTransactionReason: IdTransactionReason.PAY_INCIDENT,
       concept: debitAmounDto.concept,
       purchase_data: debitAmounDto.purchase_data,
-      billing_data: { ...debitAmounDto.billing_data, code: codes, ownerName } as BillingDataDto,
+      billing_data: {
+        ...debitAmounDto.billing_data,
+        code: codes,
+        ownerName,
+      } as BillingDataDto,
       transactionId: debitAmounDto.transactionId,
       userId,
-      webhook: this._buildPaymentResponseWebhook(idDevice, userId, referenceId, typePaymentMethod, register, typePaymentResponsibility),
-      referenceId
-    })
+      webhook: this._buildPaymentResponseWebhook(
+        idDevice,
+        userId,
+        referenceId,
+        typePaymentMethod,
+        register,
+        typePaymentResponsibility,
+      ),
+      referenceId,
+    });
 
-    const response = await this.commonService.payPlaceToPay(idDevice, referenceId, registerPlaceToPayDto);
+    const response = await this.commonService.payPlaceToPay(
+      idDevice,
+      referenceId,
+      registerPlaceToPayDto,
+    );
 
     return this._finalizeProviderResponse(
-      response, referenceId, userId, amount, typePaymentMethod,
-      'Se pago correctamente con place to pay en menos de 3 minutos', true,
+      response,
+      referenceId,
+      userId,
+      amount,
+      typePaymentMethod,
+      'Se pago correctamente con place to pay en menos de 3 minutos',
+      true,
     );
   }
 
-  async _saveResponsePay(incidentPayments: IncidentPayment[], moment: StatusMoment, statusPayment: StatusPayment) {
-
+  /**
+   *
+   * @param incidentPayments
+   * @param moment
+   * @param statusPayment
+   */
+  async _saveResponsePay(
+    incidentPayments: IncidentPayment[],
+    moment: StatusMoment,
+    statusPayment: StatusPayment,
+  ) {
     if (!incidentPayments || incidentPayments.length === 0) return;
 
     const { referenceId } = incidentPayments[0];
-    const ids = incidentPayments.map(incidentPayment => incidentPayment.incidentId);
+    const ids = incidentPayments.map(
+      (incidentPayment) => incidentPayment.incidentId,
+    );
 
     if (statusPayment === StatusPayment.PAID) {
       try {
-
-        await this.incidentPaymentRepository.update({ referenceId }, { statusPayment, moment });
+        await this.incidentPaymentRepository.update(
+          { referenceId },
+          { statusPayment, moment },
+        );
 
         // Single query to fetch bondIds, identityCard and onResponseExternal
-        const incidents = await this.incidentRepository.find({ where: { id: In(ids) } });
-        const bondIds = incidents.map(incident => incident.bondId);
+        const incidents = await this.incidentRepository.find({
+          where: { id: In(ids) },
+        });
+        const bondIds = incidents.map((incident) => incident.bondId);
 
         // Control to avoid decimal precision errors; compute the total paid
-        const amount = incidentPayments.reduce((acc, i) => {
-          return acc + Number(i.amount) * 100;
-        }, 0) / 100;
+        const amount =
+          incidentPayments.reduce((acc, i) => {
+            return acc + Number(i.amount) * 100;
+          }, 0) / 100;
 
         // Perform the deposit in GIM
         const registerDepositGimDto: RegisterDepositGimDto = {
@@ -1112,7 +1496,9 @@ export class IncidentService {
           transactionId: incidentPayments[0].transactionId,
         };
 
-        const response = await this.gimService.registerDeposit(registerDepositGimDto);
+        const response = await this.gimService.registerDeposit(
+          registerDepositGimDto,
+        );
 
         if (response && response.errorCode === ErrorCode.NONE) {
           // Update each incident with statusIncident PAYED and the accumulated onResponseExternal
@@ -1134,30 +1520,59 @@ export class IncidentService {
               statusPayment,
               transactionId: incidentPayments[0].transactionId,
               typePaymentMethod: incidentPayments[0].typePaymentMethod,
-            }
+            },
           );
         }
-
       } catch (error) {
-        this.logger.error(`call _saveResponsePay error.message ${error.message} StatusMoment.CORRECTLY_PAID_UNASSIGNED`);
+        this.logger.error(
+          `call _saveResponsePay error.message ${error.message} StatusMoment.CORRECTLY_PAID_UNASSIGNED`,
+        );
 
         moment = StatusMoment.CORRECTLY_PAID_UNASSIGNED;
-        await this.incidentPaymentRepository.update({ referenceId }, { statusPayment, moment });
+        await this.incidentPaymentRepository.update(
+          { referenceId },
+          { statusPayment, moment },
+        );
         await this.incidentRepository.update(
           { id: In(ids) },
-          { statusPayment, transactionId: incidentPayments[0].transactionId, typePaymentMethod: incidentPayments[0].typePaymentMethod }
+          {
+            statusPayment,
+            transactionId: incidentPayments[0].transactionId,
+            typePaymentMethod: incidentPayments[0].typePaymentMethod,
+          },
         );
       }
     } else {
-      await this.incidentPaymentRepository.update({ referenceId }, { statusPayment, moment });
+      await this.incidentPaymentRepository.update(
+        { referenceId },
+        { statusPayment, moment },
+      );
       await this.incidentRepository.update(
         { id: In(ids) },
-        { statusPayment, transactionId: incidentPayments[0].transactionId, typePaymentMethod: incidentPayments[0].typePaymentMethod }
+        {
+          statusPayment,
+          transactionId: incidentPayments[0].transactionId,
+          typePaymentMethod: incidentPayments[0].typePaymentMethod,
+        },
       );
     }
   }
 
-  private async _notifyChageStatus(userId: number, status: number, referenceId: string, amount: string, typePaymentMethod: TypePaymentMethod) {
+  /**
+   *
+   * @param userId
+   * @param status
+   * @param referenceId
+   * @param amount
+   * @param typePaymentMethod
+   */
+  private async _notifyChageStatus(
+    userId: number,
+    status: number,
+    referenceId: string,
+    amount: string,
+    typePaymentMethod: TypePaymentMethod,
+  ) {
     const notification = new CreateNotificationDto({
       userId,
       notification: {
@@ -1168,7 +1583,7 @@ export class IncidentService {
           amount,
           typePaymentMethod,
         },
-      }
+      },
     });
     this.commonService.notify(notification);
   }
@@ -1183,29 +1598,49 @@ export class IncidentService {
    * @param typePaymentMethod Provider that called back.
    * @param register Original register timestamp.
    * @param typePaymentResponsibility Commission responsibility type.
+   * @param _register
+   * @param _typePaymentResponsibility
    * @returns Standard error-code envelope.
    */
-  async onResponsePay(idDevice: string, userId: number, referenceId: string, typePaymentMethod: TypePaymentMethod, register: string, typePaymentResponsibility: TypePaymentResponsibility) {
-
-    const incidentPayments = await this.incidentPaymentRepository.find({ where: { referenceId: referenceId } });
+  async onResponsePay(
+    idDevice: string,
+    userId: number,
+    referenceId: string,
+    typePaymentMethod: TypePaymentMethod,
+    _register: string,
+    _typePaymentResponsibility: TypePaymentResponsibility,
+  ) {
+    const incidentPayments = await this.incidentPaymentRepository.find({
+      where: { referenceId: referenceId },
+    });
 
     if (!incidentPayments || incidentPayments.length === 0) {
-      return { errorCode: ErrorCode.NOT_FOUND }
+      return { errorCode: ErrorCode.NOT_FOUND };
     }
 
     // Control to avoid decimal precision errors
-    const amount = incidentPayments.reduce((acc, i) => {
-      return acc + Number(i.amount) * 100;
-    }, 0) / 100;
+    const amount =
+      incidentPayments.reduce((acc, i) => {
+        return acc + Number(i.amount) * 100;
+      }, 0) / 100;
 
     if (incidentPayments[0].statusPayment === StatusPayment.WAITING) {
+      await this._saveResponsePay(
+        incidentPayments,
+        StatusMoment.LISTENING,
+        StatusPayment.PAID,
+      );
+      await this._notifyChageStatus(
+        userId,
+        StatusPayment.PAID,
+        referenceId,
+        amount.toString(),
+        typePaymentMethod,
+      );
 
-      await this._saveResponsePay(incidentPayments, StatusMoment.LISTENING, StatusPayment.PAID);
-      await this._notifyChageStatus(userId, StatusPayment.PAID, referenceId, amount.toString(), typePaymentMethod);
-
-      return { errorCode: ErrorCode.NONE }
+      return { errorCode: ErrorCode.NONE };
     }
-    return { errorCode: ErrorCode.NOT_FOUND }
+    return { errorCode: ErrorCode.NOT_FOUND };
   }
 
   /**
@@ -1218,20 +1653,40 @@ export class IncidentService {
    * @param typePaymentMethod Provider that called back.
    * @param register Original register timestamp.
    * @param typePaymentResponsibility Commission responsibility type.
+   * @param _register
+   * @param _typePaymentResponsibility
    */
-  async onResponsePayError(idDevice: string, userId: number, referenceId: string, typePaymentMethod: TypePaymentMethod, register: string, typePaymentResponsibility: number) {
-
-    const incidentPayments = await this.incidentPaymentRepository.find({ where: { referenceId: referenceId } });
+  async onResponsePayError(
+    idDevice: string,
+    userId: number,
+    referenceId: string,
+    typePaymentMethod: TypePaymentMethod,
+    _register: string,
+    _typePaymentResponsibility: number,
+  ) {
+    const incidentPayments = await this.incidentPaymentRepository.find({
+      where: { referenceId: referenceId },
+    });
     if (!incidentPayments || incidentPayments.length === 0) return;
 
     // Control to avoid decimal precision errors
-    const amount = incidentPayments.reduce((acc, i) => {
-      return acc + Number(i.amount) * 100;
-    }, 0) / 100;
+    const amount =
+      incidentPayments.reduce((acc, i) => {
+        return acc + Number(i.amount) * 100;
+      }, 0) / 100;
 
-    this._saveResponsePay(incidentPayments, StatusMoment.RESPONSE, StatusPayment.ERROR);
-    this._notifyChageStatus(userId, StatusPayment.ERROR, referenceId, amount.toString(), typePaymentMethod);
-
+    this._saveResponsePay(
+      incidentPayments,
+      StatusMoment.RESPONSE,
+      StatusPayment.ERROR,
+    );
+    this._notifyChageStatus(
+      userId,
+      StatusPayment.ERROR,
+      referenceId,
+      amount.toString(),
+      typePaymentMethod,
+    );
   }
 
   /**
@@ -1242,10 +1697,15 @@ export class IncidentService {
    * @returns Error-code envelope with the matching payment record or an empty object.
    */
   async getTransactionsByReference(userId: number, referenceId: string) {
-
     try {
-      const incidentPaymentBuying = await this.incidentPaymentRepository.createQueryBuilder('ip')
-        .select(['ip.referenceId', 'ip.statusPayment', 'ip.createdAt', 'ip.typePaymentMethod'])
+      const incidentPaymentBuying = await this.incidentPaymentRepository
+        .createQueryBuilder('ip')
+        .select([
+          'ip.referenceId',
+          'ip.statusPayment',
+          'ip.createdAt',
+          'ip.typePaymentMethod',
+        ])
         .where('ip.referenceId = :referenceId', { referenceId })
         .andWhere('ip.userId = :userId', { userId })
         .getOne();
@@ -1253,12 +1713,15 @@ export class IncidentService {
       if (incidentPaymentBuying)
         return { errorCode: ErrorCode.NONE, incidentPaymentBuying };
       return { errorCode: ErrorCode.NOT_FOUND, incidentPaymentBuying: {} };
-
     } catch (error) {
       handleDbExceptions(error, this.logger);
     }
   }
 
+  /**
+   *
+   * @param tableName
+   */
   private async _tableExists(tableName: string): Promise<boolean> {
     const names = tableName.split('.');
     if (names.length <= 1) {
@@ -1278,37 +1741,75 @@ export class IncidentService {
     ) AS "exists";
   `;
 
-    const result = await this.incidentRepository.query(query, [table_schema, table_name]);
+    const result = await this.incidentRepository.query(query, [
+      table_schema,
+      table_name,
+    ]);
     return !!result[0]?.exists;
   }
 
-  private async _saveSatusFraction(fraction: Fraction, statusId: number, moment: number) {
+  /**
+   *
+   * @param fraction
+   * @param statusId
+   * @param moment
+   */
+  private async _saveSatusFraction(
+    fraction: Fraction,
+    statusId: number,
+    moment: number,
+  ) {
     // Check whether a record already exists for the given status and fractionId
     const existingFractionStatus = await this.fractionStatusRepository.findOne({
-      where: { fraction: { id: fraction.id }, status: { id: statusId }, },
+      where: { fraction: { id: fraction.id }, status: { id: statusId } },
     });
 
     if (existingFractionStatus) {
       existingFractionStatus.moment = moment;
       await this.fractionStatusRepository.save(existingFractionStatus);
-    }
-    else {
+    } else {
       // Always persist the fraction status
-      const fractionSatus = this.fractionStatusRepository.create({ fraction, moment, status: { id: statusId } });
+      const fractionSatus = this.fractionStatusRepository.create({
+        fraction,
+        moment,
+        status: { id: statusId },
+      });
       await this.fractionStatusRepository.save(fractionSatus);
     }
     if (statusId === StatusFraction.FINISHED_BY_OPERATOR) {
-      if (fraction.status.id === StatusFraction.EXCEEDED_TIME || fraction.status.id === StatusFraction.SANCTIONED) {
-        await this.fractionRepository.save({ ...fraction, status: { id: StatusFraction.FINISHED_BY_CONTROLLER }, });
+      if (
+        fraction.status.id === StatusFraction.EXCEEDED_TIME ||
+        fraction.status.id === StatusFraction.SANCTIONED
+      ) {
+        await this.fractionRepository.save({
+          ...fraction,
+          status: { id: StatusFraction.FINISHED_BY_CONTROLLER },
+        });
       } else {
-        await this.fractionRepository.save({ ...fraction, status: { id: StatusFraction.FINISHED_BY_OPERATOR }, });
+        await this.fractionRepository.save({
+          ...fraction,
+          status: { id: StatusFraction.FINISHED_BY_OPERATOR },
+        });
       }
     } else {
-      await this.fractionRepository.save({ ...fraction, status: { id: statusId }, });
+      await this.fractionRepository.save({
+        ...fraction,
+        status: { id: statusId },
+      });
     }
   }
 
-  private async _notifyChageStatusFraction(userId: number, status: number, fractionId: number) {
+  /**
+   *
+   * @param userId
+   * @param status
+   * @param fractionId
+   */
+  private async _notifyChageStatusFraction(
+    userId: number,
+    status: number,
+    fractionId: number,
+  ) {
     const notification = new CreateNotificationDto({
       userId,
       notification: {
@@ -1317,18 +1818,25 @@ export class IncidentService {
           fractionId,
           status,
         },
-      }
+      },
     });
     this.commonService.notify(notification);
   }
 
-  private _buildAntDataResponse(obligation: Obligation, statusIncident: IncidentStatus): UpdateIncidentDto {
+  /**
+   *
+   * @param obligation
+   * @param statusIncident
+   */
+  private _buildAntDataResponse(
+    obligation: Obligation,
+    statusIncident: IncidentStatus,
+  ): UpdateIncidentDto {
     const updateDto = new UpdateIncidentDto();
     updateDto.bondId = obligation.obligationId;
     updateDto.nroObligation = obligation.obligationNumber;
     updateDto.statusIncident = statusIncident;
-    if (obligation.total)
-      updateDto.amount = obligation.total;
+    if (obligation.total) updateDto.amount = obligation.total;
 
     // let currentOptionalData = incident.optionalData;
     // let currentOnResponseExternal = incident.onResponseExternal;
@@ -1349,5 +1857,4 @@ export class IncidentService {
 
     return updateDto;
   }
-
 }

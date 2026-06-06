@@ -7,9 +7,12 @@ import { SalePoint } from './entities/sale-point.entity';
 import { SalePointController } from './sale-point.controller';
 import { SalePointService } from './sale-point.service';
 
+/**
+ *
+ */
 @Module({
   controllers: [SalePointController],
   providers: [SalePointService],
   imports: [TypeOrmModule.forFeature([SalePoint]), AuthModule, LoggerModule],
 })
-export class SalePointModule { }
+export class SalePointModule {}

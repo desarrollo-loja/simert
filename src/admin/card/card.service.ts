@@ -19,13 +19,18 @@ import { Card } from './entities/card.entity';
 export class CardService {
   private readonly logger = new Logger('CardService');
 
+  /**
+   *
+   * @param cardRepository
+   * @param loggerService
+   */
   constructor(
     @InjectRepository(Card)
     private readonly cardRepository: Repository<Card>,
 
     @Inject(LoggerService)
     private readonly loggerService: LoggerService,
-  ) { }
+  ) {}
 
   /**
    * Creates a new card record and writes a CREATE audit log entry.
@@ -135,7 +140,11 @@ export class CardService {
       const card = await this.cardRepository.preload({ id, ...updateCardDto });
       if (card) {
         await this.cardRepository.save(card);
-        this.loggerService.saveCardLogger({ id: card.id, typeOperation: TypeOperation.UPDATE, card });
+        this.loggerService.saveCardLogger({
+          id: card.id,
+          typeOperation: TypeOperation.UPDATE,
+          card,
+        });
         return { card };
       }
     } catch (error) {

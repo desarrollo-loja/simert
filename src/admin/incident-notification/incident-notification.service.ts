@@ -17,10 +17,14 @@ import { IncidentNotification } from './entities/incident-notification.entity';
 export class IncidentNotificationService {
   private readonly logger = new Logger(IncidentNotificationService.name);
 
+  /**
+   *
+   * @param incidentNotificationRepository
+   */
   constructor(
     @InjectRepository(IncidentNotification)
     private readonly incidentNotificationRepository: Repository<IncidentNotification>,
-  ) { }
+  ) {}
 
   /**
    * Creates a new incident notification record.
@@ -31,7 +35,9 @@ export class IncidentNotificationService {
    */
   async create(createIncidentNotificationDto: CreateIncidentNotificationDto) {
     try {
-      const incidentNotification = this.incidentNotificationRepository.create({ ...createIncidentNotificationDto });
+      const incidentNotification = this.incidentNotificationRepository.create({
+        ...createIncidentNotificationDto,
+      });
       return { incidentNotification, errorCode: ErrorCode.NONE };
     } catch (error) {
       handleDbExceptions(error, this.logger);
@@ -66,9 +72,16 @@ export class IncidentNotificationService {
    *   `undefined` when the record does not exist.
    * @throws Delegates DB errors to {@link handleDbExceptions}.
    */
-  async update(id: number, updateIncidentNotificationDto: UpdateIncidentNotificationDto) {
+  async update(
+    id: number,
+    updateIncidentNotificationDto: UpdateIncidentNotificationDto,
+  ) {
     try {
-      const incidentNotification = await this.incidentNotificationRepository.preload({ id, ...updateIncidentNotificationDto });
+      const incidentNotification =
+        await this.incidentNotificationRepository.preload({
+          id,
+          ...updateIncidentNotificationDto,
+        });
       if (incidentNotification) {
         await this.incidentNotificationRepository.save(incidentNotification);
         return { errorCode: ErrorCode.NONE, incidentNotification };

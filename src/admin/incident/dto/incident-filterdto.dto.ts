@@ -1,9 +1,19 @@
 import { Type } from 'class-transformer';
-import { IsBoolean, IsEnum, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import {
+  IsBoolean,
+  IsEnum,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Min,
+} from 'class-validator';
 import { FilterDto } from 'src/common/dto/filter.dto';
 import { IncidentStatus } from 'src/common/glob/type/type_incident';
 import { InternalStateIncident } from 'src/common/glob/type/type_internal_state_incident';
 
+/**
+ *
+ */
 export class IncidentFilterDto extends FilterDto {
   @IsOptional()
   @IsString()

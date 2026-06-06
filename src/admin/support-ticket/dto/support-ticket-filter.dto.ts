@@ -2,6 +2,9 @@ import { Type } from 'class-transformer';
 import { IsNumber, IsOptional, IsString, Min } from 'class-validator';
 import { FilterDto } from 'src/common/dto/filter.dto';
 
+/**
+ *
+ */
 export class SupportTicketFilterDto extends FilterDto {
   @IsOptional()
   @IsString()

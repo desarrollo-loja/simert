@@ -7,7 +7,11 @@ import { AntResponse } from 'src/common/intefaces/ant_response.interface';
 
 type AntLookupResult =
   | { errorCode: ErrorCode.NONE; data: AntResponse }
-  | { errorCode: Exclude<ErrorCode, ErrorCode.NONE>; data: null; message?: string };
+  | {
+      errorCode: Exclude<ErrorCode, ErrorCode.NONE>;
+      data: null;
+      message?: string;
+    };
 
 /**
  * Service that queries the DINARDAP–ANT gateway to resolve vehicle owner
@@ -16,18 +20,28 @@ type AntLookupResult =
  */
 @Injectable()
 export class DinardapAntService {
-
   private readonly logger = new Logger('AntService');
   private readonly dinardapAntBaseUrl: string;
   private token: string;
 
+  /**
+   *
+   * @param configService
+   * @param commonGimService
+   */
   constructor(
     private readonly configService: ConfigService,
     private readonly commonGimService: CommonGimService,
   ) {
-    this.dinardapAntBaseUrl = this.configService.get<string>('DINARDAP_ANT_BASE_URL');
+    this.dinardapAntBaseUrl = this.configService.get<string>(
+      'DINARDAP_ANT_BASE_URL',
+    );
   }
 
+  /**
+   *
+   * @param plate
+   */
   async getUserDataByPlateAnt(plate: string): Promise<AntLookupResult> {
     const normalizedPlate = (plate ?? '').trim().toUpperCase();
     if (!this._isValidPlate(normalizedPlate)) {
@@ -35,15 +49,18 @@ export class DinardapAntService {
       return {
         errorCode: ErrorCode.NOT_VALID,
         data: null,
-        message: 'La placa ingresada no es válida, verifica el formato e inténtalo nuevamente',
+        message:
+          'La placa ingresada no es válida, verifica el formato e inténtalo nuevamente',
       };
     }
 
-    const { data, errorCode, message } = await this._getAntDataByPlate(normalizedPlate);
+    const { data, errorCode, message } =
+      await this._getAntDataByPlate(normalizedPlate);
 
     if (errorCode !== ErrorCode.NONE || !data) {
       return {
-        errorCode: errorCode === ErrorCode.NONE ? ErrorCode.NOT_FOUND : errorCode,
+        errorCode:
+          errorCode === ErrorCode.NONE ? ErrorCode.NOT_FOUND : errorCode,
         data: null,
         message: message || 'No se encontró información del vehículo',
       };
@@ -52,6 +69,10 @@ export class DinardapAntService {
     return { errorCode: ErrorCode.NONE, data };
   }
 
+  /**
+   *
+   * @param plate
+   */
   private _isValidPlate(plate: string): boolean {
     return /^[A-Z0-9]{5,8}$/.test(plate);
   }
@@ -61,33 +82,57 @@ export class DinardapAntService {
    * mensaje legible para el cliente. Si el error trae status HTTP conocido
    * devuelve un mensaje específico (401, 403, 404, 5xx…); caso contrario
    * cae al mensaje genérico de servicio fuera de línea.
+   * @param error
    */
-  private _buildAntErrorMessage(error: any): { errorCode: ErrorCode; message: string } {
+  private _buildAntErrorMessage(error: any): {
+    errorCode: ErrorCode;
+    message: string;
+  } {
     const fallback = {
       errorCode: ErrorCode.SYSTEM_INACTIVE,
-      message: 'El sistema de la ANT se encuentra fuera de servicio, por favor inténtalo más tarde',
+      message:
+        'El sistema de la ANT se encuentra fuera de servicio, por favor inténtalo más tarde',
     };
 
     const status: number | undefined = error?.response?.status;
     const code: string | undefined = error?.code;
 
     if (status === 400) {
-      return { errorCode: ErrorCode.UNKNOWN, message: '400 Solicitud incorrecta hacia el servicio de la ANT' };
+      return {
+        errorCode: ErrorCode.UNKNOWN,
+        message: '400 Solicitud incorrecta hacia el servicio de la ANT',
+      };
     }
     if (status === 401) {
-      return { errorCode: ErrorCode.UNAUTHORIZED, message: '401 No autorizado para consumir el recurso de la ANT' };
+      return {
+        errorCode: ErrorCode.UNAUTHORIZED,
+        message: '401 No autorizado para consumir el recurso de la ANT',
+      };
     }
     if (status === 403) {
-      return { errorCode: ErrorCode.UNAUTHORIZED, message: '403 Acceso prohibido al recurso de la ANT' };
+      return {
+        errorCode: ErrorCode.UNAUTHORIZED,
+        message: '403 Acceso prohibido al recurso de la ANT',
+      };
     }
     if (status === 404) {
-      return { errorCode: ErrorCode.NOT_FOUND, message: '404 Recurso no encontrado en la ANT' };
+      return {
+        errorCode: ErrorCode.NOT_FOUND,
+        message: '404 Recurso no encontrado en la ANT',
+      };
     }
     if (status === 408 || code === 'ECONNABORTED' || code === 'ETIMEDOUT') {
-      return { errorCode: ErrorCode.HTTP_ERROR_REINTENT, message: 'No se pudo establecer comunicación con la ANT, inténtalo más tarde' };
+      return {
+        errorCode: ErrorCode.HTTP_ERROR_REINTENT,
+        message:
+          'No se pudo establecer comunicación con la ANT, inténtalo más tarde',
+      };
     }
     if (status === 429) {
-      return { errorCode: ErrorCode.UNKNOWN, message: '429 Demasiadas solicitudes a la ANT, inténtalo más tarde' };
+      return {
+        errorCode: ErrorCode.UNKNOWN,
+        message: '429 Demasiadas solicitudes a la ANT, inténtalo más tarde',
+      };
     }
     if (status && status >= 500) {
       return fallback;
@@ -99,15 +144,22 @@ export class DinardapAntService {
   /**
    * Convierte el array de columnas [{campo, valor}] en un objeto plano { campo: valor }
    * para facilitar el acceso a los datos: cols['apellido1'], cols['correo'], etc.
+   * @param columnasArray
    */
-  private _parseCols(columnasArray: { campo: string; valor: string }[]): Record<string, string> {
+  private _parseCols(
+    columnasArray: { campo: string; valor: string }[],
+  ): Record<string, string> {
     const result: Record<string, string> = {};
-    for (const col of (columnasArray ?? [])) {
+    for (const col of columnasArray ?? []) {
       result[col.campo] = col.valor ?? '';
     }
     return result;
   }
 
+  /**
+   *
+   * @param plate
+   */
   private async _getAntDataByPlate(plate: string): Promise<{
     data: AntResponse | null;
     errorCode: ErrorCode;
@@ -118,7 +170,8 @@ export class DinardapAntService {
       return {
         data: null,
         errorCode: ErrorCode.SYSTEM_INACTIVE,
-        message: 'Enlace del sistema de la ANT no configurado, por favor comuníquese con soporte técnico',
+        message:
+          'Enlace del sistema de la ANT no configurado, por favor comuníquese con soporte técnico',
       };
     }
 
@@ -163,24 +216,32 @@ export class DinardapAntService {
         return {
           data: null,
           errorCode: ErrorCode.NOT_FOUND,
-          message: 'No se encontró información del vehículo en el sistema de la ANT',
+          message:
+            'No se encontró información del vehículo en el sistema de la ANT',
         };
       }
 
       // Extraer primera fila y aplanar columnas a objeto plano { campo: valor }
-      const filaRaw = entidadRaw?.filas?.fila?.[0] ?? entidadRaw?.filas?.fila ?? null;
-      const cols: Record<string, string> = filaRaw?.columnas?.columna ? this._parseCols(filaRaw.columnas.columna) : {};
+      const filaRaw =
+        entidadRaw?.filas?.fila?.[0] ?? entidadRaw?.filas?.fila ?? null;
+      const cols: Record<string, string> = filaRaw?.columnas?.columna
+        ? this._parseCols(filaRaw.columnas.columna)
+        : {};
 
       // ── Persona ──────────────────────────────────────────────────────────────
       const firstName = String(cols['nombres'] || '').trim();
       const apellido1 = String(cols['apellido1'] || '').trim();
       const apellido2 = String(cols['apellido2'] || '').trim();
       const lastName = [apellido1, apellido2].filter(Boolean).join(' ').trim();
-      const fullName = String(cols['propietario'] || `${lastName} ${firstName}`).trim();
+      const fullName = String(
+        cols['propietario'] || `${lastName} ${firstName}`,
+      ).trim();
       const identityCard = String(cols['docPropietario'] || '').trim();
       const email = String(cols['correo'] || '').trim();
       // Phone may arrive with a leading ";" (e.g. ";0939700013") — strip it
-      const phone = String(cols['telefono'] || '').replace(/^;+/, '').trim();
+      const phone = String(cols['telefono'] || '')
+        .replace(/^;+/, '')
+        .trim();
       const address = String(cols['direccion'] || '').trim();
 
       // ── Vehicle ───────────────────────────────────────────────────────────────
@@ -201,11 +262,14 @@ export class DinardapAntService {
       const expirationDate = String(cols['fechaCaducidad'] || '').trim();
 
       if (!fullName && !identityCard && !email) {
-        this.logger.warn(`La respuesta vino sin datos útiles para la placa ${plate}`);
+        this.logger.warn(
+          `La respuesta vino sin datos útiles para la placa ${plate}`,
+        );
         return {
           data: null,
           errorCode: ErrorCode.NOT_FOUND,
-          message: 'La respuesta del sistema ANT no contiene datos útiles para esta placa',
+          message:
+            'La respuesta del sistema ANT no contiene datos útiles para esta placa',
         };
       }
 
@@ -237,7 +301,7 @@ export class DinardapAntService {
       };
     } catch (error: any) {
       this.logger.error(
-        `DINARDAP ANT lookup failed plate=${plate}: ${error?.response?.data ? JSON.stringify(error.response.data) : error?.message ?? error}`,
+        `DINARDAP ANT lookup failed plate=${plate}: ${error?.response?.data ? JSON.stringify(error.response.data) : (error?.message ?? error)}`,
       );
       const mapped = this._buildAntErrorMessage(error);
       return {
@@ -247,5 +311,4 @@ export class DinardapAntService {
       };
     }
   }
-
 }

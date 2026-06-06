@@ -22,13 +22,18 @@ import { UpdateBlockOperatorDto } from './dto/update-block_operator.dto';
 export class BlockOperatorService {
   private readonly logger = new Logger('BlockOperatorService');
 
+  /**
+   *
+   * @param blockOperatorRepository
+   * @param loggerService
+   */
   constructor(
     @InjectRepository(BlockOperator)
     private readonly blockOperatorRepository: Repository<BlockOperator>,
 
     @Inject(LoggerService)
     private readonly loggerService: LoggerService,
-  ) { }
+  ) {}
 
   /**
    * Creates a new block operator shift assignment and writes an audit log entry.
@@ -40,7 +45,9 @@ export class BlockOperatorService {
    */
   async create(userId: number, createBlockOperatorDto: CreateBlockOperatorDto) {
     try {
-      const blockOperator = this.blockOperatorRepository.create(createBlockOperatorDto);
+      const blockOperator = this.blockOperatorRepository.create(
+        createBlockOperatorDto,
+      );
       await this.blockOperatorRepository.save(blockOperator);
       this.loggerService.saveBlockOperatorLogger({
         id: blockOperator.id,
@@ -68,14 +75,29 @@ export class BlockOperatorService {
   async findAll(filterDto: FilterDto) {
     const { blockId, date, userId } = filterDto;
     try {
-      let blockOperatorsQuery = this.blockOperatorRepository.createQueryBuilder('bo')
+      let blockOperatorsQuery = this.blockOperatorRepository
+        .createQueryBuilder('bo')
         .select([
-          'bo.id', 'bo.isActivated', 'bo.userId', 'bo.blockId', 'bo.isInitialized', 'bo.isFinalized',
+          'bo.id',
+          'bo.isActivated',
+          'bo.userId',
+          'bo.blockId',
+          'bo.isInitialized',
+          'bo.isFinalized',
         ])
-        .addSelect(`TO_CHAR(bo."from", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`, 'bo_from')
+        .addSelect(
+          `TO_CHAR(bo."from", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`,
+          'bo_from',
+        )
         .addSelect(`TO_CHAR(bo."to", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`, 'bo_to')
-        .addSelect(`TO_CHAR(bo."dateInitialized", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`, 'bo_dateInitialized')
-        .addSelect(`TO_CHAR(bo."dateFinalized", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`, 'bo_dateFinalized')
+        .addSelect(
+          `TO_CHAR(bo."dateInitialized", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`,
+          'bo_dateInitialized',
+        )
+        .addSelect(
+          `TO_CHAR(bo."dateFinalized", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`,
+          'bo_dateFinalized',
+        )
         .where('bo.blockId = :blockId', { blockId })
         .andWhere(
           "DATE(bo.from - INTERVAL '5 hours') <= DATE(:date) AND DATE(bo.to - INTERVAL '5 hours') >= DATE(:date)",
@@ -83,7 +105,10 @@ export class BlockOperatorService {
         );
 
       if (userId) {
-        blockOperatorsQuery = blockOperatorsQuery.andWhere('bo.userId = :userId', { userId });
+        blockOperatorsQuery = blockOperatorsQuery.andWhere(
+          'bo.userId = :userId',
+          { userId },
+        );
       }
 
       const result = await blockOperatorsQuery.getRawAndEntities();
@@ -113,12 +138,19 @@ export class BlockOperatorService {
   async findAllActiveByUserId(filterDto: FilterDto) {
     const { userId, isInitialized = false, isFinalized = false } = filterDto;
     try {
-      const result = await this.blockOperatorRepository.createQueryBuilder('bo')
+      const result = await this.blockOperatorRepository
+        .createQueryBuilder('bo')
         .select([
-          'bo.id', 'bo.isActivated', 'bo.userId',
-          'block.id', 'block.name',
+          'bo.id',
+          'bo.isActivated',
+          'bo.userId',
+          'block.id',
+          'block.name',
         ])
-        .addSelect(`TO_CHAR(bo."from", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`, 'bo_from')
+        .addSelect(
+          `TO_CHAR(bo."from", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`,
+          'bo_from',
+        )
         .addSelect(`TO_CHAR(bo."to", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`, 'bo_to')
         .innerJoin('bo.block', 'block')
         .where('bo.userId = :userId', { userId })
@@ -151,7 +183,8 @@ export class BlockOperatorService {
   async findAllByBlockId(filterDto: FilterDto) {
     const { blockId, dateFrom, dateTo } = filterDto;
     try {
-      const blockOperatorsQuery = this.blockOperatorRepository.createQueryBuilder('bo')
+      const blockOperatorsQuery = this.blockOperatorRepository
+        .createQueryBuilder('bo')
         .select([
           'bo.id',
           'bo.isActivated',
@@ -160,16 +193,23 @@ export class BlockOperatorService {
           'bo.isInitialized',
           'bo.isFinalized',
         ])
-        .addSelect(`TO_CHAR(bo."from", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`, 'bo_from')
+        .addSelect(
+          `TO_CHAR(bo."from", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`,
+          'bo_from',
+        )
         .addSelect(`TO_CHAR(bo."to", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`, 'bo_to')
         .where('bo.blockId = :blockId', { blockId });
 
       if (dateFrom) {
-        blockOperatorsQuery.andWhere('DATE(bo.to) >= DATE(:dateFrom)', { dateFrom });
+        blockOperatorsQuery.andWhere('DATE(bo.to) >= DATE(:dateFrom)', {
+          dateFrom,
+        });
       }
 
       if (dateTo) {
-        blockOperatorsQuery.andWhere('DATE(bo.from) <= DATE(:dateTo)', { dateTo });
+        blockOperatorsQuery.andWhere('DATE(bo.from) <= DATE(:dateTo)', {
+          dateTo,
+        });
       }
 
       const result = await blockOperatorsQuery.getRawAndEntities();
@@ -195,9 +235,16 @@ export class BlockOperatorService {
    * @returns Object with errorCode and the updated {@link BlockOperator}, or undefined if not found.
    * @throws Rethrows database errors via handleDbExceptions.
    */
-  async update(userId: number, id: number, updateBlockOperatorDto: UpdateBlockOperatorDto) {
+  async update(
+    userId: number,
+    id: number,
+    updateBlockOperatorDto: UpdateBlockOperatorDto,
+  ) {
     try {
-      const blockOperator = await this.blockOperatorRepository.preload({ id, ...updateBlockOperatorDto });
+      const blockOperator = await this.blockOperatorRepository.preload({
+        id,
+        ...updateBlockOperatorDto,
+      });
       if (blockOperator) {
         await this.blockOperatorRepository.save(blockOperator);
         this.loggerService.saveBlockOperatorLogger({
@@ -227,7 +274,8 @@ export class BlockOperatorService {
   async findUniqueUsers(dto: FindUniqueUsersBlockOperatorDto) {
     const { blockIds, userId } = dto;
     try {
-      const query = this.blockOperatorRepository.createQueryBuilder('bo')
+      const query = this.blockOperatorRepository
+        .createQueryBuilder('bo')
         .select('bo.userId', 'userId')
         .addSelect('block.id', 'blockId')
         .addSelect('block.name', 'blockName')
@@ -254,7 +302,13 @@ export class BlockOperatorService {
         .addGroupBy('block.name')
         .addGroupBy('zone.id')
         .addGroupBy('zone.name')
-        .getRawMany<{ userId: number; blockId: number; blockName: string; zoneId: number; zoneName: string }>();
+        .getRawMany<{
+          userId: number;
+          blockId: number;
+          blockName: string;
+          zoneId: number;
+          zoneName: string;
+        }>();
 
       return { errorCode: ErrorCode.NONE, users: raw };
     } catch (error) {
@@ -276,7 +330,7 @@ export class BlockOperatorService {
         order: { id: 'DESC' },
       });
 
-      const result = blockOperators.map(bo => {
+      const result = blockOperators.map((bo) => {
         const name = `${bo.from} - ${bo.to}`;
         return { name, label: name, id: bo.id, value: bo.id };
       });

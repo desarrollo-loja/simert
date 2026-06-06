@@ -19,26 +19,36 @@ import { Checkbox } from './entities/checkbox.entity';
 export class CheckboxService {
   private readonly logger = new Logger('CheckboxService');
 
+  /**
+   *
+   * @param checkboxRepository
+   */
   constructor(
     @InjectRepository(Checkbox)
     private readonly checkboxRepository: Repository<Checkbox>,
-  ) { }
+  ) {}
 
+  /**
+   *
+   * @param filterDto
+   */
   async findAll(filterDto: FilterDto) {
     const {
       offset: rawOffset = 0,
       limit: rawLimit = 10,
       year,
-      month
+      month,
     } = filterDto;
     // Defense-in-depth: coerce pagination to safe non-negative integers
     // even if class-validator was bypassed upstream.
-    const safeLimit = Number.isFinite(Number(rawLimit)) && Number(rawLimit) >= 0
-      ? Math.trunc(Number(rawLimit))
-      : 10;
-    const safeOffset = Number.isFinite(Number(rawOffset)) && Number(rawOffset) >= 0
-      ? Math.trunc(Number(rawOffset))
-      : 0;
+    const safeLimit =
+      Number.isFinite(Number(rawLimit)) && Number(rawLimit) >= 0
+        ? Math.trunc(Number(rawLimit))
+        : 10;
+    const safeOffset =
+      Number.isFinite(Number(rawOffset)) && Number(rawOffset) >= 0
+        ? Math.trunc(Number(rawOffset))
+        : 0;
     try {
       const resolved = await this._resolveYearMonthTable(year, month);
       // Invalid year/month supplied: deny historical lookup (preserves prior contract).
@@ -47,7 +57,8 @@ export class CheckboxService {
       }
       const { tableName, tableExists } = resolved;
 
-      const { conditions, parameters } = this._buildConditionsAndParameters(filterDto);
+      const { conditions, parameters } =
+        this._buildConditionsAndParameters(filterDto);
 
       if (tableExists || (!year && !month)) {
         let query = `
@@ -65,8 +76,13 @@ export class CheckboxService {
           query += ' WHERE ' + conditions.join(' AND ');
         }
 
-        const totalQuery = `SELECT COUNT(*) AS total FROM ${tableName} AS c` + (conditions.length > 0 ? ' WHERE ' + conditions.join(' AND ') : '');
-        const totalResult = await this.checkboxRepository.query(totalQuery, parameters);
+        const totalQuery =
+          `SELECT COUNT(*) AS total FROM ${tableName} AS c` +
+          (conditions.length > 0 ? ' WHERE ' + conditions.join(' AND ') : '');
+        const totalResult = await this.checkboxRepository.query(
+          totalQuery,
+          parameters,
+        );
         const total = totalResult[0].total;
 
         parameters.push(safeLimit, safeOffset);
@@ -85,8 +101,8 @@ export class CheckboxService {
         };
       } else {
         return {
-          checkbox: []
-        }
+          checkbox: [],
+        };
       }
     } catch (error) {
       handleDbExceptions(error, this.logger);
@@ -94,6 +110,10 @@ export class CheckboxService {
     return `This action returns all checkbox`;
   }
 
+  /**
+   *
+   * @param filterDto
+   */
   async findAllByTransactionId(filterDto: FilterDto) {
     const { transactionIds, year, month, dateFrom, dateTo } = filterDto;
 
@@ -112,10 +132,12 @@ export class CheckboxService {
         const parameters: any[] = [];
         const conditions: string[] = [];
 
-        const placeholders = transactionIds.map((id) => {
-          parameters.push(id);
-          return `$${parameters.length}`;
-        }).join(', ');
+        const placeholders = transactionIds
+          .map((id) => {
+            parameters.push(id);
+            return `$${parameters.length}`;
+          })
+          .join(', ');
         conditions.push(`c."transactionId" IN (${placeholders})`);
 
         if (dateFrom && dateTo) {
@@ -132,7 +154,10 @@ export class CheckboxService {
           ORDER BY c.id DESC;
         `;
 
-        const checkboxes = await this.checkboxRepository.query(query, parameters);
+        const checkboxes = await this.checkboxRepository.query(
+          query,
+          parameters,
+        );
 
         return { errorCode: ErrorCode.NONE, checkboxes };
       } else {
@@ -170,8 +195,12 @@ export class CheckboxService {
     const y = Number(year);
     const m = Number(month);
     const validYearMonth =
-      Number.isInteger(y) && y >= 2000 && y <= 2100 &&
-      Number.isInteger(m) && m >= 1 && m <= 12;
+      Number.isInteger(y) &&
+      y >= 2000 &&
+      y <= 2100 &&
+      Number.isInteger(m) &&
+      m >= 1 &&
+      m <= 12;
 
     if (year && month && validYearMonth) {
       const mm = String(m).padStart(2, '0');
@@ -188,6 +217,10 @@ export class CheckboxService {
     return { tableName: 'checkbox', tableExists: false };
   }
 
+  /**
+   *
+   * @param tableName
+   */
   private async _tableExists(tableName: string): Promise<boolean> {
     const query = `
     SELECT EXISTS (
@@ -200,14 +233,19 @@ export class CheckboxService {
     try {
       const result = await this.checkboxRepository.query(query, [tableName]);
       return result[0].exists;
-    } catch (error) {
+    } catch {
       return false;
     }
   }
 
-  private _buildConditionsAndParameters(
-    filterDto: FilterDto
-  ): { conditions: string[]; parameters: any[] } {
+  /**
+   *
+   * @param filterDto
+   */
+  private _buildConditionsAndParameters(filterDto: FilterDto): {
+    conditions: string[];
+    parameters: any[];
+  } {
     const {
       search,
       statusMomentId,
@@ -243,7 +281,7 @@ export class CheckboxService {
     if (dateFrom && dateTo) {
       parameters.push(dateFrom, dateTo);
       conditions.push(
-        `DATE(c.register) BETWEEN $${parameters.length - 1} AND $${parameters.length}`
+        `DATE(c.register) BETWEEN $${parameters.length - 1} AND $${parameters.length}`,
       );
     }
 
@@ -256,7 +294,10 @@ export class CheckboxService {
    * Returns PAID checkboxes whose statusIncident is NULL
    * (pending emission + deposit in GIM).
    */
-  async findPaidWithoutIncident(): Promise<{ errorCode: ErrorCode; data: Checkbox[] }> {
+  async findPaidWithoutIncident(): Promise<{
+    errorCode: ErrorCode;
+    data: Checkbox[];
+  }> {
     try {
       const rows = await this.checkboxRepository.query(
         `SELECT * FROM public.checkbox
@@ -275,7 +316,10 @@ export class CheckboxService {
    * Returns PAID checkboxes whose statusIncident is in an intermediate state:
    * ENTERED, APPROVED, CONVENIO, ON_CREDIT, PENDIENTE_LIQUIDACION or SUPPLIED.
    */
-  async findPaidWithPendingIncident(): Promise<{ errorCode: ErrorCode; data: Checkbox[] }> {
+  async findPaidWithPendingIncident(): Promise<{
+    errorCode: ErrorCode;
+    data: Checkbox[];
+  }> {
     try {
       const pendingStatuses = [
         IncidentStatus.ENTERED,
@@ -285,7 +329,9 @@ export class CheckboxService {
         IncidentStatus.PENDIENTE_LIQUIDACION,
         IncidentStatus.SUPPLIED,
       ];
-      const placeholders = pendingStatuses.map((_, i) => `$${i + 2}`).join(', ');
+      const placeholders = pendingStatuses
+        .map((_, i) => `$${i + 2}`)
+        .join(', ');
       const rows = await this.checkboxRepository.query(
         `SELECT * FROM public.checkbox
          WHERE "statusPayment" = $1
@@ -302,22 +348,38 @@ export class CheckboxService {
   /**
    * Updates a checkbox by its id.
    * Receives a partial object with the fields to modify (excluding 'id').
+   * @param id
+   * @param fields
    */
-  async updateCheckboxById(id: number, fields: Partial<Checkbox>): Promise<{ errorCode: ErrorCode; data: any; message: string }> {
+  async updateCheckboxById(
+    id: number,
+    fields: Partial<Checkbox>,
+  ): Promise<{ errorCode: ErrorCode; data: any; message: string }> {
     try {
       await this.checkboxRepository.update(id, fields);
-      return { errorCode: ErrorCode.NONE, data: [], message: 'Checkbox actualizado correctamente' };
+      return {
+        errorCode: ErrorCode.NONE,
+        data: [],
+        message: 'Checkbox actualizado correctamente',
+      };
     } catch (error) {
       this.logger.error(`updateCheckboxById error: ${error.message}`);
-      return { errorCode: ErrorCode.HTTP_ERROR_REINTENT, data: [], message: 'Error al actualizar el checkbox' };
+      return {
+        errorCode: ErrorCode.HTTP_ERROR_REINTENT,
+        data: [],
+        message: 'Error al actualizar el checkbox',
+      };
     }
   }
 
   /**
    * Transfers a checkbox to the corresponding historical table
    * history."YYYY_MM_checkbox" based on its createdAt date.
+   * @param id
    */
-  async moveCheckboxToHistory(id: number): Promise<{ errorCode: ErrorCode; data: any; message: string }> {
+  async moveCheckboxToHistory(
+    id: number,
+  ): Promise<{ errorCode: ErrorCode; data: any; message: string }> {
     try {
       const rows = await this.checkboxRepository.query(
         `SELECT id, "createdAt" FROM public.checkbox WHERE id = $1`,
@@ -326,7 +388,11 @@ export class CheckboxService {
       const current = rows?.[0];
 
       if (!current?.createdAt) {
-        return { errorCode: ErrorCode.NOT_FOUND, data: [], message: 'No se encontró el checkbox' };
+        return {
+          errorCode: ErrorCode.NOT_FOUND,
+          data: [],
+          message: 'No se encontró el checkbox',
+        };
       }
 
       const date = new Date(current.createdAt);
@@ -343,7 +409,12 @@ export class CheckboxService {
       );
 
       if (!existsResult[0]?.exists) {
-        return { errorCode: ErrorCode.NONE, data: [], message: 'No se encontró la tabla histórica para transferir el checkbox' };
+        return {
+          errorCode: ErrorCode.NONE,
+          data: [],
+          message:
+            'No se encontró la tabla histórica para transferir el checkbox',
+        };
       }
 
       await this.checkboxRepository.query(
@@ -351,11 +422,18 @@ export class CheckboxService {
         [id],
       );
 
-      return { errorCode: ErrorCode.NONE, data: [], message: 'Checkbox transferido correctamente' };
+      return {
+        errorCode: ErrorCode.NONE,
+        data: [],
+        message: 'Checkbox transferido correctamente',
+      };
     } catch (error) {
       this.logger.error(`moveCheckboxToHistory error: ${error.message}`);
-      return { errorCode: ErrorCode.HTTP_ERROR_REINTENT, data: [], message: 'Error al transferir el checkbox' };
+      return {
+        errorCode: ErrorCode.HTTP_ERROR_REINTENT,
+        data: [],
+        message: 'Error al transferir el checkbox',
+      };
     }
   }
-
 }

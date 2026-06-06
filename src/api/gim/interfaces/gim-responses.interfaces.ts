@@ -1,4 +1,4 @@
-import { StatusObligation } from "src/common/glob/responses-gim";
+import { StatusObligation } from 'src/common/glob/responses-gim';
 
 // BUSCAR CONTRIBUYENTE o PERSONA NATURAL
 export interface TaxPayer {
@@ -68,12 +68,12 @@ export interface Obligation {
   obligationId: number;
   obligationNumber: string;
   citation: string;
-  status: StatusObligation; // enum "PAGADA", "PENDIENTE" + 17 estados mas 
+  status: StatusObligation; // enum "PAGADA", "PENDIENTE" + 17 estados mas
   description: string;
   total: number;
-  emisionDate: string;       // YYYY-MM-DD
-  liquidationDate: string;  // YYYY-MM-DD
-  liquidationTime: string;  // HH:mm:ss.SSS
+  emisionDate: string; // YYYY-MM-DD
+  liquidationDate: string; // YYYY-MM-DD
+  liquidationTime: string; // HH:mm:ss.SSS
   infringementDate: string; // YYYY-MM-DD
 }
 
@@ -87,7 +87,7 @@ export interface EmitInfractionSimertResponse {
   bondNumber?: number; // = nroObligation o el numero de la obligacion
 }
 
-// LOGIN DEL GIM 
+// LOGIN DEL GIM
 // (Opcional) Tipado del response de Keycloak
 // export interface KeycloakTokenResponse extends KeycloakTokenResponse {
 //   access_token: string;
@@ -100,7 +100,7 @@ export interface EmitInfractionSimertResponse {
 //   scope: string;
 // }
 
-// tipos de vehiculos del GIM 
+// tipos de vehiculos del GIM
 export interface VehicleTypesGimResponse {
   ok: boolean;
   message: string;
@@ -148,10 +148,10 @@ export interface Bond {
   expirationDate: string;
   total: number;
   interests: number;
-  surcharges: number,
-  taxes: number,
-  discounts: number,
-  description: string,
+  surcharges: number;
+  taxes: number;
+  discounts: number;
+  description: string;
   bondsDetail: BondDetail[];
 }
 

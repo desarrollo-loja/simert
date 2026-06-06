@@ -16,39 +16,74 @@ import { PlotLocationDto } from './dto/plot-location.dto';
  */
 @Injectable()
 export class TrakingService {
-
   private readonly logger = new Logger('TrakingService');
 
+  /**
+   *
+   * @param locationRepository
+   * @param dataSource
+   */
   constructor(
-
     @InjectRepository(L)
     private readonly locationRepository: Repository<L>,
 
     @InjectDataSource('tracking_controller')
-    private readonly dataSource: DataSource
-  ) { }
+    private readonly dataSource: DataSource,
+  ) {}
 
   private tableTracking = '';
   private tableJob = '';
 
+  /**
+   *
+   * @param vehicleId
+   * @param userId
+   * @param idDevice
+   * @param latitude
+   * @param longitude
+   * @param altitude
+   * @param statusTracking
+   * @param activityTracking
+   * @param speed
+   * @param accuracy
+   * @param heading
+   * @param data
+   * @param polyline
+   * @param zoneId
+   * @param blockId
+   */
   private async _registerTraking(
-    vehicleId: number, userId: number, idDevice: string, latitude: number, longitude: number, altitude: number,
-    statusTracking: StatusTracking, activityTracking: ActivityTracking, speed: number, accuracy: number, heading: number, data: Object,
-    polyline: string, zoneId: number, blockId: number) {
-
+    vehicleId: number,
+    userId: number,
+    idDevice: string,
+    latitude: number,
+    longitude: number,
+    altitude: number,
+    statusTracking: StatusTracking,
+    activityTracking: ActivityTracking,
+    speed: number,
+    accuracy: number,
+    heading: number,
+    data: Object,
+    polyline: string,
+    zoneId: number,
+    blockId: number,
+  ) {
     const register: Date = new Date();
-    register.toISOString().substring
+    register.toISOString().substring;
     const year = register.getUTCFullYear();
     const month = register.getUTCMonth() + 1;
 
     try {
       const schema = 'public';
       let table = `${year}_${month <= 9 ? `0${month}` : month}_traking`;
-      table = `"${table}"`
-      table = `${schema}.${table}`
+      table = `"${table}"`;
+      table = `${schema}.${table}`;
 
       if (table !== this.tableTracking) {
-        await this.dataSource.query(` CREATE TABLE IF NOT EXISTS ${table} (LIKE ${schema}."traking" INCLUDING ALL) `);
+        await this.dataSource.query(
+          ` CREATE TABLE IF NOT EXISTS ${table} (LIKE ${schema}."traking" INCLUDING ALL) `,
+        );
         this.tableTracking = table;
       }
 
@@ -63,43 +98,65 @@ export class TrakingService {
         VALUES
           ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
         ON CONFLICT DO NOTHING;
-  `, [date, userId, time, vehicleId, idDevice ? idDevice.substring(30, 36) : '', latitude, longitude, altitude, speed, accuracy, heading, statusTracking, activityTracking, JSON.stringify(data), polyline, zoneId, blockId]);
-
+  `,
+        [
+          date,
+          userId,
+          time,
+          vehicleId,
+          idDevice ? idDevice.substring(30, 36) : '',
+          latitude,
+          longitude,
+          altitude,
+          speed,
+          accuracy,
+          heading,
+          statusTracking,
+          activityTracking,
+          JSON.stringify(data),
+          polyline,
+          zoneId,
+          blockId,
+        ],
+      );
     } catch (err) {
       this.logger.error(`Call _register err: ${err}`);
     }
   }
 
+  /**
+   *
+   * @param userId
+   * @param plotLocationDto
+   */
   async plot(userId: number, plotLocationDto: PlotLocationDto) {
-
     const { p, l: polyline, t: travels, zoneId, blockId } = plotLocationDto;
 
     if (!p) return;
 
     try {
-
       const [
-        , version
-        , distanceOnline // do not remove
-        , distanceOfline // do not remove
-        , vehicleId
-        , latitude
-        , longitude
-        , altitude
-        , speed
-        , accuracy
-        , heading
-        , statusTracking
-        , activityTracking
-        , taken
-        , gps
-        , battery
-        , carrier
-        , network
-        , platform
-        , versionos
-        , typeconnection
-
+        ,
+        version,
+        _distanceOnline, // do not remove
+        _distanceOfline, // do not remove
+        vehicleId,
+        latitude,
+        longitude,
+        altitude,
+        speed,
+        accuracy,
+        heading,
+        statusTracking,
+        activityTracking,
+        taken,
+        gps,
+        battery,
+        carrier,
+        network,
+        platform,
+        versionos,
+        typeconnection,
       ]: any = p.split(',');
 
       // 1) Try UPDATE first
@@ -117,7 +174,16 @@ export class TrakingService {
             "timestamp" = NOW()
           WHERE "userId" = $8
         `,
-        [latitude, longitude, heading, taken, polyline, zoneId, blockId, userId]
+        [
+          latitude,
+          longitude,
+          heading,
+          taken,
+          polyline,
+          zoneId,
+          blockId,
+          userId,
+        ],
       );
 
       // updateResult[1] is the affected rows count on MySQL
@@ -131,27 +197,67 @@ export class TrakingService {
           VALUES
             ($1, $2, $3, $4, $5, $6, $7, $8, NOW());
           `,
-          [userId, latitude, longitude, heading, taken, polyline, zoneId, blockId]
+          [
+            userId,
+            latitude,
+            longitude,
+            heading,
+            taken,
+            polyline,
+            zoneId,
+            blockId,
+          ],
         );
       }
 
-      const data = { travels, meta: [gps, battery, carrier, network, version, platform, versionos, typeconnection] };
-      this._registerTraking(vehicleId, userId, null, latitude, longitude, altitude, statusTracking, activityTracking, speed, accuracy, heading, data, polyline, zoneId, blockId);
-
-    } catch (error) {
+      const data = {
+        travels,
+        meta: [
+          gps,
+          battery,
+          carrier,
+          network,
+          version,
+          platform,
+          versionos,
+          typeconnection,
+        ],
+      };
+      this._registerTraking(
+        vehicleId,
+        userId,
+        null,
+        latitude,
+        longitude,
+        altitude,
+        statusTracking,
+        activityTracking,
+        speed,
+        accuracy,
+        heading,
+        data,
+        polyline,
+        zoneId,
+        blockId,
+      );
+    } catch {
       this.logger.error(`Call plot`);
     }
 
     return true;
   }
 
+  /**
+   *
+   * @param userId
+   * @param from
+   * @param to
+   */
   async getAllTracking(userId: number, from: Date, to: Date) {
-
     let trackings: any = [];
 
     // Run two queries (date range crosses partitions)
     if (from.getDate() !== to.getDate()) {
-
       const isoStringFrom = from.toISOString().split('T');
       const dateFrom = isoStringFrom[0];
       const timeFrom = isoStringFrom[1].substring(0, 8);
@@ -159,12 +265,15 @@ export class TrakingService {
       const monthFrom = from.getMonth() + 1;
       const tableFrom = `"${yearFrom}_${monthFrom <= 9 ? `0${monthFrom}` : monthFrom}_traking"`;
 
-      const queryFrom =
-        `
+      const queryFrom = `
           SELECT "idDevice", latitude, longitude, "statusTracking", "activityTracking", data, polyline, register, time FROM public.${tableFrom} t 
           WHERE t.register = $1 AND t."userId" = $2 AND time BETWEEN  $3 AND '23:59:59';
-      `
-      const resultFrom = await this.dataSource.query(queryFrom, [dateFrom, userId, timeFrom]);
+      `;
+      const resultFrom = await this.dataSource.query(queryFrom, [
+        dateFrom,
+        userId,
+        timeFrom,
+      ]);
 
       const isoStringTo = to.toISOString().split('T');
       const dateTo = isoStringTo[0];
@@ -174,12 +283,15 @@ export class TrakingService {
       const monthTo = from.getMonth() + 1;
       const tableTo = `"${yearTo}_${monthTo <= 9 ? `0${monthTo}` : monthTo}_traking"`;
 
-      const queryTo =
-        `
+      const queryTo = `
         SELECT "idDevice", latitude, longitude, "statusTracking", "activityTracking", data, polyline, register, time FROM public.${tableTo} t 
         WHERE t.register = $1 AND t."userId" = $2 AND time BETWEEN  $3 AND '23:59:59';
-    `
-      const resultTo = await this.dataSource.query(queryTo, [dateTo, userId, timeTo]);
+    `;
+      const resultTo = await this.dataSource.query(queryTo, [
+        dateTo,
+        userId,
+        timeTo,
+      ]);
       trackings = [...resultFrom, ...resultTo];
     }
     // Single query — data lives in a single partition
@@ -195,12 +307,16 @@ export class TrakingService {
       const monthFrom = from.getMonth() + 1;
       const tableFrom = `"${yearFrom}_${monthFrom <= 9 ? `0${monthFrom}` : monthFrom}_traking"`;
 
-      const query =
-        `
+      const query = `
         SELECT "idDevice", latitude, longitude, "statusTracking", "activityTracking", data, polyline, register, time FROM public.${tableFrom} t 
         WHERE t.register = $1 AND t."userId" = $2 AND time BETWEEN  $3 AND $4;
-    `
-      const result = await this.dataSource.query(query, [dateFrom, userId, timeFrom, timeTo]);
+    `;
+      const result = await this.dataSource.query(query, [
+        dateFrom,
+        userId,
+        timeFrom,
+        timeTo,
+      ]);
 
       trackings = result;
     }
@@ -208,8 +324,11 @@ export class TrakingService {
     return { errorCode: ErrorCode.NONE, trackings };
   }
 
+  /**
+   *
+   * @param userId
+   */
   async getTrackingByUserId(userId: number) {
-
     const query = `
     SELECT latitude, longitude, heading, timestamp, polyline 
     FROM simert.l 
@@ -242,8 +361,12 @@ export class TrakingService {
     };
   }
 
+  /**
+   *
+   * @param userIds
+   */
   async getTrackings(userIds: string) {
-    const userIdArray = userIds.split(',').map(id => Number(id));
+    const userIdArray = userIds.split(',').map((id) => Number(id));
 
     // Raw query (kept as-is from original implementation)
     const query = `
@@ -277,10 +400,22 @@ export class TrakingService {
    *
    * If the partition does not exist yet (e.g. queried for a month that
    * never had data), we return an empty result instead of crashing.
+   * @param userId
+   * @param from
+   * @param to
+   * @param year
+   * @param month
+   * @param limit
+   * @param offset
    */
   async getAllTrackingHistory(
-    userId: number, from: Date, to: Date, year: number, month: number,
-    limit?: number, offset?: number,
+    userId: number,
+    from: Date,
+    to: Date,
+    year: number,
+    month: number,
+    limit?: number,
+    offset?: number,
   ) {
     const paddedMonth = month <= 9 ? `0${month}` : `${month}`;
     const tableName = `${year}_${paddedMonth}_traking`;
@@ -291,7 +426,7 @@ export class TrakingService {
     // of throwing a SQL error.
     const tableExists = await this.dataSource.query(
       `SELECT to_regclass($1) AS oid`,
-      [qualifiedTable]
+      [qualifiedTable],
     );
     if (!tableExists?.[0]?.oid) {
       return { errorCode: ErrorCode.NONE, trackings: [], total: 0 };
@@ -305,8 +440,7 @@ export class TrakingService {
     const dateTo = isoTo[0];
     const timeTo = isoTo[1].substring(0, 8);
 
-    const hasPagination =
-      limit !== undefined && limit !== null && limit > 0;
+    const hasPagination = limit !== undefined && limit !== null && limit > 0;
 
     // Total count for pagination metadata. Only run COUNT(*) when paginating
     // — for non-paginated callers we can derive it from the result length.
@@ -321,7 +455,7 @@ export class TrakingService {
             AND (t.register <> $2 OR t.time >= $4)
             AND (t.register <> $3 OR t.time <= $5);
         `,
-        [userId, dateFrom, dateTo, timeFrom, timeTo]
+        [userId, dateFrom, dateTo, timeFrom, timeTo],
       );
       total = countRow?.[0]?.total ?? 0;
     }
@@ -333,8 +467,7 @@ export class TrakingService {
       pagingClause = `LIMIT $${dataParams.length - 1} OFFSET $${dataParams.length}`;
     }
 
-    const query =
-      `
+    const query = `
         SELECT "idDevice", latitude, longitude, "statusTracking", "activityTracking",
                data, polyline, register, time
         FROM ${qualifiedTable} t
@@ -369,9 +502,19 @@ export class TrakingService {
    *
    * The default cap of 1500 points keeps Leaflet's SVG renderer fluid even
    * on lower-end devices; callers can raise/lower it via `maxPoints`.
+   * @param userId
+   * @param from
+   * @param to
+   * @param year
+   * @param month
+   * @param maxPoints
    */
   async getTrackingPolyline(
-    userId: number, from: Date, to: Date, year: number, month: number,
+    userId: number,
+    from: Date,
+    to: Date,
+    year: number,
+    month: number,
     maxPoints = 1500,
   ) {
     const paddedMonth = month <= 9 ? `0${month}` : `${month}`;
@@ -380,7 +523,7 @@ export class TrakingService {
 
     const tableExists = await this.dataSource.query(
       `SELECT to_regclass($1) AS oid`,
-      [qualifiedTable]
+      [qualifiedTable],
     );
     if (!tableExists?.[0]?.oid) {
       return { errorCode: ErrorCode.NONE, points: [], total: 0 };
@@ -403,7 +546,7 @@ export class TrakingService {
           AND (t.register <> $2 OR t.time >= $4)
           AND (t.register <> $3 OR t.time <= $5);
       `,
-      [userId, dateFrom, dateTo, timeFrom, timeTo]
+      [userId, dateFrom, dateTo, timeFrom, timeTo],
     );
     const total: number = countRow?.[0]?.total ?? 0;
     if (total === 0) {
@@ -424,7 +567,7 @@ export class TrakingService {
             AND (t.register <> $3 OR t.time <= $5)
           ORDER BY t.register, t.time;
         `,
-        [userId, dateFrom, dateTo, timeFrom, timeTo]
+        [userId, dateFrom, dateTo, timeFrom, timeTo],
       );
       return { errorCode: ErrorCode.NONE, points, total };
     }
@@ -447,10 +590,9 @@ export class TrakingService {
         WHERE rn = 1 OR rn = $6 OR (rn % $7) = 0
         ORDER BY rn;
       `,
-      [userId, dateFrom, dateTo, timeFrom, timeTo, total, stride]
+      [userId, dateFrom, dateTo, timeFrom, timeTo, total, stride],
     );
 
     return { errorCode: ErrorCode.NONE, points, total };
   }
-
 }

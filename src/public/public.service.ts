@@ -32,6 +32,13 @@ import {
 export class PublicService implements IPublicService {
   private readonly logger = new Logger(PublicService.name);
 
+  /**
+   *
+   * @param zoneRepository
+   * @param blockRepository
+   * @param slotRepository
+   * @param scheduleRepository
+   */
   constructor(
     @InjectRepository(Zone)
     private readonly zoneRepository: Repository<Zone>,
@@ -47,6 +54,7 @@ export class PublicService implements IPublicService {
    * Returns all active zones with basic display information.
    *
    * Supports optional name search and pagination.
+   * @param filter
    */
   async findAllZones(filter: PublicFilterDto): Promise<ZoneListResponse> {
     const limit = filter.limit ?? 50;
@@ -81,6 +89,7 @@ export class PublicService implements IPublicService {
    * Returns a single zone with its sectors summary and real-time slot counts.
    *
    * Executes a single optimized query with aggregated slot statistics.
+   * @param id
    */
   async findZoneById(id: number): Promise<ZoneDetailResponse> {
     const result = await this.zoneRepository
@@ -147,6 +156,7 @@ export class PublicService implements IPublicService {
    * Returns all active sectors, optionally filtered by zone.
    *
    * Supports name search and pagination. Joins zone for parent context.
+   * @param filter
    */
   async findAllSectors(filter: PublicFilterDto): Promise<SectorListResponse> {
     const limit = filter.limit ?? 50;
@@ -215,6 +225,7 @@ export class PublicService implements IPublicService {
 
   /**
    * Returns a single sector with its schedules and real-time slot counts.
+   * @param id
    */
   async findSectorById(id: number): Promise<SectorDetailResponse> {
     const block = await this.blockRepository
@@ -314,6 +325,7 @@ export class PublicService implements IPublicService {
 
   /**
    * Returns active operating schedules for a given sector.
+   * @param sectorId
    */
   async findSchedulesBySector(sectorId: number): Promise<ScheduleListResponse> {
     const schedules = await this.scheduleRepository
@@ -345,6 +357,7 @@ export class PublicService implements IPublicService {
 
   /**
    * Returns real-time slot availability breakdown for a single sector.
+   * @param sectorId
    */
   async findSectorAvailability(
     sectorId: number,
@@ -395,6 +408,7 @@ export class PublicService implements IPublicService {
 
   /**
    * Returns real-time availability consolidated for a zone with per-sector breakdown.
+   * @param zoneId
    */
   async findZoneAvailability(
     zoneId: number,
@@ -441,12 +455,7 @@ export class PublicService implements IPublicService {
         AND b."isActivated" = true
       GROUP BY b.id, b.name
       ORDER BY b.name ASC`,
-      [
-        StatusSlot.AVAILABLE,
-        StatusSlot.OUT_OF_SERVICE,
-        StatusSlot.PCD,
-        zoneId,
-      ],
+      [StatusSlot.AVAILABLE, StatusSlot.OUT_OF_SERVICE, StatusSlot.PCD, zoneId],
     );
 
     const row = zoneStats[0] ?? {};
@@ -569,6 +578,7 @@ export class PublicService implements IPublicService {
    *
    * Executes a single raw SQL query joining zones, sectors and slot counts,
    * then groups the results in memory for efficient map rendering.
+   * @param filter
    */
   async findMapData(filter: PublicFilterDto): Promise<MapDataResponse> {
     const params: any[] = [StatusSlot.AVAILABLE];

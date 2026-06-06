@@ -19,10 +19,14 @@ import { L } from './entities/l.entity';
 export class LService {
   private readonly logger = new Logger('LService');
 
+  /**
+   *
+   * @param lRepository
+   */
   constructor(
     @InjectRepository(L)
     private readonly lRepository: Repository<L>,
-  ) { }
+  ) {}
 
   /**
    * Returns the latest location record for a single user, enriched with
@@ -34,8 +38,15 @@ export class LService {
   async findAllByUser(filterDto: FilterDto) {
     const { userId } = filterDto;
     try {
-      const query = this.lRepository.createQueryBuilder('l')
-        .select(['l.userId', 'l.longitude', 'l.latitude', 'l.zoneId', 'l.blockId'])
+      const query = this.lRepository
+        .createQueryBuilder('l')
+        .select([
+          'l.userId',
+          'l.longitude',
+          'l.latitude',
+          'l.zoneId',
+          'l.blockId',
+        ])
         .addSelect('zone.name', 'zoneName')
         .addSelect('block.name', 'blockName')
         // LEFT JOIN (not INNER): zoneId/blockId are nullable — positions outside
@@ -47,7 +58,11 @@ export class LService {
       const { entities, raw } = await query.getRawAndEntities();
       const entity = entities[0];
       const location = entity
-        ? { ...entity, zoneName: raw[0]?.zoneName ?? null, blockName: raw[0]?.blockName ?? null }
+        ? {
+            ...entity,
+            zoneName: raw[0]?.zoneName ?? null,
+            blockName: raw[0]?.blockName ?? null,
+          }
         : null;
 
       return { errorCode: ErrorCode.NONE, location };
@@ -72,12 +87,22 @@ export class LService {
     try {
       const userIdsArray = userIds
         .split(',')
-        .map(id => Number(id.trim()))
-        .filter(id => !isNaN(id));
+        .map((id) => Number(id.trim()))
+        .filter((id) => !isNaN(id));
 
-      const query = this.lRepository.createQueryBuilder('l')
-        .select(['l.userId', 'l.longitude', 'l.latitude', 'l.zoneId', 'l.blockId'])
-        .addSelect(`TO_CHAR(l."timestamp", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`, 'l_timestamp')
+      const query = this.lRepository
+        .createQueryBuilder('l')
+        .select([
+          'l.userId',
+          'l.longitude',
+          'l.latitude',
+          'l.zoneId',
+          'l.blockId',
+        ])
+        .addSelect(
+          `TO_CHAR(l."timestamp", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`,
+          'l_timestamp',
+        )
         .addSelect('zone.name', 'zoneName')
         .addSelect('block.name', 'blockName')
         .innerJoin(Zone, 'zone', 'zone.id = l.zoneId')
@@ -86,15 +111,24 @@ export class LService {
         // (matched by both blockId and userId so the shift state applies to the
         // record's user), restricted to shifts that are currently in progress:
         // started but not yet finished (isInitialized = true AND isFinalized = false).
-        .innerJoin(BlockOperator, 'blockOperator', 'blockOperator.blockId = block.id AND blockOperator.userId = l.userId AND blockOperator.isInitialized = true AND blockOperator.isFinalized = false')
+        .innerJoin(
+          BlockOperator,
+          'blockOperator',
+          'blockOperator.blockId = block.id AND blockOperator.userId = l.userId AND blockOperator.isInitialized = true AND blockOperator.isFinalized = false',
+        )
         .where('l.userId IN (:...userIds)', { userIds: userIdsArray });
 
       if (dateFrom && dateTo) {
-        query.andWhere('l.timestamp BETWEEN :dateFrom AND :dateTo', { dateFrom, dateTo });
+        query.andWhere('l.timestamp BETWEEN :dateFrom AND :dateTo', {
+          dateFrom,
+          dateTo,
+        });
       } else {
         // No date range from the client: default to the current day (server
         // date). Uses a sargable range so an index on l.timestamp can be used.
-        query.andWhere(`l.timestamp >= CURRENT_DATE AND l.timestamp < CURRENT_DATE + INTERVAL '1 day'`);
+        query.andWhere(
+          `l.timestamp >= CURRENT_DATE AND l.timestamp < CURRENT_DATE + INTERVAL '1 day'`,
+        );
       }
 
       if (zoneId) {

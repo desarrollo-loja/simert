@@ -1,4 +1,16 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, ParseUUIDPipe, Patch, Post, Query, UseInterceptors } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseIntPipe,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+  UseInterceptors,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthWithKeycloak, GetUser } from 'src/auth/decorators';
 import { JwtPayload } from 'src/auth/interfaces';
@@ -17,9 +29,24 @@ import { CreateCheckboxDto } from './dto/create-checkbox.dto';
 @ApiBearerAuth('keycloak')
 @Controller('client/checkbox')
 export class CheckboxController {
-  constructor(private readonly checkboxService: CheckboxService) { }
+  /**
+   *
+   * @param checkboxService
+   */
+  constructor(private readonly checkboxService: CheckboxService) {}
 
-  @ApiOperation({ summary: 'List checkbox transactions for the authenticated user with date filters' })
+  /**
+   *
+   * @param user
+   * @param userId
+   * @param idDevice
+   * @param getTransactionDto
+   * @param paginationDto
+   */
+  @ApiOperation({
+    summary:
+      'List checkbox transactions for the authenticated user with date filters',
+  })
   @AuthWithKeycloak()
   @Post('get-transactions/:userId/:idDevice/:version')
   getTransactions(
@@ -29,9 +56,20 @@ export class CheckboxController {
     @Body() getTransactionDto: GetTransactionDto,
     @Query() paginationDto: PaginationDto,
   ) {
-    return this.checkboxService.getTransactions(userId, getTransactionDto, paginationDto);
+    return this.checkboxService.getTransactions(
+      userId,
+      getTransactionDto,
+      paginationDto,
+    );
   }
 
+  /**
+   *
+   * @param user
+   * @param userId
+   * @param idDevice
+   * @param id
+   */
   @ApiOperation({ summary: 'Get a single checkbox transaction by its id' })
   @AuthWithKeycloak()
   @Get('get-transactions-by-id/:userId/:idDevice/:id/:version')
@@ -44,6 +82,14 @@ export class CheckboxController {
     return this.checkboxService.getTransactionsById(userId, id);
   }
 
+  /**
+   *
+   * @param user
+   * @param userId
+   * @param idDevice
+   * @param version
+   * @param createCheckboxDto
+   */
   @ApiOperation({ summary: 'Purchase checkboxes (initiates a payment flow)' })
   @AuthWithKeycloak()
   @UseInterceptors(SystemStatusInterceptor)
@@ -53,48 +99,100 @@ export class CheckboxController {
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
     @Param('version', ParseIntPipe) version: number,
-    @Body() createCheckboxDto: CreateCheckboxDto
+    @Body() createCheckboxDto: CreateCheckboxDto,
   ) {
     return this.checkboxService.buyCheckboxs(idDevice, createCheckboxDto);
   }
 
-  @ApiOperation({ summary: 'Get card info and current checkbox balance for the user' })
+  /**
+   *
+   * @param user
+   * @param userId
+   * @param _idDevice
+   * @param _version
+   */
+  @ApiOperation({
+    summary: 'Get card info and current checkbox balance for the user',
+  })
   @AuthWithKeycloak()
   @Get('get-cards-checkboxes/:userId/:idDevice/:version')
   getCardsAndCheckboxes(
     @GetUser() user: JwtPayload,
     @Param('userId', ParseIntPipe) userId: number,
-    @Param('idDevice', ParseUUIDPipe) idDevice: string,
-    @Param('version', ParseIntPipe) version: number,
+    @Param('idDevice', ParseUUIDPipe) _idDevice: string,
+    @Param('version', ParseIntPipe) _version: number,
   ) {
     return this.checkboxService.getCardsAndCheckboxes(userId);
   }
 
-  @ApiOperation({ summary: 'Webhook: checkbox payment success callback from payment provider' })
-  @Patch('on-response-pay/:idDevice/:userId/:checkboxId/:typePaymentMethod/:register/:typePaymentResponsibility/')
+  /**
+   *
+   * @param userId
+   * @param typePaymentResponsibility
+   * @param typePaymentMethod
+   * @param checkboxId
+   * @param idDevice
+   * @param register
+   */
+  @ApiOperation({
+    summary: 'Webhook: checkbox payment success callback from payment provider',
+  })
+  @Patch(
+    'on-response-pay/:idDevice/:userId/:checkboxId/:typePaymentMethod/:register/:typePaymentResponsibility/',
+  )
   onResponse(
     @Param('userId', ParseIntPipe) userId: number,
-    @Param('typePaymentResponsibility', ParseIntPipe) typePaymentResponsibility: number,
+    @Param('typePaymentResponsibility', ParseIntPipe)
+    typePaymentResponsibility: number,
     @Param('typePaymentMethod', ParseIntPipe) typePaymentMethod: number,
     @Param('checkboxId', ParseIntPipe) checkboxId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
     @Param('register') register: string,
   ) {
-    return this.checkboxService.onResponsePay(idDevice, userId, checkboxId, typePaymentMethod, register, typePaymentResponsibility)
+    return this.checkboxService.onResponsePay(
+      idDevice,
+      userId,
+      checkboxId,
+      typePaymentMethod,
+      register,
+      typePaymentResponsibility,
+    );
   }
 
-  @ApiOperation({ summary: 'Webhook: checkbox payment error/cancellation callback from payment provider' })
-  @Delete('on-response-pay/:idDevice/:userId/:checkboxId/:typePaymentMethod/:register/:typePaymentResponsibility/')
+  /**
+   *
+   * @param userId
+   * @param typePaymentResponsibility
+   * @param typePaymentMethod
+   * @param checkboxId
+   * @param idDevice
+   * @param register
+   * @param _concept
+   */
+  @ApiOperation({
+    summary:
+      'Webhook: checkbox payment error/cancellation callback from payment provider',
+  })
+  @Delete(
+    'on-response-pay/:idDevice/:userId/:checkboxId/:typePaymentMethod/:register/:typePaymentResponsibility/',
+  )
   onResponsePayError(
     @Param('userId', ParseIntPipe) userId: number,
-    @Param('typePaymentResponsibility', ParseIntPipe) typePaymentResponsibility: number,
+    @Param('typePaymentResponsibility', ParseIntPipe)
+    typePaymentResponsibility: number,
     @Param('typePaymentMethod', ParseIntPipe) typePaymentMethod: number,
     @Param('checkboxId', ParseIntPipe) checkboxId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
     @Param('register') register: string,
-    @Param('regiconceptster') concept: string,
+    @Param('regiconceptster') _concept: string,
   ) {
-    return this.checkboxService.onResponsePayError(idDevice, userId, checkboxId, typePaymentMethod, register, typePaymentResponsibility)
+    return this.checkboxService.onResponsePayError(
+      idDevice,
+      userId,
+      checkboxId,
+      typePaymentMethod,
+      register,
+      typePaymentResponsibility,
+    );
   }
-
 }

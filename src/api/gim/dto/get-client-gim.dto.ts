@@ -1,28 +1,31 @@
-import { IsOptional, IsString, MaxLength } from "class-validator";
+import { IsOptional, IsString, MaxLength } from 'class-validator';
 
+/**
+ *
+ */
 export class GetClientGimDto {
-
-    @IsString()
-    identificationNumber: string;
-
+  @IsString()
+  identificationNumber: string;
 }
 
+/**
+ *
+ */
 export class GetClientGimByCitationDto {
+  @IsString()
+  identityCard: string;
 
-    @IsString()
-    identityCard: string;
-
-    @IsOptional()
-    @IsString()
-    @MaxLength(250)
-    nroTicket?: string;
-
+  @IsOptional()
+  @IsString()
+  @MaxLength(250)
+  nroTicket?: string;
 }
 
+/**
+ *
+ */
 export class GetClientGimByLicensePlateDto {
-
-    @IsString()
-    @MaxLength(20)
-    licensePlate: string;
-
+  @IsString()
+  @MaxLength(20)
+  licensePlate: string;
 }

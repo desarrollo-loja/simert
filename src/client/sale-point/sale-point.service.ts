@@ -15,40 +15,59 @@ import { Repository } from 'typeorm';
  */
 @Injectable()
 export class SalePointService {
-
   private readonly logger = new Logger('SalePointService');
 
+  /**
+   *
+   * @param salePointRepository
+   * @param loggerService
+   */
   constructor(
     @InjectRepository(SalePoint)
     private readonly salePointRepository: Repository<SalePoint>,
 
     @Inject(LoggerService)
-    private readonly loggerService: LoggerService
-  ) { }
+    private readonly loggerService: LoggerService,
+  ) {}
 
+  /**
+   *
+   * @param filterDto
+   */
   async findAllActiveModeFixed(filterDto: FilterDto) {
     try {
-      const query = this.salePointRepository.createQueryBuilder('sp')
+      const query = this.salePointRepository
+        .createQueryBuilder('sp')
         .select([
-          'sp.id', 'sp.mode', 'sp.lt', 'sp.lg', 'sp.title', 'sp.subTitle', 'sp.userId'
+          'sp.id',
+          'sp.mode',
+          'sp.lt',
+          'sp.lg',
+          'sp.title',
+          'sp.subTitle',
+          'sp.userId',
         ])
         .where('sp.mode = :mode', { mode: TypeModeSalePoint.FIXED });
 
-      const { conditions, parameters } = this._buildConditionsAndParameters(filterDto);
+      const { conditions, parameters } =
+        this._buildConditionsAndParameters(filterDto);
       if (conditions.length) {
         query.andWhere(conditions.join(' AND '), parameters);
       }
 
       const salePoints = await query.getMany();
 
-      return { errorCode: ErrorCode.NONE, salePoints }
-
+      return { errorCode: ErrorCode.NONE, salePoints };
     } catch (error) {
       handleDbExceptions(error, this.logger);
     }
   }
 
-  async findAllActiveModeMobile(filterDto: FilterDto) {
+  /**
+   *
+   * @param _filterDto
+   */
+  async findAllActiveModeMobile(_filterDto: FilterDto) {
     try {
       let query = `SELECT "sp"."id", "sp"."mode", "loc"."latitude" AS "lt", "loc"."longitude" AS "lg", "sp"."title", "sp"."subTitle", "sp"."userId"
         FROM "salePoint" "sp"
@@ -59,15 +78,18 @@ export class SalePointService {
 
       const salePoints = await this.salePointRepository.query(query, params);
 
-      return { errorCode: ErrorCode.NONE, salePoints }
-
+      return { errorCode: ErrorCode.NONE, salePoints };
     } catch (error) {
       handleDbExceptions(error, this.logger);
     }
   }
 
+  /**
+   *
+   * @param filterDto
+   */
   private _buildConditionsAndParameters(filterDto: FilterDto) {
-    const { } = filterDto;
+    const {} = filterDto;
     const conditions: string[] = [];
     const parameters: Record<string, any> = {};
 

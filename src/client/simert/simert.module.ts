@@ -11,10 +11,23 @@ import { CommonModule } from 'src/common/common.module';
 
 import { SimertController } from './simert.controller';
 import { SimertService } from './simert.service';
+/**
+ *
+ */
 @Module({
   controllers: [SimertController],
   providers: [SimertService],
-  imports: [TypeOrmModule.forFeature([Fraction, Slot, CheckboxUser, FractionStatus, BlockOperator]), AuthModule, CommonModule, CommonCacheModule]
-
+  imports: [
+    TypeOrmModule.forFeature([
+      Fraction,
+      Slot,
+      CheckboxUser,
+      FractionStatus,
+      BlockOperator,
+    ]),
+    AuthModule,
+    CommonModule,
+    CommonCacheModule,
+  ],
 })
-export class SimertModule { }
+export class SimertModule {}

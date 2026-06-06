@@ -7,9 +7,12 @@ import { Schedule } from './entities/schedule.entity';
 import { ScheduleController } from './schedule.controller';
 import { ScheduleService } from './schedule.service';
 
+/**
+ *
+ */
 @Module({
   controllers: [ScheduleController],
   providers: [ScheduleService],
   imports: [TypeOrmModule.forFeature([Schedule]), AuthModule, LoggerModule],
 })
-export class ScheduleModule { }
+export class ScheduleModule {}

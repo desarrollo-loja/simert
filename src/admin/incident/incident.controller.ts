@@ -1,4 +1,16 @@
-import { BadRequestException, Body, Controller, Delete, Get, Param, ParseIntPipe, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseIntPipe,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -21,35 +33,69 @@ import { IncidentService } from './incident.service';
 @ApiBearerAuth('keycloak')
 @Controller('admin/incident')
 export class IncidentController {
-  constructor(private readonly incidentService: IncidentService) { }
+  /**
+   *
+   * @param incidentService
+   */
+  constructor(private readonly incidentService: IncidentService) {}
 
+  /**
+   *
+   * @param createIncidentDto
+   */
   @ApiOperation({ summary: 'Create a new incident record' })
   @Post()
   create(@Body() createIncidentDto: CreateIncidentDto) {
     return this.incidentService.create(createIncidentDto);
   }
 
-  @ApiOperation({ summary: 'List incidents with filters (admin role required)' })
+  /**
+   *
+   * @param userId
+   * @param idDevice
+   * @param filterDto
+   */
+  @ApiOperation({
+    summary: 'List incidents with filters (admin role required)',
+  })
   @AuthWithKeycloak(TypeRol.ADMIN)
   @Patch('find-all/:userId/:idDevice')
   findAll(
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
-    @Body() filterDto: IncidentFilterDto) {
+    @Body() filterDto: IncidentFilterDto,
+  ) {
     return this.incidentService.findAll(filterDto);
   }
 
-  @ApiOperation({ summary: 'Count total incidents matching filters (admin role required)' })
+  /**
+   *
+   * @param userId
+   * @param idDevice
+   * @param filterDto
+   */
+  @ApiOperation({
+    summary: 'Count total incidents matching filters (admin role required)',
+  })
   @AuthWithKeycloak(TypeRol.ADMIN)
   @Patch('find-all-total/:userId/:idDevice')
   findAllTotal(
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
-    @Body() filterDto: IncidentFilterDto) {
+    @Body() filterDto: IncidentFilterDto,
+  ) {
     return this.incidentService.findAllTotal(filterDto);
   }
 
-  @ApiOperation({ summary: 'List incidents filtered by transactionIds (id, transactionId, statusIncident, onResponseExternal)' })
+  /**
+   *
+   * @param user
+   * @param filterDto
+   */
+  @ApiOperation({
+    summary:
+      'List incidents filtered by transactionIds (id, transactionId, statusIncident, onResponseExternal)',
+  })
   @AuthWithKeycloak()
   @Patch('find-all-by-transaction-id/:userId/:idDevice/:version')
   findAllByTransactionId(
@@ -59,46 +105,95 @@ export class IncidentController {
     return this.incidentService.findAllByTransactionId(filterDto);
   }
 
-  @ApiOperation({ summary: 'List distinct incident clients for combo search (id: identityCard, text: fullNameClient)' })
+  /**
+   *
+   * @param filterDto
+   * @param _userId
+   * @param _idDevice
+   * @param _version
+   */
+  @ApiOperation({
+    summary:
+      'List distinct incident clients for combo search (id: identityCard, text: fullNameClient)',
+  })
   @AuthWithKeycloak(TypeRol.ADMIN)
   @Get('find-all-client/:userId/:idDevice/:version')
   findAllClient(
     @Query() filterDto: IncidentFilterDto,
-    @Param('userId', ParseIntPipe) userId: number,
-    @Param('idDevice', ParseUUIDPipe) idDevice: string,
-    @Param('version', ParseIntPipe) version: number,
+    @Param('userId', ParseIntPipe) _userId: number,
+    @Param('idDevice', ParseUUIDPipe) _idDevice: string,
+    @Param('version', ParseIntPipe) _version: number,
   ) {
     return this.incidentService.findAllClient(filterDto);
   }
 
+  /**
+   *
+   * @param id
+   */
   @ApiOperation({ summary: 'Get a single incident by id' })
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.incidentService.findOne(+id);
   }
 
-  @ApiOperation({ summary: 'Update an incident (isTransacional=1 wraps in DB transaction)' })
+  /**
+   *
+   * @param userId
+   * @param idDevice
+   * @param id
+   * @param isTransacional
+   * @param updateIncidentDto
+   */
+  @ApiOperation({
+    summary: 'Update an incident (isTransacional=1 wraps in DB transaction)',
+  })
   @Patch('update/:userId/:idDevice/:id/:isTransacional')
   update(
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
     @Param('id') id: string,
     @Param('isTransacional', ParseIntPipe) isTransacional: number,
-    @Body() updateIncidentDto: UpdateIncidentDto) {
-    return this.incidentService.update(+id, updateIncidentDto, isTransacional, userId);
+    @Body() updateIncidentDto: UpdateIncidentDto,
+  ) {
+    return this.incidentService.update(
+      +id,
+      updateIncidentDto,
+      isTransacional,
+      userId,
+    );
   }
 
-  @ApiOperation({ summary: 'Update incident GIM sync status after external emission' })
+  /**
+   *
+   * @param userId
+   * @param idDevice
+   * @param id
+   * @param updateIncidentDto
+   */
+  @ApiOperation({
+    summary: 'Update incident GIM sync status after external emission',
+  })
   @Patch('update-status-gim/:userId/:idDevice/:id')
   updateStatusGim(
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
     @Param('id') id: string,
-    @Body() updateIncidentDto: UpdateIncidentDto) {
+    @Body() updateIncidentDto: UpdateIncidentDto,
+  ) {
     return this.incidentService.updateStatusGim(+id, updateIncidentDto, userId);
   }
 
-  @ApiOperation({ summary: 'Upload an incident evidence file to Alfresco (multipart form-data, key: file)' })
+  /**
+   *
+   * @param userId
+   * @param idDevice
+   * @param file
+   */
+  @ApiOperation({
+    summary:
+      'Upload an incident evidence file to Alfresco (multipart form-data, key: file)',
+  })
   @Post('upload-alfresco/:userId/:idDevice')
   @UseInterceptors(FileInterceptor('file')) // form-data field name must match 'file'
   uploadAlfresco(
@@ -107,7 +202,9 @@ export class IncidentController {
     @UploadedFile() file: any,
   ) {
     if (!file) {
-      throw new BadRequestException('Debe enviar el archivo en form-data con key: file');
+      throw new BadRequestException(
+        'Debe enviar el archivo en form-data con key: file',
+      );
     }
 
     // Multer always populates these properties on UploadedFile.
@@ -116,7 +213,15 @@ export class IncidentController {
     return this.incidentService.uploadToAlfresco(buffer, originalname);
   }
 
-  @ApiOperation({ summary: 'Get a download URL for an Alfresco-stored file by alfrescoId' })
+  /**
+   *
+   * @param userId
+   * @param idDevice
+   * @param alfrescoId
+   */
+  @ApiOperation({
+    summary: 'Get a download URL for an Alfresco-stored file by alfrescoId',
+  })
   @Get('get-file-url-alfresco/:userId/:idDevice/:alfrescoId')
   getFileUrlAlfresco(
     @Param('userId', ParseIntPipe) userId: number,
@@ -130,7 +235,16 @@ export class IncidentController {
     return this.incidentService.getFileUrlAlfresco(alfrescoId);
   }
 
-  @ApiOperation({ summary: 'Resolve the Alfresco nodeId from a stored shared-link URL (or raw sharedId)' })
+  /**
+   *
+   * @param userId
+   * @param idDevice
+   * @param sharedUrl
+   */
+  @ApiOperation({
+    summary:
+      'Resolve the Alfresco nodeId from a stored shared-link URL (or raw sharedId)',
+  })
   @Get('get-alfresco-id-by-shared/:userId/:idDevice')
   getAlfrescoIdBySharedUrl(
     @Param('userId', ParseIntPipe) userId: number,
@@ -144,6 +258,13 @@ export class IncidentController {
     return this.incidentService.getAlfrescoIdBySharedUrl(sharedUrl);
   }
 
+  /**
+   *
+   * @param user
+   * @param userId
+   * @param idDevice
+   * @param id
+   */
   @ApiOperation({ summary: 'Delete an incident by id' })
   @AuthWithKeycloak()
   @Delete('remove/:userId/:idDevice/:id')
@@ -151,104 +272,199 @@ export class IncidentController {
     @GetUser() user: JwtPayload,
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
-    @Param('id') id: string) {
+    @Param('id') id: string,
+  ) {
     return this.incidentService.remove(+id, userId);
   }
 
-  @ApiOperation({ summary: 'Aggregate incident statistics by date range and filters' })
+  /**
+   *
+   * @param filterDto
+   * @param _userId
+   * @param _idDevice
+   * @param _version
+   */
+  @ApiOperation({
+    summary: 'Aggregate incident statistics by date range and filters',
+  })
   @AuthWithKeycloak()
   @Get('find-statistics/:userId/:idDevice/:version')
   findStatistics(
     @Query() filterDto: FilterDto,
-    @Param('userId', ParseIntPipe) userId: number,
-    @Param('idDevice', ParseUUIDPipe) idDevice: string,
-    @Param('version', ParseIntPipe) version: number
+    @Param('userId', ParseIntPipe) _userId: number,
+    @Param('idDevice', ParseUUIDPipe) _idDevice: string,
+    @Param('version', ParseIntPipe) _version: number,
   ) {
     return this.incidentService.findStatistics(filterDto);
   }
 
-  @ApiOperation({ summary: 'List fractions that have sanctions, with optional filters' })
+  /**
+   *
+   * @param filterDto
+   * @param _userId
+   * @param _idDevice
+   * @param _version
+   */
+  @ApiOperation({
+    summary: 'List fractions that have sanctions, with optional filters',
+  })
   @Get('find-all-fraction-sanction/:userId/:idDevice/:version')
   findAllFractionSanction(
     @Query() filterDto: IncidentFilterDto,
-    @Param('userId', ParseIntPipe) userId: number,
-    @Param('idDevice', ParseUUIDPipe) idDevice: string,
-    @Param('version', ParseIntPipe) version: number,
+    @Param('userId', ParseIntPipe) _userId: number,
+    @Param('idDevice', ParseUUIDPipe) _idDevice: string,
+    @Param('version', ParseIntPipe) _version: number,
   ) {
     return this.incidentService.findAllFractionSanction(filterDto);
   }
 
-  @ApiOperation({ summary: 'Count total fractions with sanctions matching filters' })
+  /**
+   *
+   * @param filterDto
+   * @param _userId
+   * @param _idDevice
+   * @param _version
+   */
+  @ApiOperation({
+    summary: 'Count total fractions with sanctions matching filters',
+  })
   @AuthWithKeycloak()
   @Get('find-all-fraction-sanction-total/:userId/:idDevice/:version')
   findAllFractionSanctionTotal(
     @Query() filterDto: IncidentFilterDto,
-    @Param('userId', ParseIntPipe) userId: number,
-    @Param('idDevice', ParseUUIDPipe) idDevice: string,
-    @Param('version', ParseIntPipe) version: number,
+    @Param('userId', ParseIntPipe) _userId: number,
+    @Param('idDevice', ParseUUIDPipe) _idDevice: string,
+    @Param('version', ParseIntPipe) _version: number,
   ) {
     return this.incidentService.findAllFractionSanctionTotal(filterDto);
   }
 
+  /**
+   *
+   * @param filterDto
+   * @param _userId
+   * @param _idDevice
+   * @param _version
+   */
   @ApiOperation({ summary: 'Incident statistics grouped by fraction' })
   @AuthWithKeycloak()
   @Get('find-statistics-by-fraction/:userId/:idDevice/:version')
   findStatisticsByFraction(
     @Query() filterDto: FilterDto,
-    @Param('userId', ParseIntPipe) userId: number,
-    @Param('idDevice', ParseUUIDPipe) idDevice: string,
-    @Param('version', ParseIntPipe) version: number
+    @Param('userId', ParseIntPipe) _userId: number,
+    @Param('idDevice', ParseUUIDPipe) _idDevice: string,
+    @Param('version', ParseIntPipe) _version: number,
   ) {
     return this.incidentService.findStatisticsByFraction(filterDto);
   }
 
-  @ApiOperation({ summary: 'Aggregate total parking time per vehicle/client from incident data' })
+  /**
+   *
+   * @param filterDto
+   * @param _userId
+   * @param _idDevice
+   * @param _version
+   */
+  @ApiOperation({
+    summary:
+      'Aggregate total parking time per vehicle/client from incident data',
+  })
   @Get('find-all-total-vehicle-client-time/:userId/:idDevice/:version')
   findAllTotalVehicleClientTime(
     @Query() filterDto: IncidentFilterDto,
-    @Param('userId', ParseIntPipe) userId: number,
-    @Param('idDevice', ParseUUIDPipe) idDevice: string,
-    @Param('version', ParseIntPipe) version: number
+    @Param('userId', ParseIntPipe) _userId: number,
+    @Param('idDevice', ParseUUIDPipe) _idDevice: string,
+    @Param('version', ParseIntPipe) _version: number,
   ) {
     return this.incidentService.findAllTotalVehicleClientTime(filterDto);
   }
 
-  @ApiOperation({ summary: 'Full statistics combining fraction and sanction data' })
+  /**
+   *
+   * @param filterDto
+   * @param _userId
+   * @param _idDevice
+   * @param _version
+   */
+  @ApiOperation({
+    summary: 'Full statistics combining fraction and sanction data',
+  })
   @AuthWithKeycloak()
   @Get('find-all-statistics-fraction-sanction/:userId/:idDevice/:version')
   findAllStatisticsFractionSanction(
     @Query() filterDto: IncidentFilterDto,
-    @Param('userId', ParseIntPipe) userId: number,
-    @Param('idDevice', ParseUUIDPipe) idDevice: string,
-    @Param('version', ParseIntPipe) version: number
+    @Param('userId', ParseIntPipe) _userId: number,
+    @Param('idDevice', ParseUUIDPipe) _idDevice: string,
+    @Param('version', ParseIntPipe) _version: number,
   ) {
     return this.incidentService.findAllStatisticsFractionSanction(filterDto);
   }
 
-  @ApiOperation({ summary: 'Find pending incidents and synchronize/emit them to GIM' })
+  /**
+   *
+   * @param user
+   * @param userId
+   * @param idDevice
+   * @param isTransacional
+   * @param version
+   * @param filterDto
+   */
+  @ApiOperation({
+    summary: 'Find pending incidents and synchronize/emit them to GIM',
+  })
   @AuthWithKeycloak()
-  @Patch('find-and-sincronize-to-emit/:userId/:idDevice/:isTransacional/:version')
+  @Patch(
+    'find-and-sincronize-to-emit/:userId/:idDevice/:isTransacional/:version',
+  )
   findAndSincronizeToEmit(
     @GetUser() user: JwtPayload,
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
     @Param('isTransacional', ParseIntPipe) isTransacional: number,
     @Param('version', ParseIntPipe) version: number,
-    @Body() filterDto: IncidentFilterDto) {
-    return this.incidentService.findAndSincronizeToEmit(userId, idDevice, filterDto, isTransacional);
+    @Body() filterDto: IncidentFilterDto,
+  ) {
+    return this.incidentService.findAndSincronizeToEmit(
+      userId,
+      idDevice,
+      filterDto,
+      isTransacional,
+    );
   }
 
-  @ApiOperation({ summary: 'List incident notifications with optional filters' })
+  /**
+   *
+   * @param userId
+   * @param idDevice
+   * @param version
+   * @param filterDto
+   */
+  @ApiOperation({
+    summary: 'List incident notifications with optional filters',
+  })
   @Get('find-all-notification/:userId/:idDevice/:version')
   findAllNotification(
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
     @Param('version', ParseIntPipe) version: number,
-    @Query() filterDto: IncidentFilterDto) {
+    @Query() filterDto: IncidentFilterDto,
+  ) {
     return this.incidentService.findAllNotification(filterDto);
   }
 
-  @ApiOperation({ summary: 'Advance incident to next workflow step (isTransacional=1 for transactional mode)' })
+  /**
+   *
+   * @param user
+   * @param userId
+   * @param idDevice
+   * @param isTransacional
+   * @param version
+   * @param incidentDto
+   */
+  @ApiOperation({
+    summary:
+      'Advance incident to next workflow step (isTransacional=1 for transactional mode)',
+  })
   @AuthWithKeycloak()
   @Patch('advance-next-process/:userId/:idDevice/:isTransacional/:version')
   advanceNextProcess(
@@ -257,8 +473,13 @@ export class IncidentController {
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
     @Param('isTransacional', ParseIntPipe) isTransacional: number,
     @Param('version', ParseIntPipe) version: number,
-    @Body() incidentDto: IncidentDto) {
-    return this.incidentService.advanceNextProcess(userId, idDevice, incidentDto, isTransacional);
+    @Body() incidentDto: IncidentDto,
+  ) {
+    return this.incidentService.advanceNextProcess(
+      userId,
+      idDevice,
+      incidentDto,
+      isTransacional,
+    );
   }
-
 }

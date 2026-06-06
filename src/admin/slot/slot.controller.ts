@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Param, ParseIntPipe, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseIntPipe,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthWithKeycloak, GetUser } from 'src/auth/decorators';
 import { JwtPayload } from 'src/auth/interfaces';
@@ -19,8 +29,15 @@ import { SlotService } from './slot.service';
 @ApiBearerAuth('keycloak')
 @Controller('admin/slot')
 export class SlotController {
-  constructor(private readonly slotService: SlotService) { }
+  /**
+   *
+   * @param slotService
+   */
+  constructor(private readonly slotService: SlotService) {}
 
+  /**
+   *
+   */
   @ApiOperation({ summary: 'Initialize a sample slot (internal use only)' })
   @ApiStandardResponse({
     description: 'Initial slot created',
@@ -31,9 +48,17 @@ export class SlotController {
     return this.slotService.initializeDatabase();
   }
 
+  /**
+   *
+   * @param user
+   * @param userId
+   * @param idDevice
+   * @param createSlotDto
+   */
   @ApiOperation({ summary: 'Create a new parking slot' })
   @ApiStandardResponse({
-    description: 'Slot created. `NAMEUNIQUE` when the name already exists in the zone.',
+    description:
+      'Slot created. `NAMEUNIQUE` when the name already exists in the zone.',
     errorCodes: [ErrorCode.NONE, ErrorCode.NAMEUNIQUE],
     data: { slot: { model: Slot } },
   })
@@ -43,11 +68,18 @@ export class SlotController {
     @GetUser() user: JwtPayload,
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
-    @Body() createSlotDto: CreateSlotDto
+    @Body() createSlotDto: CreateSlotDto,
   ) {
     return this.slotService.create(userId, createSlotDto);
   }
 
+  /**
+   *
+   * @param user
+   * @param userId
+   * @param idDevice
+   * @param filterDto
+   */
   @ApiOperation({ summary: 'Paginated list of slots with zone and block' })
   @ApiStandardResponse({
     description: 'Paginated slots list',
@@ -69,6 +101,11 @@ export class SlotController {
     return this.slotService.findAll(filterDto);
   }
 
+  /**
+   *
+   * @param blockId
+   * @param zoneId
+   */
   @ApiOperation({ summary: 'Slots by block and zone (raw id/name)' })
   @ApiStandardResponse({
     description: 'Reduced list {id, name}',
@@ -88,6 +125,16 @@ export class SlotController {
     return this.slotService.findAllByfilter(blockId, zoneId);
   }
 
+  /**
+   *
+   * @param user
+   * @param userId
+   * @param idDevice
+   * @param blockId
+   * @param zoneId
+   * @param version
+   * @param paginationDto
+   */
   @ApiOperation({ summary: 'Slots by block and zone including fractions info' })
   @ApiStandardResponse({
     description: 'Slots with fractions. `slot` is empty if no results.',
@@ -107,12 +154,25 @@ export class SlotController {
     @Param('version', ParseIntPipe) version: number,
     @Query() paginationDto: FilterDto,
   ) {
-    return this.slotService.findAllSlotBlockParking(blockId, zoneId, paginationDto);
+    return this.slotService.findAllSlotBlockParking(
+      blockId,
+      zoneId,
+      paginationDto,
+    );
   }
 
+  /**
+   *
+   * @param user
+   * @param userId
+   * @param idDevice
+   * @param id
+   * @param updateSlotDto
+   */
   @ApiOperation({ summary: 'Update a parking slot' })
   @ApiStandardResponse({
-    description: 'Slot updated. `NAMEUNIQUE` when the name already exists in the zone.',
+    description:
+      'Slot updated. `NAMEUNIQUE` when the name already exists in the zone.',
     errorCodes: [ErrorCode.NONE, ErrorCode.NAMEUNIQUE],
     data: { slot: { model: Slot } },
   })
@@ -123,11 +183,20 @@ export class SlotController {
     @Param('userId', ParseIntPipe) userId: number,
     @Param('idDevice', ParseUUIDPipe) idDevice: string,
     @Param('id') id: string,
-    @Body() updateSlotDto: UpdateSlotDto
+    @Body() updateSlotDto: UpdateSlotDto,
   ) {
     return this.slotService.update(userId, +id, updateSlotDto);
   }
 
+  /**
+   *
+   * @param user
+   * @param blockId
+   * @param zoneId
+   * @param _userId
+   * @param _idDevice
+   * @param _version
+   */
   @ApiOperation({ summary: 'Slots by block and zone (raw with coordinates)' })
   @ApiStandardResponse({
     description: 'Raw slot list with coordinates',
@@ -135,7 +204,16 @@ export class SlotController {
       slots: {
         isArray: true,
         type: 'object',
-        example: [{ id: 1, nameSlot: 'A01', ltSlot: -3.99, lgSlot: -79.20, blockId: 1, zoneId: 1 }],
+        example: [
+          {
+            id: 1,
+            nameSlot: 'A01',
+            ltSlot: -3.99,
+            lgSlot: -79.2,
+            blockId: 1,
+            zoneId: 1,
+          },
+        ],
       },
     },
   })
@@ -145,21 +223,41 @@ export class SlotController {
     @GetUser() user: JwtPayload,
     @Param('blockId') blockId: number,
     @Param('zoneId') zoneId: number,
-    @Param('userId', ParseIntPipe) userId: number,
-    @Param('idDevice', ParseUUIDPipe) idDevice: string,
-    @Param('version', ParseIntPipe) version: number,
+    @Param('userId', ParseIntPipe) _userId: number,
+    @Param('idDevice', ParseUUIDPipe) _idDevice: string,
+    @Param('version', ParseIntPipe) _version: number,
   ) {
     return this.slotService.getSlotsByBlockByZone(blockId, zoneId);
   }
 
+  /**
+   *
+   * @param user
+   * @param blockId
+   * @param zoneId
+   * @param userId
+   * @param idDevice
+   * @param version
+   * @param filterDto
+   */
   @ApiOperation({ summary: 'Slots within a polygon (geofence)' })
   @ApiStandardResponse({
-    description: 'Slots inside the polygon. `slots` empty if table does not exist.',
+    description:
+      'Slots inside the polygon. `slots` empty if table does not exist.',
     data: {
       slots: {
         isArray: true,
         type: 'object',
-        example: [{ id: 1, nameSlot: 'A01', ltSlot: -3.99, lgSlot: -79.20, blockId: 1, zoneId: 1 }],
+        example: [
+          {
+            id: 1,
+            nameSlot: 'A01',
+            ltSlot: -3.99,
+            lgSlot: -79.2,
+            blockId: 1,
+            zoneId: 1,
+          },
+        ],
       },
     },
   })
@@ -177,24 +275,34 @@ export class SlotController {
     return this.slotService.getSlotsByPolygon(filterDto);
   }
 
+  /**
+   *
+   * @param userId
+   * @param idDevice
+   * @param version
+   * @param filterDto
+   */
   @ApiOperation({ summary: 'Slot occupancy statistics' })
   @ApiStandardResponse({
-    description: 'Counts per status (available, occupied, exceeded, sanctioned, grace_time, pcd, out_of_service)',
+    description:
+      'Counts per status (available, occupied, exceeded, sanctioned, grace_time, pcd, out_of_service)',
     errorCodes: [ErrorCode.NONE, ErrorCode.NOT_FOUND],
     data: {
       message: { type: 'string', example: 'Resultados encontrados' },
       slots: {
         isArray: true,
         type: 'object',
-        example: [{
-          available: 10,
-          occupied: 5,
-          exceeded: 1,
-          sanctioned: 0,
-          grace_time: 0,
-          pcd: 2,
-          out_of_service: 0,
-        }],
+        example: [
+          {
+            available: 10,
+            occupied: 5,
+            exceeded: 1,
+            sanctioned: 0,
+            grace_time: 0,
+            pcd: 2,
+            out_of_service: 0,
+          },
+        ],
       },
     },
   })

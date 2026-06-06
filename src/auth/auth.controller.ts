@@ -11,5 +11,9 @@ import { AuthService } from './auth.service';
 @ApiBearerAuth('keycloak')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) { }
+  /**
+   *
+   * @param authService
+   */
+  constructor(private readonly authService: AuthService) {}
 }

@@ -12,7 +12,13 @@ import { ApiStandardResponse } from 'src/common/decorators/api-standard-response
 @ApiBearerAuth('keycloak')
 @Controller()
 export class AppController {
-  @ApiOperation({ summary: 'Application root metadata (name, version, author, architect, url)' })
+  /**
+   *
+   */
+  @ApiOperation({
+    summary:
+      'Application root metadata (name, version, author, architect, url)',
+  })
   @ApiStandardResponse({
     description: 'Application metadata read from package.json',
     data: {
@@ -32,11 +38,11 @@ export class AppController {
     const author = packageJson.author;
     const architect = packageJson.architect;
     return {
-      "name": name,
-      "version": version,
-      "url": url,
-      "author": author,
-      "architect": architect
+      name: name,
+      version: version,
+      url: url,
+      author: author,
+      architect: architect,
     };
   }
 }

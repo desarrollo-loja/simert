@@ -11,18 +11,29 @@ import { StatusService } from './status.service';
 @ApiBearerAuth('keycloak')
 @Controller('admin/status')
 export class StatusController {
-  constructor(private readonly statusService: StatusService) { }
+  /**
+   *
+   * @param statusService
+   */
+  constructor(private readonly statusService: StatusService) {}
 
-  @ApiOperation({ summary: 'Seed initial fraction statuses (internal use only)' })
+  /**
+   *
+   */
+  @ApiOperation({
+    summary: 'Seed initial fraction statuses (internal use only)',
+  })
   @Post('initializeDatabase')
   initializeDatabase() {
     return this.statusService.initializeDatabase();
   }
 
+  /**
+   *
+   */
   @ApiOperation({ summary: 'List fraction statuses with optional filters' })
   @Get('filter')
-  findAllByfilter(
-  ) {
+  findAllByfilter() {
     return this.statusService.findAllByfilter();
   }
 }

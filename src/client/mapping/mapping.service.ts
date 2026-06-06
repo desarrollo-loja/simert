@@ -16,11 +16,15 @@ import { Repository } from 'typeorm';
  */
 @Injectable()
 export class MappingService {
-
   private readonly logger = new Logger('MappingService');
 
+  /**
+   *
+   * @param zoneRepository
+   * @param blockRepository
+   * @param slotRepository
+   */
   constructor(
-
     @InjectRepository(Zone)
     private readonly zoneRepository: Repository<Zone>,
 
@@ -29,16 +33,29 @@ export class MappingService {
 
     @InjectRepository(Slot)
     private readonly slotRepository: Repository<Slot>,
+  ) {}
 
-  ) { }
-
+  /**
+   *
+   * @param paginationDto
+   */
   async findAllZones(paginationDto: FilterDto) {
     const { search } = paginationDto;
     let zones: Zone[] = [];
 
     try {
-      const query = await this.zoneRepository.createQueryBuilder('z')
-        .select(['z.id', 'z.name', 'z.color', 'z.acronym', 'z.lt', 'z.lg', 'z.geofence', 'z.isActivated'])
+      const query = await this.zoneRepository
+        .createQueryBuilder('z')
+        .select([
+          'z.id',
+          'z.name',
+          'z.color',
+          'z.acronym',
+          'z.lt',
+          'z.lg',
+          'z.geofence',
+          'z.isActivated',
+        ])
         .where('z.isActivated = :isActivated', { isActivated: true })
         .andWhere('z.lt != :zero AND z.lg != :zero', { zero: 0 });
 
@@ -51,7 +68,7 @@ export class MappingService {
       if (zone.length === 0)
         return { errorCode: ErrorCode.NOT_FOUND, zone: zones };
 
-      zones = zone.map(item => {
+      zones = zone.map((item) => {
         const geofenceData = parseGeoJsonMultiPolygon(item.geofence);
         return { ...item, geofence: geofenceData } as Zone;
       });
@@ -62,19 +79,43 @@ export class MappingService {
     }
   }
 
+  /**
+   *
+   * @param paginationDto
+   */
   async findAllBlock(paginationDto: FilterDto) {
     const { search } = paginationDto;
     let blocks: Block[] = [];
 
     try {
-      const query = await this.blockRepository.createQueryBuilder('bl')
-        .select(['bl.id', 'bl.name', 'bl.acronym', 'bl.color', 'bl.lt', 'bl.lg',
-          'bl.timeLimit', 'bl.timeGrace', 'bl.timePerFraction',
-          'bl.neighborhood', 'bl.mainStreet', 'bl.sideStreet', 'bl.geofence', 'zone.id', 'zone.name', 'zone.isActivated',
-          'schedules.id', 'schedules.isActivated', 'schedules.dayOfWeekInit', 'schedules.dayOfWeekEnd',
-          'schedules.openingTime', 'schedules.closingTime'])
-        .innerJoin("bl.zone", "zone")
-        .leftJoin("bl.schedules", "schedules")
+      const query = await this.blockRepository
+        .createQueryBuilder('bl')
+        .select([
+          'bl.id',
+          'bl.name',
+          'bl.acronym',
+          'bl.color',
+          'bl.lt',
+          'bl.lg',
+          'bl.timeLimit',
+          'bl.timeGrace',
+          'bl.timePerFraction',
+          'bl.neighborhood',
+          'bl.mainStreet',
+          'bl.sideStreet',
+          'bl.geofence',
+          'zone.id',
+          'zone.name',
+          'zone.isActivated',
+          'schedules.id',
+          'schedules.isActivated',
+          'schedules.dayOfWeekInit',
+          'schedules.dayOfWeekEnd',
+          'schedules.openingTime',
+          'schedules.closingTime',
+        ])
+        .innerJoin('bl.zone', 'zone')
+        .leftJoin('bl.schedules', 'schedules')
         .where('bl.isActivated = :isActivated', { isActivated: true })
         .andWhere('zone.isActivated = :isActivated', { isActivated: true })
         .andWhere('bl.lt != :zero AND bl.lg != :zero', { zero: 0 })
@@ -87,10 +128,9 @@ export class MappingService {
 
       const block = await query.getMany();
 
-      if (block.length === 0)
-        return { errorCode: ErrorCode.NOT_FOUND, blocks };
+      if (block.length === 0) return { errorCode: ErrorCode.NOT_FOUND, blocks };
 
-      blocks = block.map(item => {
+      blocks = block.map((item) => {
         const geofenceData = parseGeoJsonMultiPolygon(item.geofence);
         return { ...item, geofence: geofenceData } as Block;
       });
@@ -103,15 +143,32 @@ export class MappingService {
     }
   }
 
+  /**
+   *
+   * @param paginationDto
+   */
   async findAllSlot(paginationDto: FilterDto) {
     const { search } = paginationDto;
     let slots: Slot[] = [];
     try {
-      const query = await this.slotRepository.createQueryBuilder('sl')
-        .select(['sl.id', 'sl.slot', 'sl.isActivated', 'sl.lt', 'sl.lg', 'sl.status', 'sl.typeSlot',
-          'zone.id', 'zone.name', 'block.id', 'block.name', 'block.geofence'])
-        .innerJoin("sl.zone", "zone")
-        .innerJoin("sl.block", "block")
+      const query = await this.slotRepository
+        .createQueryBuilder('sl')
+        .select([
+          'sl.id',
+          'sl.slot',
+          'sl.isActivated',
+          'sl.lt',
+          'sl.lg',
+          'sl.status',
+          'sl.typeSlot',
+          'zone.id',
+          'zone.name',
+          'block.id',
+          'block.name',
+          'block.geofence',
+        ])
+        .innerJoin('sl.zone', 'zone')
+        .innerJoin('sl.block', 'block')
         .where('sl.lt != :zero AND sl.lg != :zero', { zero: 0 })
         .andWhere('zone.lt != :zero AND zone.lg != :zero', { zero: 0 })
         .andWhere('block.lt != :zero AND block.lg != :zero', { zero: 0 })
@@ -125,26 +182,47 @@ export class MappingService {
 
       slots = await query.getMany();
 
-      if (slots.length === 0)
-        return { errorCode: ErrorCode.NOT_FOUND, slots };
+      if (slots.length === 0) return { errorCode: ErrorCode.NOT_FOUND, slots };
 
       return { errorCode: ErrorCode.NONE, slots };
-
     } catch (error) {
       handleDbExceptions(error, this.logger);
     }
   }
 
-  async findSlotNearby(latitude: number, longitude: number, paginationDto: FilterDto) {
+  /**
+   *
+   * @param latitude
+   * @param longitude
+   * @param paginationDto
+   */
+  async findSlotNearby(
+    latitude: number,
+    longitude: number,
+    paginationDto: FilterDto,
+  ) {
     const { search } = paginationDto;
     let slots: Slot[] = [];
     try {
-
-      const query = await this.slotRepository.createQueryBuilder('sl')
-        .select(['sl.id', 'sl.slot', 'sl.isActivated', 'sl.lt', 'sl.lg', 'sl.status', 'sl.typeSlot',
-          'zone.id', 'zone.name', 'block.id', 'block.name', 'block.geofence', `earth_distance(ll_to_earth(sl.lt, sl.lg), ll_to_earth(:lat, :lng)) AS distance`])
-        .innerJoin("sl.zone", "zone")
-        .innerJoin("sl.block", "block")
+      const query = await this.slotRepository
+        .createQueryBuilder('sl')
+        .select([
+          'sl.id',
+          'sl.slot',
+          'sl.isActivated',
+          'sl.lt',
+          'sl.lg',
+          'sl.status',
+          'sl.typeSlot',
+          'zone.id',
+          'zone.name',
+          'block.id',
+          'block.name',
+          'block.geofence',
+          `earth_distance(ll_to_earth(sl.lt, sl.lg), ll_to_earth(:lat, :lng)) AS distance`,
+        ])
+        .innerJoin('sl.zone', 'zone')
+        .innerJoin('sl.block', 'block')
         .where('sl.lt != :zero AND sl.lg != :zero', { zero: 0 })
         .andWhere('zone.lt != :zero AND zone.lg != :zero', { zero: 0 })
         .andWhere('block.lt != :zero AND block.lg != :zero', { zero: 0 })
@@ -161,11 +239,9 @@ export class MappingService {
 
       slots = await query.getMany();
 
-      if (slots.length === 0)
-        return { errorCode: ErrorCode.NOT_FOUND, slots };
+      if (slots.length === 0) return { errorCode: ErrorCode.NOT_FOUND, slots };
 
       return { errorCode: ErrorCode.NONE, slots };
-
     } catch (error) {
       handleDbExceptions(error, this.logger);
     }

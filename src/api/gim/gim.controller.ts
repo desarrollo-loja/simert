@@ -1,4 +1,11 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseIntPipe,
+  Post,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Auth, GetUser } from 'src/auth/decorators';
 import { JwtPayload } from 'src/auth/interfaces';
@@ -10,7 +17,11 @@ import { RegisterDepositGimDto } from 'src/common/dto/register-deposit-gim.dto';
 
 import { CreateGimDto } from './dto/create-gim.dto';
 import FindBondNumberDto from './dto/find-bond-number';
-import { GetClientGimByCitationDto, GetClientGimByLicensePlateDto, GetClientGimDto } from './dto/get-client-gim.dto';
+import {
+  GetClientGimByCitationDto,
+  GetClientGimByLicensePlateDto,
+  GetClientGimDto,
+} from './dto/get-client-gim.dto';
 import { ValidateStatusGimDto } from './dto/validate-status-gim.dto';
 import { GimService } from './gim.service';
 /**
@@ -23,9 +34,23 @@ import { GimService } from './gim.service';
 @ApiBearerAuth('keycloak')
 @Controller('api/gim')
 export class GimController {
-  constructor(private readonly gimService: GimService) { }
+  /**
+   *
+   * @param gimService
+   */
+  constructor(private readonly gimService: GimService) {}
 
-  @ApiOperation({ summary: 'Issue an incident in GIM (generates a debt for the user)' })
+  /**
+   *
+   * @param createGimDto
+   * @param userId
+   * @param idDevice
+   * @param id
+   * @param isTransacional
+   */
+  @ApiOperation({
+    summary: 'Issue an incident in GIM (generates a debt for the user)',
+  })
   @Post('issue-incident-gim/:userId/:idDevice/:id/:isTransacional')
   issueIncidentGim(
     @Body() createGimDto: CreateGimDto,
@@ -37,7 +62,17 @@ export class GimController {
     return this.gimService.issueIncidentGim(createGimDto, +id, isTransacional);
   }
 
-  @ApiOperation({ summary: 'Emit an infraction directly to GIM (assumes all data is ready)' })
+  /**
+   *
+   * @param createGimDto
+   * @param userId
+   * @param idDevice
+   * @param id
+   * @param isTransacional
+   */
+  @ApiOperation({
+    summary: 'Emit an infraction directly to GIM (assumes all data is ready)',
+  })
   @Post('emit-infraction-simert/:userId/:idDevice/:id/:isTransacional')
   emitInfractionSimert(
     @Body() createGimDto: CreateGimDto,
@@ -46,47 +81,92 @@ export class GimController {
     @Param('id') id: string,
     @Param('isTransacional', ParseIntPipe) isTransacional: number,
   ) {
-    return this.gimService.emitInfractionSimert(createGimDto, +id, isTransacional);
+    return this.gimService.emitInfractionSimert(
+      createGimDto,
+      +id,
+      isTransacional,
+    );
   }
 
-  @ApiOperation({ summary: 'Create a GIM natural person record for an existing local client' })
+  /**
+   *
+   * @param createClientGimDto
+   * @param _idDevice
+   */
+  @ApiOperation({
+    summary: 'Create a GIM natural person record for an existing local client',
+  })
   @Post('create-client-gim/:idDevice')
   createClientGim(
     @Body() createClientGimDto: CreateClientGimDto,
-    @Param('idDevice') idDevice: string,
+    @Param('idDevice') _idDevice: string,
   ) {
     return this.gimService.createNewNaturalPersonGim(createClientGimDto);
   }
 
-  @ApiOperation({ summary: 'Create a GIM natural person record for a client not in local registry' })
+  /**
+   *
+   * @param createClientGimNotExistDto
+   * @param _idDevice
+   */
+  @ApiOperation({
+    summary:
+      'Create a GIM natural person record for a client not in local registry',
+  })
   @Post('create-client-gim-no-exist/:idDevice')
   createClientGimNoExist(
     @Body() createClientGimNotExistDto: CreateClientGimNotExistDto,
-    @Param('idDevice') idDevice: string,
+    @Param('idDevice') _idDevice: string,
   ) {
-    return this.gimService.createNewNaturalPersonGimNoExist(createClientGimNotExistDto);
+    return this.gimService.createNewNaturalPersonGimNoExist(
+      createClientGimNotExistDto,
+    );
   }
 
-  @ApiOperation({ summary: 'Fetch a GIM client by identity card number and return the residentId' })
+  /**
+   *
+   * @param getClientGimDto
+   * @param _idDevice
+   */
+  @ApiOperation({
+    summary:
+      'Fetch a GIM client by identity card number and return the residentId',
+  })
   @Post('get-client-gim/:idDevice')
   getClientGim(
     @Body() getClientGimDto: GetClientGimDto,
-    @Param('idDevice') idDevice: string,
+    @Param('idDevice') _idDevice: string,
   ) {
-    return this.gimService.getUserByIdentityCardGim(getClientGimDto.identificationNumber);
+    return this.gimService.getUserByIdentityCardGim(
+      getClientGimDto.identificationNumber,
+    );
   }
 
+  /**
+   *
+   * @param findBondNumberDto
+   * @param _userId
+   * @param _idDevice
+   */
   @ApiOperation({ summary: 'Find a GIM obligation (bond) by ticket number' })
   @Post('find-bond-by-number/:userId/:idDevice')
   findBondByNumber(
     @Body() findBondNumberDto: FindBondNumberDto,
-    @Param('userId') userId: string,
-    @Param('idDevice') idDevice: string,
+    @Param('userId') _userId: string,
+    @Param('idDevice') _idDevice: string,
   ) {
     return this.gimService.findBondByNumber(findBondNumberDto);
   }
 
-  @ApiOperation({ summary: 'Verify whether an incident has been registered in GIM' })
+  /**
+   *
+   * @param userId
+   * @param idDevice
+   * @param id
+   */
+  @ApiOperation({
+    summary: 'Verify whether an incident has been registered in GIM',
+  })
   @Get('verifate-incident-gim/:userId/:idDevice/:id')
   verifateIncidentGim(
     @Param('userId') userId: string,
@@ -96,19 +176,35 @@ export class GimController {
     return this.gimService.verifateIncidentGim(id);
   }
 
-  @ApiOperation({ summary: 'Validate that the GIM cash register (till) is open' })
+  /**
+   *
+   * @param _user
+   * @param _userId
+   * @param _idDevice
+   * @param _id
+   */
+  @ApiOperation({
+    summary: 'Validate that the GIM cash register (till) is open',
+  })
   @Auth()
   @Get('validate-open-till/:userId/:idDevice/:id')
   validateOpenTill(
-    @GetUser() user: JwtPayload,
-    @Param('userId') userId: string,
-    @Param('idDevice') idDevice: string,
-    @Param('id') id: string,
+    @GetUser() _user: JwtPayload,
+    @Param('userId') _userId: string,
+    @Param('idDevice') _idDevice: string,
+    @Param('id') _id: string,
   ) {
     return this.gimService.validateOpenTill();
   }
 
-  @ApiOperation({ summary: 'Retrieve vehicle type catalogue from GIM for use in SIMERT' })
+  /**
+   *
+   * @param _userId
+   * @param _idDevice
+   */
+  @ApiOperation({
+    summary: 'Retrieve vehicle type catalogue from GIM for use in SIMERT',
+  })
   @Post('find-vehicle-types-for-simert/:userId/:idDevice')
   findVehicleTypesForSimert(
     @Param('userId') _userId: string,
@@ -117,7 +213,15 @@ export class GimController {
     return this.gimService.findVehicleTypesForSimert();
   }
 
-  @ApiOperation({ summary: 'Emit a credit card payment title in GIM for card purchase' })
+  /**
+   *
+   * @param userId
+   * @param idDevice
+   * @param emissionCreditCardDto
+   */
+  @ApiOperation({
+    summary: 'Emit a credit card payment title in GIM for card purchase',
+  })
   @Post('emission-title-credit-card/:userId/:idDevice')
   emissionTitleCreditCard(
     @Param('userId') userId: string,
@@ -127,6 +231,12 @@ export class GimController {
     return this.gimService.emissionTitleCreditCard(emissionCreditCardDto);
   }
 
+  /**
+   *
+   * @param userId
+   * @param idDevice
+   * @param registerDepositGimDto
+   */
   @ApiOperation({ summary: 'Register a deposit in GIM' })
   @Post('register-deposit/:userId/:idDevice')
   registerDeposit(
@@ -137,7 +247,15 @@ export class GimController {
     return this.gimService.registerDeposit(registerDepositGimDto);
   }
 
-  @ApiOperation({ summary: 'Find outstanding obligations (debts) for a client in GIM' })
+  /**
+   *
+   * @param userId
+   * @param idDevice
+   * @param getClientGimDto
+   */
+  @ApiOperation({
+    summary: 'Find outstanding obligations (debts) for a client in GIM',
+  })
   @Post('find-obligations/:userId/:idDevice')
   findObligations(
     @Param('userId') userId: string,
@@ -147,16 +265,33 @@ export class GimController {
     return this.gimService.findObligations(getClientGimDto);
   }
 
-  @ApiOperation({ summary: 'Find obligations by identity card and citation ticket number' })
+  /**
+   *
+   * @param userId
+   * @param idDevice
+   * @param getClientGimByCitationDto
+   */
+  @ApiOperation({
+    summary: 'Find obligations by identity card and citation ticket number',
+  })
   @Post('find-obligations-by-citation/:userId/:idDevice')
   findObligationsByCitation(
     @Param('userId') userId: string,
     @Param('idDevice') idDevice: string,
     @Body() getClientGimByCitationDto: GetClientGimByCitationDto,
   ) {
-    return this.gimService.findObligationsByCitation(getClientGimByCitationDto.nroTicket, getClientGimByCitationDto.identityCard);
+    return this.gimService.findObligationsByCitation(
+      getClientGimByCitationDto.nroTicket,
+      getClientGimByCitationDto.identityCard,
+    );
   }
 
+  /**
+   *
+   * @param userId
+   * @param idDevice
+   * @param getClientGimByLicensePlateDto
+   */
   @ApiOperation({ summary: 'Find obligations by vehicle license plate' })
   @Post('find-obligations-by-license-plate/:userId/:idDevice')
   findObligationsByLicensePlate(
@@ -164,20 +299,42 @@ export class GimController {
     @Param('idDevice') idDevice: string,
     @Body() getClientGimByLicensePlateDto: GetClientGimByLicensePlateDto,
   ) {
-    return this.gimService.findObligationsByLicensePlate(getClientGimByLicensePlateDto.licensePlate);
+    return this.gimService.findObligationsByLicensePlate(
+      getClientGimByLicensePlateDto.licensePlate,
+    );
   }
 
-  @ApiOperation({ summary: 'Validate the SIMERT system status against GIM and sync if needed' })
+  /**
+   *
+   * @param userId
+   * @param idDevice
+   * @param validateStatusGimDto
+   */
+  @ApiOperation({
+    summary: 'Validate the SIMERT system status against GIM and sync if needed',
+  })
   @Post('validate-status-with-gim/:userId/:idDevice')
   validateStatusWithGim(
     @Param('userId') userId: string,
     @Param('idDevice') idDevice: string,
     @Body() validateStatusGimDto: ValidateStatusGimDto,
   ) {
-    const { debtDataObligations, incidentId, createGimDto, isTransacional } = validateStatusGimDto;
-    return this.gimService.validateStatusSistemWithGim(debtDataObligations, incidentId, createGimDto as CreateGimDto, isTransacional);
+    const { debtDataObligations, incidentId, createGimDto, isTransacional } =
+      validateStatusGimDto;
+    return this.gimService.validateStatusSistemWithGim(
+      debtDataObligations,
+      incidentId,
+      createGimDto as CreateGimDto,
+      isTransacional,
+    );
   }
 
+  /**
+   *
+   * @param userId
+   * @param idDevice
+   * @param emissionSanctionDto
+   */
   @ApiOperation({ summary: 'Emit a traffic sanction in GIM' })
   @Post('emit-sanction/:userId/:idDevice')
   emitSanction(

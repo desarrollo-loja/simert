@@ -1,4 +1,9 @@
-import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import handleDbExceptions from 'src/common/exceptions/error.db.exception';
 import { ErrorCode } from 'src/common/glob/error';
@@ -20,13 +25,18 @@ import { IncidentType } from './entities/incident-type.entity';
 export class IncidentTypeService {
   private readonly logger = new Logger(IncidentTypeService.name);
 
+  /**
+   *
+   * @param incidentTypeRepository
+   * @param loggerService
+   */
   constructor(
     @InjectRepository(IncidentType)
     private readonly incidentTypeRepository: Repository<IncidentType>,
 
     @Inject(LoggerService)
     private readonly loggerService: LoggerService,
-  ) { }
+  ) {}
 
   /**
    * Creates a new incident type after validating that neither the `code` nor
@@ -48,7 +58,10 @@ export class IncidentTypeService {
     });
 
     if (existingByCode) {
-      return { errorCode: ErrorCode.NAMEUNIQUE, message: 'El código ya existe' };
+      return {
+        errorCode: ErrorCode.NAMEUNIQUE,
+        message: 'El código ya existe',
+      };
     }
 
     const existingByName = await this.incidentTypeRepository.findOne({
@@ -56,12 +69,18 @@ export class IncidentTypeService {
     });
 
     if (existingByName) {
-      throw new BadRequestException({ codeError: ErrorCode.NAMEUNIQUE, message: 'El nombre ya existe' });
+      throw new BadRequestException({
+        codeError: ErrorCode.NAMEUNIQUE,
+        message: 'El nombre ya existe',
+      });
     }
 
     try {
-      const incidentType = this.incidentTypeRepository.create({ ...createIncidentTypeDto });
-      const savedIncidentType = await this.incidentTypeRepository.save(incidentType);
+      const incidentType = this.incidentTypeRepository.create({
+        ...createIncidentTypeDto,
+      });
+      const savedIncidentType =
+        await this.incidentTypeRepository.save(incidentType);
 
       this.loggerService.saveIncidentTypeLoggerModel({
         id: savedIncidentType.id,
@@ -88,7 +107,8 @@ export class IncidentTypeService {
   async findAll(filterDto: IncidentTypeFilterDto) {
     const table = 'public."incidentType"';
 
-    const { conditions, parameters } = this._buildConditionsAndParametersPg(filterDto);
+    const { conditions, parameters } =
+      this._buildConditionsAndParametersPg(filterDto);
 
     let queryInfo = `
     SELECT
@@ -110,7 +130,10 @@ export class IncidentTypeService {
     queryInfo += ' ORDER BY it."createdAt" DESC;';
 
     try {
-      const incidentTypes = await this.incidentTypeRepository.query(queryInfo, parameters);
+      const incidentTypes = await this.incidentTypeRepository.query(
+        queryInfo,
+        parameters,
+      );
       return { incidentTypes, errorCode: ErrorCode.NONE };
     } catch (error) {
       handleDbExceptions(error, this.logger);
@@ -132,14 +155,21 @@ export class IncidentTypeService {
    *   envelope otherwise.
    * @throws Delegates DB errors to {@link handleDbExceptions}.
    */
-  async update(userId: number, id: number, updateIncidentTypeDto: UpdateIncidentTypeDto) {
+  async update(
+    userId: number,
+    id: number,
+    updateIncidentTypeDto: UpdateIncidentTypeDto,
+  ) {
     try {
       const existingByName = await this.incidentTypeRepository.findOne({
         where: { name: updateIncidentTypeDto.name, id: Not(id) },
       });
 
       if (existingByName) {
-        throw new BadRequestException({ codeError: ErrorCode.NAMEUNIQUE, message: 'El nombre ya existe' });
+        throw new BadRequestException({
+          codeError: ErrorCode.NAMEUNIQUE,
+          message: 'El nombre ya existe',
+        });
       }
 
       const existingByCode = await this.incidentTypeRepository.findOne({
@@ -147,7 +177,10 @@ export class IncidentTypeService {
       });
 
       if (existingByCode) {
-        return { errorCode: ErrorCode.NAMEUNIQUE, message: 'El código ya existe' };
+        return {
+          errorCode: ErrorCode.NAMEUNIQUE,
+          message: 'El código ya existe',
+        };
       }
 
       const incidentType = await this.incidentTypeRepository.preload({
@@ -166,7 +199,10 @@ export class IncidentTypeService {
         return { errorCode: ErrorCode.NONE, incidentType };
       }
 
-      return { errorCode: ErrorCode.NOT_FOUND, message: 'Error al actualizar el tipo de incidente' };
+      return {
+        errorCode: ErrorCode.NOT_FOUND,
+        message: 'Error al actualizar el tipo de incidente',
+      };
     } catch (error) {
       handleDbExceptions(error, this.logger);
     }
@@ -181,14 +217,22 @@ export class IncidentTypeService {
    */
   async getTypeIncidentById(id: number) {
     try {
-      const incidentType = await this.incidentTypeRepository.findOne({ where: { id } });
+      const incidentType = await this.incidentTypeRepository.findOne({
+        where: { id },
+      });
 
       if (!incidentType) {
-        return { errorCode: ErrorCode.NOT_FOUND, message: 'Tipo de incidente no encontrado' };
+        return {
+          errorCode: ErrorCode.NOT_FOUND,
+          message: 'Tipo de incidente no encontrado',
+        };
       }
       return { incidentType, errorCode: ErrorCode.NONE };
-    } catch (error) {
-      return { errorCode: ErrorCode.NOT_FOUND, message: 'Tipo de incidente no encontrado' };
+    } catch {
+      return {
+        errorCode: ErrorCode.NOT_FOUND,
+        message: 'Tipo de incidente no encontrado',
+      };
     }
   }
 
@@ -202,7 +246,9 @@ export class IncidentTypeService {
    */
   async remove(id: number) {
     try {
-      const incidentType = await this.incidentTypeRepository.findOne({ where: { id } });
+      const incidentType = await this.incidentTypeRepository.findOne({
+        where: { id },
+      });
       if (incidentType) {
         incidentType.isActivated = false;
         await this.incidentTypeRepository.save(incidentType);
@@ -221,14 +267,11 @@ export class IncidentTypeService {
    * @returns `{ conditions, parameters }` ready for a raw SQL query with
    *   positional `$N` placeholders.
    */
-  private _buildConditionsAndParametersPg(
-    filterDto: IncidentTypeFilterDto,
-  ): { conditions: string[]; parameters: any[] } {
-    const {
-      search = '',
-      dateFrom,
-      dateTo,
-    } = filterDto;
+  private _buildConditionsAndParametersPg(filterDto: IncidentTypeFilterDto): {
+    conditions: string[];
+    parameters: any[];
+  } {
+    const { search = '', dateFrom, dateTo } = filterDto;
 
     const conditions: string[] = [];
     const parameters: any[] = [];
@@ -238,13 +281,20 @@ export class IncidentTypeService {
       return `$${parameters.length}`;
     };
 
-    if (search.trim() && search.trim() !== 'undefined' && search.trim() !== 'null' && search.trim() !== '') {
+    if (
+      search.trim() &&
+      search.trim() !== 'undefined' &&
+      search.trim() !== 'null' &&
+      search.trim() !== ''
+    ) {
       // ILIKE performs case-insensitive pattern matching in Postgres.
       conditions.push(`it."name" ILIKE ${addParam(`%${search}%`)}`);
     }
 
     if (dateFrom && dateTo) {
-      conditions.push(`it."createdAt" BETWEEN ${addParam(dateFrom)} AND ${addParam(dateTo)}`);
+      conditions.push(
+        `it."createdAt" BETWEEN ${addParam(dateFrom)} AND ${addParam(dateTo)}`,
+      );
     }
 
     return { conditions, parameters };

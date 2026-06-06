@@ -1,6 +1,17 @@
 import { Type } from 'class-transformer';
-import { IsBoolean, IsNotEmpty, IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
+import {
+  IsBoolean,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+} from 'class-validator';
 
+/**
+ *
+ */
 export class CreateIncidentTypeDto {
   @IsNotEmpty()
   @IsString()
@@ -12,7 +23,10 @@ export class CreateIncidentTypeDto {
 
   @Type(() => Number)
   @IsNotEmpty()
-  @IsNumber({ maxDecimalPlaces: 2 }, { message: 'Max 2 decimal places allowed' })
+  @IsNumber(
+    { maxDecimalPlaces: 2 },
+    { message: 'Max 2 decimal places allowed' },
+  )
   @Min(0)
   @Max(100)
   percentage: number;

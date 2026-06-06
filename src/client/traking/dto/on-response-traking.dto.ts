@@ -1,16 +1,18 @@
-import { IsLatitude, IsLongitude, IsNumber, IsPositive } from "class-validator";
+import { IsLatitude, IsLongitude, IsNumber, IsPositive } from 'class-validator';
 
+/**
+ *
+ */
 export class OnresponseTrakingDto {
+  @IsPositive()
+  requestId: number;
 
-    @IsPositive()
-    requestId: number;
+  @IsLongitude()
+  lt: number;
 
-    @IsLongitude()
-    lt: number;
+  @IsNumber()
+  direction: number;
 
-    @IsNumber()
-    direction: number;
-
-    @IsLatitude()
-    lg: number;
+  @IsLatitude()
+  lg: number;
 }

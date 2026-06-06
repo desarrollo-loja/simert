@@ -6,6 +6,9 @@ import { LoggerModule } from 'src/common/logger.module';
 import { IncidentTypeController } from './incident-type.controller';
 import { IncidentTypeService } from './incident-type.service';
 
+/**
+ *
+ */
 @Module({
   controllers: [IncidentTypeController],
   providers: [IncidentTypeService],
