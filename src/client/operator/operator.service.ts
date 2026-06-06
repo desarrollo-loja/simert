@@ -1101,7 +1101,8 @@ export class OperatorService {
       const baseSelect = (table: string) => `
       SELECT
         i.id AS id, i.description AS description, i.images AS images, i.plate AS plate,
-        it.name AS reason, i.amount AS amount, i."bondId" AS "bondId",
+        it.name AS reason, it."accountingAccountCode" AS "accountingAccountCode",
+        i.amount AS amount, i."bondId" AS "bondId",
         i."createdAt" AS "createdAt", i."statusIncident" AS "status", i."register" AS "register",
         i."nroTicket" AS "nroTicket", i."incidentTypeId" AS "incidentTypeId",
         i."vehicleType" AS "vehicleType",

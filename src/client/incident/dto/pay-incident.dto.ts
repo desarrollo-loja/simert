@@ -84,4 +84,8 @@ export class IncidentItemDto {
 
   @IsString()
   code: string;
+
+  @IsOptional()
+  @IsString()
+  accountingAccountCode?: string;
 }
