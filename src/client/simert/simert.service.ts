@@ -800,13 +800,15 @@ export class SimertService {
   }
 
   /**
+   * Checks whether a schema-qualified table exists in the database.
    *
-   * @param tableName
+   * @param qualifiedTableName Table name in "schema.table" form.
+   * @returns true when the table exists in the given schema, false otherwise.
    */
-  private async _tableExists(tableName: string): Promise<boolean> {
-    const names = tableName.split('.');
+  private async _tableExists(qualifiedTableName: string): Promise<boolean> {
+    const names = qualifiedTableName.split('.');
     if (names.length <= 1) {
-      this.logger.error(`No schema was specified for table ${tableName}`);
+      this.logger.error(`No schema was specified for table ${qualifiedTableName}`);
       return false;
     }
     const tableSchema = names[0].replace(/"/g, '').trim();
