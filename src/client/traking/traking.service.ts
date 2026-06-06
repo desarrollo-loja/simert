@@ -84,6 +84,15 @@ export class TrakingService {
         await this.dataSource.query(
           ` CREATE TABLE IF NOT EXISTS ${table} (LIKE ${schema}."traking" INCLUDING ALL) `,
         );
+        // Backfill the geo columns on monthly partitions that were created
+        // (from the "traking" template) before zoneId/blockId existed.
+        // ADD COLUMN IF NOT EXISTS is idempotent, so this is a no-op once the
+        // columns are present and keeps every future partition consistent.
+        await this.dataSource.query(
+          `ALTER TABLE ${table}
+             ADD COLUMN IF NOT EXISTS "zoneId" integer,
+             ADD COLUMN IF NOT EXISTS "blockId" integer`,
+        );
         this.tableTracking = table;
       }
 
