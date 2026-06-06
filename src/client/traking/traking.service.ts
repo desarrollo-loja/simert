@@ -35,6 +35,13 @@ export class TrakingService {
   private tableJob = '';
 
   /**
+   * Monthly partitions already verified to expose the zoneId/blockId columns
+   * during this process lifetime. Avoids re-issuing the (locking) ALTER on
+   * every read/write once a partition is known to be in sync.
+   */
+  private readonly tablesWithGeoColumns = new Set<string>();
+
+  /**
    *
    * @param vehicleId
    * @param userId
@@ -84,17 +91,11 @@ export class TrakingService {
         await this.dataSource.query(
           ` CREATE TABLE IF NOT EXISTS ${table} (LIKE ${schema}."traking" INCLUDING ALL) `,
         );
-        // Backfill the geo columns on monthly partitions that were created
-        // (from the "traking" template) before zoneId/blockId existed.
-        // ADD COLUMN IF NOT EXISTS is idempotent, so this is a no-op once the
-        // columns are present and keeps every future partition consistent.
-        await this.dataSource.query(
-          `ALTER TABLE ${table}
-             ADD COLUMN IF NOT EXISTS "zoneId" integer,
-             ADD COLUMN IF NOT EXISTS "blockId" integer`,
-        );
         this.tableTracking = table;
       }
+
+      // Ensure the partition exposes the geo columns before inserting them.
+      await this._ensureGeoColumns(table);
 
       const isoString = register.toISOString().split('T');
       const date = isoString[0];
@@ -131,6 +132,28 @@ export class TrakingService {
     } catch (err) {
       this.logger.error(`Call _register err: ${err}`);
     }
+  }
+
+  /**
+   * Backfills the geo columns (`zoneId`, `blockId`) on a monthly tracking
+   * partition. Partitions created from the `traking` template before these
+   * columns existed lack them, which breaks both INSERTs (writes) and the
+   * SELECTs that surface zone/sector in the history endpoints.
+   *
+   * `ADD COLUMN IF NOT EXISTS` is idempotent and a per-process cache prevents
+   * re-running the statement (and taking its brief table lock) once a given
+   * partition is known to be in sync.
+   * @param table Fully-qualified, quoted partition name (e.g. `public."2026_06_traking"`).
+   */
+  private async _ensureGeoColumns(table: string): Promise<void> {
+    if (this.tablesWithGeoColumns.has(table)) return;
+
+    await this.dataSource.query(
+      `ALTER TABLE ${table}
+         ADD COLUMN IF NOT EXISTS "zoneId" integer,
+         ADD COLUMN IF NOT EXISTS "blockId" integer`,
+    );
+    this.tablesWithGeoColumns.add(table);
   }
 
   /**
@@ -441,6 +464,10 @@ export class TrakingService {
       return { errorCode: ErrorCode.NONE, trackings: [], total: 0 };
     }
 
+    // Partitions created before zoneId/blockId existed lack those columns;
+    // ensure them so the SELECT below can return zone/sector consistently.
+    await this._ensureGeoColumns(qualifiedTable);
+
     const isoFrom = from.toISOString().split('T');
     const dateFrom = isoFrom[0];
     const timeFrom = isoFrom[1].substring(0, 8);
@@ -478,7 +505,7 @@ export class TrakingService {
 
     const query = `
         SELECT "idDevice", latitude, longitude, "statusTracking", "activityTracking",
-               data, polyline, register, time
+               data, polyline, register, time, "zoneId", "blockId"
         FROM ${qualifiedTable} t
         WHERE t."userId" = $1
           AND t.register BETWEEN $2 AND $3
