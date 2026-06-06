@@ -46,6 +46,14 @@ export class IncidentType {
   })
   code: string;
 
+  @Column('varchar', {
+    length: LengthDb.code,
+    nullable: true,
+    comment:
+      'Accounting account code (código cuenta contable) used to post the fine amount in the accounting ledger',
+  })
+  accountingAccountCode: string;
+
   @Column('decimal', {
     precision: 5,
     scale: 2,

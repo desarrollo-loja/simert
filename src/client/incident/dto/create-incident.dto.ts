@@ -8,6 +8,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  Matches,
   MaxLength,
 } from 'class-validator';
 import { LengthDb } from 'src/common/glob/length.db';
@@ -155,4 +156,16 @@ export class CreateIncidentDto {
   @IsNumber()
   @IsOptional()
   fractionId?: number;
+
+  /**
+   * Client-supplied registration datetime in `YYYY-MM-DD HH:MM:SS` format
+   * (24-hour, server local time, e.g. `2026-06-06 14:30:05`).
+   * Optional: when omitted, the server fills it with its own local time.
+   */
+  @IsOptional()
+  @IsString()
+  @Matches(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/, {
+    message: 'register debe tener el formato YYYY-MM-DD HH:MM:SS',
+  })
+  register?: string;
 }

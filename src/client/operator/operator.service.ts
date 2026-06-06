@@ -191,7 +191,10 @@ export class OperatorService {
         });
       }
 
-      const register = this.commonService.getDate();
+      // Use the client-supplied registration datetime when present;
+      // otherwise fall back to the server's local time.
+      const register =
+        createIncidentDto.register?.trim() || this.commonService.getDate();
       const incident = this.incidentRepository.create({
         ...createIncidentDto,
         description: createIncidentDto.description ?? '',
