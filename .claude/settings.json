@@ -4,7 +4,21 @@
       "Bash(curl -sS -D - -o /dev/null \"http://181.113.129.20/api/simert/internal/docs\")",
       "Bash(curl -sS -D - -o /dev/null \"http://181.113.129.20/\")",
       "Bash(echo \"EXIT_CODE=$?\")",
-      "Bash(echo \"LINT_EXIT=$?\")"
+      "Bash(echo \"LINT_EXIT=$?\")",
+      "Bash(git -C src/common reflog)",
+      "Bash(git config *)",
+      "Bash(echo \"exit $?\")",
+      "Bash(git -C /Users/angelminga/IdeaProjects/proyecto-kradac/ProyectoClipp/Clipp/simert_project/server/simert submodule status)",
+      "Bash(git -C src/common fetch origin)",
+      "Bash(git -C src/common grep -n \"TRANSFER_SALE_CARD\" origin/main -- glob/type/type_notification.ts)",
+      "Bash(git -C src/common grep -n \"value:\" origin/main -- intefaces/optional-data.interface.ts)",
+      "Bash(git -C src/common grep -nE \"ACRONYMUNIQUE|RANGEUNIQUE\" origin/main -- glob/error.ts)",
+      "Bash(git -C src/common remote set-url origin https://github.com/desarrollo-loja/simert-common.git)",
+      "Bash(git -C src/common checkout d5818837ee8dff57884548475518cb9fd9b1e8e4)",
+      "Bash(git -C src/common log origin/main --oneline -1)",
+      "Bash(git -C src/common checkout origin/main)",
+      "Bash(git -C /Users/angelminga/IdeaProjects/proyecto-kradac/ProyectoClipp/Clipp/simert_project/server/simert status --short src/admin/range src/admin/slot src/admin/support-ticket)",
+      "Bash(git add *)"
     ]
   }
 }
