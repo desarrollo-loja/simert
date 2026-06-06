@@ -53,6 +53,7 @@ describe('CheckboxService', () => {
   let checkboxRepo: ReturnType<typeof buildRepoMock>;
   let checkboxUserRepo: ReturnType<typeof buildRepoMock>;
   let cardRepo: ReturnType<typeof buildRepoMock>;
+  let catalogRepo: ReturnType<typeof buildRepoMock>;
   let commonService: any;
   let commonAuthService: any;
   let commonGimService: any;
@@ -65,6 +66,7 @@ describe('CheckboxService', () => {
     checkboxRepo = buildRepoMock();
     checkboxUserRepo = buildRepoMock();
     cardRepo = buildRepoMock();
+    catalogRepo = buildRepoMock();
     queryRunner = buildQueryRunner();
 
     commonService = {
@@ -89,6 +91,7 @@ describe('CheckboxService', () => {
       checkboxRepo as any,
       checkboxUserRepo as any,
       cardRepo as any,
+      catalogRepo as any,
       commonService,
       commonAuthService,
       commonGimService,

@@ -121,7 +121,7 @@ describe('BlockService', () => {
     it('returns blocks for given zone', async () => {
       repo.__qb.getMany.mockResolvedValueOnce([{ id: 1 }]);
       const result = await service.findAllByfilter(2);
-      expect(repo.__qb.where).toHaveBeenCalledWith('s.zoneId = :zoneId', { zoneId: 2 });
+      expect(repo.__qb.where).toHaveBeenCalledWith('bl.zoneId = :zoneId', { zoneId: 2 });
       expect(result).toEqual({ blocks: [{ id: 1 }] });
     });
 
@@ -142,10 +142,10 @@ describe('BlockService', () => {
     it('applies search and zoneId filters', async () => {
       repo.__qb.getMany.mockResolvedValueOnce([]);
       await service.findAllByFilterParking(1, { search: 'q', zoneId: 2 } as any);
-      expect(repo.__qb.andWhere).toHaveBeenCalledWith('s.name ILIKE :search', {
+      expect(repo.__qb.andWhere).toHaveBeenCalledWith('bl.name ILIKE :search', {
         search: '%q%',
       });
-      expect(repo.__qb.andWhere).toHaveBeenCalledWith('s.zoneId = :zoneId', { zoneId: 2 });
+      expect(repo.__qb.andWhere).toHaveBeenCalledWith('bl.zoneId = :zoneId', { zoneId: 2 });
     });
 
     it('returns empty list when no blocks', async () => {

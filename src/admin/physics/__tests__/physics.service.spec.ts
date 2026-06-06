@@ -24,6 +24,8 @@ const buildQbMock = () => ({
 const buildRepoMock = () => {
   const qb = buildQbMock();
   return {
+    // findAll runs a raw SQL string via repository.query (no QueryBuilder).
+    query: jest.fn(),
     createQueryBuilder: jest.fn(() => qb),
     __qb: qb,
   };
@@ -42,17 +44,20 @@ describe('PhysicsService', () => {
 
   describe('findAll', () => {
     it('applies default pagination and returns rows', async () => {
-      repo.__qb.getMany.mockResolvedValueOnce([{ id: 1 }]);
+      repo.query.mockResolvedValueOnce([{ id: 1 }]);
 
       const result = await service.findAll({} as any);
 
-      expect(repo.__qb.take).toHaveBeenCalledWith(20);
-      expect(repo.__qb.skip).toHaveBeenCalledWith(0);
+      // No filters: only LIMIT/OFFSET parameters ($1, $2 => 20, 0).
+      const [sql, params] = repo.query.mock.calls[0];
+      expect(sql).not.toContain('WHERE');
+      expect(sql).toContain('LIMIT $1 OFFSET $2');
+      expect(params).toEqual([20, 0]);
       expect(result).toEqual({ errorCode: ErrorCode.NONE, physics: [{ id: 1 }] });
     });
 
     it('appends ALL filters and overrides pagination', async () => {
-      repo.__qb.getMany.mockResolvedValueOnce([]);
+      repo.query.mockResolvedValueOnce([]);
 
       await service.findAll({
         userId: 1,
@@ -64,19 +69,19 @@ describe('PhysicsService', () => {
         offset: 5,
       } as any);
 
-      expect(repo.__qb.andWhere).toHaveBeenCalled();
-      const condArg = (repo.__qb.andWhere as jest.Mock).mock.calls[0][0];
-      expect(condArg).toContain('p.userId = :userId');
-      expect(condArg).toContain('p.zoneId = :zoneId');
-      expect(condArg).toContain('p.card ILIKE :search');
-      expect(condArg).toContain('DATE(p.registerAt) = :dateFrom');
-      expect(condArg).toContain('p.timeByBlock = :timeByBlock');
-      expect(repo.__qb.take).toHaveBeenCalledWith(50);
-      expect(repo.__qb.skip).toHaveBeenCalledWith(5);
+      const [sql, params] = repo.query.mock.calls[0];
+      expect(sql).toContain('p."userId" = $1');
+      expect(sql).toContain('p."zoneId" = $2');
+      expect(sql).toContain('p."card" = $3');
+      expect(sql).toContain('DATE(p."registerAt") = $4');
+      expect(sql).toContain('p."timeByBlock" = $5');
+      // LIMIT/OFFSET placeholders follow the 5 filter parameters.
+      expect(sql).toContain('LIMIT $6 OFFSET $7');
+      expect(params).toEqual([1, 2, 'card-x', '2026-01-01', 'hour', 50, 5]);
     });
 
     it('routes errors through handleDbExceptions', async () => {
-      repo.__qb.getMany.mockRejectedValueOnce(new Error('e'));
+      repo.query.mockRejectedValueOnce(new Error('e'));
       await expect(service.findAll({} as any)).rejects.toThrow('e');
     });
   });

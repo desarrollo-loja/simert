@@ -22,8 +22,10 @@ const buildQb = () => ({
   take: jest.fn().mockReturnThis(),
   skip: jest.fn().mockReturnThis(),
   getMany: jest.fn(),
-  getCount: jest.fn(),
+  getCount: jest.fn().mockResolvedValue(0),
   getRawMany: jest.fn(),
+  getRawOne: jest.fn(),
+  getRawAndEntities: jest.fn(),
 });
 
 const buildRepo = () => {
@@ -67,7 +69,10 @@ describe('SlotService', () => {
       expect(loggerService.saveSlotLogger).toHaveBeenCalledWith(
         expect.objectContaining({ userId: 1, typeOperation: TypeOperation.CREATE }),
       );
-      expect(result).toEqual({ slot: { id: 1, slot: 'A1' } });
+      expect(result).toEqual({
+        errorCode: ErrorCode.NONE,
+        slot: { id: 1, slot: 'A1' },
+      });
     });
 
     it('routes errors through handleDbExceptions', async () => {
@@ -118,7 +123,7 @@ describe('SlotService', () => {
       const result = await service.update(1, 1, {} as any);
       expect(repo.save).toHaveBeenCalled();
       expect(loggerService.saveSlotLogger).toHaveBeenCalled();
-      expect(result).toEqual({ slot: { id: 1 } });
+      expect(result).toEqual({ errorCode: ErrorCode.NONE, slot: { id: 1 } });
     });
 
     it('returns undefined when preload yields nothing', async () => {
@@ -189,13 +194,19 @@ describe('SlotService', () => {
 
   describe('findAllSlotBlockParking', () => {
     it('returns NOT_FOUND when no slots match', async () => {
-      repo.__qb.getMany.mockResolvedValueOnce([]);
+      repo.__qb.getRawAndEntities.mockResolvedValueOnce({
+        entities: [],
+        raw: [],
+      });
       const result = await service.findAllSlotBlockParking(1, 1, {} as any);
       expect(result).toEqual({ errorCode: ErrorCode.NOT_FOUND, slot: [] });
     });
 
     it('returns slots when found and applies all filters', async () => {
-      repo.__qb.getMany.mockResolvedValueOnce([{ id: 1 }]);
+      repo.__qb.getRawAndEntities.mockResolvedValueOnce({
+        entities: [{ id: 1 }],
+        raw: [],
+      });
       const result = await service.findAllSlotBlockParking(1, 1, {
         search: 'q',
         typeSlot: 2 as any,
@@ -204,19 +215,22 @@ describe('SlotService', () => {
       expect(result).toEqual({ errorCode: ErrorCode.NONE, slot: [{ id: 1 }] });
       expect(repo.__qb.andWhere).toHaveBeenCalledWith('s.blockId = :blockId', { blockId: 1 });
       expect(repo.__qb.andWhere).toHaveBeenCalledWith('s.zoneId = :zoneId', { zoneId: 1 });
-      expect(repo.__qb.andWhere).toHaveBeenCalledWith('s.slot ILIKE :search', { search: '%q%' });
+      expect(repo.__qb.andWhere).toHaveBeenCalledWith('s.slot ILIKE :search', { search: 'q%' });
       expect(repo.__qb.andWhere).toHaveBeenCalledWith('s.typeSlot = :typeSlot', { typeSlot: 2 });
       expect(repo.__qb.andWhere).toHaveBeenCalledWith('s.status = :statusSlot', { statusSlot: 3 });
     });
 
     it('handles undefined filterDto', async () => {
-      repo.__qb.getMany.mockResolvedValueOnce([{ id: 1 }]);
+      repo.__qb.getRawAndEntities.mockResolvedValueOnce({
+        entities: [{ id: 1 }],
+        raw: [],
+      });
       const result = await service.findAllSlotBlockParking(0, 0);
       expect(result?.errorCode).toBe(ErrorCode.NONE);
     });
 
     it('routes errors through handleDbExceptions', async () => {
-      repo.__qb.getMany.mockRejectedValueOnce(new Error('e'));
+      repo.__qb.getRawAndEntities.mockRejectedValueOnce(new Error('e'));
       await expect(service.findAllSlotBlockParking(1, 1, {} as any)).rejects.toThrow('e');
     });
   });

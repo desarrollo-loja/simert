@@ -131,7 +131,7 @@ describe('FractionService', () => {
       const result = await service.findAll({ year: 2026, month: 3 } as any);
 
       expect(result?.fractions).toEqual([{ id: 9 }]);
-      expect(repo.query.mock.calls[1][0]).toContain('history.2026_03_fraction');
+      expect(repo.query.mock.calls[1][0]).toContain('history."2026_03_fraction"');
     });
 
     it('returns empty fractions when historical table missing', async () => {
@@ -422,7 +422,7 @@ describe('FractionService', () => {
         blockId: 3,
         slotId: 4,
         userId: 5,
-        typeSlot: '7',
+        typeSlot: 7,
         dateFrom: '2026-01-01',
         dateTo: '2026-01-31',
       });

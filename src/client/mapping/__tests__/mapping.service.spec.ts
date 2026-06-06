@@ -88,7 +88,7 @@ describe('MappingService', () => {
 
       const result: any = await service.findAllBlock({ search: 'q' } as any);
 
-      expect(blockRepo.__qb.where).toHaveBeenCalledWith('bl.name ILIKE :search', {
+      expect(blockRepo.__qb.andWhere).toHaveBeenCalledWith('bl.name ILIKE :search', {
         search: '%q%',
       });
       expect(result.errorCode).toBe(ErrorCode.NONE);

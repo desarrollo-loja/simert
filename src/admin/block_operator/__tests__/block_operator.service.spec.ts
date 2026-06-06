@@ -21,6 +21,7 @@ const buildQb = () => ({
   addGroupBy: jest.fn().mockReturnThis(),
   getMany: jest.fn(),
   getRawMany: jest.fn(),
+  getRawAndEntities: jest.fn(),
 });
 
 const buildRepo = () => {
@@ -70,27 +71,38 @@ describe('BlockOperatorService', () => {
 
   describe('findAll', () => {
     it('queries by blockId and date and returns NONE', async () => {
-      repo.__qb.getMany.mockResolvedValueOnce([{ id: 1 }]);
+      repo.__qb.getRawAndEntities.mockResolvedValueOnce({
+        entities: [{ id: 1 }],
+        raw: [{}],
+      });
       const result = await service.findAll({ blockId: 1, date: '2026-01-01' } as any);
       expect(repo.__qb.where).toHaveBeenCalledWith('bo.blockId = :blockId', { blockId: 1 });
-      expect(result).toEqual({ errorCode: ErrorCode.NONE, blockOperators: [{ id: 1 }] });
+      expect(result).toEqual({
+        errorCode: ErrorCode.NONE,
+        blockOperators: [
+          { id: 1, from: null, to: null, dateInitialized: null, dateFinalized: null },
+        ],
+      });
     });
 
     it('adds userId filter when provided', async () => {
-      repo.__qb.getMany.mockResolvedValueOnce([]);
+      repo.__qb.getRawAndEntities.mockResolvedValueOnce({ entities: [], raw: [] });
       await service.findAll({ blockId: 1, date: '2026-01-01', userId: 9 } as any);
       expect(repo.__qb.andWhere).toHaveBeenCalledWith('bo.userId = :userId', { userId: 9 });
     });
 
     it('routes errors', async () => {
-      repo.__qb.getMany.mockRejectedValueOnce(new Error('e'));
+      repo.__qb.getRawAndEntities.mockRejectedValueOnce(new Error('e'));
       await expect(service.findAll({} as any)).rejects.toThrow('e');
     });
   });
 
   describe('findAllActiveByUserId', () => {
     it('queries with defaults', async () => {
-      repo.__qb.getMany.mockResolvedValueOnce([{ id: 1 }]);
+      repo.__qb.getRawAndEntities.mockResolvedValueOnce({
+        entities: [{ id: 1 }],
+        raw: [{}],
+      });
       const result = await service.findAllActiveByUserId({ userId: 1 } as any);
       expect(repo.__qb.where).toHaveBeenCalledWith('bo.userId = :userId', { userId: 1 });
       expect(repo.__qb.andWhere).toHaveBeenCalledWith(
@@ -101,11 +113,14 @@ describe('BlockOperatorService', () => {
         'bo.isFinalized = :isFinalized',
         { isFinalized: false },
       );
-      expect(result).toEqual({ errorCode: ErrorCode.NONE, blockOperators: [{ id: 1 }] });
+      expect(result).toEqual({
+        errorCode: ErrorCode.NONE,
+        blockOperators: [{ id: 1, from: null, to: null }],
+      });
     });
 
     it('uses provided isInitialized/isFinalized', async () => {
-      repo.__qb.getMany.mockResolvedValueOnce([]);
+      repo.__qb.getRawAndEntities.mockResolvedValueOnce({ entities: [], raw: [] });
       await service.findAllActiveByUserId({
         userId: 1,
         isInitialized: true,
@@ -118,21 +133,24 @@ describe('BlockOperatorService', () => {
     });
 
     it('routes errors', async () => {
-      repo.__qb.getMany.mockRejectedValueOnce(new Error('e'));
+      repo.__qb.getRawAndEntities.mockRejectedValueOnce(new Error('e'));
       await expect(service.findAllActiveByUserId({} as any)).rejects.toThrow('e');
     });
   });
 
   describe('findAllByBlockId', () => {
     it('queries with blockId only', async () => {
-      repo.__qb.getMany.mockResolvedValueOnce([{ id: 1 }]);
+      repo.__qb.getRawAndEntities.mockResolvedValueOnce({
+        entities: [{ id: 1 }],
+        raw: [{}],
+      });
       const result = await service.findAllByBlockId({ blockId: 1 } as any);
       expect(repo.__qb.where).toHaveBeenCalledWith('bo.blockId = :blockId', { blockId: 1 });
       expect(result.errorCode).toBe(ErrorCode.NONE);
     });
 
     it('appends dateFrom and dateTo filters', async () => {
-      repo.__qb.getMany.mockResolvedValueOnce([]);
+      repo.__qb.getRawAndEntities.mockResolvedValueOnce({ entities: [], raw: [] });
       await service.findAllByBlockId({
         blockId: 1,
         dateFrom: '2026-01-01',
@@ -149,7 +167,7 @@ describe('BlockOperatorService', () => {
     });
 
     it('routes errors', async () => {
-      repo.__qb.getMany.mockRejectedValueOnce(new Error('e'));
+      repo.__qb.getRawAndEntities.mockRejectedValueOnce(new Error('e'));
       await expect(service.findAllByBlockId({} as any)).rejects.toThrow('e');
     });
   });

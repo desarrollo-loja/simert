@@ -3,6 +3,7 @@ import { TypeOperation } from 'src/common/glob/type/type_operation';
 
 jest.mock('src/common/exceptions/error.db.exception', () => ({
   __esModule: true,
+  PG_UNIQUE_VIOLATION: '23505',
   default: jest.fn((error: any) => {
     throw error;
   }),
@@ -18,6 +19,7 @@ const buildQb = () => ({
   limit: jest.fn().mockReturnThis(),
   offset: jest.fn().mockReturnThis(),
   andWhere: jest.fn().mockReturnThis(),
+  getCount: jest.fn().mockResolvedValue(0),
   getRawMany: jest.fn(),
 });
 
@@ -70,6 +72,7 @@ describe('CatalogService', () => {
       expect(result).toEqual({
         errorCode: ErrorCode.NONE,
         catalog: [{ id: 1 }],
+        total: 0,
         offset: 0,
         limit: 20,
       });
@@ -78,9 +81,12 @@ describe('CatalogService', () => {
     it('applies search and custom pagination', async () => {
       repo.__qb.getRawMany.mockResolvedValueOnce([]);
       await service.findAll({ search: 'foo', limit: 5, offset: 2 } as any);
-      expect(repo.__qb.andWhere).toHaveBeenCalledWith('c.name ILIKE :search', {
-        search: '%foo%',
-      });
+      expect(repo.__qb.andWhere).toHaveBeenCalledWith(
+        '(c.name ILIKE :search OR c.description ILIKE :search)',
+        {
+          search: '%foo%',
+        },
+      );
       expect(repo.__qb.limit).toHaveBeenCalledWith(5);
       expect(repo.__qb.offset).toHaveBeenCalledWith(2);
     });

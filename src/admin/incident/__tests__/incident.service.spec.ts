@@ -695,7 +695,12 @@ describe('IncidentService', () => {
     });
 
     it('builds clauses for every supported filter', async () => {
-      repo.query.mockResolvedValueOnce([{}]);
+      // With a date range, findStatistics builds the FROM source via
+      // _buildIncidentRangeSource, which first probes _tableExists (call[0]).
+      // Make the archive exist so the aggregation query runs (call[1]).
+      repo.query
+        .mockResolvedValueOnce([{ exists: true }]) // _tableExists -> true
+        .mockResolvedValueOnce([{}]); // statistics query
 
       await service.findStatistics({
         search: 'q',
@@ -710,7 +715,7 @@ describe('IncidentService', () => {
         incidentCategory: 7,
       } as any);
 
-      const [sql, params] = repo.query.mock.calls[0];
+      const [sql, params] = repo.query.mock.calls[1];
       expect(sql).toContain('i."incidentTypeId" =');
       expect(sql).toContain('i."statusIncident" =');
       expect(sql).toContain('i."zoneId" =');
@@ -718,11 +723,10 @@ describe('IncidentService', () => {
       expect(sql).toContain('i."controllerId" =');
       expect(sql).toContain('i."blockOperatorId" =');
       expect(sql).toContain('i."incidentCategory" =');
-      expect(sql).toContain('DATE(i."createdAt") BETWEEN');
+      // Production filters createdAt with a UTC-converted range (no DATE() wrap).
+      expect(sql).toContain('i."createdAt" BETWEEN');
       expect(params).toContain(1);
       expect(params).toContain(2);
-      expect(params).toContain('2026-01-01');
-      expect(params).toContain('2026-01-31');
     });
 
     it('search clause includes fullNameClient among the OR branches', async () => {

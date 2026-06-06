@@ -30,6 +30,8 @@ const buildQb = (overrides: Partial<Record<string, any>> = {}) => {
     skip: jest.fn().mockReturnThis(),
     getOne: jest.fn(),
     getMany: jest.fn(),
+    getRawOne: jest.fn(),
+    getCount: jest.fn(),
     getRawAndEntities: jest.fn(),
     ...overrides,
   };

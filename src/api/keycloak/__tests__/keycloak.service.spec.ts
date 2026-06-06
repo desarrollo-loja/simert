@@ -1,5 +1,3 @@
-import { HttpException, HttpStatus } from '@nestjs/common';
-
 import { ErrorCode } from 'src/common/glob/error';
 
 jest.mock('axios', () => ({
@@ -135,7 +133,7 @@ describe('KeycloakService', () => {
       });
       const result = await service.createUser({} as any);
       expect(result.errorCode).toBe(ErrorCode.NONE);
-      expect(result.userId).toBe('uuid-1');
+      expect((result as any).userId).toBe('uuid-1');
     });
 
     it('returns NOT_FOUND when Location header is missing', async () => {
@@ -145,8 +143,11 @@ describe('KeycloakService', () => {
     });
 
     it('throws an HttpException via throwKeycloakError when axios fails', async () => {
+      // Production no longer throws: failures are returned as an { errorCode } envelope.
+      // A 409 conflict maps to ErrorCode.RESPONSE.
       (axios.post as jest.Mock).mockRejectedValueOnce({ response: { status: 409 } });
-      await expect(service.createUser({} as any)).rejects.toThrow(HttpException);
+      const result = await service.createUser({} as any);
+      expect(result.errorCode).toBe(ErrorCode.RESPONSE);
     });
   });
 
@@ -162,7 +163,7 @@ describe('KeycloakService', () => {
         headers: { location: 'http://kc/admin/realms/m/users/uuid-9' },
       });
       const result = await service.createUserMunicipality({} as any);
-      expect(result.userId).toBe('uuid-9');
+      expect((result as any).userId).toBe('uuid-9');
     });
 
     it('returns NOT_FOUND when Location header is missing', async () => {
@@ -172,8 +173,10 @@ describe('KeycloakService', () => {
     });
 
     it('routes errors through throwKeycloakError', async () => {
+      // Failures are returned, not thrown; a 500 maps to ErrorCode.RESPONSE.
       (axios.post as jest.Mock).mockRejectedValueOnce({ response: { status: 500 } });
-      await expect(service.createUserMunicipality({} as any)).rejects.toThrow(HttpException);
+      const result = await service.createUserMunicipality({} as any);
+      expect(result.errorCode).toBe(ErrorCode.RESPONSE);
     });
   });
 
@@ -192,8 +195,10 @@ describe('KeycloakService', () => {
     });
 
     it('routes errors through throwKeycloakError', async () => {
+      // Failures are returned, not thrown; a 401 maps to ErrorCode.UNAUTHORIZED.
       (axios.put as jest.Mock).mockRejectedValueOnce({ response: { status: 401 } });
-      await expect(service.updateUser('id', {} as any)).rejects.toThrow(HttpException);
+      const result = await service.updateUser('id', {} as any);
+      expect(result.errorCode).toBe(ErrorCode.UNAUTHORIZED);
     });
   });
 
@@ -211,8 +216,10 @@ describe('KeycloakService', () => {
     });
 
     it('routes errors through throwKeycloakError', async () => {
+      // A plain error (no response, no connection code) defaults to status 500 -> ErrorCode.RESPONSE.
       (axios.put as jest.Mock).mockRejectedValueOnce(new Error('net'));
-      await expect(service.updateUserMunicipality('id', {} as any)).rejects.toThrow(HttpException);
+      const result = await service.updateUserMunicipality('id', {} as any);
+      expect(result.errorCode).toBe(ErrorCode.RESPONSE);
     });
   });
 
@@ -228,7 +235,7 @@ describe('KeycloakService', () => {
       (axios.put as jest.Mock).mockResolvedValueOnce({});
       const result = await service.setUserStatus('id', false);
       expect(result.errorCode).toBe(ErrorCode.NONE);
-      expect(result.enabled).toBe(false);
+      expect((result as any).enabled).toBe(false);
       expect(result.message).toBe('Cuenta deshabilitada exitosamente');
     });
 
@@ -236,7 +243,7 @@ describe('KeycloakService', () => {
       (axios.put as jest.Mock).mockResolvedValueOnce({});
       const result = await service.setUserStatus('id', true);
       expect(result.errorCode).toBe(ErrorCode.NONE);
-      expect(result.enabled).toBe(true);
+      expect((result as any).enabled).toBe(true);
       expect(result.message).toBe('Cuenta habilitada exitosamente');
     });
 
@@ -251,8 +258,10 @@ describe('KeycloakService', () => {
     });
 
     it('routes errors through throwKeycloakError', async () => {
+      // Failures are returned, not thrown; a 500 maps to ErrorCode.RESPONSE.
       (axios.put as jest.Mock).mockRejectedValueOnce({ response: { status: 500 } });
-      await expect(service.setUserStatus('id', false)).rejects.toThrow(HttpException);
+      const result = await service.setUserStatus('id', false);
+      expect(result.errorCode).toBe(ErrorCode.RESPONSE);
     });
   });
 
@@ -267,7 +276,7 @@ describe('KeycloakService', () => {
       (axios.put as jest.Mock).mockResolvedValueOnce({});
       const result = await service.setUserStatusMunicipality('id', false);
       expect(result.errorCode).toBe(ErrorCode.NONE);
-      expect(result.enabled).toBe(false);
+      expect((result as any).enabled).toBe(false);
       expect(result.message).toBe('Cuenta deshabilitada exitosamente');
     });
 
@@ -275,7 +284,7 @@ describe('KeycloakService', () => {
       (axios.put as jest.Mock).mockResolvedValueOnce({});
       const result = await service.setUserStatusMunicipality('id', true);
       expect(result.errorCode).toBe(ErrorCode.NONE);
-      expect(result.enabled).toBe(true);
+      expect((result as any).enabled).toBe(true);
       expect(result.message).toBe('Cuenta habilitada exitosamente');
     });
 
@@ -290,8 +299,10 @@ describe('KeycloakService', () => {
     });
 
     it('routes errors through throwKeycloakError', async () => {
+      // A plain error defaults to status 500 -> ErrorCode.RESPONSE.
       (axios.put as jest.Mock).mockRejectedValueOnce(new Error('net'));
-      await expect(service.setUserStatusMunicipality('id', false)).rejects.toThrow(HttpException);
+      const result = await service.setUserStatusMunicipality('id', false);
+      expect(result.errorCode).toBe(ErrorCode.RESPONSE);
     });
   });
 
@@ -322,8 +333,10 @@ describe('KeycloakService', () => {
     });
 
     it('routes errors through throwKeycloakError', async () => {
+      // Failures are returned, not thrown; a 401 invalid_grant maps to ErrorCode.UNAUTHORIZED.
       (axios.get as jest.Mock).mockRejectedValueOnce({ response: { status: 401, data: { error: 'invalid_grant' } } });
-      await expect(service.findByUsername('u')).rejects.toThrow(HttpException);
+      const result = await service.findByUsername('u');
+      expect(result.errorCode).toBe(ErrorCode.UNAUTHORIZED);
     });
 
     it('Municipality: NOT_FOUND when token missing', async () => {
@@ -342,8 +355,10 @@ describe('KeycloakService', () => {
     });
 
     it('Municipality: routes errors through throwKeycloakError', async () => {
+      // A plain error defaults to status 500 -> ErrorCode.RESPONSE.
       (axios.get as jest.Mock).mockRejectedValueOnce(new Error('net'));
-      await expect(service.findByUsernameMunicipality('u')).rejects.toThrow(HttpException);
+      const result = await service.findByUsernameMunicipality('u');
+      expect(result.errorCode).toBe(ErrorCode.RESPONSE);
     });
   });
 
@@ -366,10 +381,12 @@ describe('KeycloakService', () => {
     });
 
     it('throws on invalid_grant', async () => {
+      // Failures are returned, not thrown; a 401 invalid_grant maps to ErrorCode.UNAUTHORIZED.
       (axios.post as jest.Mock).mockRejectedValueOnce({
         response: { status: 401, data: { error: 'invalid_grant' } },
       });
-      await expect(service.loginClient({ username: 'u', password: 'p' } as any)).rejects.toThrow(HttpException);
+      const result = await service.loginClient({ username: 'u', password: 'p' } as any);
+      expect(result.errorCode).toBe(ErrorCode.UNAUTHORIZED);
     });
   });
 
@@ -383,8 +400,10 @@ describe('KeycloakService', () => {
     });
 
     it('throws on connection error', async () => {
+      // Connection errors are returned, not thrown; ECONNREFUSED maps to ErrorCode.RESPONSE.
       (axios.post as jest.Mock).mockRejectedValueOnce({ code: 'ECONNREFUSED' });
-      await expect(service.loginClientMunicipality({ username: 'u', password: 'p' } as any)).rejects.toThrow(HttpException);
+      const result = await service.loginClientMunicipality({ username: 'u', password: 'p' } as any);
+      expect(result.errorCode).toBe(ErrorCode.RESPONSE);
     });
   });
 
@@ -407,8 +426,10 @@ describe('KeycloakService', () => {
     });
 
     it('routes errors through throwKeycloakError', async () => {
+      // A plain error defaults to status 500 -> ErrorCode.RESPONSE.
       (axios.get as jest.Mock).mockRejectedValueOnce(new Error('e'));
-      await expect(service.findByEmail('a@b')).rejects.toThrow(HttpException);
+      const result = await service.findByEmail('a@b');
+      expect(result.errorCode).toBe(ErrorCode.RESPONSE);
     });
 
     it('Municipality: NOT_FOUND when token missing', async () => {
@@ -427,8 +448,10 @@ describe('KeycloakService', () => {
     });
 
     it('Municipality: routes errors through throwKeycloakError', async () => {
+      // A plain error defaults to status 500 -> ErrorCode.RESPONSE.
       (axios.get as jest.Mock).mockRejectedValueOnce(new Error('e'));
-      await expect(service.findByEmailMunicipality('a@b')).rejects.toThrow(HttpException);
+      const result = await service.findByEmailMunicipality('a@b');
+      expect(result.errorCode).toBe(ErrorCode.RESPONSE);
     });
   });
 
@@ -471,7 +494,7 @@ describe('KeycloakService', () => {
 
       const result = await service.setUserPassword('a@b.c');
       expect(result.errorCode).toBe(ErrorCode.NONE);
-      expect(result.emailSent).toBe(true);
+      expect((result as any).emailSent).toBe(true);
     });
 
     it('returns RESPONSE when email dispatch fails', async () => {
@@ -481,7 +504,7 @@ describe('KeycloakService', () => {
 
       const result = await service.setUserPassword('a@b.c');
       expect(result.errorCode).toBe(ErrorCode.RESPONSE);
-      expect(result.emailSent).toBe(false);
+      expect((result as any).emailSent).toBe(false);
     });
 
     it('returns RESPONSE when DOMINIO_AUTH is missing', async () => {
@@ -503,8 +526,10 @@ describe('KeycloakService', () => {
     });
 
     it('routes errors through throwKeycloakError when axios get fails', async () => {
+      // Failures are returned, not thrown; a 500 maps to ErrorCode.RESPONSE.
       (axios.get as jest.Mock).mockRejectedValueOnce({ response: { status: 500 } });
-      await expect(service.setUserPassword('a@b.c')).rejects.toThrow(HttpException);
+      const result = await service.setUserPassword('a@b.c');
+      expect(result.errorCode).toBe(ErrorCode.RESPONSE);
     });
   });
 
@@ -565,8 +590,10 @@ describe('KeycloakService', () => {
     });
 
     it('routes errors through throwKeycloakError', async () => {
+      // Failures are returned, not thrown; a 500 maps to ErrorCode.RESPONSE.
       (axios.get as jest.Mock).mockRejectedValueOnce({ response: { status: 500 } });
-      await expect(service.setUserPasswordMunicipality('a@b.c')).rejects.toThrow(HttpException);
+      const result = await service.setUserPasswordMunicipality('a@b.c');
+      expect(result.errorCode).toBe(ErrorCode.RESPONSE);
     });
   });
 
@@ -599,12 +626,14 @@ describe('KeycloakService', () => {
 
       const result = await service.changePassword('a@b.c', 'pw');
       expect(result.errorCode).toBe(ErrorCode.NONE);
-      expect(result.userId).toBe('uid');
+      expect((result as any).userId).toBe('uid');
     });
 
     it('routes errors through throwKeycloakError', async () => {
+      // Failures are returned, not thrown; a 500 maps to ErrorCode.RESPONSE.
       (axios.get as jest.Mock).mockRejectedValueOnce({ response: { status: 500 } });
-      await expect(service.changePassword('a@b.c', 'pw')).rejects.toThrow(HttpException);
+      const result = await service.changePassword('a@b.c', 'pw');
+      expect(result.errorCode).toBe(ErrorCode.RESPONSE);
     });
   });
 
@@ -637,12 +666,14 @@ describe('KeycloakService', () => {
 
       const result = await service.changePasswordMunicipality('a@b.c', 'pw');
       expect(result.errorCode).toBe(ErrorCode.NONE);
-      expect(result.userId).toBe('uid-m');
+      expect((result as any).userId).toBe('uid-m');
     });
 
     it('routes errors through throwKeycloakError', async () => {
+      // Failures are returned, not thrown; a 500 maps to ErrorCode.RESPONSE.
       (axios.get as jest.Mock).mockRejectedValueOnce({ response: { status: 500 } });
-      await expect(service.changePasswordMunicipality('a@b.c', 'pw')).rejects.toThrow(HttpException);
+      const result = await service.changePasswordMunicipality('a@b.c', 'pw');
+      expect(result.errorCode).toBe(ErrorCode.RESPONSE);
     });
   });
 
@@ -664,8 +695,10 @@ describe('KeycloakService', () => {
     });
 
     it('routes errors through throwKeycloakError', async () => {
+      // A plain error defaults to status 500 -> ErrorCode.RESPONSE.
       (axios.get as jest.Mock).mockRejectedValueOnce(new Error('e'));
-      await expect(service.findByIdentification('1')).rejects.toThrow(HttpException);
+      const result = await service.findByIdentification('1');
+      expect(result.errorCode).toBe(ErrorCode.RESPONSE);
     });
 
     it('Municipality: NOT_FOUND when token unavailable', async () => {
@@ -684,8 +717,10 @@ describe('KeycloakService', () => {
     });
 
     it('Municipality: routes errors through throwKeycloakError', async () => {
+      // A plain error defaults to status 500 -> ErrorCode.RESPONSE.
       (axios.get as jest.Mock).mockRejectedValueOnce(new Error('e'));
-      await expect(service.findByIdentificationMunicipality('1')).rejects.toThrow(HttpException);
+      const result = await service.findByIdentificationMunicipality('1');
+      expect(result.errorCode).toBe(ErrorCode.RESPONSE);
     });
   });
 
@@ -704,8 +739,10 @@ describe('KeycloakService', () => {
     });
 
     it('routes errors through throwKeycloakError', async () => {
+      // Failures are returned, not thrown; a 500 maps to ErrorCode.RESPONSE.
       (axios.put as jest.Mock).mockRejectedValueOnce({ response: { status: 500 } });
-      await expect(service.executeActionsEmail('u')).rejects.toThrow(HttpException);
+      const result = await service.executeActionsEmail('u');
+      expect(result?.errorCode).toBe(ErrorCode.RESPONSE);
     });
 
     it('Municipality: returns NOT_FOUND when token unavailable', async () => {
@@ -721,75 +758,73 @@ describe('KeycloakService', () => {
     });
 
     it('Municipality: routes errors through throwKeycloakError', async () => {
+      // Connection errors are returned, not thrown; ETIMEDOUT maps to ErrorCode.RESPONSE.
       (axios.put as jest.Mock).mockRejectedValueOnce({ code: 'ETIMEDOUT' });
-      await expect(service.executeActionsEmailMunicipality('u')).rejects.toThrow(HttpException);
+      const result = await service.executeActionsEmailMunicipality('u');
+      expect(result.errorCode).toBe(ErrorCode.RESPONSE);
     });
   });
 
   // ─── throwKeycloakError branches ─────────────────────────────────────────
+  // Production no longer throws an HttpException. `_buildKeycloakError` *returns*
+  // a normalized `{ errorCode, message }` envelope so the HTTP status stays 2xx
+  // and the client reads the outcome from `errorCode`. These tests therefore
+  // assert the returned `errorCode` instead of a thrown status.
   describe('throwKeycloakError branches', () => {
-    const fire = (err: any) => {
-      try {
-        (service as any).throwKeycloakError('ctx', err);
-      } catch (e) {
-        return e;
-      }
-    };
+    const fire = (err: any): { errorCode: ErrorCode; message: string } =>
+      (service as any)._buildKeycloakError('ctx', err);
 
     it('maps connection errors to GATEWAY_TIMEOUT (ECONNABORTED)', () => {
-      const e = fire({ code: 'ECONNABORTED' }) as HttpException;
-      expect(e.getStatus()).toBe(HttpStatus.GATEWAY_TIMEOUT);
+      expect(fire({ code: 'ECONNABORTED' }).errorCode).toBe(ErrorCode.RESPONSE);
     });
 
     it('maps connection errors to GATEWAY_TIMEOUT (ETIMEDOUT)', () => {
-      const e = fire({ code: 'ETIMEDOUT' }) as HttpException;
-      expect(e.getStatus()).toBe(HttpStatus.GATEWAY_TIMEOUT);
+      expect(fire({ code: 'ETIMEDOUT' }).errorCode).toBe(ErrorCode.RESPONSE);
     });
 
     it('maps connection errors to GATEWAY_TIMEOUT (ENOTFOUND)', () => {
-      const e = fire({ code: 'ENOTFOUND' }) as HttpException;
-      expect(e.getStatus()).toBe(HttpStatus.GATEWAY_TIMEOUT);
+      expect(fire({ code: 'ENOTFOUND' }).errorCode).toBe(ErrorCode.RESPONSE);
     });
 
     it('maps 401 invalid_grant to UNAUTHORIZED with credentials message', () => {
-      const e = fire({ response: { status: 401, data: { error: 'invalid_grant' } } }) as HttpException;
-      expect(e.getStatus()).toBe(HttpStatus.UNAUTHORIZED);
+      const result = fire({ response: { status: 401, data: { error: 'invalid_grant' } } });
+      expect(result.errorCode).toBe(ErrorCode.UNAUTHORIZED);
+      expect(result.message).toMatch(/credenciales incorrectas/i);
     });
 
     it('maps generic 401 to UNAUTHORIZED', () => {
-      const e = fire({ response: { status: 401, data: {} } }) as HttpException;
-      expect(e.getStatus()).toBe(HttpStatus.UNAUTHORIZED);
+      expect(fire({ response: { status: 401, data: {} } }).errorCode).toBe(ErrorCode.UNAUTHORIZED);
     });
 
     it('maps 500 to BAD_GATEWAY', () => {
-      const e = fire({ response: { status: 500 } }) as HttpException;
-      expect(e.getStatus()).toBe(HttpStatus.BAD_GATEWAY);
+      expect(fire({ response: { status: 500 } }).errorCode).toBe(ErrorCode.RESPONSE);
     });
 
     it('maps 409 to CONFLICT', () => {
-      const e = fire({ response: { status: 409 } }) as HttpException;
-      expect(e.getStatus()).toBe(HttpStatus.CONFLICT);
+      expect(fire({ response: { status: 409 } }).errorCode).toBe(ErrorCode.RESPONSE);
     });
 
     it('maps "Account disabled" message to FORBIDDEN', () => {
-      const e = fire({ response: { status: 400, data: { message: 'Account disabled' } } }) as HttpException;
-      expect(e.getStatus()).toBe(HttpStatus.FORBIDDEN);
+      const result = fire({ response: { status: 400, data: { message: 'Account disabled' } } });
+      expect(result.errorCode).toBe(ErrorCode.UNAUTHORIZED);
+      expect(result.message).toMatch(/deshabilitada/i);
     });
 
     it('falls back to response.data.error when message missing', () => {
-      const e = fire({ response: { status: 400, data: { error: 'something' } } }) as HttpException;
-      expect(e.getStatus()).toBe(400);
+      // Unhandled status (400) with only an `error` field falls through to the
+      // generic RESPONSE envelope.
+      expect(fire({ response: { status: 400, data: { error: 'something' } } }).errorCode).toBe(ErrorCode.RESPONSE);
     });
 
     it('falls back to error.message when no response data (becomes BAD_GATEWAY via 500 path)', () => {
-      // No response => default status 500 => mapped to BAD_GATEWAY
-      const e = fire({ message: 'plain message' }) as HttpException;
-      expect(e.getStatus()).toBe(HttpStatus.BAD_GATEWAY);
+      // No response => default status 500 => mapped to ErrorCode.RESPONSE.
+      expect(fire({ message: 'plain message' }).errorCode).toBe(ErrorCode.RESPONSE);
     });
 
     it('with response.status=400 and unknown error, throws with original status', () => {
-      const e = fire({ response: { status: 400, data: {} }, message: 'oops' }) as HttpException;
-      expect(e.getStatus()).toBe(400);
+      // Unhandled status (400) with an empty body falls through to the generic
+      // RESPONSE envelope.
+      expect(fire({ response: { status: 400, data: {} }, message: 'oops' }).errorCode).toBe(ErrorCode.RESPONSE);
     });
   });
 

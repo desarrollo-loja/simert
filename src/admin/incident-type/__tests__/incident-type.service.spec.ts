@@ -44,9 +44,12 @@ describe('IncidentTypeService', () => {
     it('rejects when code already exists', async () => {
       repo.findOne.mockResolvedValueOnce({ id: 1 });
 
-      await expect(
-        service.create(1, { code: 'C', name: 'N' } as any),
-      ).rejects.toThrow(BadRequestException);
+      const result = await service.create(1, { code: 'C', name: 'N' } as any);
+
+      expect(result).toEqual({
+        errorCode: ErrorCode.NAMEUNIQUE,
+        message: 'El código ya existe',
+      });
       expect(repo.save).not.toHaveBeenCalled();
     });
 
@@ -98,7 +101,7 @@ describe('IncidentTypeService', () => {
 
       expect(result).toEqual({ incidentTypes: [{ id: 1 }], errorCode: ErrorCode.NONE });
       const [sql, params] = repo.query.mock.calls[0];
-      expect(sql).toContain('FROM public.incident_type it');
+      expect(sql).toContain('FROM public."incidentType" it');
       expect(sql).not.toContain('WHERE');
       expect(params).toEqual([]);
     });

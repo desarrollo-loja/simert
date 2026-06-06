@@ -30,7 +30,7 @@ describe('FractionStatusService', () => {
       const result = await service.findAllFractionState(42, {} as any);
 
       const [sql, params] = repo.query.mock.calls[0];
-      expect(sql).toContain('FROM fraction_status AS fs');
+      expect(sql).toContain('FROM public."fractionStatus" AS fs');
       expect(sql).toContain('$1');
       expect(params).toEqual([42]);
       expect(result).toEqual({ fractionStatus: [{ id: 1 }] });
@@ -41,7 +41,7 @@ describe('FractionStatusService', () => {
 
       await service.findAllFractionState(1, { year: 2026, month: 3 } as any);
 
-      expect(repo.query.mock.calls[0][0]).toContain('FROM 2026_3_fraction_status');
+      expect(repo.query.mock.calls[0][0]).toContain('FROM "2026_3_fraction_status"');
     });
 
     it('falls back to default table when year/month are out of range', async () => {
@@ -49,7 +49,7 @@ describe('FractionStatusService', () => {
 
       await service.findAllFractionState(1, { year: 1700, month: 5 } as any);
 
-      expect(repo.query.mock.calls[0][0]).toContain('FROM fraction_status AS fs');
+      expect(repo.query.mock.calls[0][0]).toContain('FROM public."fractionStatus" AS fs');
     });
 
     it('returns empty when fractionId cannot be coerced to a number', async () => {

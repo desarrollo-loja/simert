@@ -103,7 +103,7 @@ describe('RangeSalePointTransactionService', () => {
 
       expect(result).toEqual({ errorCode: ErrorCode.NONE, transactions: [{ id: 1 }] });
       const [sql, params] = rsptRepo.query.mock.calls[0];
-      expect(sql).toContain('FROM public.range_sale_point_transaction rspt');
+      expect(sql).toContain('FROM public."rangeSalePointTransaction" rspt');
       expect(sql).not.toContain(' WHERE ');
       expect(params).toEqual([]);
     });

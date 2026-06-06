@@ -12,6 +12,7 @@ describe('CheckService', () => {
       {} as any,
       {} as any,
       {} as any,
+      {} as any,
       { get: jest.fn(), set: jest.fn() } as any,
     );
     (service as any).logger = { verbose: jest.fn(), error: jest.fn(), warn: jest.fn() };

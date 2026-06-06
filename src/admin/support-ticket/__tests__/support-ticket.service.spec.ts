@@ -11,13 +11,24 @@ import handleDbExceptions from 'src/common/exceptions/error.db.exception';
 
 import { SupportTicketService } from '../support-ticket.service';
 
-const buildRepo = () => ({
-  create: jest.fn((dto: any) => ({ ...dto })),
-  save: jest.fn(async (e: any) => ({ id: 1, ...e })),
-  preload: jest.fn(),
-  findOne: jest.fn(),
-  query: jest.fn(),
+const buildQb = () => ({
+  addSelect: jest.fn().mockReturnThis(),
+  where: jest.fn().mockReturnThis(),
+  getRawAndEntities: jest.fn(),
 });
+
+const buildRepo = () => {
+  const qb = buildQb();
+  return {
+    create: jest.fn((dto: any) => ({ ...dto })),
+    save: jest.fn(async (e: any) => ({ id: 1, ...e })),
+    preload: jest.fn(),
+    findOne: jest.fn(),
+    query: jest.fn(),
+    createQueryBuilder: jest.fn(() => qb),
+    __qb: qb,
+  };
+};
 
 describe('SupportTicketService', () => {
   let service: SupportTicketService;
@@ -164,19 +175,28 @@ describe('SupportTicketService', () => {
 
   describe('findOne', () => {
     it('returns the ticket when found', async () => {
-      repo.findOne.mockResolvedValueOnce({ id: 1 });
+      repo.__qb.getRawAndEntities.mockResolvedValueOnce({
+        entities: [{ id: 1 }],
+        raw: [{}],
+      });
       const result = await service.findOne(1);
-      expect(result).toEqual({ supportTicket: { id: 1 }, errorCode: ErrorCode.NONE });
+      expect(result).toEqual({
+        supportTicket: { id: 1, createdAt: null, updatedAt: null },
+        errorCode: ErrorCode.NONE,
+      });
     });
 
     it('returns NOT_FOUND when not found', async () => {
-      repo.findOne.mockResolvedValueOnce(null);
+      repo.__qb.getRawAndEntities.mockResolvedValueOnce({
+        entities: [],
+        raw: [],
+      });
       const result = await service.findOne(1);
       expect(result).toEqual({ errorCode: ErrorCode.NOT_FOUND, supportTicket: null });
     });
 
     it('routes errors through handleDbExceptions', async () => {
-      repo.findOne.mockRejectedValueOnce(new Error('e'));
+      repo.__qb.getRawAndEntities.mockRejectedValueOnce(new Error('e'));
       await expect(service.findOne(1)).rejects.toThrow('e');
     });
   });

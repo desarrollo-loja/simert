@@ -13,12 +13,14 @@ import { RangeService } from '../range.service';
 
 const buildQb = () => ({
   select: jest.fn().mockReturnThis(),
+  addSelect: jest.fn().mockReturnThis(),
   where: jest.fn().mockReturnThis(),
   andWhere: jest.fn().mockReturnThis(),
   take: jest.fn().mockReturnThis(),
   skip: jest.fn().mockReturnThis(),
   orderBy: jest.fn().mockReturnThis(),
   getMany: jest.fn(),
+  getRawAndEntities: jest.fn(),
 });
 
 const buildRepoMock = () => {
@@ -98,18 +100,34 @@ describe('RangeService', () => {
 
   describe('findAll', () => {
     it('applies default pagination and orders by id DESC', async () => {
-      repo.__qb.getMany.mockResolvedValueOnce([{ id: 1 }]);
+      repo.__qb.getRawAndEntities.mockResolvedValueOnce({
+        entities: [{ id: 1 }],
+        raw: [],
+      });
 
       const result = await service.findAll({} as any);
 
       expect(repo.__qb.take).toHaveBeenCalledWith(10);
       expect(repo.__qb.skip).toHaveBeenCalledWith(0);
       expect(repo.__qb.orderBy).toHaveBeenCalledWith('range.id', 'DESC');
-      expect(result).toEqual({ errorCode: ErrorCode.NONE, ranges: [{ id: 1 }] });
+      expect(result).toEqual({
+        errorCode: ErrorCode.NONE,
+        ranges: [
+          {
+            id: 1,
+            authorizationDate: null,
+            createdAt: null,
+            updatedAt: null,
+          },
+        ],
+      });
     });
 
     it('adds search ILIKE clause when provided and uses custom pagination', async () => {
-      repo.__qb.getMany.mockResolvedValueOnce([]);
+      repo.__qb.getRawAndEntities.mockResolvedValueOnce({
+        entities: [],
+        raw: [],
+      });
 
       await service.findAll({ search: 'foo', limit: 5, offset: 3 } as any);
 
@@ -122,7 +140,7 @@ describe('RangeService', () => {
     });
 
     it('routes errors through handleDbExceptions', async () => {
-      repo.__qb.getMany.mockRejectedValueOnce(new Error('boom'));
+      repo.__qb.getRawAndEntities.mockRejectedValueOnce(new Error('boom'));
 
       await expect(service.findAll({} as any)).rejects.toThrow('boom');
     });

@@ -19,9 +19,11 @@ import { ZoneService } from '../zone.service';
 
 const buildQb = () => ({
   select: jest.fn().mockReturnThis(),
+  addSelect: jest.fn().mockReturnThis(),
   where: jest.fn().mockReturnThis(),
   andWhere: jest.fn().mockReturnThis(),
   getMany: jest.fn(),
+  getRawAndEntities: jest.fn(),
 });
 
 const buildRepo = () => {
@@ -221,7 +223,17 @@ describe('ZoneService', () => {
 
   describe('remove', () => {
     it('soft-deletes when zone exists', async () => {
-      repo.findOne.mockResolvedValueOnce({ id: 1, isActivated: true });
+      repo.__qb.getRawAndEntities.mockResolvedValueOnce({
+        entities: [{ id: 1, isActivated: true }],
+        raw: [
+          {
+            zone_fromTemporary: '2026-01-01T00:00:00.000',
+            zone_toTemporary: '2026-01-02T00:00:00.000',
+            zone_createdAt: '2026-01-03T00:00:00.000',
+            zone_updatedAt: '2026-01-04T00:00:00.000',
+          },
+        ],
+      });
       const result: any = await service.remove(1, 1);
       expect(repo.save).toHaveBeenCalledWith(
         expect.objectContaining({ isActivated: false }),
@@ -230,13 +242,16 @@ describe('ZoneService', () => {
     });
 
     it('returns empty zone when not found', async () => {
-      repo.findOne.mockResolvedValueOnce(null);
+      repo.__qb.getRawAndEntities.mockResolvedValueOnce({
+        entities: [],
+        raw: [],
+      });
       const result = await service.remove(1, 1);
       expect(result).toEqual({ errorCode: ErrorCode.NONE, zone: {} });
     });
 
     it('routes errors through handleDbExceptions', async () => {
-      repo.findOne.mockRejectedValueOnce(new Error('e'));
+      repo.__qb.getRawAndEntities.mockRejectedValueOnce(new Error('e'));
       await expect(service.remove(1, 1)).rejects.toThrow('e');
     });
   });

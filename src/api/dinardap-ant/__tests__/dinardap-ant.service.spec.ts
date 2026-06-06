@@ -69,9 +69,9 @@ describe('DinardapAntService', () => {
 
     it('returns SYSTEM_INACTIVE when base URL is missing', async () => {
       service = new DinardapAntService(buildConfigMock(undefined) as any, gim as any);
-      (service as any).logger = { error: jest.fn() };
+      (service as any).logger = { error: jest.fn(), warn: jest.fn() };
 
-      const result = await service.getUserDataByPlateAnt('ABC');
+      const result = await service.getUserDataByPlateAnt('ABC12');
 
       expect(result.errorCode).toBe(ErrorCode.SYSTEM_INACTIVE);
       expect(result.data).toBeNull();
@@ -81,9 +81,9 @@ describe('DinardapAntService', () => {
     it('returns UNAUTHORIZED when token is unavailable', async () => {
       gim = buildGimMock(null);
       service = new DinardapAntService(buildConfigMock('http://dinardap.test') as any, gim as any);
-      (service as any).logger = { error: jest.fn() };
+      (service as any).logger = { error: jest.fn(), warn: jest.fn() };
 
-      const result = await service.getUserDataByPlateAnt('ABC');
+      const result = await service.getUserDataByPlateAnt('ABC12');
 
       expect(result.errorCode).toBe(ErrorCode.UNAUTHORIZED);
       expect((result as any).message).toMatch(/No autorizado/i);
@@ -92,17 +92,20 @@ describe('DinardapAntService', () => {
     it('URL-encodes the plate when calling DINARDAP', async () => {
       (axios.request as jest.Mock).mockResolvedValueOnce({ data: {} });
 
-      await service.getUserDataByPlateAnt('a/b');
+      // The service validates the plate (uppercased, alphanumeric, 5-8 chars)
+      // before building the URL, then URL-encodes it. For legitimate
+      // alphanumeric plates encoding is a no-op, so the plate appears verbatim.
+      await service.getUserDataByPlateAnt('abc12');
 
       const callArgs = (axios.request as jest.Mock).mock.calls[0][0];
-      expect(callArgs.url).toContain('a%2Fb');
-      expect(callArgs.url).not.toContain('a/b/registration');
+      expect(callArgs.url).toContain('ABC12');
+      expect(callArgs.url).toContain('/registration');
     });
 
     it('returns NOT_FOUND when payload has no entidad', async () => {
       (axios.request as jest.Mock).mockResolvedValueOnce({ data: { paquete: {} } });
 
-      const result = await service.getUserDataByPlateAnt('ABC');
+      const result = await service.getUserDataByPlateAnt('ABC12');
 
       expect(result.errorCode).toBe(ErrorCode.NOT_FOUND);
     });
@@ -112,7 +115,7 @@ describe('DinardapAntService', () => {
         data: buildEntidad({ irrelevant: 'x' }),
       });
 
-      const result = await service.getUserDataByPlateAnt('ABC');
+      const result = await service.getUserDataByPlateAnt('ABC12');
 
       expect(result.errorCode).toBe(ErrorCode.NOT_FOUND);
     });
@@ -144,7 +147,7 @@ describe('DinardapAntService', () => {
         }),
       });
 
-      const result = await service.getUserDataByPlateAnt('ABC');
+      const result = await service.getUserDataByPlateAnt('ABC12');
 
       expect(result.errorCode).toBe(ErrorCode.NONE);
       const data: any = result.data;
@@ -166,7 +169,7 @@ describe('DinardapAntService', () => {
         }),
       });
 
-      const result = await service.getUserDataByPlateAnt('ABC');
+      const result = await service.getUserDataByPlateAnt('ABC12');
       const data: any = result.data;
       expect(data.fullName).toBe('PEREZ JUAN');
     });
@@ -190,7 +193,7 @@ describe('DinardapAntService', () => {
         },
       });
 
-      const result = await service.getUserDataByPlateAnt('ABC');
+      const result = await service.getUserDataByPlateAnt('ABC12');
       expect(result.errorCode).toBe(ErrorCode.NONE);
     });
 
@@ -199,7 +202,7 @@ describe('DinardapAntService', () => {
         response: { status: 401, data: { msg: 'unauth' } },
       });
 
-      const result = await service.getUserDataByPlateAnt('ABC');
+      const result = await service.getUserDataByPlateAnt('ABC12');
 
       expect(result.errorCode).toBe(ErrorCode.UNAUTHORIZED);
       expect((result as any).message).toMatch(/401/);
@@ -211,7 +214,7 @@ describe('DinardapAntService', () => {
         response: { status: 404, data: { msg: 'missing' } },
       });
 
-      const result = await service.getUserDataByPlateAnt('ABC');
+      const result = await service.getUserDataByPlateAnt('ABC12');
 
       expect(result.errorCode).toBe(ErrorCode.NOT_FOUND);
       expect((result as any).message).toMatch(/404/);
@@ -222,7 +225,7 @@ describe('DinardapAntService', () => {
         response: { status: 503, data: { msg: 'down' } },
       });
 
-      const result = await service.getUserDataByPlateAnt('ABC');
+      const result = await service.getUserDataByPlateAnt('ABC12');
 
       expect(result.errorCode).toBe(ErrorCode.SYSTEM_INACTIVE);
       expect((result as any).message).toMatch(/fuera de servicio/i);
@@ -231,7 +234,7 @@ describe('DinardapAntService', () => {
     it('maps timeout (ECONNABORTED) to HTTP_ERROR_REINTENT', async () => {
       (axios.request as jest.Mock).mockRejectedValueOnce({ code: 'ECONNABORTED', message: 'timeout' });
 
-      const result = await service.getUserDataByPlateAnt('ABC');
+      const result = await service.getUserDataByPlateAnt('ABC12');
 
       expect(result.errorCode).toBe(ErrorCode.HTTP_ERROR_REINTENT);
       expect((result as any).message).toMatch(/no se pudo establecer comunicación con la ant/i);
@@ -240,7 +243,7 @@ describe('DinardapAntService', () => {
     it('falls back to SYSTEM_INACTIVE when axios throws without response payload', async () => {
       (axios.request as jest.Mock).mockRejectedValueOnce(new Error('net'));
 
-      const result = await service.getUserDataByPlateAnt('ABC');
+      const result = await service.getUserDataByPlateAnt('ABC12');
 
       expect(result.errorCode).toBe(ErrorCode.SYSTEM_INACTIVE);
       expect((result as any).message).toMatch(/fuera de servicio/i);

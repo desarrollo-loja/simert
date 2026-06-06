@@ -30,6 +30,7 @@ describe('RangeSalePointTransactionService (wallet-critical)', () => {
   let rspRepo: any;
   let checkboxRepo: any;
   let transactionRepo: any;
+  let commonService: any;
   let dataSource: any;
   let queryRunner: any;
   let lockQb: ReturnType<typeof buildLockQb>;
@@ -63,12 +64,14 @@ describe('RangeSalePointTransactionService (wallet-critical)', () => {
       },
     };
     dataSource = { createQueryRunner: jest.fn(() => queryRunner) };
+    commonService = { notify: jest.fn() };
 
     service = new RangeSalePointTransactionService(
       transactionRepo,
       rspRepo,
       checkboxRepo,
       {} as any,
+      commonService,
       dataSource,
     );
     (service as any).logger = { error: jest.fn() };

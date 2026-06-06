@@ -32,7 +32,7 @@ describe('AgentActivitiesService', () => {
       const result = await service.findAll({} as any);
 
       const [sql, params] = repo.query.mock.calls[0];
-      expect(sql).toContain('FROM agent_activity AS aa');
+      expect(sql).toContain('FROM "agentActivity" AS aa');
       expect(sql).not.toContain('WHERE');
       expect(sql).toMatch(/LIMIT \$\d+ OFFSET \$\d+/);
       expect(params).toEqual([10, 0]);

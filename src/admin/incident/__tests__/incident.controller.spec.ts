@@ -206,7 +206,7 @@ describe('IncidentController', () => {
 
       const result = await controller.remove(user, 1, 'dev', '99');
 
-      expect(service.remove).toHaveBeenCalledWith(99);
+      expect(service.remove).toHaveBeenCalledWith(99, 1);
       expect(result).toBe(fakeResult);
     });
   });
