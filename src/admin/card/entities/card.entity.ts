@@ -11,7 +11,11 @@ import {
 /**
  *
  */
-@Entity('card')
+@Entity({
+  name: 'card',
+  comment:
+    'Catalog of purchasable card types defining price, commission and number of parking fractions granted',
+})
 export class Card {
   @ApiProperty({ example: 1, description: 'Unique card type identifier' })
   @PrimaryGeneratedColumn('increment', { primaryKeyConstraintName: 'pkCardId' })

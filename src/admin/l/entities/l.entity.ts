@@ -4,7 +4,11 @@ import { Column, Entity, Index, PrimaryColumn } from 'typeorm';
 /**
  *
  */
-@Entity('l')
+@Entity({
+  name: 'l',
+  comment:
+    'High-write real-time location tracking buffer using flat numeric ids (userId, zoneId, blockId) with no foreign keys by design',
+})
 @Index('idxLUserIdTakenTimestampLatitudeLongitude', [
   'userId',
   'taken',

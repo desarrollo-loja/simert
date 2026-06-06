@@ -11,7 +11,11 @@ import {
 /**
  *
  */
-@Entity('checkboxUser')
+@Entity({
+  name: 'checkboxUser',
+  comment:
+    'Holds the current parking fraction (checkbox) balance available per user',
+})
 @Unique('uqCheckboxUserUserId', ['userId'])
 export class CheckboxUser {
   @PrimaryGeneratedColumn('increment', {

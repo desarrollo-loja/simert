@@ -12,7 +12,11 @@ import {
 /**
  *
  */
-@Entity('agentActivity')
+@Entity({
+  name: 'agentActivity',
+  comment:
+    'Logs control officer field activities (check-in, check-out, patrol) with location and shift context',
+})
 export class AgentActivity {
   @PrimaryGeneratedColumn('increment', {
     primaryKeyConstraintName: 'pkAgentActivityId',

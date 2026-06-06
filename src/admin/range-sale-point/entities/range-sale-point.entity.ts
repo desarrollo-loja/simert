@@ -17,7 +17,11 @@ import {
 /**
  *
  */
-@Entity('rangeSalePoint')
+@Entity({
+  name: 'rangeSalePoint',
+  comment:
+    'Assigns card ranges to sale point agents, tracking available and sold card counts per assignment',
+})
 export class RangeSalePoint {
   @ApiProperty({
     example: 1,

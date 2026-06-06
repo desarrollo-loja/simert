@@ -10,7 +10,11 @@ import {
 /**
  *
  */
-@Entity('catalog')
+@Entity({
+  name: 'catalog',
+  comment:
+    'Generic key-value configuration catalogs storing reusable lookup data as JSON',
+})
 @Unique('uqCatalogName', ['name'])
 export class Catalog {
   @ApiProperty({ example: 1, description: 'Unique catalog type identifier' })

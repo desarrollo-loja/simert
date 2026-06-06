@@ -14,7 +14,11 @@ import {
 /**
  *
  */
-@Entity('range')
+@Entity({
+  name: 'range',
+  comment:
+    'Defines printed card number ranges (batches) with type, status and authorization date for card issuance',
+})
 @Unique('uqRangeFromTo', ['from', 'to'])
 @Unique('uqRangeDescription', ['description'])
 @Unique('uqRangeBatchNumber', ['batchNumber'])

@@ -22,7 +22,11 @@ import {
 /**
  *
  */
-@Entity('block')
+@Entity({
+  name: 'block',
+  comment:
+    'Stores parking blocks (sectors) within a zone, with geofence, fee timing rules and map display settings',
+})
 @Index('idxBlockName', ['name'], { fulltext: true })
 @Index('idxBlockNeighborhood', ['neighborhood'], { fulltext: true })
 @Index('idxBlockMainStreet', ['mainStreet'], { fulltext: true })

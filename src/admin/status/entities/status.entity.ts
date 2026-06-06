@@ -12,7 +12,11 @@ import {
 /**
  *
  */
-@Entity('status')
+@Entity({
+  name: 'status',
+  comment:
+    'Catalog of parking fraction statuses matching the StatusFraction enum values',
+})
 export class Status {
   @PrimaryColumn({
     primaryKeyConstraintName: 'pkStatusId',

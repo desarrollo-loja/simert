@@ -20,7 +20,11 @@ import {
 /**
  *
  */
-@Entity('zone')
+@Entity({
+  name: 'zone',
+  comment:
+    'Stores top-level parking zones with geofence, map display settings and normal or temporary scheduling',
+})
 @Index('idxZoneName', ['name'], { fulltext: true })
 @Unique('uqZoneName', ['name'])
 @Unique('uqZoneAcronym', ['acronym'])

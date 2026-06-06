@@ -12,7 +12,11 @@ import {
 /**
  *
  */
-@Entity('incidentType')
+@Entity({
+  name: 'incidentType',
+  comment:
+    'Catalog of infraction types with GIM code and percentage of basic salary used to calculate fine amounts',
+})
 @Index('idxIncidentTypeName', ['name'], { fulltext: true })
 @Index('idxIncidentTypeDescription', ['description'], { fulltext: true })
 @Unique('uqIncidentTypeCode', ['code'])

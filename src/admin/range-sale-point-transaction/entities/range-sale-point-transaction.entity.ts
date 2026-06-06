@@ -14,7 +14,11 @@ import {
 /**
  *
  */
-@Entity('rangeSalePointTransaction')
+@Entity({
+  name: 'rangeSalePointTransaction',
+  comment:
+    'Records card transfer transactions between sale point agents (seller to buyer) for a range assignment',
+})
 export class RangeSalePointTransaction {
   @ApiProperty({ example: 1, description: 'Unique transaction identifier' })
   @PrimaryGeneratedColumn('increment', {

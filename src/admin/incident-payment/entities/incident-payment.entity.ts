@@ -15,7 +15,11 @@ import {
 /**
  *
  */
-@Entity('incidentPayment')
+@Entity({
+  name: 'incidentPayment',
+  comment:
+    'Records payment transactions for incident fines, including gateway reference, amount, method and status',
+})
 export class IncidentPayment {
   @PrimaryGeneratedColumn('increment', {
     primaryKeyConstraintName: 'pkIncidentPaymentId',

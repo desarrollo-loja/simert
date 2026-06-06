@@ -12,7 +12,11 @@ import {
 /**
  *
  */
-@Entity('incidentNotification')
+@Entity({
+  name: 'incidentNotification',
+  comment:
+    'Stores notifications generated for incidents, grouped by month and year for period reporting',
+})
 export class IncidentNotification {
   @PrimaryGeneratedColumn('increment', {
     primaryKeyConstraintName: 'pkIncidentNotificationId',

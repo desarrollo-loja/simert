@@ -18,7 +18,11 @@ import {
 /**
  *
  */
-@Entity('checkbox')
+@Entity({
+  name: 'checkbox',
+  comment:
+    'Records card purchase transactions for parking fractions, including amount, payment method, status and billing data',
+})
 @Index('idxCheckboxUserIdTransactionId', ['userId', 'transactionId'])
 export class Checkbox {
   @ApiProperty({

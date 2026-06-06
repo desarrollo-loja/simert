@@ -24,7 +24,11 @@ import {
 /**
  *
  */
-@Entity('incident')
+@Entity({
+  name: 'incident',
+  comment:
+    'Stores parking fines, reports and log entries with vehicle, location, GIM workflow status and payment data',
+})
 @Unique('uqIncidentNroTicket', ['nroTicket'])
 export class Incident {
   @PrimaryGeneratedColumn('increment', {

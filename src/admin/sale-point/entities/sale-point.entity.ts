@@ -21,7 +21,11 @@ import {
 /**
  *
  */
-@Entity('salePoint')
+@Entity({
+  name: 'salePoint',
+  comment:
+    'Stores sale point agents with location, contact, banking, revenue settings and zone or block assignment',
+})
 @Unique('uqSalePointUserId', ['userId'])
 export class SalePoint {
   @PrimaryGeneratedColumn('increment', {

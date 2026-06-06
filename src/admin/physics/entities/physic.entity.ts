@@ -11,7 +11,11 @@ import {
 /**
  *
  */
-@Entity('physic')
+@Entity({
+  name: 'physic',
+  comment:
+    'Records parking sessions paid with physical cards, storing card number, time, fractions and zone',
+})
 export class Physic {
   @PrimaryGeneratedColumn('increment', {
     primaryKeyConstraintName: 'pkPhysicId',

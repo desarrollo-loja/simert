@@ -14,7 +14,11 @@ import {
 /**
  *
  */
-@Entity('supportTicket')
+@Entity({
+  name: 'supportTicket',
+  comment:
+    'Stores user support tickets (inquiries, complaints, suggestions) with message, status and attachments',
+})
 export class SupportTicket {
   @PrimaryGeneratedColumn('increment', {
     primaryKeyConstraintName: 'pkSupportTicketId',

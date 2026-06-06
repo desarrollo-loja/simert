@@ -26,7 +26,11 @@ import {
 /**
  *
  */
-@Entity('fraction')
+@Entity({
+  name: 'fraction',
+  comment:
+    'Stores individual parking sessions, linking user, vehicle, slot, block and zone with timing and departure data',
+})
 @Unique('uqFractionUserIdTransactionId', ['userId', 'transactionId'])
 export class Fraction {
   @ApiProperty({ example: 1, description: 'Unique fraction identifier' })

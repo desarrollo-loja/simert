@@ -13,7 +13,11 @@ import {
 /**
  *
  */
-@Entity('blockOperator')
+@Entity({
+  name: 'blockOperator',
+  comment:
+    'Stores control officer shift assignments to blocks, tracking start, end, initialization and finalization',
+})
 @Index('idxBlockOperatorUserIdBlock', ['userId', 'block'])
 export class BlockOperator {
   @ApiProperty({

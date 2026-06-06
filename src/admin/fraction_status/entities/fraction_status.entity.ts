@@ -14,7 +14,11 @@ import {
 /**
  *
  */
-@Entity('fractionStatus')
+@Entity({
+  name: 'fractionStatus',
+  comment:
+    'Tracks the historical status changes of each parking fraction over its lifecycle',
+})
 @Index('idxFractionStatusFractionStatus', ['fraction', 'status'])
 export class FractionStatus {
   @PrimaryGeneratedColumn('increment', {

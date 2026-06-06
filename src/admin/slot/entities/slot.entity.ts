@@ -20,7 +20,11 @@ import {
 /**
  *
  */
-@Entity('slot')
+@Entity({
+  name: 'slot',
+  comment:
+    'Stores individual parking spaces with location, occupancy status, vehicle type and payment requirement',
+})
 @Unique('uqSlotSlot', ['slot'])
 export class Slot {
   @ApiProperty({ example: 1, description: 'Unique slot identifier' })

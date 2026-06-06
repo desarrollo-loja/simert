@@ -13,7 +13,11 @@ import {
 /**
  *
  */
-@Entity('schedule')
+@Entity({
+  name: 'schedule',
+  comment:
+    'Defines paid parking opening and closing time windows per weekday range for each block',
+})
 @Index('idxScheduleBlockDayOfWeekInit', ['block', 'dayOfWeekInit'])
 @Index('idxScheduleBlockDayOfWeekEnd', ['block', 'dayOfWeekEnd'])
 export class Schedule {
