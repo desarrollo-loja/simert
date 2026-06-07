@@ -46,7 +46,7 @@ export class IncidentService {
 
     @Inject(CommonGimService)
     private readonly commonGimService: CommonGimService,
-  ) {}
+  ) { }
 
   /**
    * Validates that `year` and `month` are safe integers within sensible bounds
@@ -1322,12 +1322,12 @@ export class IncidentService {
       const like = `%${search}%`;
       conditions.push(
         `(i."description" ILIKE ${addParam(like)}` +
-          ` OR i."plate" ILIKE ${addParam(like)}` +
-          ` OR i."supervisorObservations" ILIKE ${addParam(like)}` +
-          ` OR i."identityCard" ILIKE ${addParam(like)}` +
-          ` OR i."nroTicket" ILIKE ${addParam(like)}` +
-          ` OR i."nroObligation" ILIKE ${addParam(like)}` +
-          ` OR i."fullNameClient" ILIKE ${addParam(like)})`,
+        ` OR i."plate" ILIKE ${addParam(like)}` +
+        ` OR i."supervisorObservations" ILIKE ${addParam(like)}` +
+        ` OR i."identityCard" ILIKE ${addParam(like)}` +
+        ` OR i."nroTicket" ILIKE ${addParam(like)}` +
+        ` OR i."nroObligation" ILIKE ${addParam(like)}` +
+        ` OR i."fullNameClient" ILIKE ${addParam(like)})`,
       );
     }
 
@@ -1393,7 +1393,7 @@ export class IncidentService {
           TypeTimeZone.ECUADOR,
         );
         conditions.push(
-          `i."createdAt" BETWEEN ${addParam(start)} AND ${addParam(end)}`,
+          `i."register" BETWEEN ${addParam(start)} AND ${addParam(end)}`,
         );
       }
     }
