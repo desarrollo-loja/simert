@@ -42,7 +42,7 @@ export class PhysicsService {
    * ORM-based implementation.
    *
    * @param filterDto Pagination (`limit`, `offset`) and optional filters
-   *   (`userId`, `zoneId`, `search`, `dateFrom`, `timeByBlock`).
+   *   (`userId`, `zoneId`, `search`, `dateFrom`, `dateTo`, `timeByBlock`).
    * @returns Object with `errorCode` and the `physics` array of records.
    */
   async findAll(filterDto: FilterDto) {
@@ -94,7 +94,7 @@ export class PhysicsService {
    * filters (i.e. unique card numbers, not unique records).
    *
    * @param filterDto Optional filters (`userId`, `zoneId`, `search`,
-   *   `dateFrom`, `timeByBlock`).
+   *   `dateFrom`, `dateTo`, `timeByBlock`).
    * @returns Object with `errorCode` and the numeric `total` of unique cards.
    */
   async findAllTotalUnique(filterDto: FilterDto) {
@@ -123,7 +123,7 @@ export class PhysicsService {
    * filters (counts every row, not distinct cards).
    *
    * @param filterDto Optional filters (`userId`, `zoneId`, `search`,
-   *   `dateFrom`, `timeByBlock`).
+   *   `dateFrom`, `dateTo`, `timeByBlock`).
    * @returns Object with `errorCode` and the numeric `total`.
    */
   async findAllTotal(filterDto: FilterDto) {
@@ -157,7 +157,7 @@ export class PhysicsService {
    *   named-parameter record.
    */
   private _buildConditionsAndParameters(filterDto: FilterDto) {
-    const { userId, zoneId, search, dateFrom, timeByBlock } = filterDto;
+    const { userId, zoneId, search, dateFrom, dateTo, timeByBlock } = filterDto;
     const conditions: string[] = [];
     const parameters: Record<string, any> = {};
 
@@ -176,9 +176,13 @@ export class PhysicsService {
       parameters['search'] = `%${search}%`;
     }
 
-    if (dateFrom) {
-      conditions.push('DATE(p.registerAt) = :dateFrom');
+    if (dateFrom && dateTo) {
+      // Same UTC-range filter as the raw `findAll` query so counts and list stay
+      // consistent: the front sends the local day as a closed UTC range and
+      // `createdAt` is stored in UTC.
+      conditions.push('p.createdAt BETWEEN :dateFrom AND :dateTo');
       parameters['dateFrom'] = dateFrom;
+      parameters['dateTo'] = dateTo;
     }
 
     if (timeByBlock) {
@@ -198,7 +202,7 @@ export class PhysicsService {
    * `physic` table (e.g. `"userId"`, `"zoneId"`).
    *
    * @param filterDto Optional filters (`userId`, `zoneId`, `search`,
-   *   `dateFrom`, `timeByBlock`).
+   *   `dateFrom`, `dateTo`, `timeByBlock`).
    * @returns The `whereClause` string (empty when no filters are provided) and
    *   the ordered `parameters` array aligned with the `$1..$N` placeholders.
    */
@@ -206,7 +210,7 @@ export class PhysicsService {
     whereClause: string;
     parameters: any[];
   } {
-    const { userId, zoneId, search, dateFrom, timeByBlock } = filterDto;
+    const { userId, zoneId, search, dateFrom, dateTo, timeByBlock } = filterDto;
     const conditions: string[] = [];
     const parameters: any[] = [];
 
@@ -225,12 +229,18 @@ export class PhysicsService {
       conditions.push(`p."card" = $${parameters.length}`);
     }
 
-    if (dateFrom) {
-      // Filter by `registerAt` (stored as local Ecuador wall-clock time), not
-      // `createdAt` (UTC `now()`), so the user's local day matches directly
-      // without a timezone shift. Mirrors `_buildConditionsAndParameters`.
+    if (dateFrom && dateTo) {
+      // The front sends the selected local day already converted to a closed UTC
+      // range [dateFrom, dateTo] (e.g. 2026-06-04 -> 2026-06-04 05:00:00 ..
+      // 2026-06-05 04:59:59). `createdAt` is stored in UTC, so comparing it
+      // against that UTC window returns exactly the rows of the chosen local day.
       parameters.push(dateFrom);
-      conditions.push(`DATE(p."registerAt") = $${parameters.length}`);
+      const fromPlaceholder = `$${parameters.length}`;
+      parameters.push(dateTo);
+      const toPlaceholder = `$${parameters.length}`;
+      conditions.push(
+        `p."createdAt" BETWEEN ${fromPlaceholder} AND ${toPlaceholder}`,
+      );
     }
 
     if (timeByBlock) {
