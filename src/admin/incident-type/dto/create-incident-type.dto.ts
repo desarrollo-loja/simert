@@ -36,6 +36,10 @@ export class CreateIncidentTypeDto {
   code: string;
 
   @IsOptional()
+  @IsString()
+  accountingAccountCode?: string;
+
+  @IsOptional()
   @IsBoolean()
   isActivated?: boolean;
 }
