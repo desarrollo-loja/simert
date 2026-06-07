@@ -57,7 +57,11 @@
       "Bash(echo \"BUILD_EXIT=$?\")",
       "Bash(echo \"ESLINT_EXIT=$?\")",
       "Bash(sed -E 's/\\(PASSWORD|USERNAME\\)=.*/\\\\1=***/')",
-      "Bash(echo \"exit: $?\")"
+      "Bash(echo \"exit: $?\")",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\Usuario\\\\Documents\\\\proyectoSimertLoja\\\\simert-web\" -Recurse -Filter \"*fraction*\" -ErrorAction SilentlyContinue)",
+      "Bash(Select-Object -First 20)",
+      "Bash(Get-Content -Path \"c:\\\\Users\\\\Usuario\\\\Documents\\\\proyectoSimertLoja\\\\simert-web\\\\src\\\\services\\\\simert\\\\fraction.service.ts\" -TotalCount 30)",
+      "Bash(Select-String -Pattern \"admin/fraction\")"
     ]
   }
 }

@@ -5,7 +5,6 @@ import handleDbExceptions from 'src/common/exceptions/error.db.exception';
 import { ErrorCode } from 'src/common/glob/error';
 import { StatusFraction } from 'src/common/glob/status/status_fraction';
 import { TypeSizeVehicle } from 'src/common/glob/type/type_size_vehicle';
-import { TypeTimeZone } from 'src/common/glob/type/type_time_zone';
 import { Repository } from 'typeorm';
 
 import { Fraction } from './entities/fraction.entity';
@@ -936,24 +935,24 @@ export class FractionService {
 
     if (isTimeZone) {
       if (fromCreatedAt && toCreatedAt && timeZoneUTC) {
+        // `createdAt` is stored in UTC, while `fromCreatedAt`/`toCreatedAt` are the
+        // whole-day boundaries the client selected in its local time (e.g. Ecuador,
+        // UTC-5). Translate that local range to its equivalent UTC window before
+        // comparing, so rows are matched by the user's local day. Example for -05:00:
+        // 2026-06-05 00:00:00 .. 2026-06-05 23:59:59 -> 2026-06-05 05:00:00 .. 2026-06-06 04:59:59 (UTC).
+        const { start, end } = this._convertRangeToTimeZone(
+          fromCreatedAt,
+          toCreatedAt,
+          timeZoneUTC,
+        );
         conditions.push(
-          `f."createdAt" AT TIME ZONE 'UTC' AT TIME ZONE ${addParam(timeZoneUTC)} BETWEEN ${addParam(fromCreatedAt)} AND ${addParam(toCreatedAt)}`,
+          `f."createdAt" BETWEEN ${addParam(start)} AND ${addParam(end)}`,
         );
       }
     } else {
       if (dateFrom && dateTo) {
-        // `createdAt` is stored in UTC, while the client selects whole days in
-        // local (Ecuador, UTC-5) time. Translate the local day range
-        // [dateFrom 00:00:00, dateTo 23:59:59] to its equivalent UTC window before
-        // comparing, so rows are matched by the user's local day. Example:
-        // 2026-06-03 -> 2026-06-03 05:00:00 .. 2026-06-04 04:59:59 (UTC).
-        const { start, end } = this._convertRangeToTimeZone(
-          `${dateFrom} 00:00:00`,
-          `${dateTo} 23:59:59`,
-          TypeTimeZone.ECUADOR,
-        );
         conditions.push(
-          `f."register" BETWEEN ${addParam(start)} AND ${addParam(end)}`,
+          `DATE(f."register") BETWEEN ${addParam(dateFrom)} AND ${addParam(dateTo)}`,
         );
       }
     }
