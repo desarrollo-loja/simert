@@ -227,7 +227,7 @@ export class PhysicsService {
 
     if (dateFrom) {
       parameters.push(dateFrom);
-      conditions.push(`DATE(p."registerAt") = $${parameters.length}`);
+      conditions.push(`DATE(p."createdAt") = $${parameters.length}`);
     }
 
     if (timeByBlock) {
