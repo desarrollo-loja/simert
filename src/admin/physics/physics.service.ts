@@ -226,8 +226,11 @@ export class PhysicsService {
     }
 
     if (dateFrom) {
+      // Filter by `registerAt` (stored as local Ecuador wall-clock time), not
+      // `createdAt` (UTC `now()`), so the user's local day matches directly
+      // without a timezone shift. Mirrors `_buildConditionsAndParameters`.
       parameters.push(dateFrom);
-      conditions.push(`DATE(p."createdAt") = $${parameters.length}`);
+      conditions.push(`DATE(p."registerAt") = $${parameters.length}`);
     }
 
     if (timeByBlock) {
