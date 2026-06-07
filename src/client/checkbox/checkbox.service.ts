@@ -19,6 +19,7 @@ import { RegisterDeunaDto } from 'src/common/dto/register-deuna.dto';
 import { RegisterPlaceToPayDto } from 'src/common/dto/register-place-to-pay.dto';
 import handleDbExceptions from 'src/common/exceptions/error.db.exception';
 import { ErrorCode } from 'src/common/glob/error';
+import { IdTransactionFootbridge } from 'src/common/glob/id/id_transaction_footbridge';
 import { IdTransactionReason } from 'src/common/glob/id/id_transaction_reason';
 import { IdTransactionType } from 'src/common/glob/id/id_transaction_type';
 import { StatusMoment } from 'src/common/glob/status/status_moment';
@@ -766,13 +767,39 @@ export class CheckboxService implements OnModuleInit {
       );
       this._notifyChageStatus(userId, StatusPayment.ERROR, checkbox);
 
-      // Record the failed payment as an erroneous transaction in simert-pay
+      // Record the failed payment as an erroneous transaction in simert-pay.
+      // The footbridge (payment gateway) is required by the transaction record.
+      debitAmounDto.transactionFootbridge = {
+        id: this._resolveTransactionFootbridge(checkbox.typePaymentMethod),
+      };
       await this.commonService.registerErrorTransaction(
         idDevice,
         IdTransactionType.TRANSACTION,
         debitAmounDto,
       );
     }, timerMs);
+  }
+
+  /**
+   * Maps a payment method to its payment-gateway (footbridge) identifier,
+   * required when registering the transaction in simert-pay.
+   *
+   * @param typePaymentMethod Payment method used for the purchase.
+   * @returns The matching {@link IdTransactionFootbridge} value.
+   */
+  private _resolveTransactionFootbridge(
+    typePaymentMethod: TypePaymentMethod,
+  ): IdTransactionFootbridge {
+    switch (typePaymentMethod) {
+      case TypePaymentMethod.AHORITA:
+        return IdTransactionFootbridge.AHORITA;
+      case TypePaymentMethod.PLACE_TO_PAY:
+        return IdTransactionFootbridge.PLACE_TO_PAY;
+      case TypePaymentMethod.COOPMEGO:
+        return IdTransactionFootbridge.COOPMEGO;
+      default:
+        return IdTransactionFootbridge.DE_UNA;
+    }
   }
 
   /**
