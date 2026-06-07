@@ -222,6 +222,13 @@ export class SalePoint {
   })
   balanceRevenueValue: number;
 
+  @Column('boolean', {
+    default: true,
+    comment:
+      'Soft-delete flag: true = active, false = logically deleted (sale point kept to preserve its card/transaction history)',
+  })
+  isActive: boolean;
+
   @Column({
     type: 'timestamp',
     default: () => 'now()',
