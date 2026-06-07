@@ -56,7 +56,8 @@
       "PowerShell(npx eslint src/admin/l/l.service.ts; \"eslint exit: $LASTEXITCODE\"; npx nest build; \"build exit: $LASTEXITCODE\")",
       "Bash(echo \"BUILD_EXIT=$?\")",
       "Bash(echo \"ESLINT_EXIT=$?\")",
-      "Bash(sed -E 's/\\(PASSWORD|USERNAME\\)=.*/\\\\1=***/')"
+      "Bash(sed -E 's/\\(PASSWORD|USERNAME\\)=.*/\\\\1=***/')",
+      "Bash(echo \"exit: $?\")"
     ]
   }
 }
