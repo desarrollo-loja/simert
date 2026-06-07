@@ -20,6 +20,7 @@ import { RegisterPlaceToPayDto } from 'src/common/dto/register-place-to-pay.dto'
 import handleDbExceptions from 'src/common/exceptions/error.db.exception';
 import { ErrorCode } from 'src/common/glob/error';
 import { IdTransactionReason } from 'src/common/glob/id/id_transaction_reason';
+import { IdTransactionType } from 'src/common/glob/id/id_transaction_type';
 import { StatusMoment } from 'src/common/glob/status/status_moment';
 import { StatusPayment } from 'src/common/glob/status/status_payment';
 import { CatalogType } from 'src/common/glob/type/type_catalog';
@@ -737,6 +738,8 @@ export class CheckboxService implements OnModuleInit {
    * @param userId Buyer id, used for the status notification.
    * @param paidLogMessage Message logged when the payment was confirmed in time.
    * @param timerMs Delay before running the verification.
+   * @param debitAmounDto Debit payload used to register the erroneous
+   *   transaction in simert-pay when the payment is not confirmed in time.
    */
   private _scheduleUnconfirmedCheckboxReversal(
     idDevice: string,
@@ -744,6 +747,7 @@ export class CheckboxService implements OnModuleInit {
     userId: number,
     paidLogMessage: string,
     timerMs: number,
+    debitAmounDto: DebitAmounDto,
   ): void {
     setTimeout(async () => {
       const checkboxCheck = await this.checkboxRepository.findOne({
@@ -761,6 +765,13 @@ export class CheckboxService implements OnModuleInit {
         StatusPayment.ERROR,
       );
       this._notifyChageStatus(userId, StatusPayment.ERROR, checkbox);
+
+      // Record the failed payment as an erroneous transaction in simert-pay
+      await this.commonService.registerErrorTransaction(
+        idDevice,
+        IdTransactionType.TRANSACTION,
+        debitAmounDto,
+      );
     }, timerMs);
   }
 
@@ -876,6 +887,7 @@ export class CheckboxService implements OnModuleInit {
         userId,
         'Se pago correctamente con deuna en menos de 5 minutos',
         this.timerMinuteDeuna,
+        debitAmounDto,
       );
       return { errorCode: ErrorCode.NONE, deeplink: response['deeplink'] };
     } else {
@@ -947,6 +959,7 @@ export class CheckboxService implements OnModuleInit {
         userId,
         'Se pago correctamente con ahorita en menos de 3 minutos',
         this.timerMinuteDeuna,
+        debitAmounDto,
       );
       return { errorCode: ErrorCode.NONE, deeplink: response['deeplink'] };
     } else {
@@ -1022,6 +1035,7 @@ export class CheckboxService implements OnModuleInit {
         userId,
         'Se pago correctamente con pay to pay 3 minutos',
         this.timerMinutePlaceToPay,
+        debitAmounDto,
       );
       return { errorCode: ErrorCode.NONE, deeplink: response['deeplink'] };
     } else {

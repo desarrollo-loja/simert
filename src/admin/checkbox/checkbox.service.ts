@@ -261,6 +261,7 @@ export class CheckboxService {
       typePaymentMethod,
       dateFrom,
       dateTo,
+      userId,
     } = filterDto;
 
     const conditions: string[] = [];
@@ -269,6 +270,11 @@ export class CheckboxService {
     if (search) {
       parameters.push(search);
       conditions.push(`c."transactionId" = $${parameters.length}`);
+    }
+
+    if (userId !== undefined && userId !== null) {
+      parameters.push(userId);
+      conditions.push(`c."userId" = $${parameters.length}`);
     }
 
     if (statusMomentId !== undefined && statusMomentId !== null) {
