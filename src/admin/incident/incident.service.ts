@@ -1393,7 +1393,7 @@ export class IncidentService {
           TypeTimeZone.ECUADOR,
         );
         conditions.push(
-          `i."register" BETWEEN ${addParam(start)} AND ${addParam(end)}`,
+          `i."createdAt" BETWEEN ${addParam(start)} AND ${addParam(end)}`,
         );
       }
     }
