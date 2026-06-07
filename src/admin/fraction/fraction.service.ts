@@ -953,7 +953,7 @@ export class FractionService {
           TypeTimeZone.ECUADOR,
         );
         conditions.push(
-          `f."createdAt" BETWEEN ${addParam(start)} AND ${addParam(end)}`,
+          `f."register" BETWEEN ${addParam(start)} AND ${addParam(end)}`,
         );
       }
     }
