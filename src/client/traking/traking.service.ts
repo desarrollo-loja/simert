@@ -499,8 +499,8 @@ export class TrakingService {
         `
           SELECT COUNT(*)::int AS total
           FROM ${qualifiedTable} t
-          INNER JOIN public.blockId b ON t."blockId" = b.id
-          INNER JOIN public.zoneId z ON b."zoneId" = z.id 
+          INNER JOIN public.block b ON t."blockId" = b.id
+          INNER JOIN public.zone z ON b."zoneId" = z.id 
           WHERE t."userId" = $1
           AND t.register BETWEEN $2 AND $3
           AND (t.register <> $2 OR t.time >= $4)
@@ -522,8 +522,8 @@ export class TrakingService {
         SELECT "idDevice", latitude, longitude, "statusTracking", "activityTracking",
                data, polyline, register, time, "zoneId", "blockId", b.name as "blockName", z.name as "zoneName"
         FROM ${qualifiedTable} t
-        INNER JOIN public.blockId b ON t."blockId" = b.id
-        INNER JOIN public.zoneId z ON b."zoneId" = z.id
+        INNER JOIN public.block b ON t."blockId" = b.id
+        INNER JOIN public.zone z ON b."zoneId" = z.id
         WHERE t."userId" = $1
           AND t.register BETWEEN $2 AND $3
           AND (t.register <> $2 OR t.time >= $4)
