@@ -29,7 +29,7 @@ export class TrakingService {
 
     @InjectDataSource('tracking_controller')
     private readonly dataSource: DataSource,
-  ) {}
+  ) { }
 
   private tableTracking = '';
   private tableJob = '';
@@ -499,10 +499,12 @@ export class TrakingService {
         `
           SELECT COUNT(*)::int AS total
           FROM ${qualifiedTable} t
+          INNER JOIN public.blockId b ON t."blockId" = b.id
+          INNER JOIN public.zoneId z ON b."zoneId" = z.id 
           WHERE t."userId" = $1
-            AND t.register BETWEEN $2 AND $3
-            AND (t.register <> $2 OR t.time >= $4)
-            AND (t.register <> $3 OR t.time <= $5);
+          AND t.register BETWEEN $2 AND $3
+          AND (t.register <> $2 OR t.time >= $4)
+          AND (t.register <> $3 OR t.time <= $5);
         `,
         [userId, dateFrom, dateTo, timeFrom, timeTo],
       );
@@ -518,8 +520,10 @@ export class TrakingService {
 
     const query = `
         SELECT "idDevice", latitude, longitude, "statusTracking", "activityTracking",
-               data, polyline, register, time, "zoneId", "blockId"
+               data, polyline, register, time, "zoneId", "blockId", b.name as "blockName", z.name as "zoneName"
         FROM ${qualifiedTable} t
+        INNER JOIN public.blockId b ON t."blockId" = b.id
+        INNER JOIN public.zoneId z ON b."zoneId" = z.id
         WHERE t."userId" = $1
           AND t.register BETWEEN $2 AND $3
           AND (t.register <> $2 OR t.time >= $4)
