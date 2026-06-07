@@ -491,6 +491,13 @@ export class TrakingService {
 
     const hasPagination = limit !== undefined && limit !== null && limit > 0;
 
+    // NOTE: `block`/`zone` live in the default `simert` database while these
+    // partitions live in the `tracking_controller` database. PostgreSQL cannot
+    // JOIN across databases, so we query the partition alone here and resolve
+    // the block/zone names afterwards via `_attachZoneAndBlockNames` (which runs
+    // on the default connection). Counting without the join also keeps `total`
+    // consistent with the rows actually returned.
+
     // Total count for pagination metadata. Only run COUNT(*) when paginating
     // — for non-paginated callers we can derive it from the result length.
     let total = 0;
@@ -499,8 +506,6 @@ export class TrakingService {
         `
           SELECT COUNT(*)::int AS total
           FROM ${qualifiedTable} t
-          INNER JOIN simert.block b ON t."blockId" = b.id
-          INNER JOIN simert.zone z ON b."zoneId" = z.id 
           WHERE t."userId" = $1
           AND t.register BETWEEN $2 AND $3
           AND (t.register <> $2 OR t.time >= $4)
@@ -520,10 +525,8 @@ export class TrakingService {
 
     const query = `
         SELECT "idDevice", latitude, longitude, "statusTracking", "activityTracking",
-               data, polyline, register, time, "zoneId", "blockId", b.name as "blockName", z.name as "zoneName"
+               data, polyline, register, time, "zoneId", "blockId"
         FROM ${qualifiedTable} t
-        INNER JOIN simert.block b ON t."blockId" = b.id
-        INNER JOIN simert.zone z ON b."zoneId" = z.id
         WHERE t."userId" = $1
           AND t.register BETWEEN $2 AND $3
           AND (t.register <> $2 OR t.time >= $4)
@@ -535,7 +538,70 @@ export class TrakingService {
 
     if (!hasPagination) total = trackings.length;
 
+    // Resolve blockName/zoneName from the default database and merge in memory.
+    await this._attachZoneAndBlockNames(trackings);
+
     return { errorCode: ErrorCode.NONE, trackings, total };
+  }
+
+  /**
+   * Enriches tracking rows in place with their `blockName` and `zoneName`.
+   *
+   * The tracking partitions live in the `tracking_controller` database, whereas
+   * `block`/`zone` live in the default `simert` database, so PostgreSQL cannot
+   * JOIN them directly. Names are resolved with a single query on the default
+   * connection (the same one backing the `L` repository) and merged by
+   * `blockId`. Rows whose `blockId` is null or no longer references an existing
+   * block keep `null` names instead of being dropped (LEFT-join semantics),
+   * preserving historical samples captured before geo data was sent.
+   * @param trackings Tracking rows carrying numeric `blockId`/`zoneId`; mutated to add `blockName`/`zoneName`.
+   */
+  private async _attachZoneAndBlockNames(trackings: any[]): Promise<void> {
+    if (!trackings?.length) return;
+
+    const blockIds = [
+      ...new Set(
+        trackings
+          .map((tracking) => tracking.blockId)
+          .filter((id) => id !== null && id !== undefined),
+      ),
+    ];
+
+    const namesByBlockId = new Map<
+      number,
+      { blockName: string; zoneName: string }
+    >();
+
+    if (blockIds.length) {
+      // `zoneName` is derived through the block's zone (block.zoneId -> zone.id),
+      // matching the original join semantics. Runs on the default `simert` DB.
+      const rows: Array<{
+        blockId: number;
+        blockName: string;
+        zoneName: string;
+      }> = await this.locationRepository.query(
+        `
+          SELECT b.id AS "blockId", b.name AS "blockName", z.name AS "zoneName"
+          FROM public.block b
+          INNER JOIN public.zone z ON b."zoneId" = z.id
+          WHERE b.id = ANY($1::int[])
+        `,
+        [blockIds],
+      );
+
+      for (const row of rows) {
+        namesByBlockId.set(row.blockId, {
+          blockName: row.blockName,
+          zoneName: row.zoneName,
+        });
+      }
+    }
+
+    for (const tracking of trackings) {
+      const names = namesByBlockId.get(tracking.blockId);
+      tracking.blockName = names?.blockName ?? null;
+      tracking.zoneName = names?.zoneName ?? null;
+    }
   }
 
   /**
