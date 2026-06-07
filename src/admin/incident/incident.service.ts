@@ -116,6 +116,10 @@ export class IncidentService {
    * Timestamps are serialized as `YYYY-MM-DD"T"HH24:MI:SS.MS` strings to avoid
    * the UTC-`Z` suffix that JS `Date` serialization would produce.
    *
+   * The `dateFrom`/`dateTo` range filters on `register` (the business-level
+   * registration day) and the results are ordered by `register DESC`;
+   * {@link findAllTotal} uses the same `register` filter so its count matches.
+   *
    * @param filterDto Filters and pagination options.
    * @returns Object with the `incidents` array and `errorCode`.
    */
@@ -133,7 +137,7 @@ export class IncidentService {
         '"id", "incidentTypeId", "statusIncident", "description", "plate", "optionalData", ' +
         '"supervisorObservations", "controllerId", "dictumPdfUrl", "resolutionPdfUrl", ' +
         '"blockOperatorId", "zoneId", "blockId", "slot", "images", "lt", "lg", "isActivated", ' +
-        '"createdAt", "updatedAt", "incidentCategory", "nroTicket", "identityCard", ' +
+        '"createdAt", "updatedAt", "register", "incidentCategory", "nroTicket", "identityCard", ' +
         '"fullNameClient", "emailClient", "amount", "reference", "address", "vehicleType", ' +
         '"controllerReportPdfUrl", "nroObligation", "internalState"';
       const rangeSource = await this._buildIncidentRangeSource(
@@ -149,8 +153,11 @@ export class IncidentService {
       table = await this._resolveIncidentTable(filterDto);
     }
 
-    const { conditions, parameters } =
-      this._buildConditionsAndParametersPg(filterDto);
+    const { conditions, parameters } = this._buildConditionsAndParametersPg(
+      filterDto,
+      [],
+      'register',
+    );
 
     // Appends a value to the parameters array and returns its $N placeholder.
     const appendParam = (value: any) => {
@@ -180,6 +187,7 @@ export class IncidentService {
       i."isActivated",
       TO_CHAR(i."createdAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS') AS "createdAt",
       TO_CHAR(i."updatedAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS') AS "updatedAt",
+      TO_CHAR(i."register", 'YYYY-MM-DD"T"HH24:MI:SS.MS') AS "register",
       i."incidentCategory",
       i."nroTicket",
       i."identityCard",
@@ -199,7 +207,7 @@ export class IncidentService {
       queryInfo += ' WHERE ' + conditions.join(' AND ');
     }
 
-    queryInfo += ' ORDER BY i."createdAt" DESC';
+    queryInfo += ' ORDER BY i."register" DESC';
 
     // Parameterized LIMIT/OFFSET. Coerced and validated to safe integers as
     // defense-in-depth against any caller bypassing DTO validation.
@@ -239,8 +247,11 @@ export class IncidentService {
   async findAllTotal(filterDto: IncidentFilterDto) {
     const table = await this._resolveIncidentTable(filterDto);
 
-    const { conditions, parameters } =
-      this._buildConditionsAndParametersPg(filterDto);
+    const { conditions, parameters } = this._buildConditionsAndParametersPg(
+      filterDto,
+      [],
+      'register',
+    );
 
     let queryInfo = `SELECT COUNT(*) as total FROM ${table} i`;
 
@@ -1263,12 +1274,17 @@ export class IncidentService {
    *   entity-scoping fields.
    * @param excludeStatus Optional pair of {@link IncidentStatus} values to
    *   exclude via `NOT IN`. Defaults to empty (no exclusion).
+   * @param dateColumn    Column used for the `dateFrom`/`dateTo` range filter:
+   *   `createdAt` (UTC technical timestamp, translated from the local day range)
+   *   or `register` (local business registration day, filtered by `DATE()`
+   *   directly). Defaults to `createdAt`.
    * @returns Object with the `conditions` array and the ordered `parameters`
    *   array aligned with their `$1..$N` placeholders.
    */
   private _buildConditionsAndParametersPg(
     filterDto: IncidentFilterDto,
     excludeStatus = [],
+    dateColumn: 'createdAt' | 'register' = 'createdAt',
   ): { conditions: string[]; parameters: any[] } {
     const {
       search = '',
@@ -1358,19 +1374,28 @@ export class IncidentService {
     }
 
     if (dateFrom && dateTo) {
-      // `createdAt` is stored in UTC, while the client selects whole days in
-      // local (Ecuador, UTC-5) time. Translate the local day range
-      // [dateFrom 00:00:00, dateTo 23:59:59] to its equivalent UTC window before
-      // comparing, so rows are matched by the user's local day. Example:
-      // 2026-06-03 -> 2026-06-03 05:00:00 .. 2026-06-04 04:59:59 (UTC).
-      const { start, end } = this._convertRangeToTimeZone(
-        `${dateFrom} 00:00:00`,
-        `${dateTo} 23:59:59`,
-        TypeTimeZone.ECUADOR,
-      );
-      conditions.push(
-        `i."createdAt" BETWEEN ${addParam(start)} AND ${addParam(end)}`,
-      );
+      if (dateColumn === 'register') {
+        // `register` holds the business-level registration day in local time, so
+        // it is filtered by its calendar date directly (same pattern as
+        // `findAllByTransactionId`), without the UTC translation `createdAt` needs.
+        conditions.push(
+          `DATE(i."register") BETWEEN ${addParam(dateFrom)} AND ${addParam(dateTo)}`,
+        );
+      } else {
+        // `createdAt` is stored in UTC, while the client selects whole days in
+        // local (Ecuador, UTC-5) time. Translate the local day range
+        // [dateFrom 00:00:00, dateTo 23:59:59] to its equivalent UTC window before
+        // comparing, so rows are matched by the user's local day. Example:
+        // 2026-06-03 -> 2026-06-03 05:00:00 .. 2026-06-04 04:59:59 (UTC).
+        const { start, end } = this._convertRangeToTimeZone(
+          `${dateFrom} 00:00:00`,
+          `${dateTo} 23:59:59`,
+          TypeTimeZone.ECUADOR,
+        );
+        conditions.push(
+          `i."createdAt" BETWEEN ${addParam(start)} AND ${addParam(end)}`,
+        );
+      }
     }
 
     if (excludeStatus.length > 0) {
