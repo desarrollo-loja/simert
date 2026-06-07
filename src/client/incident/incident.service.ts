@@ -845,6 +845,11 @@ export class IncidentService {
         .filter((code) => code.length > 0)
         .join(', ');
 
+      const accountingAccountCodes = incidents
+        .map((incident) => (incident.accountingAccountCode ?? '').trim())
+        .filter((accountingAccountCode) => accountingAccountCode.length > 0)
+        .join(', ');
+
       const debitAmounDto = await this._parseDebitAmounDto(
         concept,
         payIncidentDto,
@@ -888,6 +893,7 @@ export class IncidentService {
               typePaymentResponsibility,
               referenceId,
               codes,
+              accountingAccountCodes,
               ownerName,
             );
             if (responseDeunaV2['errorCode'] === ErrorCode.NONE) {
@@ -911,6 +917,7 @@ export class IncidentService {
               typePaymentResponsibility,
               referenceId,
               codes,
+              accountingAccountCodes,
               ownerName,
             );
 
@@ -935,6 +942,7 @@ export class IncidentService {
               typePaymentResponsibility,
               referenceId,
               codes,
+              accountingAccountCodes,
               ownerName,
             );
 
@@ -1277,6 +1285,7 @@ export class IncidentService {
    * @param typePaymentResponsibility Commission responsibility type (defaults to NONE when unset).
    * @param referenceId Reference grouping the affected incident payments.
    * @param codes Billing codes attached to the transaction.
+   * @param accountingAccountCodes Accounting account codes attached to the transaction.
    * @param ownerName Owner name attached to the billing data.
    * @returns Promise resolving to the finalized provider response envelope.
    */
@@ -1287,6 +1296,7 @@ export class IncidentService {
     typePaymentResponsibility: TypePaymentResponsibility,
     referenceId: string,
     codes: string,
+    accountingAccountCodes: string,
     ownerName: string,
   ) {
     const { userId, typePaymentMethod, credentialId, amount } = payIncidentDto;
@@ -1308,6 +1318,7 @@ export class IncidentService {
       billing_data: {
         ...debitAmounDto.billing_data,
         code: codes,
+        accountingAccountCode: accountingAccountCodes,
         ownerName,
       } as BillingDataDto,
       transactionId: debitAmounDto.transactionId,
@@ -1348,6 +1359,7 @@ export class IncidentService {
    * @param typePaymentResponsibility Commission responsibility type (defaults to NONE when unset).
    * @param referenceId Reference grouping the affected incident payments.
    * @param codes Billing codes attached to the transaction.
+   * @param accountingAccountCodes Accounting account codes attached to the transaction.
    * @param ownerName Owner name attached to the billing data.
    * @returns Promise resolving to the finalized provider response envelope.
    */
@@ -1358,6 +1370,7 @@ export class IncidentService {
     typePaymentResponsibility: TypePaymentResponsibility,
     referenceId: string,
     codes: string,
+    accountingAccountCodes: string,
     ownerName: string,
   ) {
     const { userId, typePaymentMethod, credentialId, amount } = payIncidentDto;
@@ -1379,6 +1392,7 @@ export class IncidentService {
       billing_data: {
         ...debitAmounDto.billing_data,
         code: codes,
+        accountingAccountCode: accountingAccountCodes,
         ownerName,
       } as BillingDataDto,
       transactionId: debitAmounDto.transactionId,
@@ -1419,6 +1433,7 @@ export class IncidentService {
    * @param typePaymentResponsibility Commission responsibility type (defaults to NONE when unset).
    * @param referenceId Reference grouping the affected incident payments.
    * @param codes Billing codes attached to the transaction.
+   * @param accountingAccountCodes Accounting account codes attached to the transaction.
    * @param ownerName Owner name attached to the billing data.
    * @returns Promise resolving to the finalized provider response envelope.
    */
@@ -1429,6 +1444,7 @@ export class IncidentService {
     typePaymentResponsibility: TypePaymentResponsibility,
     referenceId: string,
     codes: string,
+    accountingAccountCodes: string,
     ownerName: string,
   ) {
     const { userId, typePaymentMethod, credentialId, amount } = payIncidentDto;
@@ -1450,6 +1466,7 @@ export class IncidentService {
       billing_data: {
         ...debitAmounDto.billing_data,
         code: codes,
+        accountingAccountCode: accountingAccountCodes,
         ownerName,
       } as BillingDataDto,
       transactionId: debitAmounDto.transactionId,
