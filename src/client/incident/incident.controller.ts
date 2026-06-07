@@ -33,18 +33,21 @@ import { IncidentService } from './incident.service';
 @Controller('client/incident')
 export class IncidentController {
   /**
+   * Creates a new {@link IncidentController}.
    *
-   * @param incidentService
+   * @param incidentService Service that handles incident lookup and payment logic.
    */
   constructor(private readonly incidentService: IncidentService) {}
 
   /**
+   * Checks the outstanding fines for a client by plate or identity card against the external GIM system.
    *
-   * @param userId
-   * @param idDevice
-   * @param version
-   * @param plate
-   * @param identityCard
+   * @param userId Identifier of the requesting user.
+   * @param idDevice UUID of the device performing the request.
+   * @param version Client application version.
+   * @param plate Vehicle plate used to look up outstanding fines.
+   * @param identityCard Identity card used to look up outstanding fines.
+   * @returns Outstanding fines summary for the given plate or identity card.
    */
   @ApiOperation({
     summary: 'Check outstanding fines by plate or identity card (external GIM)',
@@ -85,13 +88,15 @@ export class IncidentController {
   }
 
   /**
+   * Lists the sanctions/incidents linked to a given parking fraction.
    *
-   * @param user
-   * @param userId
-   * @param idDevice
-   * @param fractionId
-   * @param _version
-   * @param _request
+   * @param user Authenticated user payload extracted from the Keycloak token.
+   * @param userId Identifier of the requesting user.
+   * @param idDevice UUID of the device performing the request.
+   * @param fractionId Identifier of the fraction whose sanctions are requested.
+   * @param _version Client application version (unused).
+   * @param _request Underlying HTTP request (unused).
+   * @returns Sanctions associated with the given fraction.
    */
   @ApiOperation({ summary: 'List sanctions/incidents linked to a fraction' })
   @ApiStandardResponse({
@@ -129,12 +134,14 @@ export class IncidentController {
   }
 
   /**
+   * Finds pending sanctions by identity card and synchronizes them with the GIM system.
    *
-   * @param userId
-   * @param idDevice
-   * @param identityCard
-   * @param version
-   * @param getIncidentDto
+   * @param userId Identifier of the requesting user.
+   * @param idDevice UUID of the device performing the request.
+   * @param identityCard Identity card used to look up pending sanctions.
+   * @param version Client application version.
+   * @param getIncidentDto Payload with the criteria used to retrieve incidents.
+   * @returns Pending incidents for the given identity card, emitted to GIM when required.
    */
   @ApiOperation({
     summary: 'Find pending sanctions by identity card and sync with GIM',
@@ -170,12 +177,14 @@ export class IncidentController {
   }
 
   /**
+   * Starts the payment process for one or multiple incidents.
    *
-   * @param user
-   * @param userId
-   * @param idDevice
-   * @param version
-   * @param payIncidentDto
+   * @param user Authenticated user payload extracted from the Keycloak token.
+   * @param userId Identifier of the requesting user.
+   * @param idDevice UUID of the device performing the request.
+   * @param version Client application version.
+   * @param payIncidentDto Payload describing the incidents to pay.
+   * @returns Payment intent created while awaiting the provider response.
    */
   @ApiOperation({ summary: 'Start payment for one or multiple incidents' })
   @ApiStandardResponse({
@@ -206,14 +215,16 @@ export class IncidentController {
   }
 
   /**
+   * Handles the provider webhook callback for a successful payment.
    *
-   * @param userId
-   * @param typePaymentResponsibility
-   * @param typePaymentMethod
-   * @param referenceId
-   * @param idDevice
-   * @param register
-   * @param _concept
+   * @param userId Identifier of the user related to the payment.
+   * @param typePaymentResponsibility Code identifying who is responsible for the payment.
+   * @param typePaymentMethod Code identifying the payment method used.
+   * @param referenceId Reference identifier of the payment transaction.
+   * @param idDevice UUID of the device related to the payment.
+   * @param register Registration reference returned by the payment provider.
+   * @param _concept Payment concept (unused).
+   * @returns Result of processing the successful payment webhook.
    */
   @ApiOperation({ summary: 'Webhook: provider payment success callback' })
   @ApiStandardResponse({
@@ -245,14 +256,16 @@ export class IncidentController {
   }
 
   /**
+   * Handles the provider webhook callback for a failed payment.
    *
-   * @param userId
-   * @param typePaymentResponsibility
-   * @param typePaymentMethod
-   * @param referenceId
-   * @param idDevice
-   * @param register
-   * @param _concept
+   * @param userId Identifier of the user related to the payment.
+   * @param typePaymentResponsibility Code identifying who is responsible for the payment.
+   * @param typePaymentMethod Code identifying the payment method used.
+   * @param referenceId Reference identifier of the payment transaction.
+   * @param idDevice UUID of the device related to the payment.
+   * @param register Registration reference returned by the payment provider.
+   * @param _concept Payment concept (unused).
+   * @returns Result of processing the failed payment webhook.
    */
   @ApiOperation({ summary: 'Webhook: provider payment error callback' })
   @ApiStandardResponse({
@@ -283,11 +296,13 @@ export class IncidentController {
   }
 
   /**
+   * Retrieves the payment transaction associated with a reference identifier.
    *
-   * @param user
-   * @param userId
-   * @param idDevice
-   * @param reference
+   * @param user Authenticated user payload extracted from the Keycloak token.
+   * @param userId Identifier of the requesting user.
+   * @param idDevice UUID of the device performing the request.
+   * @param reference Reference identifier of the payment transaction to retrieve.
+   * @returns Incident payment matching the given reference.
    */
   @ApiOperation({ summary: 'Get payment transaction by reference id' })
   @ApiStandardResponse({

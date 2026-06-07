@@ -30,17 +30,18 @@ import { UpdateCheckboxUserDto } from './dto/update-checkbox-user.dto';
 @Controller('admin/checkbox-user')
 export class CheckboxUserController {
   /**
-   *
-   * @param checkboxUserService
+   * Creates the controller and injects its delegate service.
+   * @param checkboxUserService Service that handles checkbox-user persistence and reporting.
    */
   constructor(private readonly checkboxUserService: CheckboxUserService) {}
 
   /**
-   *
-   * @param _userId
-   * @param _idDevice
-   * @param _version
-   * @param filterDto
+   * Returns the digital-consumption report (balance, top-ups and consumption per user).
+   * @param _userId Authenticated user identifier from the route (unused in delegation).
+   * @param _idDevice Device UUID from the route (unused in delegation).
+   * @param _version Client version from the route (unused in delegation).
+   * @param filterDto Pagination and filtering criteria for the report.
+   * @returns Promise resolving to the digital-consumption report rows.
    */
   @ApiOperation({
     summary:
@@ -58,11 +59,12 @@ export class CheckboxUserController {
   }
 
   /**
-   *
-   * @param _userId
-   * @param _idDevice
-   * @param _version
-   * @param filterDto
+   * Returns the total number of rows for the digital-consumption report (used for pagination).
+   * @param _userId Authenticated user identifier from the route (unused in delegation).
+   * @param _idDevice Device UUID from the route (unused in delegation).
+   * @param _version Client version from the route (unused in delegation).
+   * @param filterDto Filtering criteria applied to the row count.
+   * @returns Promise resolving to the total row count of the report.
    */
   @ApiOperation({
     summary: 'Total rows of the digital-consumption report (pagination)',
@@ -79,8 +81,9 @@ export class CheckboxUserController {
   }
 
   /**
-   *
-   * @param createCheckboxUserDto
+   * Creates a new checkbox-user association.
+   * @param createCheckboxUserDto Payload describing the association to create.
+   * @returns Promise resolving to the created checkbox-user association.
    */
   @ApiOperation({ summary: 'Create a new checkbox-user association' })
   @Post()
@@ -89,7 +92,8 @@ export class CheckboxUserController {
   }
 
   /**
-   *
+   * Retrieves all checkbox-user associations.
+   * @returns Promise resolving to the list of checkbox-user associations.
    */
   @ApiOperation({ summary: 'List all checkbox-user associations' })
   @Get()
@@ -98,8 +102,9 @@ export class CheckboxUserController {
   }
 
   /**
-   *
-   * @param id
+   * Retrieves a single checkbox-user association by its identifier.
+   * @param id Identifier of the checkbox-user association to retrieve.
+   * @returns Promise resolving to the matching checkbox-user association.
    */
   @ApiOperation({ summary: 'Get a single checkbox-user association by id' })
   @Get(':id')
@@ -108,9 +113,10 @@ export class CheckboxUserController {
   }
 
   /**
-   *
-   * @param id
-   * @param updateCheckboxUserDto
+   * Updates an existing checkbox-user association by its identifier.
+   * @param id Identifier of the checkbox-user association to update.
+   * @param updateCheckboxUserDto Payload with the fields to update.
+   * @returns Promise resolving to the updated checkbox-user association.
    */
   @ApiOperation({ summary: 'Update a checkbox-user association by id' })
   @Patch(':id')
@@ -122,8 +128,9 @@ export class CheckboxUserController {
   }
 
   /**
-   *
-   * @param id
+   * Deletes a checkbox-user association by its identifier.
+   * @param id Identifier of the checkbox-user association to delete.
+   * @returns Promise resolving to the result of the deletion.
    */
   @ApiOperation({ summary: 'Delete a checkbox-user association by id' })
   @Delete(':id')

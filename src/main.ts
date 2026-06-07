@@ -28,7 +28,8 @@ const production: string[] = productionDomain
   .map((s) => s.trim());
 
 /**
- *
+ * Bootstraps the NestJS application: creates the app, configures global
+ * settings, middleware, CORS, Swagger and starts listening for requests.
  */
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);

@@ -22,9 +22,9 @@ export class RangeSalePointService {
   private readonly logger = new Logger('RangeSalePointService');
 
   /**
-   *
-   * @param rangeSalePointRepository
-   * @param loggerService
+   * Creates a new RangeSalePointService instance.
+   * @param rangeSalePointRepository Repository for accessing RangeSalePoint entities.
+   * @param loggerService Service used to record audit and operation logs.
    */
   constructor(
     @InjectRepository(RangeSalePoint)

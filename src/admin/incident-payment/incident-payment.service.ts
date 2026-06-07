@@ -17,8 +17,9 @@ export class IncidentPaymentService {
   private readonly logger = new Logger(IncidentPaymentService.name);
 
   /**
+   * Creates a new {@link IncidentPaymentService}.
    *
-   * @param incidentPaymentRepository
+   * @param incidentPaymentRepository Repository for the {@link IncidentPayment} entity.
    */
   constructor(
     @InjectRepository(IncidentPayment)

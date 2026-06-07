@@ -21,9 +21,10 @@ export class ZoneService {
   private readonly logger = new Logger(ZoneService.name);
 
   /**
+   * Creates a new service instance.
    *
-   * @param zoneRepository
-   * @param loggerService
+   * @param zoneRepository TypeORM repository for {@link Zone} entities.
+   * @param loggerService Service used to write audit log entries.
    */
   constructor(
     @InjectRepository(Zone)

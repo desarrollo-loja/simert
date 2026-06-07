@@ -24,16 +24,19 @@ import { IncidentTypeService } from './incident-type.service';
 @Controller('client/incident-type')
 export class IncidentTypeController {
   /**
+   * Creates the controller and injects its delegated service.
    *
-   * @param incidentTypeService
+   * @param incidentTypeService Service that resolves the incident type catalog.
    */
   constructor(private readonly incidentTypeService: IncidentTypeService) {}
 
   // @Auth()
   /**
+   * Returns all active incident types ordered by creation date.
    *
-   * @param _userId
-   * @param _idDevice
+   * @param _userId Authenticated user identifier from the route (currently unused).
+   * @param _idDevice Device identifier from the route (currently unused).
+   * @returns Promise resolving to the active incident types and an error code.
    */
   @ApiOperation({ summary: 'Get all activated incident types' })
   @ApiStandardResponse({

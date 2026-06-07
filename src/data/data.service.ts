@@ -15,15 +15,15 @@ import { DataSource } from 'typeorm';
 @Injectable()
 export class DataService {
   /**
-   *
-   * @param dataSource
+   * @param dataSource Default TypeORM data source used to run the archiving queries.
    */
   constructor(private readonly dataSource: DataSource) {}
 
   private readonly logger = new Logger('DataService');
 
   /**
-   *
+   * Lifecycle hook that, on the master instance, schedules the data-archiving
+   * job to run every minute during the allowed time window.
    */
   async onModuleInit() {
     if (process.env.MASTER_DATA_SERVICE === 'TRUE') {
@@ -45,11 +45,13 @@ export class DataService {
   }
 
   /**
-   *
+   * Moves the previous-period closed fractions, incidents and related rows
+   * from the live tables into their monthly historical partitions within a
+   * single transaction, then prunes the source tables.
    */
   private async _transferData(): Promise<void> {
     this.logger.verbose(
-      'Dentro de la funcion para pasar datos a las historicas',
+      'Inside the function that moves data to the historical tables',
     );
 
     const queryRunner = this.dataSource.createQueryRunner();

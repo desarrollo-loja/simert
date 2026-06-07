@@ -22,9 +22,9 @@ export class SalePointService {
   private readonly logger = new Logger('SalePointService');
 
   /**
-   *
-   * @param salePointRepository
-   * @param loggerService
+   * Creates a new SalePointService instance.
+   * @param salePointRepository Repository for accessing SalePoint entities.
+   * @param loggerService Service used to record audit and operation logs.
    */
   constructor(
     @InjectRepository(SalePoint)

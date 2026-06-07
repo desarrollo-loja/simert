@@ -27,15 +27,16 @@ import { TrakingService } from './traking.service';
 @Controller('client/traking')
 export class TrakingController {
   /**
-   *
-   * @param trakingService
+   * Creates the controller and injects the tracking service.
+   * @param trakingService Service that handles location tracking persistence and queries.
    */
   constructor(private readonly trakingService: TrakingService) {}
 
   /**
-   *
-   * @param userId
-   * @param plotLocationDto
+   * Records (plots) the current location reported by a user.
+   * @param userId Identifier of the user whose location is being recorded.
+   * @param plotLocationDto Payload containing the location data to persist.
+   * @returns Promise resolving to the result of the plot operation.
    */
   @ApiOperation({
     summary: 'Plot (record) the current user location (tracking_controller DB)',
@@ -49,9 +50,10 @@ export class TrakingController {
   }
 
   /**
-   *
-   * @param userId
-   * @param _idDevice
+   * Retrieves the full location tracking history for a user.
+   * @param userId Identifier of the user whose tracking history is requested.
+   * @param _idDevice Device identifier from the route (validated but not used by the query).
+   * @returns Promise resolving to the user's tracking history.
    */
   @ApiOperation({ summary: 'Get full location tracking history for a user' })
   @Get('tracking-by-user-id/:userId/:idDevice/:version')
@@ -63,9 +65,10 @@ export class TrakingController {
   }
 
   /**
-   *
-   * @param userIds
-   * @param _idDevice
+   * Retrieves the latest known location for multiple users.
+   * @param userIds Comma-separated list of user identifiers.
+   * @param _idDevice Device identifier from the route (validated but not used by the query).
+   * @returns Promise resolving to the latest location for each requested user.
    */
   @ApiOperation({
     summary: 'Get latest location for multiple users (comma-separated userIds)',
@@ -79,11 +82,12 @@ export class TrakingController {
   }
 
   /**
-   *
-   * @param userId
-   * @param idDevice
-   * @param fromString
-   * @param toString
+   * Retrieves all tracking records for a user within a date range.
+   * @param userId Identifier of the user whose records are requested.
+   * @param idDevice Device identifier from the route (validated but not used by the query).
+   * @param fromString Start of the date range as an ISO datetime string.
+   * @param toString End of the date range as an ISO datetime string.
+   * @returns Promise resolving to the tracking records within the given range.
    */
   @ApiOperation({
     summary:
@@ -112,14 +116,15 @@ export class TrakingController {
    *
    * Kept separate from `all-tracking` so production traffic using the
    * existing route is not affected.
-   * @param userId
-   * @param idDevice
-   * @param fromString
-   * @param toString
-   * @param year
-   * @param month
-   * @param limitRaw
-   * @param offsetRaw
+   * @param userId Identifier of the user whose records are requested.
+   * @param idDevice Device identifier from the route (validated but not used by the query).
+   * @param fromString Start boundary as an ISO datetime string within the partition.
+   * @param toString End boundary as an ISO datetime string within the partition.
+   * @param year Year of the monthly partition to query.
+   * @param month Month of the monthly partition to query.
+   * @param limitRaw Optional maximum number of records to return, as a raw string.
+   * @param offsetRaw Optional number of records to skip for pagination, as a raw string.
+   * @returns Promise resolving to the tracking records for the requested monthly partition.
    */
   @ApiOperation({
     summary:
@@ -161,13 +166,14 @@ export class TrakingController {
    * lat/lng (no metadata, no JSON columns) and applies server-side
    * downsampling so the browser doesn't choke when the partition has
    * tens of thousands of points.
-   * @param userId
-   * @param idDevice
-   * @param fromString
-   * @param toString
-   * @param year
-   * @param month
-   * @param maxPointsRaw
+   * @param userId Identifier of the user whose polyline is requested.
+   * @param idDevice Device identifier from the route (validated but not used by the query).
+   * @param fromString Start boundary as an ISO datetime string within the partition.
+   * @param toString End boundary as an ISO datetime string within the partition.
+   * @param year Year of the monthly partition to query.
+   * @param month Month of the monthly partition to query.
+   * @param maxPointsRaw Optional maximum number of points after downsampling, as a raw string.
+   * @returns Promise resolving to the downsampled lat/lng polyline for the partition.
    */
   @ApiOperation({
     summary:

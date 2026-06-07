@@ -25,12 +25,13 @@ export class RangeSalePointTransactionService {
   private readonly logger = new Logger('RangeSalePointTransactionService');
 
   /**
+   * Creates the service and injects its repositories and collaborators.
    *
-   * @param rangeSalePointTransactionRepository
-   * @param rangeSalePointRepository
-   * @param checkboxUserRepository
-   * @param loggerService
-   * @param dataSource
+   * @param rangeSalePointTransactionRepository Repository for the `RangeSalePointTransaction` entity.
+   * @param rangeSalePointRepository Repository for the `RangeSalePoint` entity.
+   * @param checkboxUserRepository Repository for the `CheckboxUser` entity.
+   * @param loggerService Service used to persist audit log entries.
+   * @param dataSource TypeORM data source used to run database transactions.
    */
   constructor(
     @InjectRepository(RangeSalePointTransaction)

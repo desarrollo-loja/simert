@@ -26,10 +26,9 @@ export class AgentActivitiesService {
   private readonly logger = new Logger(AgentActivitiesService.name);
 
   /**
-   *
-   * @param agentActivityRepository
-   * @param blockOperatorRepository
-   * @param loggerService
+   * @param agentActivityRepository TypeORM repository for the AgentActivity entity.
+   * @param blockOperatorRepository TypeORM repository for the BlockOperator entity.
+   * @param loggerService Service used to persist audit log entries.
    */
   constructor(
     @InjectRepository(AgentActivity)

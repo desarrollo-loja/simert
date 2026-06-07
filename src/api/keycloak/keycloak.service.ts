@@ -31,9 +31,11 @@ export class KeycloakService {
   private serviceHubTokenExpiresAt = 0; // timestamp in ms
 
   /**
+   * Initializes the service and resolves GIM/Keycloak configuration (realm
+   * URLs, realm names and the auth domain) from environment variables.
    *
-   * @param commonGimService
-   * @param configService
+   * @param commonGimService Shared GIM service used to obtain access tokens.
+   * @param configService Configuration provider for environment variables.
    */
   constructor(
     private readonly commonGimService: CommonGimService,
@@ -54,7 +56,10 @@ export class KeycloakService {
   // ─── Smart-cached token ─────────────────────────────────────────────────────
 
   /**
+   * Returns a valid ServiceHub access token, using the in-memory cache when it
+   * is still valid and refreshing it from GIM otherwise.
    *
+   * @returns Promise resolving to the access token, or `null` if it could not be obtained.
    */
   private async getToken(): Promise<string> {
     const now = Date.now();
@@ -81,7 +86,10 @@ export class KeycloakService {
 
   // Always fetches a fresh token for municipal employees (realm Municipio K, client_credentials)
   /**
+   * Fetches a fresh access token for municipal employees (realm Municipio K,
+   * `client_credentials` grant); this token is never cached.
    *
+   * @returns Promise resolving to the access token, or `null` if it could not be obtained.
    */
   private async getTokenMunicipalityK(): Promise<string> {
     const result = await this.commonGimService.loginGimMunicipalityK();
@@ -94,8 +102,10 @@ export class KeycloakService {
   }
 
   /**
+   * Builds the standard JSON request headers including the bearer token.
    *
-   * @param token
+   * @param token Access token to place in the `Authorization` header.
+   * @returns Header object with `Authorization` and `Content-Type`.
    */
   private authHeaders(token: string) {
     return {
@@ -105,8 +115,10 @@ export class KeycloakService {
   }
 
   /**
+   * Builds the ServiceHub realm users admin URL, optionally targeting a user.
    *
-   * @param id
+   * @param id Optional Keycloak user id appended to the URL.
+   * @returns The users collection URL, or the specific user URL when `id` is provided.
    */
   private usersUrl(id?: string): string {
     const base = `${this.gimBaseUrlLogin}/admin/realms/${this.gim2RealmServiceHub}/users`;
@@ -114,8 +126,10 @@ export class KeycloakService {
   }
 
   /**
+   * Builds the Municipality realm users admin URL, optionally targeting a user.
    *
-   * @param id
+   * @param id Optional Keycloak user id appended to the URL.
+   * @returns The users collection URL, or the specific user URL when `id` is provided.
    */
   private usersUrlMunicipality(id?: string): string {
     const base = `${this.gimBaseUrlLogin}/admin/realms/${this.gim2RealmMunicipality}/users`;
@@ -221,8 +235,11 @@ export class KeycloakService {
   // ─── Endpoints ───────────────────────────────────────────────────────────────
 
   /**
+   * Creates a user in the ServiceHub realm and extracts the new id from the
+   * Keycloak `Location` response header.
    *
-   * @param dto
+   * @param dto User payload to create in Keycloak.
+   * @returns Result envelope with `errorCode`, `message` and the created `userId`.
    */
   async createUser(dto: CreateKeycloakUserDto) {
     const token = await this.getToken();
@@ -258,8 +275,11 @@ export class KeycloakService {
   }
 
   /**
+   * Creates a user in the Municipality realm and extracts the new id from the
+   * Keycloak `Location` response header.
    *
-   * @param dto
+   * @param dto User payload to create in Keycloak.
+   * @returns Result envelope with `errorCode`, `message` and the created `userId`.
    */
   async createUserMunicipality(dto: CreateKeycloakUserDto) {
     const token = await this.getTokenMunicipalityK();
@@ -295,9 +315,11 @@ export class KeycloakService {
   }
 
   /**
+   * Updates an existing user in the ServiceHub realm.
    *
-   * @param id
-   * @param dto
+   * @param id Keycloak user id to update.
+   * @param dto Partial user payload to apply.
+   * @returns Result envelope with `errorCode` and `message`.
    */
   async updateUser(id: string, dto: UpdateKeycloakUserDto) {
     const token = await this.getToken();
@@ -321,9 +343,11 @@ export class KeycloakService {
   }
 
   /**
+   * Updates an existing user in the Municipality realm.
    *
-   * @param id
-   * @param dto
+   * @param id Keycloak user id to update.
+   * @param dto Partial user payload to apply.
+   * @returns Result envelope with `errorCode` and `message`.
    */
   async updateUserMunicipality(id: string, dto: UpdateKeycloakUserDto) {
     const token = await this.getTokenMunicipalityK();
@@ -347,11 +371,13 @@ export class KeycloakService {
   }
 
   /**
-   * Habilita o deshabilita una cuenta de ciudadano (realm ServiceHub).
-   * Envía solo el campo `enabled`; Keycloak hace un merge parcial, así que
-   * el resto de datos del usuario (nombre, email, atributos) no se tocan.
-   * @param id
-   * @param enabled
+   * Enables or disables a citizen account (ServiceHub realm).
+   * Only the `enabled` field is sent; Keycloak performs a partial merge, so the
+   * rest of the user data (name, email, attributes) is left untouched.
+   *
+   * @param id Keycloak user id to enable or disable.
+   * @param enabled `true` to enable the account, `false` to disable it.
+   * @returns Result envelope with `errorCode`, `message` and the new `enabled` state.
    */
   async setUserStatus(id: string, enabled: boolean) {
     const token = await this.getToken();
@@ -382,9 +408,11 @@ export class KeycloakService {
   }
 
   /**
-   * Habilita o deshabilita una cuenta de empleado municipal (realm Municipio K).
-   * @param id
-   * @param enabled
+   * Enables or disables a municipal employee account (Municipio K realm).
+   *
+   * @param id Keycloak user id to enable or disable.
+   * @param enabled `true` to enable the account, `false` to disable it.
+   * @returns Result envelope with `errorCode`, `message` and the new `enabled` state.
    */
   async setUserStatusMunicipality(id: string, enabled: boolean) {
     const token = await this.getTokenMunicipalityK();
@@ -415,8 +443,10 @@ export class KeycloakService {
   }
 
   /**
+   * Looks up a user by exact username in the ServiceHub realm.
    *
-   * @param username
+   * @param username Username to search for (exact match).
+   * @returns Result envelope with `errorCode`, `message` and the matching `data`.
    */
   async findByUsername(username: string) {
     const token = await this.getToken();
@@ -449,8 +479,10 @@ export class KeycloakService {
   }
 
   /**
+   * Looks up a user by exact username in the Municipality realm.
    *
-   * @param username
+   * @param username Username to search for (exact match).
+   * @returns Result envelope with `errorCode`, `message` and the matching `data`.
    */
   async findByUsernameMunicipality(username: string) {
     const token = await this.getTokenMunicipalityK();
@@ -529,8 +561,10 @@ export class KeycloakService {
   }
 
   /**
+   * Authenticates a ServiceHub realm client via the password grant.
    *
-   * @param dto
+   * @param dto Username/password credentials supplied by the client.
+   * @returns Token envelope on success, or an error envelope on failure.
    */
   async loginClient(dto: LoginKeycloakClientDto) {
     const tokenUrl = `${this.gimBaseUrlLogin}/realms/${this.gim2RealmServiceHub}/protocol/openid-connect/token`;
@@ -544,8 +578,10 @@ export class KeycloakService {
   }
 
   /**
+   * Authenticates a Municipality realm client via the password grant.
    *
-   * @param dto
+   * @param dto Username/password credentials supplied by the client.
+   * @returns Token envelope on success, or an error envelope on failure.
    */
   async loginClientMunicipality(dto: LoginKeycloakClientDto) {
     const tokenUrl = `${this.gimBaseUrlLoginMunicipality}/realms/${this.gim2RealmMunicipality}/protocol/openid-connect/token`;
@@ -559,8 +595,10 @@ export class KeycloakService {
   }
 
   /**
+   * Looks up a user by exact email in the ServiceHub realm.
    *
-   * @param email
+   * @param email Email address to search for (exact match).
+   * @returns Result envelope with `errorCode`, `message` and the matching `data`.
    */
   async findByEmail(email: string) {
     const token = await this.getToken();
@@ -593,8 +631,11 @@ export class KeycloakService {
   }
 
   /**
+   * Generates a temporary password for the ServiceHub user matching the given
+   * email, resets it in Keycloak and emails the new credentials.
    *
-   * @param email
+   * @param email Email address of the user whose password is reset.
+   * @returns Result envelope with `errorCode`, `message`, the `userId` and whether the email was sent.
    */
   async setUserPassword(email: string) {
     email = email?.trim();
@@ -657,8 +698,11 @@ export class KeycloakService {
   }
 
   /**
+   * Generates a temporary password for the Municipality user matching the given
+   * email, resets it in Keycloak and emails the new credentials.
    *
-   * @param email
+   * @param email Email address of the user whose password is reset.
+   * @returns Result envelope with `errorCode`, `message`, the `userId` and whether the email was sent.
    */
   async setUserPasswordMunicipality(email: string) {
     email = email?.trim();
@@ -721,9 +765,12 @@ export class KeycloakService {
   }
 
   /**
+   * Sets a new (permanent) password for the ServiceHub user matching the given
+   * email.
    *
-   * @param email
-   * @param newPassword
+   * @param email Email address of the user whose password is changed.
+   * @param newPassword New password value to set in Keycloak.
+   * @returns Result envelope with `errorCode`, `message` and the affected `userId`.
    */
   async changePassword(email: string, newPassword: string) {
     email = email?.trim();
@@ -773,9 +820,12 @@ export class KeycloakService {
   }
 
   /**
+   * Sets a new (permanent) password for the Municipality user matching the given
+   * email.
    *
-   * @param email
-   * @param newPassword
+   * @param email Email address of the user whose password is changed.
+   * @param newPassword New password value to set in Keycloak.
+   * @returns Result envelope with `errorCode`, `message` and the affected `userId`.
    */
   async changePasswordMunicipality(email: string, newPassword: string) {
     email = email?.trim();
@@ -823,11 +873,13 @@ export class KeycloakService {
   }
 
   /**
+   * Sends the password-recovery email through the configured auth domain.
    *
-   * @param fullName
-   * @param email
-   * @param password
-   * @param phone
+   * @param fullName Recipient full name shown in the email.
+   * @param email Recipient email address.
+   * @param password Temporary password to include in the email.
+   * @param phone Optional recipient phone number.
+   * @returns Promise resolving to `true` when the email was sent successfully, `false` otherwise.
    */
   private async _sendPasswordEmail(
     fullName: string,
@@ -873,8 +925,10 @@ export class KeycloakService {
   }
 
   /**
+   * Looks up a user by the `identification` attribute in the ServiceHub realm.
    *
-   * @param identification
+   * @param identification Identification attribute value to search for.
+   * @returns Result envelope with `errorCode`, `message` and the matching `data`.
    */
   async findByIdentification(identification: string) {
     const token = await this.getToken();
@@ -907,8 +961,10 @@ export class KeycloakService {
   }
 
   /**
+   * Looks up a user by the `identification` attribute in the Municipality realm.
    *
-   * @param identification
+   * @param identification Identification attribute value to search for.
+   * @returns Result envelope with `errorCode`, `message` and the matching `data`.
    */
   async findByIdentificationMunicipality(identification: string) {
     const token = await this.getTokenMunicipalityK();
@@ -944,8 +1000,11 @@ export class KeycloakService {
   }
 
   /**
+   * Triggers the Keycloak `execute-actions-email` flow (UPDATE_PASSWORD) for a
+   * ServiceHub user.
    *
-   * @param userId
+   * @param userId Keycloak user id that receives the action email.
+   * @returns An error envelope on failure; otherwise resolves with no value.
    */
   async executeActionsEmail(userId: string) {
     const token = await this.getToken();
@@ -969,8 +1028,11 @@ export class KeycloakService {
   }
 
   /**
+   * Triggers the Keycloak `execute-actions-email` flow (VERIFY_EMAIL) for a
+   * Municipality user.
    *
-   * @param userId
+   * @param userId Keycloak user id that receives the action email.
+   * @returns Result envelope with `errorCode` and an optional `message`.
    */
   async executeActionsEmailMunicipality(
     userId: string,
@@ -1000,8 +1062,10 @@ export class KeycloakService {
   }
 
   /**
+   * Looks up a user by exact email in the Municipality realm.
    *
-   * @param email
+   * @param email Email address to search for (exact match).
+   * @returns Result envelope with `errorCode`, `message` and the matching `data`.
    */
   async findByEmailMunicipality(email: string) {
     const token = await this.getTokenMunicipalityK();
@@ -1034,7 +1098,9 @@ export class KeycloakService {
   }
 
   /**
+   * Generates a random 6-digit numeric code used as a temporary password.
    *
+   * @returns A 6-character string of random digits.
    */
   private _generateCode() {
     let code = '';

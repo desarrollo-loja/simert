@@ -16,9 +16,10 @@ export class RangeSalePointService {
   private readonly logger = new Logger(RangeSalePointService.name);
 
   /**
+   * Creates the service with its required dependencies.
    *
-   * @param rangeSalePointRepository
-   * @param loggerService
+   * @param rangeSalePointRepository TypeORM repository for the RangeSalePoint entity.
+   * @param loggerService Shared logging service.
    */
   constructor(
     @InjectRepository(RangeSalePoint)
@@ -29,8 +30,12 @@ export class RangeSalePointService {
   ) {}
 
   /**
+   * Finds the oldest range sale point with available stock assigned to the
+   * given user so the client can sell parking time from it.
    *
-   * @param userId
+   * @param userId Identifier of the user (agent/operator) the batch is assigned to.
+   * @returns Promise resolving to the matching range sale point (or an empty object
+   *   when none is found) and an error code.
    */
   async getRangeSalePointByUserId(userId: number) {
     try {

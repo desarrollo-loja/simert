@@ -14,8 +14,8 @@ import { FractionStatusService } from './fraction_status.service';
 @Controller('admin/fraction-status')
 export class FractionStatusController {
   /**
-   *
-   * @param fractionStatusService
+   * Creates a new FractionStatusController.
+   * @param fractionStatusService Service that resolves the status history of parking fractions.
    */
   constructor(private readonly fractionStatusService: FractionStatusService) {}
 
@@ -23,8 +23,9 @@ export class FractionStatusController {
    * Returns all status-history entries for the given fraction id.
    * Optionally reads from a monthly historical table when `year` and `month`
    * are provided in the query string.
-   * @param fractionId
-   * @param filterDto
+   * @param fractionId Identifier of the fraction whose status history is requested.
+   * @param filterDto Optional filter that may target a monthly historical table via `year` and `month`.
+   * @returns The list of status-history records for the requested fraction.
    */
   @ApiOperation({
     summary: 'List status history records for a given fraction id',

@@ -23,9 +23,10 @@ export class SlotService {
   private readonly logger = new Logger(SlotService.name);
 
   /**
+   * Creates a new service instance.
    *
-   * @param slotRepository
-   * @param loggerService
+   * @param slotRepository TypeORM repository for {@link Slot} entities.
+   * @param loggerService Service used to write audit log entries.
    */
   constructor(
     @InjectRepository(Slot)

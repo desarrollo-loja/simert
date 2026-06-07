@@ -23,19 +23,22 @@ import { RangeSalePointTransactionService } from './range-sale-point-transaction
 @Controller('admin/range-sale-point-transaction')
 export class RangeSalePointTransactionController {
   /**
+   * Creates the controller and injects its dependencies.
    *
-   * @param rangeSalePointTransactionService
+   * @param rangeSalePointTransactionService Service that handles range sale point transaction logic.
    */
   constructor(
     private readonly rangeSalePointTransactionService: RangeSalePointTransactionService,
   ) {}
 
   /**
+   * Creates a new range sale point transaction for the given user.
    *
-   * @param userId
-   * @param idDevice
-   * @param version
-   * @param createRangeSalePointTransactionDto
+   * @param userId Identifier of the user owning the transaction.
+   * @param idDevice Identifier of the requesting device (route context only).
+   * @param version Client application version (route context only).
+   * @param createRangeSalePointTransactionDto Payload describing the transaction to create.
+   * @returns Promise resolving to the created range sale point transaction.
    */
   @ApiOperation({ summary: 'Create a new range sale point transaction' })
   @Post('create/:userId/:idDevice/:version')
@@ -53,11 +56,13 @@ export class RangeSalePointTransactionController {
   }
 
   /**
+   * Lists range sale point transactions matching the provided filters.
    *
-   * @param userId
-   * @param idDevice
-   * @param version
-   * @param filterDto
+   * @param userId Identifier of the requesting user (route context only).
+   * @param idDevice Identifier of the requesting device (route context only).
+   * @param version Client application version (route context only).
+   * @param filterDto Optional filtering, pagination and sorting criteria.
+   * @returns Promise resolving to the list of matching transactions.
    */
   @ApiOperation({
     summary: 'List range sale point transactions with optional filters',
@@ -73,11 +78,13 @@ export class RangeSalePointTransactionController {
   }
 
   /**
+   * Counts the total number of range sale point transactions matching the filters.
    *
-   * @param userId
-   * @param idDevice
-   * @param version
-   * @param filterDto
+   * @param userId Identifier of the requesting user (route context only).
+   * @param idDevice Identifier of the requesting device (route context only).
+   * @param version Client application version (route context only).
+   * @param filterDto Optional filtering criteria.
+   * @returns Promise resolving to the total count of matching transactions.
    */
   @ApiOperation({
     summary: 'Count total range sale point transactions matching filters',

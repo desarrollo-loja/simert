@@ -18,9 +18,10 @@ export class SalePointService {
   private readonly logger = new Logger('SalePointService');
 
   /**
+   * Creates the sale point service with its repository and logger.
    *
-   * @param salePointRepository
-   * @param loggerService
+   * @param salePointRepository Repository used to query sale points.
+   * @param loggerService Shared logging service.
    */
   constructor(
     @InjectRepository(SalePoint)
@@ -31,8 +32,10 @@ export class SalePointService {
   ) {}
 
   /**
+   * Retrieves active fixed-mode sale points, applying the given filters.
    *
-   * @param filterDto
+   * @param filterDto Filter criteria used to narrow the sale point query.
+   * @returns Promise resolving to an object with the error code and the matching sale points.
    */
   async findAllActiveModeFixed(filterDto: FilterDto) {
     try {
@@ -64,8 +67,10 @@ export class SalePointService {
   }
 
   /**
+   * Retrieves active mobile-mode sale points with their current geo location.
    *
-   * @param _filterDto
+   * @param _filterDto Filter criteria (reserved for future use).
+   * @returns Promise resolving to an object with the error code and the matching sale points.
    */
   async findAllActiveModeMobile(_filterDto: FilterDto) {
     try {
@@ -85,8 +90,10 @@ export class SalePointService {
   }
 
   /**
+   * Builds the additional SQL conditions and parameters from the given filters.
    *
-   * @param _filterDto
+   * @param _filterDto Filter criteria (reserved for future use).
+   * @returns Object with the SQL condition fragments and their bound parameters.
    */
   private _buildConditionsAndParameters(_filterDto: FilterDto) {
     const conditions: string[] = [];

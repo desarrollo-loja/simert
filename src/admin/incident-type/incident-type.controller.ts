@@ -27,16 +27,19 @@ import { IncidentTypeService } from './incident-type.service';
 @Controller('admin/incident-type')
 export class IncidentTypeController {
   /**
+   * Creates the controller and injects its dependencies.
    *
-   * @param incidentTypeService
+   * @param incidentTypeService Service that handles incident-type business logic.
    */
   constructor(private readonly incidentTypeService: IncidentTypeService) {}
 
   /**
+   * Creates a new incident type.
    *
-   * @param userId
-   * @param idDevice
-   * @param createIncidentTypeDto
+   * @param userId Identifier of the user performing the operation.
+   * @param idDevice Identifier of the device originating the request.
+   * @param createIncidentTypeDto Payload describing the incident type to create.
+   * @returns Promise resolving to the created incident type.
    */
   @ApiOperation({ summary: 'Create a new incident type' })
   // @Auth()
@@ -51,10 +54,12 @@ export class IncidentTypeController {
   }
 
   /**
+   * Lists incident types matching the provided filters.
    *
-   * @param userId
-   * @param idDevice
-   * @param filterDto
+   * @param userId Identifier of the user performing the operation.
+   * @param idDevice Identifier of the device originating the request.
+   * @param filterDto Filter criteria used to narrow the results.
+   * @returns Promise resolving to the list of matching incident types.
    */
   @ApiOperation({ summary: 'List incident types with filters' })
   // @Auth()
@@ -69,10 +74,12 @@ export class IncidentTypeController {
   }
 
   /**
+   * Retrieves a single incident type by its identifier.
    *
-   * @param userId
-   * @param idDevice
-   * @param id
+   * @param userId Identifier of the user performing the operation.
+   * @param idDevice Identifier of the device originating the request.
+   * @param id Identifier of the incident type to retrieve.
+   * @returns Promise resolving to the requested incident type.
    */
   @ApiOperation({ summary: 'Get a single incident type by id' })
   @Get('get-type-incident-by-id/:userId/:idDevice/:id')
@@ -85,11 +92,13 @@ export class IncidentTypeController {
   }
 
   /**
+   * Updates an existing incident type by its identifier.
    *
-   * @param userId
-   * @param idDevice
-   * @param id
-   * @param updateIncidentTypeDto
+   * @param userId Identifier of the user performing the operation.
+   * @param idDevice Identifier of the device originating the request.
+   * @param id Identifier of the incident type to update.
+   * @param updateIncidentTypeDto Payload describing the fields to update.
+   * @returns Promise resolving to the updated incident type.
    */
   @ApiOperation({ summary: 'Update an incident type by id' })
   // @Auth()
@@ -105,11 +114,13 @@ export class IncidentTypeController {
   }
 
   /**
+   * Deletes an incident type by its identifier.
    *
-   * @param user
-   * @param userId
-   * @param idDevice
-   * @param id
+   * @param user Authenticated user extracted from the Keycloak token.
+   * @param userId Identifier of the user performing the operation.
+   * @param idDevice Identifier of the device originating the request.
+   * @param id Identifier of the incident type to delete.
+   * @returns Promise resolving to the result of the delete operation.
    */
   @ApiOperation({ summary: 'Delete an incident type by id' })
   // @Auth()

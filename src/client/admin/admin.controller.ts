@@ -24,17 +24,20 @@ import { CreateAdminDto } from './dto/create-admin.dto';
 @Controller('client/admin')
 export class AdminController {
   /**
+   * Creates a new {@link AdminController}.
    *
-   * @param adminService
+   * @param adminService Service that handles admin slot business logic.
    */
   constructor(private readonly adminService: AdminService) {}
 
   /**
+   * Lists all slots near the given coordinates for the admin client view.
    *
-   * @param latitude
-   * @param longitude
-   * @param _idDevice
-   * @param _version
+   * @param latitude Latitude used as the reference point for the search.
+   * @param longitude Longitude used as the reference point for the search.
+   * @param _idDevice Identifier of the requesting device (unused).
+   * @param _version Client application version (unused).
+   * @returns Result with the slots located near the provided coordinates.
    */
   @ApiOperation({
     summary: 'List all slots near a latitude/longitude (for admin client view)',
@@ -51,11 +54,13 @@ export class AdminController {
   }
 
   /**
+   * Deletes a slot identified by its id from the admin client view.
    *
-   * @param userId
-   * @param idDevice
-   * @param slotId
-   * @param _version
+   * @param userId Identifier of the user performing the action.
+   * @param idDevice Identifier of the requesting device.
+   * @param slotId Identifier of the slot to delete.
+   * @param _version Client application version (unused).
+   * @returns Result of the slot deletion operation.
    */
   @ApiOperation({ summary: 'Delete a slot by slotId (admin client action)' })
   @AuthWithKeycloak()
@@ -70,10 +75,12 @@ export class AdminController {
   }
 
   /**
+   * Creates a slot from the admin client view.
    *
-   * @param userId
-   * @param idDevice
-   * @param createAdminDto
+   * @param userId Identifier of the user performing the action.
+   * @param idDevice Identifier of the requesting device.
+   * @param createAdminDto Payload describing the slot to create.
+   * @returns Result of the slot creation operation.
    */
   @ApiOperation({ summary: 'Create a slot from the admin client view' })
   @AuthWithKeycloak()

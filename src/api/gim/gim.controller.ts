@@ -35,18 +35,21 @@ import { GimService } from './gim.service';
 @Controller('api/gim')
 export class GimController {
   /**
+   * Creates the controller and injects the GIM service.
    *
-   * @param gimService
+   * @param gimService Service handling all GIM integration business logic.
    */
   constructor(private readonly gimService: GimService) {}
 
   /**
+   * Issues an incident in GIM, generating a debt for the user.
    *
-   * @param createGimDto
-   * @param userId
-   * @param idDevice
-   * @param id
-   * @param isTransacional
+   * @param createGimDto Payload describing the incident to issue.
+   * @param userId Identifier of the user issuing the incident.
+   * @param idDevice Identifier of the device performing the operation.
+   * @param id Incident identifier used by the service.
+   * @param isTransacional Flag indicating whether the operation is transactional.
+   * @returns Result of issuing the incident in GIM.
    */
   @ApiOperation({
     summary: 'Issue an incident in GIM (generates a debt for the user)',
@@ -63,12 +66,14 @@ export class GimController {
   }
 
   /**
+   * Emits an infraction directly to GIM, assuming all required data is ready.
    *
-   * @param createGimDto
-   * @param userId
-   * @param idDevice
-   * @param id
-   * @param isTransacional
+   * @param createGimDto Payload describing the infraction to emit.
+   * @param userId Identifier of the user emitting the infraction.
+   * @param idDevice Identifier of the device performing the operation.
+   * @param id Infraction identifier used by the service.
+   * @param isTransacional Flag indicating whether the operation is transactional.
+   * @returns Result of emitting the infraction in GIM.
    */
   @ApiOperation({
     summary: 'Emit an infraction directly to GIM (assumes all data is ready)',
@@ -89,9 +94,11 @@ export class GimController {
   }
 
   /**
+   * Creates a GIM natural person record for an existing local client.
    *
-   * @param createClientGimDto
-   * @param _idDevice
+   * @param createClientGimDto Payload with the client data to register in GIM.
+   * @param _idDevice Identifier of the device performing the operation.
+   * @returns Result of creating the natural person record in GIM.
    */
   @ApiOperation({
     summary: 'Create a GIM natural person record for an existing local client',
@@ -105,9 +112,11 @@ export class GimController {
   }
 
   /**
+   * Creates a GIM natural person record for a client not present in the local registry.
    *
-   * @param createClientGimNotExistDto
-   * @param _idDevice
+   * @param createClientGimNotExistDto Payload with the data of the client to register in GIM.
+   * @param _idDevice Identifier of the device performing the operation.
+   * @returns Result of creating the natural person record in GIM.
    */
   @ApiOperation({
     summary:
@@ -124,9 +133,11 @@ export class GimController {
   }
 
   /**
+   * Fetches a GIM client by identity card number and returns the resident identifier.
    *
-   * @param getClientGimDto
-   * @param _idDevice
+   * @param getClientGimDto Payload containing the client identification number.
+   * @param _idDevice Identifier of the device performing the operation.
+   * @returns The GIM client data including the resident identifier.
    */
   @ApiOperation({
     summary:
@@ -143,10 +154,12 @@ export class GimController {
   }
 
   /**
+   * Finds a GIM obligation (bond) by its ticket number.
    *
-   * @param findBondNumberDto
-   * @param _userId
-   * @param _idDevice
+   * @param findBondNumberDto Payload containing the ticket number to look up.
+   * @param _userId Identifier of the user performing the operation.
+   * @param _idDevice Identifier of the device performing the operation.
+   * @returns The matching GIM obligation (bond).
    */
   @ApiOperation({ summary: 'Find a GIM obligation (bond) by ticket number' })
   @Post('find-bond-by-number/:userId/:idDevice')
@@ -159,10 +172,12 @@ export class GimController {
   }
 
   /**
+   * Verifies whether an incident has been registered in GIM.
    *
-   * @param userId
-   * @param idDevice
-   * @param id
+   * @param userId Identifier of the user performing the operation.
+   * @param idDevice Identifier of the device performing the operation.
+   * @param id Identifier of the incident to verify.
+   * @returns The verification result for the incident in GIM.
    */
   @ApiOperation({
     summary: 'Verify whether an incident has been registered in GIM',
@@ -177,11 +192,13 @@ export class GimController {
   }
 
   /**
+   * Validates that the GIM cash register (till) is open.
    *
-   * @param _user
-   * @param _userId
-   * @param _idDevice
-   * @param _id
+   * @param _user Authenticated user payload extracted from the JWT.
+   * @param _userId Identifier of the user performing the operation.
+   * @param _idDevice Identifier of the device performing the operation.
+   * @param _id Identifier associated with the operation.
+   * @returns The till open-state validation result from GIM.
    */
   @ApiOperation({
     summary: 'Validate that the GIM cash register (till) is open',
@@ -198,9 +215,11 @@ export class GimController {
   }
 
   /**
+   * Retrieves the vehicle type catalogue from GIM for use in SIMERT.
    *
-   * @param _userId
-   * @param _idDevice
+   * @param _userId Identifier of the user performing the operation.
+   * @param _idDevice Identifier of the device performing the operation.
+   * @returns The vehicle type catalogue from GIM.
    */
   @ApiOperation({
     summary: 'Retrieve vehicle type catalogue from GIM for use in SIMERT',
@@ -214,10 +233,12 @@ export class GimController {
   }
 
   /**
+   * Emits a credit card payment title in GIM for a card purchase.
    *
-   * @param userId
-   * @param idDevice
-   * @param emissionCreditCardDto
+   * @param userId Identifier of the user performing the operation.
+   * @param idDevice Identifier of the device performing the operation.
+   * @param emissionCreditCardDto Payload with the credit card emission data.
+   * @returns The emitted credit card payment title from GIM.
    */
   @ApiOperation({
     summary: 'Emit a credit card payment title in GIM for card purchase',
@@ -232,10 +253,12 @@ export class GimController {
   }
 
   /**
+   * Registers a deposit in GIM.
    *
-   * @param userId
-   * @param idDevice
-   * @param registerDepositGimDto
+   * @param userId Identifier of the user performing the operation.
+   * @param idDevice Identifier of the device performing the operation.
+   * @param registerDepositGimDto Payload with the deposit data to register.
+   * @returns The result of registering the deposit in GIM.
    */
   @ApiOperation({ summary: 'Register a deposit in GIM' })
   @Post('register-deposit/:userId/:idDevice')
@@ -248,10 +271,12 @@ export class GimController {
   }
 
   /**
+   * Finds outstanding obligations (debts) for a client in GIM.
    *
-   * @param userId
-   * @param idDevice
-   * @param getClientGimDto
+   * @param userId Identifier of the user performing the operation.
+   * @param idDevice Identifier of the device performing the operation.
+   * @param getClientGimDto Payload identifying the client whose obligations are queried.
+   * @returns The outstanding obligations for the client in GIM.
    */
   @ApiOperation({
     summary: 'Find outstanding obligations (debts) for a client in GIM',
@@ -266,10 +291,12 @@ export class GimController {
   }
 
   /**
+   * Finds obligations by identity card and citation ticket number.
    *
-   * @param userId
-   * @param idDevice
-   * @param getClientGimByCitationDto
+   * @param userId Identifier of the user performing the operation.
+   * @param idDevice Identifier of the device performing the operation.
+   * @param getClientGimByCitationDto Payload with the citation ticket number and identity card.
+   * @returns The obligations matching the citation ticket and identity card.
    */
   @ApiOperation({
     summary: 'Find obligations by identity card and citation ticket number',
@@ -287,10 +314,12 @@ export class GimController {
   }
 
   /**
+   * Finds obligations by vehicle license plate.
    *
-   * @param userId
-   * @param idDevice
-   * @param getClientGimByLicensePlateDto
+   * @param userId Identifier of the user performing the operation.
+   * @param idDevice Identifier of the device performing the operation.
+   * @param getClientGimByLicensePlateDto Payload with the vehicle license plate.
+   * @returns The obligations matching the given license plate.
    */
   @ApiOperation({ summary: 'Find obligations by vehicle license plate' })
   @Post('find-obligations-by-license-plate/:userId/:idDevice')
@@ -305,10 +334,12 @@ export class GimController {
   }
 
   /**
+   * Validates the SIMERT system status against GIM and synchronizes if needed.
    *
-   * @param userId
-   * @param idDevice
-   * @param validateStatusGimDto
+   * @param userId Identifier of the user performing the operation.
+   * @param idDevice Identifier of the device performing the operation.
+   * @param validateStatusGimDto Payload with the debt and incident data used for validation.
+   * @returns The result of validating and synchronizing the system status with GIM.
    */
   @ApiOperation({
     summary: 'Validate the SIMERT system status against GIM and sync if needed',
@@ -330,10 +361,12 @@ export class GimController {
   }
 
   /**
+   * Emits a traffic sanction in GIM.
    *
-   * @param userId
-   * @param idDevice
-   * @param emissionSanctionDto
+   * @param userId Identifier of the user performing the operation.
+   * @param idDevice Identifier of the device performing the operation.
+   * @param emissionSanctionDto Payload with the sanction data to emit.
+   * @returns The result of emitting the sanction in GIM.
    */
   @ApiOperation({ summary: 'Emit a traffic sanction in GIM' })
   @Post('emit-sanction/:userId/:idDevice')

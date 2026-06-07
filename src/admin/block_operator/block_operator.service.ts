@@ -23,9 +23,8 @@ export class BlockOperatorService {
   private readonly logger = new Logger('BlockOperatorService');
 
   /**
-   *
-   * @param blockOperatorRepository
-   * @param loggerService
+   * @param blockOperatorRepository TypeORM repository for the BlockOperator entity.
+   * @param loggerService Service used to persist audit log entries.
    */
   constructor(
     @InjectRepository(BlockOperator)

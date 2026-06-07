@@ -7,11 +7,13 @@ import { UserRoleGuard } from '../guards/user-role.guard';
 import { RoleProtected } from './role-protected.decorator';
 
 /**
+ * Composes the role protection metadata with the passport and role guards.
  *
- * @param {...any} roles
+ * @param {...TypeRol} roles Roles allowed to access the decorated handler.
+ * @returns The combined decorator enforcing authentication and role checks.
  */
 // PascalCase is the NestJS convention for decorator factories (used as `@Auth`).
-// eslint-disable-next-line @typescript-eslint/naming-convention
+
 export function Auth(...roles: TypeRol[]) {
   return applyDecorators(
     RoleProtected(...roles),
@@ -20,11 +22,13 @@ export function Auth(...roles: TypeRol[]) {
 }
 
 /**
+ * Composes the role protection metadata with the passport, role and Keycloak guards.
  *
- * @param {...any} roles
+ * @param {...TypeRol} roles Roles allowed to access the decorated handler.
+ * @returns The combined decorator enforcing Keycloak authentication and role checks.
  */
 // PascalCase is the NestJS convention for decorator factories (used as `@AuthWithKeycloak`).
-// eslint-disable-next-line @typescript-eslint/naming-convention
+
 export function AuthWithKeycloak(...roles: TypeRol[]) {
   return applyDecorators(
     RoleProtected(...roles),

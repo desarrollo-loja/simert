@@ -20,8 +20,8 @@ export class CheckboxService {
   private readonly logger = new Logger('CheckboxService');
 
   /**
-   *
-   * @param checkboxRepository
+   * Creates a new CheckboxService.
+   * @param checkboxRepository Repository for the `Checkbox` entity.
    */
   constructor(
     @InjectRepository(Checkbox)
@@ -29,8 +29,11 @@ export class CheckboxService {
   ) {}
 
   /**
-   *
-   * @param filterDto
+   * Lists checkbox records from the live or historical table, applying
+   * pagination and the filters declared in the DTO.
+   * @param filterDto Filter and pagination criteria (search, status, period, etc.).
+   * @returns An object with the matching `checkbox` rows and, when querying a
+   *          valid table, the `total` count plus the applied `limit`/`offset`.
    */
   async findAll(filterDto: FilterDto) {
     const {
@@ -111,8 +114,10 @@ export class CheckboxService {
   }
 
   /**
-   *
-   * @param filterDto
+   * Lists checkbox records matching a set of transaction IDs, optionally
+   * narrowed by date range and resolved against the live or historical table.
+   * @param filterDto Filter criteria including `transactionIds`, period and date range.
+   * @returns An object with an `errorCode` and the matching `checkbox`/`checkboxes` rows.
    */
   async findAllByTransactionId(filterDto: FilterDto) {
     const { transactionIds, year, month, dateFrom, dateTo } = filterDto;
@@ -218,8 +223,9 @@ export class CheckboxService {
   }
 
   /**
-   *
-   * @param tableName
+   * Checks whether a table with the given name exists in the `public` schema.
+   * @param tableName Name of the table to look up.
+   * @returns Promise resolving to `true` when the table exists, `false` otherwise.
    */
   private async _tableExists(tableName: string): Promise<boolean> {
     const query = `
@@ -239,8 +245,10 @@ export class CheckboxService {
   }
 
   /**
-   *
-   * @param filterDto
+   * Builds the SQL WHERE conditions and their bound parameters from the
+   * filter DTO, keeping placeholder indexes in sync with the parameter array.
+   * @param filterDto Filter criteria (search, status, payment method, date range).
+   * @returns An object with the `conditions` strings and their ordered `parameters`.
    */
   private _buildConditionsAndParameters(filterDto: FilterDto): {
     conditions: string[];
@@ -293,6 +301,7 @@ export class CheckboxService {
   /**
    * Returns PAID checkboxes whose statusIncident is NULL
    * (pending emission + deposit in GIM).
+   * @returns Promise resolving to an object with an `errorCode` and the matching checkbox `data`.
    */
   async findPaidWithoutIncident(): Promise<{
     errorCode: ErrorCode;
@@ -315,6 +324,7 @@ export class CheckboxService {
   /**
    * Returns PAID checkboxes whose statusIncident is in an intermediate state:
    * ENTERED, APPROVED, CONVENIO, ON_CREDIT, PENDIENTE_LIQUIDACION or SUPPLIED.
+   * @returns Promise resolving to an object with an `errorCode` and the matching checkbox `data`.
    */
   async findPaidWithPendingIncident(): Promise<{
     errorCode: ErrorCode;
@@ -348,8 +358,9 @@ export class CheckboxService {
   /**
    * Updates a checkbox by its id.
    * Receives a partial object with the fields to modify (excluding 'id').
-   * @param id
-   * @param fields
+   * @param id Identifier of the checkbox to update.
+   * @param fields Partial set of checkbox fields to modify.
+   * @returns Promise resolving to an object with an `errorCode`, `data` and a result `message`.
    */
   async updateCheckboxById(
     id: number,
@@ -375,7 +386,8 @@ export class CheckboxService {
   /**
    * Transfers a checkbox to the corresponding historical table
    * history."YYYY_MM_checkbox" based on its createdAt date.
-   * @param id
+   * @param id Identifier of the checkbox to archive into the historical table.
+   * @returns Promise resolving to an object with an `errorCode`, `data` and a result `message`.
    */
   async moveCheckboxToHistory(
     id: number,

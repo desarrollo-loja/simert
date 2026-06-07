@@ -78,21 +78,23 @@ export class IncidentService {
     1000 * 60 * Number(process.env.TIMER_MINUTE_DEUNA);
 
   /**
+   * Wires repositories and integration services used to manage incidents,
+   * fines and their payment lifecycle.
    *
-   * @param incidentRepository
-   * @param incidentTypeRepository
-   * @param incidentPaymentRepository
-   * @param fractionRepository
-   * @param fractionStatusRepository
-   * @param slotRepository
-   * @param commonAntService
-   * @param commonGimService
-   * @param commonService
-   * @param commonCacheService
-   * @param dinardapAntService
-   * @param gimService
-   * @param dataSource
-   * @param commonAuthService
+   * @param incidentRepository Repository for {@link Incident} entities.
+   * @param incidentTypeRepository Repository for {@link IncidentType} entities.
+   * @param incidentPaymentRepository Repository for {@link IncidentPayment} entities.
+   * @param fractionRepository Repository for {@link Fraction} entities.
+   * @param fractionStatusRepository Repository for {@link FractionStatus} entities.
+   * @param slotRepository Repository for {@link Slot} entities.
+   * @param commonAntService Shared service for ANT vehicle data lookups.
+   * @param commonGimService Shared service for GIM resident and fine integration.
+   * @param commonService Shared utility service (dates, notifications, payments).
+   * @param commonCacheService Shared cache service (e.g. basic salary lookups).
+   * @param dinardapAntService Service that resolves owner data from ANT by plate.
+   * @param gimService Service for GIM till, obligation and deposit operations.
+   * @param dataSource TypeORM data source for transactional operations.
+   * @param commonAuthService Shared authentication service for user resolution.
    */
   constructor(
     @InjectRepository(Incident)
@@ -248,8 +250,10 @@ export class IncidentService {
   }
 
   /**
+   * Looks up the owner's email from the ANT service using the vehicle plate.
    *
-   * @param plate
+   * @param plate Vehicle plate number to query.
+   * @returns Promise resolving to the trimmed email, or `null` when not found or on failure.
    */
   private async _getEmailFromAntByPlate(plate: string): Promise<string | null> {
     if (!this.antBaseUrl) {
@@ -260,7 +264,7 @@ export class IncidentService {
     try {
       const config: AxiosRequestConfig = {
         method: 'get',
-        url: `${this.antBaseUrl}/tu-endpoint/por-placa`, // <-- AJUSTA ESTA RUTA
+        url: `${this.antBaseUrl}/your-endpoint/by-plate`, // <-- ADJUST THIS ROUTE
         params: { plate },
         timeout: 15000,
         headers: {
@@ -415,8 +419,7 @@ export class IncidentService {
    * @param userId Authenticated user id.
    * @param idDevice Device identifier used for GIM integration calls.
    * @param identityCard Owner's identity card to look up.
-   * @param getIncidentDto Optional date-range filter.
-   * @param _getIncidentDto
+   * @param _getIncidentDto Optional date-range filter.
    * @returns Error-code envelope with `incidents` and `currentDate`.
    */
   async findSanctionByIdentityCard(
@@ -628,9 +631,12 @@ export class IncidentService {
   }
 
   /**
+   * Ensures the optional-data list contains a `residentId` entry, appending it
+   * when absent without overriding an existing value.
    *
-   * @param optionalData
-   * @param residentId
+   * @param optionalData Current optional-data entries (may be undefined).
+   * @param residentId Resident id to attach when not already present.
+   * @returns A new optional-data array including the `residentId` entry.
    */
   private _formatOptionalData(
     optionalData: OptionalDataInterface[],
@@ -644,9 +650,11 @@ export class IncidentService {
   }
 
   /**
+   * Appends an external-response payload to the accumulated list when present.
    *
-   * @param onResponseExternal
-   * @param onResponseExternalData
+   * @param onResponseExternal Existing external-response entries (may be undefined).
+   * @param onResponseExternalData New external-response payload to append, if any.
+   * @returns A new array including the appended payload when provided.
    */
   private _formatOnExternalResponse(
     onResponseExternal: any[],
@@ -658,11 +666,14 @@ export class IncidentService {
   }
 
   /**
+   * Resolves the resident id for an identity card: first from the local DB,
+   * then from GIM, and finally by creating the resident in GIM when missing.
    *
-   * @param userId
-   * @param idDevice
-   * @param identityCard
-   * @param incidents
+   * @param userId Authenticated user id.
+   * @param idDevice Device identifier used for GIM integration calls.
+   * @param identityCard Owner's identity card to resolve.
+   * @param incidents Related incidents used as fallback owner data when creating the resident.
+   * @returns Promise resolving to an object with the resolved `residentId`, or `null` when it could not be determined.
    */
   private async _getResidentId(
     userId: number,
@@ -1044,9 +1055,12 @@ export class IncidentService {
   }
 
   /**
+   * Builds the debit DTO used to charge an incident payment from the given concept
+   * and payment payload.
    *
-   * @param concept
-   * @param payIncidentDto
+   * @param concept Product/concept label for the purchase line.
+   * @param payIncidentDto Payment payload with amount, credential and transaction data.
+   * @returns Promise resolving to the built {@link DebitAmounDto}, or `undefined` on failure.
    */
   private async _parseDebitAmounDto(
     concept: string,
@@ -1254,14 +1268,17 @@ export class IncidentService {
   }
 
   /**
+   * Executes an incident payment through the DeUna (V2) provider and finalizes
+   * the resulting provider response.
    *
-   * @param idDevice
-   * @param debitAmounDto
-   * @param payIncidentDto
-   * @param typePaymentResponsibility
-   * @param referenceId
-   * @param codes
-   * @param ownerName
+   * @param idDevice Device that originated the payment.
+   * @param debitAmounDto Debit DTO describing the charge.
+   * @param payIncidentDto Payment payload with user, method and credential data.
+   * @param typePaymentResponsibility Commission responsibility type (defaults to NONE when unset).
+   * @param referenceId Reference grouping the affected incident payments.
+   * @param codes Billing codes attached to the transaction.
+   * @param ownerName Owner name attached to the billing data.
+   * @returns Promise resolving to the finalized provider response envelope.
    */
   private async _payDeunaV2(
     idDevice: string,
@@ -1322,14 +1339,17 @@ export class IncidentService {
   }
 
   /**
+   * Executes an incident payment through the Ahorita provider and finalizes
+   * the resulting provider response.
    *
-   * @param idDevice
-   * @param debitAmounDto
-   * @param payIncidentDto
-   * @param typePaymentResponsibility
-   * @param referenceId
-   * @param codes
-   * @param ownerName
+   * @param idDevice Device that originated the payment.
+   * @param debitAmounDto Debit DTO describing the charge.
+   * @param payIncidentDto Payment payload with user, method and credential data.
+   * @param typePaymentResponsibility Commission responsibility type (defaults to NONE when unset).
+   * @param referenceId Reference grouping the affected incident payments.
+   * @param codes Billing codes attached to the transaction.
+   * @param ownerName Owner name attached to the billing data.
+   * @returns Promise resolving to the finalized provider response envelope.
    */
   private async _payAhorita(
     idDevice: string,
@@ -1390,14 +1410,17 @@ export class IncidentService {
   }
 
   /**
+   * Executes an incident payment through the PlaceToPay provider and finalizes
+   * the resulting provider response.
    *
-   * @param idDevice
-   * @param debitAmounDto
-   * @param payIncidentDto
-   * @param typePaymentResponsibility
-   * @param referenceId
-   * @param codes
-   * @param ownerName
+   * @param idDevice Device that originated the payment.
+   * @param debitAmounDto Debit DTO describing the charge.
+   * @param payIncidentDto Payment payload with user, method and credential data.
+   * @param typePaymentResponsibility Commission responsibility type (defaults to NONE when unset).
+   * @param referenceId Reference grouping the affected incident payments.
+   * @param codes Billing codes attached to the transaction.
+   * @param ownerName Owner name attached to the billing data.
+   * @returns Promise resolving to the finalized provider response envelope.
    */
   private async _payPlaceToPay(
     idDevice: string,
@@ -1460,10 +1483,12 @@ export class IncidentService {
   }
 
   /**
+   * Persists the outcome of a payment batch: updates payment status and moment,
+   * and when paid, registers the deposit in GIM and marks the incidents as paid.
    *
-   * @param incidentPayments
-   * @param moment
-   * @param statusPayment
+   * @param incidentPayments Payments sharing the same reference to update.
+   * @param moment Status moment to record for the payments.
+   * @param statusPayment Resulting payment status (e.g. PAID or ERROR).
    */
   async _saveResponsePay(
     incidentPayments: IncidentPayment[],
@@ -1568,12 +1593,13 @@ export class IncidentService {
   }
 
   /**
+   * Notifies the owner of a change in the payment status of their fine.
    *
-   * @param userId
-   * @param status
-   * @param referenceId
-   * @param amount
-   * @param typePaymentMethod
+   * @param userId Owner to notify.
+   * @param status New payment status code.
+   * @param referenceId Reference grouping the affected payments.
+   * @param amount Total amount involved in the payment.
+   * @param typePaymentMethod Payment method used.
    */
   private async _notifyChageStatus(
     userId: number,
@@ -1605,10 +1631,8 @@ export class IncidentService {
    * @param userId Owner of the payments.
    * @param referenceId Reference grouping all affected incident payments.
    * @param typePaymentMethod Provider that called back.
-   * @param register Original register timestamp.
-   * @param typePaymentResponsibility Commission responsibility type.
-   * @param _register
-   * @param _typePaymentResponsibility
+   * @param _register Original register timestamp.
+   * @param _typePaymentResponsibility Commission responsibility type.
    * @returns Standard error-code envelope.
    */
   async onResponsePay(
@@ -1660,10 +1684,8 @@ export class IncidentService {
    * @param userId Owner of the payments.
    * @param referenceId Reference grouping all affected incident payments.
    * @param typePaymentMethod Provider that called back.
-   * @param register Original register timestamp.
-   * @param typePaymentResponsibility Commission responsibility type.
-   * @param _register
-   * @param _typePaymentResponsibility
+   * @param _register Original register timestamp.
+   * @param _typePaymentResponsibility Commission responsibility type.
    */
   async onResponsePayError(
     idDevice: string,
@@ -1760,10 +1782,12 @@ export class IncidentService {
   }
 
   /**
+   * Saves or updates the status record of a fraction and synchronizes the
+   * fraction's own status, applying controller/operator finalization rules.
    *
-   * @param fraction
-   * @param statusId
-   * @param moment
+   * @param fraction Fraction whose status is being updated.
+   * @param statusId Target status id to apply.
+   * @param moment Status moment to record.
    */
   private async _saveSatusFraction(
     fraction: Fraction,
@@ -1811,10 +1835,11 @@ export class IncidentService {
   }
 
   /**
+   * Notifies the owner of a change in the status of a parking fraction.
    *
-   * @param userId
-   * @param status
-   * @param fractionId
+   * @param userId Owner to notify.
+   * @param status New fraction status code.
+   * @param fractionId Identifier of the affected fraction.
    */
   private async _notifyChageStatusFraction(
     userId: number,
@@ -1835,9 +1860,11 @@ export class IncidentService {
   }
 
   /**
+   * Builds an incident update DTO from a GIM obligation and target incident status.
    *
-   * @param obligation
-   * @param statusIncident
+   * @param obligation GIM obligation providing bond id, number and total amount.
+   * @param statusIncident Incident status to set on the update DTO.
+   * @returns An {@link UpdateIncidentDto} populated from the obligation.
    */
   private _buildAntDataResponse(
     obligation: Obligation,

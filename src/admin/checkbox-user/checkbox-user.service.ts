@@ -27,8 +27,9 @@ export class CheckboxUserService {
   private readonly logger = new Logger('CheckboxUserService');
 
   /**
+   * Creates the service with its injected repository.
    *
-   * @param checkboxUserRepository
+   * @param checkboxUserRepository TypeORM repository for the CheckboxUser entity.
    */
   constructor(
     @InjectRepository(CheckboxUser)
@@ -96,40 +97,50 @@ export class CheckboxUserService {
   // services (parking session + paid checkbox purchase).
 
   /**
+   * Placeholder create action; the real lifecycle is owned by the client services.
    *
-   * @param _createCheckboxUserDto
+   * @param _createCheckboxUserDto Payload describing the CheckboxUser to create.
+   * @returns A static confirmation message.
    */
   create(_createCheckboxUserDto: CreateCheckboxUserDto) {
     return 'This action adds a new checkboxUser';
   }
 
   /**
+   * Placeholder list action; the real lifecycle is owned by the client services.
    *
+   * @returns A static confirmation message.
    */
   findAll() {
     return `This action returns all checkboxUser`;
   }
 
   /**
+   * Placeholder single-fetch action; the real lifecycle is owned by the client services.
    *
-   * @param id
+   * @param id Identifier of the CheckboxUser to fetch.
+   * @returns A static confirmation message.
    */
   findOne(id: number) {
     return `This action returns a #${id} checkboxUser`;
   }
 
   /**
+   * Placeholder update action; the real lifecycle is owned by the client services.
    *
-   * @param id
-   * @param _updateCheckboxUserDto
+   * @param id Identifier of the CheckboxUser to update.
+   * @param _updateCheckboxUserDto Payload describing the fields to update.
+   * @returns A static confirmation message.
    */
   update(id: number, _updateCheckboxUserDto: UpdateCheckboxUserDto) {
     return `This action updates a #${id} checkboxUser`;
   }
 
   /**
+   * Placeholder remove action; the real lifecycle is owned by the client services.
    *
-   * @param id
+   * @param id Identifier of the CheckboxUser to remove.
+   * @returns A static confirmation message.
    */
   remove(id: number) {
     return `This action removes a #${id} checkboxUser`;

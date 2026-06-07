@@ -75,15 +75,17 @@ export class SimertService {
     60 * (Number(process.env.TIME_CACHE_BLOCK_OPERATOR) || 5);
 
   /**
+   * Injects the repositories and shared services required to manage the
+   * parking Fraction lifecycle.
    *
-   * @param fractionRepository
-   * @param fractionSatusRepository
-   * @param slotRepository
-   * @param checkboxUserRepository
-   * @param blockOperatorRepository
-   * @param commonService
-   * @param commonCacheService
-   * @param dataSource
+   * @param fractionRepository Repository for {@link Fraction} entities.
+   * @param fractionSatusRepository Repository for {@link FractionStatus} entities.
+   * @param slotRepository Repository for {@link Slot} entities.
+   * @param checkboxUserRepository Repository for {@link CheckboxUser} balances.
+   * @param blockOperatorRepository Repository for {@link BlockOperator} entities.
+   * @param commonService Shared service providing dates and notifications.
+   * @param commonCacheService Shared cache service used to memoize block operators.
+   * @param dataSource TypeORM data source used to create transactional query runners.
    */
   constructor(
     @InjectRepository(Fraction)
@@ -111,8 +113,11 @@ export class SimertService {
   ) {}
 
   /**
+   * Returns all active (not yet finished) fractions owned by the given user,
+   * including their slot, block and zone details.
    *
-   * @param userId
+   * @param userId Identifier of the user whose fractions are requested.
+   * @returns Object with the error code, the current date and the matching fractions.
    */
   async findAllFractions(userId: number) {
     try {
@@ -136,8 +141,11 @@ export class SimertService {
   }
 
   /**
+   * Retrieves a single fraction by its identifier together with its slot,
+   * block and zone details.
    *
-   * @param fractionId
+   * @param fractionId Identifier of the fraction to retrieve.
+   * @returns Object with the error code, the current date and the fraction.
    */
   async findFractionById(fractionId: number) {
     const currentDate = new Date();
@@ -146,8 +154,11 @@ export class SimertService {
   }
 
   /**
+   * Loads a fraction by its identifier joined with its status, slot, zone and
+   * block relations.
    *
-   * @param fractionId
+   * @param fractionId Identifier of the fraction to load.
+   * @returns The matching fraction entity, or null when not found.
    */
   private async _findFractionById(fractionId: number) {
     const fraction = await this.fractionRepository
@@ -163,9 +174,14 @@ export class SimertService {
   }
 
   /**
+   * Increments the parking time of an existing fraction: validates the
+   * transaction is not duplicated, locks and debits the user's checkbox
+   * balance, finishes the previous fraction and creates an incremented one,
+   * then notifies the user and the block operators.
    *
-   * @param idDevice
-   * @param incrementSimertDto
+   * @param idDevice Identifier of the device originating the request.
+   * @param incrementSimertDto Payload with user, transaction, fraction and checkbox data.
+   * @returns Object with the error code and, on success, the current date and updated fraction.
    */
   async incrementTime(
     idDevice: string,
@@ -279,9 +295,12 @@ export class SimertService {
   }
 
   /**
+   * Finishes an active fraction owned by the user: releases its slot, marks the
+   * fraction as finished and notifies the user and the block operators.
    *
-   * @param userId
-   * @param fractionId
+   * @param userId Identifier of the user that owns the fraction.
+   * @param fractionId Identifier of the fraction to finish.
+   * @returns Object with the resulting error code.
    */
   async finished(userId: number, fractionId: number) {
     const fraction = await this.fractionRepository
@@ -318,9 +337,14 @@ export class SimertService {
   }
 
   /**
+   * Starts a new parking session: validates slot availability and transaction
+   * uniqueness, locks the user's checkbox balance, creates the fraction, marks
+   * the slot as occupied, debits the balance when the parking is paid and
+   * notifies the user and the block operators.
    *
-   * @param idDevice
-   * @param createSimertDto
+   * @param idDevice Identifier of the device originating the request.
+   * @param createSimertDto Payload with slot, user, transaction, checkbox and paid-parking data.
+   * @returns Object with the error code and, on success, the current date and created fraction.
    */
   async parking(idDevice: string, createSimertDto: CreateSimertDto) {
     const { userId, transactionId, checkboxes, isPaidParking } =
@@ -421,9 +445,13 @@ export class SimertService {
   }
 
   /**
+   * Resolves pricing and availability information for a slot, returning the
+   * slot with its block, zone and schedule data alongside the user's current
+   * checkbox balance and the server's current date.
    *
-   * @param userId
-   * @param searchSlot
+   * @param userId Identifier of the user requesting the price.
+   * @param searchSlot Slot code to look up.
+   * @returns Object with the error code, slot, checkbox balance and current date.
    */
   async getPriceSlot(userId: number, searchSlot: string) {
     try {
@@ -538,10 +566,13 @@ export class SimertService {
   }
 
   /**
+   * Persists a fraction status transition: upserts the corresponding
+   * {@link FractionStatus} record with the given moment and updates the
+   * fraction's current status.
    *
-   * @param fraction
-   * @param statusId
-   * @param moment
+   * @param fraction Fraction whose status is being recorded.
+   * @param statusId Identifier of the target status to apply.
+   * @param moment Status moment marker (e.g. notified) to store.
    */
   private async _saveStatus(
     fraction: Fraction,
@@ -573,10 +604,12 @@ export class SimertService {
   }
 
   /**
+   * Notifies every active operator of a block about a fraction status change,
+   * loading the block's operators from cache or the database on a cache miss.
    *
-   * @param blockId
-   * @param statusFraction
-   * @param fractionId
+   * @param blockId Identifier of the block whose operators are notified.
+   * @param statusFraction New fraction status to broadcast.
+   * @param fractionId Identifier of the affected fraction.
    */
   private async _notifyBlockOperators(
     blockId: number,
@@ -611,10 +644,11 @@ export class SimertService {
   }
 
   /**
+   * Dispatches a fraction status-change push notification to a single user.
    *
-   * @param userId
-   * @param status
-   * @param fractionId
+   * @param userId Identifier of the user to notify.
+   * @param status New fraction status to report.
+   * @param fractionId Identifier of the affected fraction.
    */
   private async _notifyChageStatus(
     userId: number,
@@ -634,11 +668,14 @@ export class SimertService {
     this.commonService.notify(notification);
   }
 
-  // for postgres
   /**
+   * Returns the paginated parking history for a user, combining the relevant
+   * monthly historical archive table (when it exists) with `public.fraction`
+   * for the current month, and applying optional date-range and status filters.
    *
-   * @param userId
-   * @param searchFractionDto
+   * @param userId Identifier of the user whose history is queried.
+   * @param searchFractionDto Filters for pagination, year/month, status and date range.
+   * @returns Object with the error code and the list of historical fractions.
    */
   async findFractionHistory(
     userId: number,
@@ -779,12 +816,13 @@ export class SimertService {
     }
   }
 
-  // Validates that `year` and `month` are safe integers within sensible bounds
-  // before being interpolated into a SQL identifier (historical table name).
   /**
+   * Validates that `year` and `month` are safe integers within sensible bounds
+   * before being interpolated into a SQL identifier (historical table name).
    *
-   * @param year
-   * @param month
+   * @param year Candidate year value to validate.
+   * @param month Candidate month value to validate.
+   * @returns true when both year and month are valid integers in range, false otherwise.
    */
   private _isValidYearMonth(year: any, month: any): boolean {
     const y = Number(year);

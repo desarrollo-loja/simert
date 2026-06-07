@@ -49,16 +49,19 @@ import { PublicService } from './public.service';
 @Controller('public')
 export class PublicController {
   /**
+   * Creates the controller and injects the public service it delegates to.
    *
-   * @param publicService
+   * @param publicService Service that resolves all public parking read queries.
    */
   constructor(private readonly publicService: PublicService) {}
 
   // ─── Zones ───────────────────────────────────────────────────────
 
   /**
+   * Lists all active zones with optional name search and pagination.
    *
-   * @param filter
+   * @param filter Search, limit and offset pagination filter.
+   * @returns Promise resolving to the paginated list of active zones with total count.
    */
   @Get('zones')
   @ApiOperation({
@@ -96,7 +99,9 @@ export class PublicController {
   }
 
   /**
+   * Returns a system-wide occupancy summary across all active zones.
    *
+   * @returns Promise resolving to the global occupancy summary with per-zone breakdown.
    */
   @Get('zones/availability/summary')
   @ApiOperation({
@@ -116,8 +121,10 @@ export class PublicController {
   }
 
   /**
+   * Returns detailed information for a single zone by its identifier.
    *
-   * @param id
+   * @param id Zone identifier.
+   * @returns Promise resolving to the zone detail with sector and slot summaries.
    */
   @Get('zones/:id')
   @ApiOperation({
@@ -138,8 +145,10 @@ export class PublicController {
   }
 
   /**
+   * Returns real-time slot availability for a zone with a per-sector breakdown.
    *
-   * @param id
+   * @param id Zone identifier.
+   * @returns Promise resolving to the zone availability with per-sector breakdown.
    */
   @Get('zones/:id/availability')
   @ApiOperation({
@@ -163,8 +172,10 @@ export class PublicController {
   // ─── Sectors ─────────────────────────────────────────────────────
 
   /**
+   * Lists all active sectors with optional zone and name filtering and pagination.
    *
-   * @param filter
+   * @param filter Search, zone, limit and offset pagination filter.
+   * @returns Promise resolving to the paginated list of active sectors with total count.
    */
   @Get('sectors')
   @ApiOperation({
@@ -210,8 +221,10 @@ export class PublicController {
   }
 
   /**
+   * Returns detailed information for a single sector by its identifier.
    *
-   * @param id
+   * @param id Sector identifier.
+   * @returns Promise resolving to the sector detail with schedules and slot counts.
    */
   @Get('sectors/:id')
   @ApiOperation({
@@ -233,8 +246,10 @@ export class PublicController {
   }
 
   /**
+   * Returns the active operating schedules configured for a sector.
    *
-   * @param id
+   * @param id Sector identifier.
+   * @returns Promise resolving to the list of active schedules for the sector.
    */
   @Get('sectors/:id/schedules')
   @ApiOperation({
@@ -256,8 +271,10 @@ export class PublicController {
   }
 
   /**
+   * Returns real-time slot availability for a single sector by status.
    *
-   * @param id
+   * @param id Sector identifier.
+   * @returns Promise resolving to the sector availability breakdown by slot status.
    */
   @Get('sectors/:id/availability')
   @ApiOperation({
@@ -281,8 +298,10 @@ export class PublicController {
   // ─── Map ─────────────────────────────────────────────────────────
 
   /**
+   * Returns zones and sectors with geofences and availability optimized for map rendering.
    *
-   * @param filter
+   * @param filter Search and zone filter to scope the returned map data.
+   * @returns Promise resolving to zones with sectors, geofences and availability for map rendering.
    */
   @Get('map')
   @ApiOperation({

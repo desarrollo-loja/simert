@@ -14,17 +14,18 @@ import { DinardapAntService } from './dinardap-ant.service';
 @Controller('api/dinardap-ant')
 export class DinardapAntController {
   /**
-   *
-   * @param dinardapAntService
+   * @param dinardapAntService Service that performs DINARDAP ANT data lookups.
    */
   constructor(private readonly dinardapAntService: DinardapAntService) {}
 
   /**
+   * Looks up vehicle owner and vehicle data by plate via the DINARDAP ANT service.
    *
-   * @param userId
-   * @param idDevice
-   * @param applicationId
-   * @param plate
+   * @param userId        ID of the authenticated user performing the lookup.
+   * @param idDevice      Identifier of the requesting device.
+   * @param applicationId Identifier of the calling application.
+   * @param plate         Vehicle plate to look up.
+   * @returns Promise resolving to the owner and vehicle data for the given plate.
    */
   @ApiOperation({
     summary:

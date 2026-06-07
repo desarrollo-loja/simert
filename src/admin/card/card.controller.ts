@@ -26,8 +26,9 @@ import { UpdateCardDto } from './dto/update-card.dto';
 @Controller('admin/card')
 export class CardController {
   /**
+   * Creates a new {@link CardController}.
    *
-   * @param cardService
+   * @param cardService Service handling card business logic.
    */
   constructor(private readonly cardService: CardService) {}
 

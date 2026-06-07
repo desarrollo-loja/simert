@@ -31,16 +31,18 @@ import { DataSource, IsNull, Repository } from 'typeorm';
 @Injectable()
 export class CheckService {
   /**
+   * Injects the repositories, data source and shared services required to
+   * reconcile fractions and checkboxes against the GIM payment provider.
    *
-   * @param fractionRepository
-   * @param checkboxRepository
-   * @param blockOperatorRepository
-   * @param catalogRepository
-   * @param dataSource
-   * @param commonService
-   * @param commonAuthService
-   * @param gimService
-   * @param commonCacheService
+   * @param fractionRepository Repository for parking fraction entities.
+   * @param checkboxRepository Repository for checkbox (payment) entities.
+   * @param blockOperatorRepository Repository for block-operator assignments.
+   * @param catalogRepository Repository for catalog configuration entries.
+   * @param dataSource TypeORM data source used for raw SQL queries.
+   * @param commonService Shared service used to dispatch notifications.
+   * @param commonAuthService Shared auth service used to resolve client data.
+   * @param gimService GIM API client used to issue titles and register deposits.
+   * @param commonCacheService Shared cache service used to cache block operators.
    */
   constructor(
     @InjectRepository(Fraction)
@@ -83,7 +85,8 @@ export class CheckService {
   private readonly catalogs: Map<string, any> = new Map();
 
   /**
-   *
+   * Lifecycle hook that preloads catalogs into memory and schedules the
+   * recurring jobs that handle fraction expiration and checkbox settlement.
    */
   async onModuleInit() {
     this.logger.verbose('start call onModuleInit');
@@ -111,7 +114,11 @@ export class CheckService {
   }
 
   /**
+   * Resolves the GIM revenue code (rubro) and its description for credit-title
+   * issuance, falling back to environment defaults when the catalog is empty.
    *
+   * @returns The entry code, description and the optional-data pairs required
+   * by the GIM emission request.
    */
   private _buildRubroOptionalData(): {
     entryCode: string;
@@ -218,10 +225,12 @@ export class CheckService {
   }
 
   /**
+   * Notifies the active operators of a block about a fraction status change,
+   * loading and caching the block's operator list to avoid repeated queries.
    *
-   * @param blockId
-   * @param statusFraction
-   * @param fractionId
+   * @param blockId Identifier of the block whose operators are notified.
+   * @param statusFraction New fraction status to broadcast.
+   * @param fractionId Identifier of the affected fraction.
    */
   private async _notifyBlockOperators(
     blockId: number,
@@ -259,10 +268,11 @@ export class CheckService {
   }
 
   /**
+   * Sends a status-change notification for a fraction to a single user.
    *
-   * @param userId
-   * @param status
-   * @param ids
+   * @param userId Identifier of the user to notify.
+   * @param status New fraction status to report.
+   * @param ids Identifier of the affected fraction.
    */
   private async _notifyChangeStatus(
     userId: number,
@@ -289,7 +299,12 @@ export class CheckService {
   // `onResponseExternal` is always persisted at the end of each checkbox.
   // ─────────────────────────────────────────────────────────────────────────
   /**
+   * Periodic job that completes the GIM cycle for paid checkboxes: issues the
+   * credit title when needed, registers the deposit and persists the provider
+   * responses. Aborts early when the GIM cashier window is closed.
    *
+   * @returns Nothing when processing runs; the open-till validation result when
+   * the GIM cashier window is closed.
    */
   private async _validateCheckboxToEmitAndPay() {
     // Validate that the cashier window is open in GIM
@@ -393,9 +408,9 @@ export class CheckService {
    *
    * @param checkbox Checkbox being settled (mutated in place).
    * @param deposit Result returned by `_registerDeposit`.
-   * @param deposit.errorCode
-   * @param deposit.dataDeposit
-   * @param deposit.message
+   * @param deposit.errorCode Error code reported by the deposit registration.
+   * @param deposit.dataDeposit Provider response payload for the deposit.
+   * @param deposit.message Optional human-readable message describing the outcome.
    */
   private _applyDepositOutcome(
     checkbox: Checkbox,
@@ -417,8 +432,13 @@ export class CheckService {
   // Resolve the client's residentId in GIM and issue the credit title
   // ─────────────────────────────────────────────────────────────────────────
   /**
+   * Resolves the client's GIM residentId (looking it up locally, querying GIM
+   * or creating the client when needed) and issues the credit title for the
+   * checkbox.
    *
-   * @param checkbox
+   * @param checkbox Checkbox whose credit title is issued.
+   * @returns An object with the error code, the GIM emission payload and a
+   * descriptive message.
    */
   private async _emitCreditCard(checkbox: Checkbox) {
     const { userId, identityCard, transactionId } = checkbox;
@@ -506,8 +526,12 @@ export class CheckService {
   // Register the deposit in GIM using the bondId from the previous issuance
   // ─────────────────────────────────────────────────────────────────────────
   /**
+   * Registers the deposit in GIM using the bondId obtained from the previous
+   * credit-title issuance stored in the checkbox response history.
    *
-   * @param checkbox
+   * @param checkbox Checkbox whose deposit is registered.
+   * @returns An object with the error code, the GIM deposit payload and a
+   * descriptive message.
    */
   private async _registerDeposit(checkbox: Checkbox) {
     const { amount, identityCard, transactionId } = checkbox;
@@ -561,9 +585,11 @@ export class CheckService {
   }
 
   /**
+   * Appends a provider response to the checkbox history, replacing an identical
+   * existing entry and capping the list at 20 items.
    *
-   * @param list
-   * @param item
+   * @param list Response history to update in place.
+   * @param item Provider response to store; ignored when null or undefined.
    */
   private addResponse(list: any[], item: any) {
     if (!item) return;

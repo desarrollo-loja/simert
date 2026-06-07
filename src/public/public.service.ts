@@ -33,11 +33,11 @@ export class PublicService implements IPublicService {
   private readonly logger = new Logger(PublicService.name);
 
   /**
-   *
-   * @param zoneRepository
-   * @param blockRepository
-   * @param slotRepository
-   * @param scheduleRepository
+   * Creates a new PublicService.
+   * @param zoneRepository Repository for the `Zone` entity.
+   * @param blockRepository Repository for the `Block` (sector) entity.
+   * @param slotRepository Repository for the `Slot` entity.
+   * @param scheduleRepository Repository for the `Schedule` entity.
    */
   constructor(
     @InjectRepository(Zone)
@@ -54,7 +54,8 @@ export class PublicService implements IPublicService {
    * Returns all active zones with basic display information.
    *
    * Supports optional name search and pagination.
-   * @param filter
+   * @param filter Search and pagination criteria.
+   * @returns Promise resolving to the list of active zones and the total count.
    */
   async findAllZones(filter: PublicFilterDto): Promise<ZoneListResponse> {
     const limit = filter.limit ?? 50;
@@ -89,7 +90,8 @@ export class PublicService implements IPublicService {
    * Returns a single zone with its sectors summary and real-time slot counts.
    *
    * Executes a single optimized query with aggregated slot statistics.
-   * @param id
+   * @param id Identifier of the zone to retrieve.
+   * @returns Promise resolving to the zone detail, or a `null` zone when not found.
    */
   async findZoneById(id: number): Promise<ZoneDetailResponse> {
     const result = await this.zoneRepository
@@ -156,7 +158,8 @@ export class PublicService implements IPublicService {
    * Returns all active sectors, optionally filtered by zone.
    *
    * Supports name search and pagination. Joins zone for parent context.
-   * @param filter
+   * @param filter Search, zone and pagination criteria.
+   * @returns Promise resolving to the list of active sectors and the total count.
    */
   async findAllSectors(filter: PublicFilterDto): Promise<SectorListResponse> {
     const limit = filter.limit ?? 50;
@@ -225,7 +228,8 @@ export class PublicService implements IPublicService {
 
   /**
    * Returns a single sector with its schedules and real-time slot counts.
-   * @param id
+   * @param id Identifier of the sector to retrieve.
+   * @returns Promise resolving to the sector detail, or a `null` sector when not found.
    */
   async findSectorById(id: number): Promise<SectorDetailResponse> {
     const block = await this.blockRepository
@@ -325,7 +329,8 @@ export class PublicService implements IPublicService {
 
   /**
    * Returns active operating schedules for a given sector.
-   * @param sectorId
+   * @param sectorId Identifier of the sector whose schedules are requested.
+   * @returns Promise resolving to the list of active schedules for the sector.
    */
   async findSchedulesBySector(sectorId: number): Promise<ScheduleListResponse> {
     const schedules = await this.scheduleRepository
@@ -357,7 +362,8 @@ export class PublicService implements IPublicService {
 
   /**
    * Returns real-time slot availability breakdown for a single sector.
-   * @param sectorId
+   * @param sectorId Identifier of the sector to summarize.
+   * @returns Promise resolving to the sector's slot availability breakdown.
    */
   async findSectorAvailability(
     sectorId: number,
@@ -408,7 +414,8 @@ export class PublicService implements IPublicService {
 
   /**
    * Returns real-time availability consolidated for a zone with per-sector breakdown.
-   * @param zoneId
+   * @param zoneId Identifier of the zone to summarize.
+   * @returns Promise resolving to the zone availability with per-sector breakdown.
    */
   async findZoneAvailability(
     zoneId: number,
@@ -476,6 +483,7 @@ export class PublicService implements IPublicService {
 
   /**
    * Returns a general occupancy summary across all active zones.
+   * @returns Promise resolving to the global occupancy summary with per-zone breakdown.
    */
   async findOccupancySummary(): Promise<OccupancySummaryResponse> {
     const [globalStats, zoneStats, totalZones, totalSectors] =
@@ -578,7 +586,8 @@ export class PublicService implements IPublicService {
    *
    * Executes a single raw SQL query joining zones, sectors and slot counts,
    * then groups the results in memory for efficient map rendering.
-   * @param filter
+   * @param filter Search and zone criteria used to scope the map data.
+   * @returns Promise resolving to the grouped zones with their sectors for map rendering.
    */
   async findMapData(filter: PublicFilterDto): Promise<MapDataResponse> {
     const params: any[] = [StatusSlot.AVAILABLE];

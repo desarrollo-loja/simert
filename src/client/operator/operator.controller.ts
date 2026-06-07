@@ -30,16 +30,19 @@ import { OperatorService } from './operator.service';
 @Controller('client/operator')
 export class OperatorController {
   /**
+   * Creates the controller instance.
    *
-   * @param operatorService
+   * @param operatorService Service that handles the operator business logic.
    */
   constructor(private readonly operatorService: OperatorService) {}
 
   /**
+   * Creates an incident reported from the operator app.
    *
-   * @param createIncidentDto
-   * @param userId
-   * @param idDevice
+   * @param createIncidentDto Payload describing the incident to create.
+   * @param userId Identifier of the operator user creating the incident.
+   * @param idDevice UUID of the device the request originates from.
+   * @returns Promise resolving to the created incident.
    */
   @ApiOperation({ summary: 'Create an incident from the operator app' })
   // @Auth()
@@ -58,12 +61,14 @@ export class OperatorController {
   }
 
   /**
+   * Finishes an active parking fraction from the operator app.
    *
-   * @param user
-   * @param userId
-   * @param idDevice
-   * @param fractionId
-   * @param _version
+   * @param user Authenticated operator user payload.
+   * @param userId Identifier of the operator user finishing the fraction.
+   * @param idDevice UUID of the device the request originates from.
+   * @param fractionId Identifier of the parking fraction to finish.
+   * @param _version Client app version (unused).
+   * @returns Promise resolving to the finished parking fraction.
    */
   @ApiOperation({
     summary: 'Finish an active parking fraction from the operator app',
@@ -82,13 +87,15 @@ export class OperatorController {
   }
 
   /**
+   * Registers (starts) a parking session from the operator app.
    *
-   * @param user
-   * @param meta
-   * @param userId
-   * @param idDevice
-   * @param version
-   * @param createOperatorDto
+   * @param user Authenticated operator user payload.
+   * @param meta Request metadata attached to the parking session.
+   * @param userId Identifier of the operator user starting the session.
+   * @param idDevice UUID of the device the request originates from.
+   * @param version Client app version.
+   * @param createOperatorDto Payload describing the parking session to start.
+   * @returns Promise resolving to the created parking session.
    */
   @ApiOperation({
     summary: 'Register (start) a parking session from the operator app',
@@ -109,13 +116,15 @@ export class OperatorController {
   }
 
   /**
+   * Extends parking time for an active fraction from the operator app.
    *
-   * @param user
-   * @param meta
-   * @param userId
-   * @param idDevice
-   * @param version
-   * @param incrementOperatorDto
+   * @param user Authenticated operator user payload.
+   * @param meta Request metadata attached to the increment.
+   * @param userId Identifier of the operator user extending the time.
+   * @param idDevice UUID of the device the request originates from.
+   * @param version Client app version.
+   * @param incrementOperatorDto Payload describing the time extension to apply.
+   * @returns Promise resolving to the updated parking fraction.
    */
   @ApiOperation({
     summary: 'Extend parking time for an active fraction (operator app)',
@@ -136,12 +145,14 @@ export class OperatorController {
   }
 
   /**
+   * Lists the blocks assigned to the operator user.
    *
-   * @param user
-   * @param criteria
-   * @param userId
-   * @param _idDevice
-   * @param _version
+   * @param user Authenticated operator user payload.
+   * @param criteria Optional filter criteria for the blocks.
+   * @param userId Identifier of the operator user whose blocks are listed.
+   * @param _idDevice UUID of the device the request originates from (unused).
+   * @param _version Client app version (unused).
+   * @returns Promise resolving to the list of assigned blocks.
    */
   @ApiOperation({ summary: 'List blocks assigned to the operator user' })
   // @Auth()
@@ -158,12 +169,14 @@ export class OperatorController {
   }
 
   /**
+   * Lists the active parking fractions for a block (operator view).
    *
-   * @param paginationDto
-   * @param userId
-   * @param idDevice
-   * @param blockId
-   * @param _version
+   * @param paginationDto Pagination parameters for the result set.
+   * @param userId Identifier of the operator user requesting the fractions.
+   * @param idDevice UUID of the device the request originates from.
+   * @param blockId Identifier of the block whose fractions are listed.
+   * @param _version Client app version (unused).
+   * @returns Promise resolving to the paginated list of parking fractions.
    */
   @ApiOperation({
     summary: 'List active parking fractions for a block (operator view)',
@@ -187,13 +200,15 @@ export class OperatorController {
   }
 
   /**
+   * Gets a single parking fraction detail by its identifier (operator view).
    *
-   * @param user
-   * @param paginationDto
-   * @param userId
-   * @param idDevice
-   * @param fractionId
-   * @param _version
+   * @param user Authenticated operator user payload.
+   * @param paginationDto Pagination parameters for the result set.
+   * @param userId Identifier of the operator user requesting the fraction.
+   * @param idDevice UUID of the device the request originates from.
+   * @param fractionId Identifier of the parking fraction to retrieve.
+   * @param _version Client app version (unused).
+   * @returns Promise resolving to the requested parking fraction detail.
    */
   @ApiOperation({
     summary: 'Get a single fraction detail by fractionId (operator view)',
@@ -213,12 +228,14 @@ export class OperatorController {
   }
 
   /**
+   * Searches active parking fractions by plate number or other criteria.
    *
-   * @param user
-   * @param criteria
-   * @param _userId
-   * @param _idDevice
-   * @param _version
+   * @param user Authenticated operator user payload.
+   * @param criteria Search criteria such as a plate number.
+   * @param _userId Identifier of the operator user (unused).
+   * @param _idDevice UUID of the device the request originates from (unused).
+   * @param _version Client app version (unused).
+   * @returns Promise resolving to the matching parking fractions.
    */
   @ApiOperation({
     summary: 'Search active fractions by plate number or other criteria',
@@ -237,12 +254,14 @@ export class OperatorController {
   }
 
   /**
+   * Gets the current virtual server time for operator clock synchronization.
    *
-   * @param _user
-   * @param _criteria
-   * @param _userId
-   * @param _idDevice
-   * @param _version
+   * @param _user Authenticated operator user payload (unused).
+   * @param _criteria Optional request criteria (unused).
+   * @param _userId Identifier of the operator user (unused).
+   * @param _idDevice UUID of the device the request originates from (unused).
+   * @param _version Client app version (unused).
+   * @returns Promise resolving to the current virtual server time.
    */
   @ApiOperation({
     summary: 'Get the current virtual server time (for operator clock sync)',
@@ -261,12 +280,14 @@ export class OperatorController {
   }
 
   /**
+   * Lists the physical card slots available for the given card identifier.
    *
-   * @param user
-   * @param card
-   * @param _userId
-   * @param _idDevice
-   * @param _version
+   * @param user Authenticated operator user payload.
+   * @param card Card identifier whose physical slots are listed.
+   * @param _userId Identifier of the operator user (unused).
+   * @param _idDevice UUID of the device the request originates from (unused).
+   * @param _version Client app version (unused).
+   * @returns Promise resolving to the available physical card slots.
    */
   @ApiOperation({
     summary: 'List physical card slots available for the given card identifier',
@@ -285,12 +306,14 @@ export class OperatorController {
   }
 
   /**
+   * Gets slot pricing and availability by slot name or code (operator view).
    *
-   * @param user
-   * @param userId
-   * @param idDevice
-   * @param searchSlot
-   * @param _version
+   * @param user Authenticated operator user payload.
+   * @param userId Identifier of the operator user requesting the slot.
+   * @param idDevice UUID of the device the request originates from.
+   * @param searchSlot Slot name or code to look up.
+   * @param _version Client app version (unused).
+   * @returns Promise resolving to the slot pricing and availability.
    */
   @ApiOperation({
     summary: 'Get slot pricing and availability by slot name/code (operator)',
@@ -309,13 +332,15 @@ export class OperatorController {
   }
 
   /**
+   * Finds outstanding sanctions by identity card number (operator view).
    *
-   * @param user
-   * @param userId
-   * @param idDevice
-   * @param identityCard
-   * @param version
-   * @param getIncidentDto
+   * @param user Authenticated operator user payload.
+   * @param userId Identifier of the operator user performing the search.
+   * @param idDevice UUID of the device the request originates from.
+   * @param identityCard Identity card number to search sanctions for.
+   * @param version Client app version.
+   * @param getIncidentDto Payload with additional sanction search parameters.
+   * @returns Promise resolving to the outstanding sanctions found.
    */
   @ApiOperation({
     summary: 'Find outstanding sanctions by identity card number (operator)',

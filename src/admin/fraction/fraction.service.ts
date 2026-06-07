@@ -20,8 +20,9 @@ export class FractionService {
   private readonly logger = new Logger('FractionService');
 
   /**
+   * Creates the service with its required dependencies.
    *
-   * @param fractionRepository
+   * @param fractionRepository TypeORM repository for the Fraction entity.
    */
   constructor(
     @InjectRepository(Fraction)
@@ -950,7 +951,10 @@ export class FractionService {
   }
 
   /**
-   * @param filterDto
+   * Builds the parameterized SQL conditions for the given filters.
+   *
+   * @param filterDto Filters used to build the bound parameters and WHERE conditions.
+   * @returns An object with the bound `parameters` array and the `conditions` clauses.
    * @deprecated Use {@link _buildQueryParameters} instead.
    * Kept as a pass-through alias so any external callers are not broken
    * while the codebase migrates to the renamed method.

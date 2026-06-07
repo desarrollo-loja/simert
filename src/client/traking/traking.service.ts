@@ -19,9 +19,9 @@ export class TrakingService {
   private readonly logger = new Logger('TrakingService');
 
   /**
-   *
-   * @param locationRepository
-   * @param dataSource
+   * Creates the tracking service.
+   * @param locationRepository Repository for the `L` real-time location buffer entity.
+   * @param dataSource TypeORM data source bound to the `tracking_controller` connection.
    */
   constructor(
     @InjectRepository(L)
@@ -42,22 +42,25 @@ export class TrakingService {
   private readonly tablesWithGeoColumns = new Set<string>();
 
   /**
-   *
-   * @param vehicleId
-   * @param userId
-   * @param idDevice
-   * @param latitude
-   * @param longitude
-   * @param altitude
-   * @param statusTracking
-   * @param activityTracking
-   * @param speed
-   * @param accuracy
-   * @param heading
-   * @param data
-   * @param polyline
-   * @param zoneId
-   * @param blockId
+   * Persists a single tracking sample into the current month's
+   * `YYYY_MM_traking` partition, creating the partition and ensuring its geo
+   * columns on first use. Errors are logged and swallowed so ingestion never
+   * fails the caller.
+   * @param vehicleId Identifier of the tracked vehicle.
+   * @param userId Identifier of the controller/user being tracked.
+   * @param idDevice Device identifier; only the substring [30, 36) is stored.
+   * @param latitude Latitude of the sample.
+   * @param longitude Longitude of the sample.
+   * @param altitude Altitude of the sample.
+   * @param statusTracking Tracking status of the sample.
+   * @param activityTracking Detected activity associated with the sample.
+   * @param speed Speed reported at the sample.
+   * @param accuracy Location accuracy reported at the sample.
+   * @param heading Heading/direction reported at the sample.
+   * @param data Additional metadata object serialized as JSON.
+   * @param polyline Encoded polyline associated with the sample.
+   * @param zoneId Identifier of the zone the sample belongs to.
+   * @param blockId Identifier of the block the sample belongs to.
    */
   private async _registerTraking(
     vehicleId: number,
@@ -156,9 +159,12 @@ export class TrakingService {
   }
 
   /**
-   *
-   * @param userId
-   * @param plotLocationDto
+   * Upserts the user's latest real-time location in the `L` buffer (UPDATE
+   * first, INSERT if no row exists) and forwards the sample to the historical
+   * tracking partition. Returns early when no payload is present.
+   * @param userId Identifier of the user whose location is being plotted.
+   * @param plotLocationDto Payload carrying the encoded position (`p`), polyline (`l`), travels (`t`), zone and block.
+   * @returns `true` once processing completes, or `undefined` when there is no payload to plot.
    */
   async plot(userId: number, plotLocationDto: PlotLocationDto) {
     const { p, l: polyline, t: travels, zoneId, blockId } = plotLocationDto;
@@ -279,10 +285,13 @@ export class TrakingService {
   }
 
   /**
-   *
-   * @param userId
-   * @param from
-   * @param to
+   * Retrieves all tracking records for a user within a date range, querying the
+   * relevant monthly partition(s). When the range spans two days it runs two
+   * queries and merges the results; otherwise a single partition query is used.
+   * @param userId Identifier of the user whose tracking records are requested.
+   * @param from Start date/time of the range (inclusive).
+   * @param to End date/time of the range (inclusive).
+   * @returns Object with the `errorCode` and the list of `trackings` found.
    */
   async getAllTracking(userId: number, from: Date, to: Date) {
     let trackings: any = [];
@@ -356,8 +365,10 @@ export class TrakingService {
   }
 
   /**
-   *
-   * @param userId
+   * Returns the user's most recent location from the `L` buffer, formatted for
+   * the map client (latitude, longitude, direction, date and polyline).
+   * @param userId Identifier of the user whose latest location is requested.
+   * @returns Object with `errorCode` set to `NOT_FOUND` when no location exists, otherwise the latest location data.
    */
   async getTrackingByUserId(userId: number) {
     const query = `
@@ -393,8 +404,10 @@ export class TrakingService {
   }
 
   /**
-   *
-   * @param userIds
+   * Returns the latest buffered location for each user in a comma-separated
+   * list of user identifiers.
+   * @param userIds Comma-separated list of user identifiers to look up.
+   * @returns Object with the `errorCode` and the list of `locations` found.
    */
   async getTrackings(userIds: string) {
     const userIdArray = userIds.split(',').map((id) => Number(id));
@@ -431,13 +444,14 @@ export class TrakingService {
    *
    * If the partition does not exist yet (e.g. queried for a month that
    * never had data), we return an empty result instead of crashing.
-   * @param userId
-   * @param from
-   * @param to
-   * @param year
-   * @param month
-   * @param limit
-   * @param offset
+   * @param userId Identifier of the user whose history is requested.
+   * @param from Start date/time of the range (inclusive).
+   * @param to End date/time of the range (inclusive).
+   * @param year Year of the target partition.
+   * @param month Month (1-12) of the target partition.
+   * @param limit Optional maximum number of rows to return (enables pagination).
+   * @param offset Optional row offset used when paginating.
+   * @returns Object with the `errorCode`, the page of `trackings` and the `total` row count.
    */
   async getAllTrackingHistory(
     userId: number,
@@ -537,12 +551,13 @@ export class TrakingService {
    *
    * The default cap of 1500 points keeps Leaflet's SVG renderer fluid even
    * on lower-end devices; callers can raise/lower it via `maxPoints`.
-   * @param userId
-   * @param from
-   * @param to
-   * @param year
-   * @param month
-   * @param maxPoints
+   * @param userId Identifier of the user whose polyline is requested.
+   * @param from Start date/time of the range (inclusive).
+   * @param to End date/time of the range (inclusive).
+   * @param year Year of the target partition.
+   * @param month Month (1-12) of the target partition.
+   * @param maxPoints Maximum number of points to return; results are downsampled when exceeded.
+   * @returns Object with the `errorCode`, the (possibly downsampled) `points` and the `total` row count.
    */
   async getTrackingPolyline(
     userId: number,

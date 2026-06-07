@@ -54,17 +54,19 @@ export class CheckboxService implements OnModuleInit {
   private readonly catalogs: Map<string, any> = new Map();
 
   /**
+   * Injects the repositories, shared services and data source required to
+   * manage checkbox transactions and the associated user wallet balance.
    *
-   * @param checkboxRepository
-   * @param checkboxUserRepository
-   * @param cardRepository
-   * @param catalogRepository
-   * @param commonService
-   * @param commonAuthService
-   * @param commonGimService
-   * @param commonCheckboxService
-   * @param gimService
-   * @param dataSource
+   * @param checkboxRepository Repository for `Checkbox` transaction rows.
+   * @param checkboxUserRepository Repository for the `CheckboxUser` wallet.
+   * @param cardRepository Repository for `Card` entities.
+   * @param catalogRepository Repository for `Catalog` lookup entries.
+   * @param commonService Shared utility service.
+   * @param commonAuthService Shared authentication service.
+   * @param commonGimService Shared GIM integration service.
+   * @param commonCheckboxService Shared checkbox helper service.
+   * @param gimService GIM domain service.
+   * @param dataSource TypeORM data source used for transactions and raw queries.
    */
   constructor(
     @InjectRepository(Checkbox)
@@ -267,8 +269,10 @@ export class CheckboxService implements OnModuleInit {
   }
 
   /**
+   * Checks whether a database table or view exists for the given identifier.
    *
-   * @param tableName
+   * @param tableName Fully-qualified table identifier to test.
+   * @returns Promise resolving to `true` if the table exists, otherwise `false`.
    */
   private async _tableExists(tableName: string): Promise<boolean> {
     const query = `
@@ -495,9 +499,13 @@ export class CheckboxService implements OnModuleInit {
   }
 
   /**
+   * Builds the `DebitAmounDto` used to charge a SIMERT purchase, assembling
+   * the purchase line item, billing data and transaction reason.
    *
-   * @param concept
-   * @param createCheckboxDto
+   * @param concept Description of the purchased product.
+   * @param createCheckboxDto Source DTO with amount, user and billing details.
+   * @returns Promise resolving to the assembled `DebitAmounDto`, or `undefined`
+   *   if the DTO could not be built.
    */
   private async _parseDebitAmounDto(
     concept: string,
@@ -541,7 +549,12 @@ export class CheckboxService implements OnModuleInit {
   }
 
   /**
+   * Resolves the GIM revenue code (rubro) and description used when issuing a
+   * card credit title, falling back to environment defaults when the catalog
+   * entry is missing.
    *
+   * @returns Object with the resolved `entryCode`, `description` and the
+   *   `optionalData` key/value pairs sent to GIM.
    */
   private _buildRubroOptionalData(): {
     entryCode: string;
@@ -574,11 +587,13 @@ export class CheckboxService implements OnModuleInit {
   }
 
   /**
+   * Persists the outcome of a card payment, issuing the GIM credit title and
+   * updating the checkbox state according to the reported payment status.
    *
-   * @param idDevice
-   * @param checkbox
-   * @param moment
-   * @param statusPayment
+   * @param idDevice Identifier of the device that processed the payment.
+   * @param checkbox Checkbox transaction being settled.
+   * @param moment Lifecycle moment of the payment status update.
+   * @param statusPayment Reported payment status (paid, pending, failed, etc.).
    */
   async _saveResponsePay(
     idDevice: string,
@@ -681,10 +696,12 @@ export class CheckboxService implements OnModuleInit {
   }
 
   /**
+   * Sends a push notification informing the buyer about a status change for a
+   * SIMERT card purchase.
    *
-   * @param userId
-   * @param status
-   * @param checkbox
+   * @param userId Buyer id that receives the notification.
+   * @param status New status code reported to the buyer.
+   * @param checkbox Checkbox transaction whose status changed.
    */
   private async _notifyChageStatus(
     userId: number,
@@ -797,12 +814,16 @@ export class CheckboxService implements OnModuleInit {
   }
 
   /**
+   * Initiates a SIMERT card purchase through the DeUna v2 payment provider and
+   * schedules the reversal verification when no confirmation arrives in time.
    *
-   * @param idDevice
-   * @param checkbox
-   * @param debitAmounDto
-   * @param createCheckboxDto
-   * @param typePaymentResponsibility
+   * @param idDevice Device identifier originating the purchase.
+   * @param checkbox Checkbox transaction being paid.
+   * @param debitAmounDto Debit details for the charge.
+   * @param createCheckboxDto Source DTO with amount, user and billing details.
+   * @param typePaymentResponsibility Party responsible for the payment.
+   * @returns Promise resolving to an error-code envelope, including the provider
+   *   `deeplink` on success.
    */
   private async _payDeunaV2(
     idDevice: string,
@@ -863,12 +884,16 @@ export class CheckboxService implements OnModuleInit {
   }
 
   /**
+   * Initiates a SIMERT card purchase through the Ahorita payment provider and
+   * schedules the reversal verification when no confirmation arrives in time.
    *
-   * @param idDevice
-   * @param checkbox
-   * @param debitAmounDto
-   * @param createCheckboxDto
-   * @param typePaymentResponsibility
+   * @param idDevice Device identifier originating the purchase.
+   * @param checkbox Checkbox transaction being paid.
+   * @param debitAmounDto Debit details for the charge.
+   * @param createCheckboxDto Source DTO with amount, user and billing details.
+   * @param typePaymentResponsibility Party responsible for the payment.
+   * @returns Promise resolving to an error-code envelope, including the provider
+   *   `deeplink` on success.
    */
   private async _payAhorita(
     idDevice: string,
@@ -930,12 +955,16 @@ export class CheckboxService implements OnModuleInit {
   }
 
   /**
+   * Initiates a SIMERT card purchase through the PlaceToPay payment provider and
+   * schedules the reversal verification when no confirmation arrives in time.
    *
-   * @param idDevice
-   * @param checkbox
-   * @param debitAmounDto
-   * @param createCheckboxDto
-   * @param typePaymentResponsibility
+   * @param idDevice Device identifier originating the purchase.
+   * @param checkbox Checkbox transaction being paid.
+   * @param debitAmounDto Debit details for the charge.
+   * @param createCheckboxDto Source DTO with amount, user and billing details.
+   * @param typePaymentResponsibility Party responsible for the payment.
+   * @returns Promise resolving to an error-code envelope, including the provider
+   *   `deeplink` on success.
    */
   private async _payPlaceToPay(
     idDevice: string,
@@ -1007,12 +1036,9 @@ export class CheckboxService implements OnModuleInit {
    * @param idDevice Device that originated the purchase.
    * @param userId Buyer id.
    * @param checkboxId Primary key of the checkbox being confirmed.
-   * @param typePaymentMethod Provider that called back.
-   * @param register Original register timestamp.
-   * @param typePaymentResponsibility Commission responsibility type.
-   * @param _typePaymentMethod
-   * @param _register
-   * @param _typePaymentResponsibility
+   * @param _typePaymentMethod Provider that called back (currently unused).
+   * @param _register Original register timestamp (currently unused).
+   * @param _typePaymentResponsibility Commission responsibility type (currently unused).
    * @returns Standard error-code envelope.
    */
   async onResponsePay(
@@ -1050,12 +1076,9 @@ export class CheckboxService implements OnModuleInit {
    * @param idDevice Device that originated the purchase.
    * @param userId Buyer id.
    * @param checkboxId Primary key of the checkbox that failed.
-   * @param typePaymentMethod Provider that called back.
-   * @param register Original register timestamp.
-   * @param typePaymentResponsibility Commission responsibility type.
-   * @param _typePaymentMethod
-   * @param _register
-   * @param _typePaymentResponsibility
+   * @param _typePaymentMethod Provider that called back (currently unused).
+   * @param _register Original register timestamp (currently unused).
+   * @param _typePaymentResponsibility Commission responsibility type (currently unused).
    * @returns Standard error-code envelope.
    */
   async onResponsePayError(

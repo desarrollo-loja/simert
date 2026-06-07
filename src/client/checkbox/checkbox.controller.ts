@@ -30,18 +30,21 @@ import { CreateCheckboxDto } from './dto/create-checkbox.dto';
 @Controller('client/checkbox')
 export class CheckboxController {
   /**
+   * Creates the controller and injects its dependencies.
    *
-   * @param checkboxService
+   * @param checkboxService Service that handles checkbox transaction business logic.
    */
   constructor(private readonly checkboxService: CheckboxService) {}
 
   /**
+   * Lists checkbox balance transactions for a user, applying date and pagination filters.
    *
-   * @param user
-   * @param userId
-   * @param idDevice
-   * @param getTransactionDto
-   * @param paginationDto
+   * @param user Authenticated user extracted from the Keycloak token.
+   * @param userId Identifier of the user whose transactions are requested.
+   * @param idDevice UUID of the device issuing the request.
+   * @param getTransactionDto Date range filters for the transactions.
+   * @param paginationDto Pagination parameters (limit and offset).
+   * @returns Promise resolving to the paginated list of checkbox transactions.
    */
   @ApiOperation({
     summary:
@@ -64,11 +67,13 @@ export class CheckboxController {
   }
 
   /**
+   * Retrieves a single checkbox transaction by its identifier for the given user.
    *
-   * @param user
-   * @param userId
-   * @param idDevice
-   * @param id
+   * @param user Authenticated user extracted from the Keycloak token.
+   * @param userId Identifier of the user that owns the transaction.
+   * @param idDevice UUID of the device issuing the request.
+   * @param id Identifier of the checkbox transaction to retrieve.
+   * @returns Promise resolving to the requested checkbox transaction.
    */
   @ApiOperation({ summary: 'Get a single checkbox transaction by its id' })
   @AuthWithKeycloak()
@@ -83,12 +88,14 @@ export class CheckboxController {
   }
 
   /**
+   * Initiates the purchase of checkboxes, starting the associated payment flow.
    *
-   * @param user
-   * @param userId
-   * @param idDevice
-   * @param version
-   * @param createCheckboxDto
+   * @param user Authenticated user extracted from the Keycloak token.
+   * @param userId Identifier of the user performing the purchase.
+   * @param idDevice UUID of the device issuing the request.
+   * @param version Client application version supplied in the route.
+   * @param createCheckboxDto Payload describing the checkbox purchase to perform.
+   * @returns Promise resolving to the result of the checkbox purchase flow.
    */
   @ApiOperation({ summary: 'Purchase checkboxes (initiates a payment flow)' })
   @AuthWithKeycloak()
@@ -105,11 +112,13 @@ export class CheckboxController {
   }
 
   /**
+   * Returns the user's registered cards together with the current checkbox balance.
    *
-   * @param user
-   * @param userId
-   * @param _idDevice
-   * @param _version
+   * @param user Authenticated user extracted from the Keycloak token.
+   * @param userId Identifier of the user whose cards and balance are requested.
+   * @param _idDevice UUID of the device issuing the request (unused).
+   * @param _version Client application version supplied in the route (unused).
+   * @returns Promise resolving to the user's cards and current checkbox balance.
    */
   @ApiOperation({
     summary: 'Get card info and current checkbox balance for the user',
@@ -126,13 +135,15 @@ export class CheckboxController {
   }
 
   /**
+   * Webhook invoked by the payment provider when a checkbox payment succeeds.
    *
-   * @param userId
-   * @param typePaymentResponsibility
-   * @param typePaymentMethod
-   * @param checkboxId
-   * @param idDevice
-   * @param register
+   * @param userId Identifier of the user that performed the payment.
+   * @param typePaymentResponsibility Code identifying who is responsible for the payment.
+   * @param typePaymentMethod Code identifying the payment method used.
+   * @param checkboxId Identifier of the checkbox purchase being confirmed.
+   * @param idDevice UUID of the device that originated the purchase.
+   * @param register Payment registration reference returned by the provider.
+   * @returns Promise resolving to the result of processing the successful payment.
    */
   @ApiOperation({
     summary: 'Webhook: checkbox payment success callback from payment provider',
@@ -160,14 +171,16 @@ export class CheckboxController {
   }
 
   /**
+   * Webhook invoked by the payment provider when a checkbox payment fails or is cancelled.
    *
-   * @param userId
-   * @param typePaymentResponsibility
-   * @param typePaymentMethod
-   * @param checkboxId
-   * @param idDevice
-   * @param register
-   * @param _concept
+   * @param userId Identifier of the user that attempted the payment.
+   * @param typePaymentResponsibility Code identifying who is responsible for the payment.
+   * @param typePaymentMethod Code identifying the payment method used.
+   * @param checkboxId Identifier of the checkbox purchase being cancelled.
+   * @param idDevice UUID of the device that originated the purchase.
+   * @param register Payment registration reference returned by the provider.
+   * @param _concept Payment concept supplied by the provider (unused).
+   * @returns Promise resolving to the result of processing the failed payment.
    */
   @ApiOperation({
     summary:

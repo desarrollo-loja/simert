@@ -17,8 +17,9 @@ export class AgentActivitiesService {
   private readonly logger = new Logger('AgentActivitiesService');
 
   /**
+   * Creates a new service instance.
    *
-   * @param agentActivityRepository
+   * @param agentActivityRepository TypeORM repository for {@link AgentActivity} entities.
    */
   constructor(
     @InjectRepository(AgentActivity)

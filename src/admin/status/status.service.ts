@@ -16,8 +16,9 @@ export class StatusService {
   private readonly logger = new Logger('StatusService');
 
   /**
+   * Creates the service with the injected `Status` entity repository.
    *
-   * @param statusRepository
+   * @param statusRepository - TypeORM repository for the `Status` lookup entity.
    */
   constructor(
     @InjectRepository(Status)

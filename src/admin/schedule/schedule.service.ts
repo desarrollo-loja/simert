@@ -20,9 +20,9 @@ export class ScheduleService {
   private readonly logger = new Logger('ScheduleService');
 
   /**
-   *
-   * @param scheduleRepository
-   * @param loggerService
+   * Creates a new ScheduleService instance.
+   * @param scheduleRepository Repository for accessing Schedule entities.
+   * @param loggerService Service used to record audit and operation logs.
    */
   constructor(
     @InjectRepository(Schedule)

@@ -31,10 +31,11 @@ export class IncidentService {
   private readonly logger = new Logger(IncidentService.name);
 
   /**
+   * Creates the service and injects its repositories and collaborators.
    *
-   * @param incidentRepository
-   * @param loggerService
-   * @param commonGimService
+   * @param incidentRepository Repository for the `Incident` entity.
+   * @param loggerService Service used to persist audit log entries.
+   * @param commonGimService Service used to emit external GIM obligations.
    */
   constructor(
     @InjectRepository(Incident)
@@ -433,8 +434,8 @@ export class IncidentService {
    * verified against `information_schema` through {@link _tableExists}.
    *
    * @param filterDto Filter carrying the optional `year`/`month` period.
-   * @param filterDto.year
-   * @param filterDto.month
+   * @param filterDto.year Optional year of the historical period to resolve.
+   * @param filterDto.month Optional month of the historical period to resolve.
    * @returns The resolved incident and fraction table identifiers.
    */
   private async _resolveSanctionTables(filterDto: {

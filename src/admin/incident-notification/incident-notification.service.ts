@@ -18,8 +18,9 @@ export class IncidentNotificationService {
   private readonly logger = new Logger(IncidentNotificationService.name);
 
   /**
+   * Creates a new {@link IncidentNotificationService}.
    *
-   * @param incidentNotificationRepository
+   * @param incidentNotificationRepository Repository for the {@link IncidentNotification} entity.
    */
   constructor(
     @InjectRepository(IncidentNotification)

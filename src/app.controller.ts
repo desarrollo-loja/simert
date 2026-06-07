@@ -13,7 +13,9 @@ import { ApiStandardResponse } from 'src/common/decorators/api-standard-response
 @Controller()
 export class AppController {
   /**
+   * Returns the application root metadata read from package.json.
    *
+   * @returns Object containing the application name, version, url, author and architect.
    */
   @ApiOperation({
     summary:

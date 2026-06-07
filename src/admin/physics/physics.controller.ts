@@ -23,17 +23,20 @@ import { PhysicsService } from './physics.service';
 @Controller('admin/physic')
 export class PhysicsController {
   /**
+   * Creates the controller and injects its dependencies.
    *
-   * @param physicsService
+   * @param physicsService Service that handles physical card record queries.
    */
   constructor(private readonly physicsService: PhysicsService) {}
 
   /**
+   * Lists physical card records matching the provided filters.
    *
-   * @param _userId
-   * @param _idDevice
-   * @param _version
-   * @param filterDto
+   * @param _userId Identifier of the requesting user (route context only).
+   * @param _idDevice Identifier of the requesting device (route context only).
+   * @param _version Client application version (route context only).
+   * @param filterDto Optional filtering, pagination and sorting criteria.
+   * @returns Promise resolving to the list of matching physical card records.
    */
   @ApiOperation({
     summary: 'List physical card records with optional filters (admin only)',
@@ -50,11 +53,13 @@ export class PhysicsController {
   }
 
   /**
+   * Counts the total number of physical card records matching the filters.
    *
-   * @param _userId
-   * @param _idDevice
-   * @param _version
-   * @param filterDto
+   * @param _userId Identifier of the requesting user (route context only).
+   * @param _idDevice Identifier of the requesting device (route context only).
+   * @param _version Client application version (route context only).
+   * @param filterDto Optional filtering criteria.
+   * @returns Promise resolving to the total count of matching records.
    */
   @ApiOperation({
     summary: 'Count total physical card records matching filters (admin only)',
@@ -71,11 +76,13 @@ export class PhysicsController {
   }
 
   /**
+   * Counts the number of unique physical card users matching the filters.
    *
-   * @param _userId
-   * @param _idDevice
-   * @param _version
-   * @param filterDto
+   * @param _userId Identifier of the requesting user (route context only).
+   * @param _idDevice Identifier of the requesting device (route context only).
+   * @param _version Client application version (route context only).
+   * @param filterDto Optional filtering criteria.
+   * @returns Promise resolving to the count of unique matching users.
    */
   @ApiOperation({
     summary: 'Count unique physical card users matching filters (admin only)',

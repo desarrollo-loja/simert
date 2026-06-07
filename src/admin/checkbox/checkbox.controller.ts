@@ -25,18 +25,21 @@ import { CheckboxService } from './checkbox.service';
 @Controller('admin/checkbox')
 export class CheckboxController {
   /**
+   * Creates the controller and injects its dependencies.
    *
-   * @param checkboxService
+   * @param checkboxService Service that handles checkbox balance queries and updates.
    */
   constructor(private readonly checkboxService: CheckboxService) {}
 
   /**
+   * Lists all checkbox balance records, applying the optional query filters.
    *
-   * @param user
-   * @param userId
-   * @param idDevice
-   * @param version
-   * @param filterDto
+   * @param user Authenticated user extracted from the Keycloak token.
+   * @param userId Numeric identifier of the user that owns the checkboxes.
+   * @param idDevice UUID of the device associated with the request.
+   * @param version Numeric version supplied by the client.
+   * @param filterDto Query filters used to narrow down the results.
+   * @returns Promise resolving to the list of matching checkbox records.
    */
   @ApiOperation({
     summary: 'List all checkboxes with optional filters (admin)',
@@ -54,9 +57,11 @@ export class CheckboxController {
   }
 
   /**
+   * Lists checkboxes filtered by the transaction identifiers provided in the body.
    *
-   * @param user
-   * @param filterDto
+   * @param user Authenticated user extracted from the Keycloak token.
+   * @param filterDto Filter payload containing the transaction identifiers and fields to match.
+   * @returns Promise resolving to the list of matching checkbox records.
    */
   @ApiOperation({
     summary:
@@ -74,7 +79,9 @@ export class CheckboxController {
   // ─── Internal endpoints consumed by CommonCheckboxService ─────────────
 
   /**
+   * Returns paid checkboxes whose statusIncident is NULL.
    *
+   * @returns Promise resolving to the list of paid checkboxes without a linked incident.
    */
   @ApiOperation({
     summary:
@@ -90,7 +97,9 @@ export class CheckboxController {
   }
 
   /**
+   * Returns paid checkboxes with a statusIncident pending in GIM.
    *
+   * @returns Promise resolving to the list of paid checkboxes with a pending incident.
    */
   @ApiOperation({
     summary: 'List paid checkboxes with a pending GIM incident status',
@@ -105,9 +114,11 @@ export class CheckboxController {
   }
 
   /**
+   * Performs a partial update of a checkbox identified by its id.
    *
-   * @param id
-   * @param fields
+   * @param id Numeric identifier of the checkbox to update.
+   * @param fields Partial checkbox object with the fields to update (excluding `id`).
+   * @returns Promise resolving to the updated checkbox.
    */
   @ApiOperation({
     summary: 'Update a checkbox by id (partial update, any field except id)',
@@ -126,8 +137,10 @@ export class CheckboxController {
   }
 
   /**
+   * Transfers a checkbox record to its corresponding history table.
    *
-   * @param id
+   * @param id Numeric identifier of the checkbox to move to history.
+   * @returns Promise resolving once the checkbox has been moved to history.
    */
   @ApiOperation({ summary: 'Move a checkbox record to its history table' })
   /**

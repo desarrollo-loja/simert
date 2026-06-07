@@ -30,13 +30,16 @@ import { SlotService } from './slot.service';
 @Controller('admin/slot')
 export class SlotController {
   /**
+   * Creates a new {@link SlotController}.
    *
-   * @param slotService
+   * @param slotService Service that handles parking slot business logic.
    */
   constructor(private readonly slotService: SlotService) {}
 
   /**
+   * Initializes the database with a sample slot (internal use only).
    *
+   * @returns Promise resolving to the created initial slot.
    */
   @ApiOperation({ summary: 'Initialize a sample slot (internal use only)' })
   @ApiStandardResponse({
@@ -49,11 +52,13 @@ export class SlotController {
   }
 
   /**
+   * Creates a new parking slot.
    *
-   * @param user
-   * @param userId
-   * @param idDevice
-   * @param createSlotDto
+   * @param user Authenticated user extracted from the Keycloak token.
+   * @param userId Identifier of the user performing the operation.
+   * @param idDevice Identifier of the device performing the operation.
+   * @param createSlotDto Payload describing the slot to create.
+   * @returns Promise resolving to the created slot.
    */
   @ApiOperation({ summary: 'Create a new parking slot' })
   @ApiStandardResponse({
@@ -74,11 +79,13 @@ export class SlotController {
   }
 
   /**
+   * Retrieves a paginated list of slots including their zone and block.
    *
-   * @param user
-   * @param userId
-   * @param idDevice
-   * @param filterDto
+   * @param user Authenticated user extracted from the Keycloak token.
+   * @param userId Identifier of the user performing the operation.
+   * @param idDevice Identifier of the device performing the operation.
+   * @param filterDto Pagination and filtering options.
+   * @returns Promise resolving to the paginated slots list with totals.
    */
   @ApiOperation({ summary: 'Paginated list of slots with zone and block' })
   @ApiStandardResponse({
@@ -102,9 +109,11 @@ export class SlotController {
   }
 
   /**
+   * Retrieves slots filtered by block and zone as a reduced id/name list.
    *
-   * @param blockId
-   * @param zoneId
+   * @param blockId Identifier of the block to filter by.
+   * @param zoneId Identifier of the zone to filter by.
+   * @returns Promise resolving to a reduced list of slots ({id, name}).
    */
   @ApiOperation({ summary: 'Slots by block and zone (raw id/name)' })
   @ApiStandardResponse({
@@ -126,14 +135,16 @@ export class SlotController {
   }
 
   /**
+   * Retrieves slots filtered by block and zone including their fractions info.
    *
-   * @param user
-   * @param userId
-   * @param idDevice
-   * @param blockId
-   * @param zoneId
-   * @param version
-   * @param paginationDto
+   * @param user Authenticated user extracted from the Keycloak token.
+   * @param userId Identifier of the user performing the operation.
+   * @param idDevice Identifier of the device performing the operation.
+   * @param blockId Identifier of the block to filter by.
+   * @param zoneId Identifier of the zone to filter by.
+   * @param version Client version sent in the request path.
+   * @param paginationDto Pagination and filtering options.
+   * @returns Promise resolving to the slots with their fractions information.
    */
   @ApiOperation({ summary: 'Slots by block and zone including fractions info' })
   @ApiStandardResponse({
@@ -162,12 +173,14 @@ export class SlotController {
   }
 
   /**
+   * Updates an existing parking slot.
    *
-   * @param user
-   * @param userId
-   * @param idDevice
-   * @param id
-   * @param updateSlotDto
+   * @param user Authenticated user extracted from the Keycloak token.
+   * @param userId Identifier of the user performing the operation.
+   * @param idDevice Identifier of the device performing the operation.
+   * @param id Identifier of the slot to update.
+   * @param updateSlotDto Payload describing the fields to update.
+   * @returns Promise resolving to the updated slot.
    */
   @ApiOperation({ summary: 'Update a parking slot' })
   @ApiStandardResponse({
@@ -189,13 +202,15 @@ export class SlotController {
   }
 
   /**
+   * Retrieves slots by block and zone as raw records including coordinates.
    *
-   * @param user
-   * @param blockId
-   * @param zoneId
-   * @param _userId
-   * @param _idDevice
-   * @param _version
+   * @param user Authenticated user extracted from the Keycloak token.
+   * @param blockId Identifier of the block to filter by.
+   * @param zoneId Identifier of the zone to filter by.
+   * @param _userId Identifier of the user performing the operation (unused).
+   * @param _idDevice Identifier of the device performing the operation (unused).
+   * @param _version Client version sent in the request path (unused).
+   * @returns Promise resolving to the raw slot list with coordinates.
    */
   @ApiOperation({ summary: 'Slots by block and zone (raw with coordinates)' })
   @ApiStandardResponse({
@@ -231,14 +246,16 @@ export class SlotController {
   }
 
   /**
+   * Retrieves slots located within a polygon (geofence).
    *
-   * @param user
-   * @param blockId
-   * @param zoneId
-   * @param userId
-   * @param idDevice
-   * @param version
-   * @param filterDto
+   * @param user Authenticated user extracted from the Keycloak token.
+   * @param blockId Identifier of the block to filter by.
+   * @param zoneId Identifier of the zone to filter by.
+   * @param userId Identifier of the user performing the operation.
+   * @param idDevice Identifier of the device performing the operation.
+   * @param version Client version sent in the request path.
+   * @param filterDto Filtering options describing the polygon geofence.
+   * @returns Promise resolving to the slots inside the polygon.
    */
   @ApiOperation({ summary: 'Slots within a polygon (geofence)' })
   @ApiStandardResponse({
@@ -276,11 +293,13 @@ export class SlotController {
   }
 
   /**
+   * Retrieves slot occupancy statistics grouped by status.
    *
-   * @param userId
-   * @param idDevice
-   * @param version
-   * @param filterDto
+   * @param userId Identifier of the user performing the operation.
+   * @param idDevice Identifier of the device performing the operation.
+   * @param version Client version sent in the request path.
+   * @param filterDto Filtering options for the statistics query.
+   * @returns Promise resolving to the occupancy counts per status.
    */
   @ApiOperation({ summary: 'Slot occupancy statistics' })
   @ApiStandardResponse({

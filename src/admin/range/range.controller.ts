@@ -27,18 +27,21 @@ import { RangeService } from './range.service';
 @Controller('admin/range')
 export class RangeController {
   /**
+   * Creates a new RangeController instance.
    *
-   * @param rangeService
+   * @param rangeService Service that handles price range business logic.
    */
   constructor(private readonly rangeService: RangeService) {}
 
   /**
+   * Creates a new price range for a block.
    *
-   * @param user
-   * @param userId
-   * @param idDevice
-   * @param version
-   * @param createRangeDto
+   * @param user Authenticated user payload extracted from the Keycloak token.
+   * @param userId Identifier of the user performing the operation.
+   * @param idDevice Identifier of the device originating the request.
+   * @param version Client API version.
+   * @param createRangeDto Payload describing the price range to create.
+   * @returns Promise resolving to the created price range.
    */
   @ApiOperation({ summary: 'Create a new price range for a block' })
   @AuthWithKeycloak()
@@ -54,13 +57,15 @@ export class RangeController {
   }
 
   /**
+   * Updates an existing price range.
    *
-   * @param user
-   * @param userId
-   * @param idDevice
-   * @param id
-   * @param version
-   * @param updateRangeDto
+   * @param user Authenticated user payload extracted from the Keycloak token.
+   * @param userId Identifier of the user performing the operation.
+   * @param idDevice Identifier of the device originating the request.
+   * @param id Identifier of the price range to update.
+   * @param version Client API version.
+   * @param updateRangeDto Payload with the fields to update.
+   * @returns Promise resolving to the updated price range.
    */
   @ApiOperation({ summary: 'Update an existing price range' })
   @AuthWithKeycloak()
@@ -77,12 +82,14 @@ export class RangeController {
   }
 
   /**
+   * Lists price ranges that match the provided filters.
    *
-   * @param user
-   * @param userId
-   * @param idDevice
-   * @param version
-   * @param filterDto
+   * @param user Authenticated user payload extracted from the Keycloak token.
+   * @param userId Identifier of the user performing the operation.
+   * @param idDevice Identifier of the device originating the request.
+   * @param version Client API version.
+   * @param filterDto Filtering and pagination criteria.
+   * @returns Promise resolving to the list of matching price ranges.
    */
   @ApiOperation({ summary: 'List price ranges with optional filters' })
   @AuthWithKeycloak()
@@ -98,11 +105,13 @@ export class RangeController {
   }
 
   /**
+   * Counts the total number of price ranges matching the provided filters.
    *
-   * @param user
-   * @param userId
-   * @param idDevice
-   * @param filterDto
+   * @param user Authenticated user payload extracted from the Keycloak token.
+   * @param userId Identifier of the user performing the operation.
+   * @param idDevice Identifier of the device originating the request.
+   * @param filterDto Filtering criteria.
+   * @returns Promise resolving to the total count of matching price ranges.
    */
   @ApiOperation({ summary: 'Count total price ranges matching filters' })
   @AuthWithKeycloak()
@@ -117,12 +126,14 @@ export class RangeController {
   }
 
   /**
+   * Verifies whether a valid price range exists for the given filters.
    *
-   * @param user
-   * @param userId
-   * @param idDevice
-   * @param version
-   * @param filterDto
+   * @param user Authenticated user payload extracted from the Keycloak token.
+   * @param userId Identifier of the user performing the operation.
+   * @param idDevice Identifier of the device originating the request.
+   * @param version Client API version.
+   * @param filterDto Filtering criteria used to locate a valid range.
+   * @returns Promise resolving to the verification result.
    */
   @ApiOperation({
     summary: 'Verify whether a valid range exists for the given filters',

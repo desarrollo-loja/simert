@@ -26,9 +26,9 @@ export class IncidentTypeService {
   private readonly logger = new Logger(IncidentTypeService.name);
 
   /**
-   *
-   * @param incidentTypeRepository
-   * @param loggerService
+   * Creates a new IncidentTypeService instance.
+   * @param incidentTypeRepository Repository for accessing IncidentType entities.
+   * @param loggerService Service used to record audit and operation logs.
    */
   constructor(
     @InjectRepository(IncidentType)

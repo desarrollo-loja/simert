@@ -21,9 +21,9 @@ export class RangeService {
   private readonly logger = new Logger('rangeService');
 
   /**
-   *
-   * @param rangeRepository
-   * @param loggerService
+   * Creates a new RangeService instance.
+   * @param rangeRepository Repository for accessing Range entities.
+   * @param loggerService Service used to record audit and operation logs.
    */
   constructor(
     @InjectRepository(Range)

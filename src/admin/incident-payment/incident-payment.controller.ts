@@ -16,17 +16,20 @@ import { IncidentPaymentService } from './incident-payment.service';
 @Controller('admin/incident-payment')
 export class IncidentPaymentController {
   /**
+   * Creates the controller and injects its delegated service.
    *
-   * @param incidentPaymentService
+   * @param incidentPaymentService Service handling incident payment queries.
    */
   constructor(
     private readonly incidentPaymentService: IncidentPaymentService,
   ) {}
 
   /**
+   * Lists incident payments matching the provided transaction filter.
    *
-   * @param user
-   * @param filterDto
+   * @param user Authenticated user extracted from the Keycloak token.
+   * @param filterDto Filter carrying the transaction identifiers to match.
+   * @returns Promise resolving to the matching incident payment records.
    */
   @ApiOperation({
     summary:

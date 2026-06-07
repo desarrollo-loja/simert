@@ -20,9 +20,8 @@ export class CardService {
   private readonly logger = new Logger('CardService');
 
   /**
-   *
-   * @param cardRepository
-   * @param loggerService
+   * @param cardRepository TypeORM repository for the Card entity.
+   * @param loggerService Service used to persist audit log entries.
    */
   constructor(
     @InjectRepository(Card)

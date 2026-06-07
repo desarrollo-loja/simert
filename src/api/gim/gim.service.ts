@@ -48,7 +48,11 @@ import {
 } from './interfaces/gim-responses.interfaces';
 
 /**
- *
+ * Service that integrates Simert with the GIM municipal platform: issues
+ * infractions and sanctions, manages taxpayer/natural-person records, queries
+ * obligations, emits credit-card titles and deposits, and handles GIM
+ * authentication. Delegates persistence to IncidentService/IncidentTypeService
+ * and shared logic to CommonGimService/CommonAuthService.
  */
 @Injectable()
 export class GimService {
@@ -59,13 +63,14 @@ export class GimService {
   private token: string;
 
   /**
+   * Creates the GIM service and resolves GIM base URLs and realm from config.
    *
-   * @param commonAuthService
-   * @param configService
-   * @param incidentService
-   * @param incidentTypeService
-   * @param commonGimService
-   * @param dinardapAntService
+   * @param commonAuthService Shared authentication service used to resolve users by identity card.
+   * @param configService Configuration service used to read GIM environment variables.
+   * @param incidentService Incident service used to persist and update incidents.
+   * @param incidentTypeService Incident-type service used to resolve incident-type codes.
+   * @param commonGimService Shared GIM service that supplies fresh GIM access tokens.
+   * @param dinardapAntService DINARDAP/ANT service used to fetch vehicle owner data.
    */
   constructor(
     private readonly commonAuthService: CommonAuthService,
@@ -80,11 +85,14 @@ export class GimService {
     this.gim2RealmMunicipio = this.configService.get<string>(
       'GIM2_REALM_MUNICIPIO',
     ); // Default or Env
-    // this.token = this.configService.get<string>('GIM_TOKEN'); // YA NO SE USA
+    // this.token = this.configService.get<string>('GIM_TOKEN'); // No longer used
   }
 
   /**
+   * Retrieves a fresh GIM access token from CommonGimService and caches it
+   * on the instance.
    *
+   * @returns The current GIM Bearer token.
    */
   public getToken(): string {
     this.token = this.commonGimService.getTokenGim2();
@@ -152,10 +160,15 @@ export class GimService {
   }
 
   /**
+   * Issues an incident debt in GIM end to end: completes missing client data
+   * from the ANT, resolves or creates the GIM resident, checks whether the
+   * debt was already issued, emits the infraction when needed, and updates the
+   * local incident with the resulting obligation.
    *
-   * @param createGimDto
-   * @param incidentId
-   * @param isTransacional
+   * @param createGimDto Incident data used to issue the debt in GIM.
+   * @param incidentId Identifier of the local incident to update.
+   * @param isTransacional Flag indicating whether the update runs within a transaction.
+   * @returns Object with the error code, optional message and the resulting data.
    */
   async issueIncidentGim(
     createGimDto: CreateGimDto,
@@ -167,7 +180,7 @@ export class GimService {
     message?: string;
   }> {
     try {
-      // VERIFICAR SI TENGO CEDULA, EMAIL, NOMBRE Y RECIDENTID EN OBTIONAL DATA
+      // Check whether identity card, email, name and residentId are present
       let dataUserComplete = false;
       if (
         createGimDto.identityCard &&
@@ -178,7 +191,7 @@ export class GimService {
       }
 
       if (!dataUserComplete) {
-        // OBTENER DATOS DESDE LA ANT (cedula, nombre, apellido, correo y mail)
+        // Fetch data from the ANT (identity card, first/last name and email)
         const antData = await this.dinardapAntService.getUserDataByPlateAnt(
           createGimDto.plate,
         );
@@ -206,13 +219,13 @@ export class GimService {
       }
 
       if (!residentIdComplete) {
-        // OBTENER EL CLIENTE DESDE EL GIM CON LA CEDULA Y SACAR EL RESIDENT ID
+        // Fetch the client from GIM by identity card and extract its residentId
         const dataUserGim = await this.getUserByIdentityCardGim(
           createGimDto.identityCard,
         );
 
         if (dataUserGim.errorCode !== ErrorCode.NONE) {
-          //CREAR EL CLIETE EN EL GIM SI NO EXISTE VERIFICAR SIE S RUC O PERSONA FINAL
+          // Create the client in GIM when it does not exist yet
           const createClientGimDto = new CreateClientGimDto();
           createClientGimDto.identityCard = createGimDto.identityCard;
           createClientGimDto.emailClient = createGimDto.emailClient;
@@ -230,14 +243,14 @@ export class GimService {
               data: createClientGim,
             };
           }
-          // AGREGAR EL RESIDENT ID AL DTO PARA GUARDARLO EN NUESTRA BASE DE DATOS
+          // Add the residentId to the DTO so it is persisted in our database
           createGimDto.optionalData = createGimDto.optionalData || [];
           createGimDto.optionalData.push({
             key: 'residentId',
             value: createClientGim.residentDTO.id,
           });
         } else {
-          // AGREGAR EL RESIDENT ID AL DTO PARA GUARDARLO EN NUESTRA BASE DE DATOS
+          // Add the residentId to the DTO so it is persisted in our database
           createGimDto.optionalData = createGimDto.optionalData || [];
           createGimDto.optionalData.push({
             key: 'residentId',
@@ -271,7 +284,7 @@ export class GimService {
         return validateStatus;
       }
 
-      // MANDAMOS A  EMITIR LA DEUDA EN EL GIM
+      // Issue the debt in GIM
       const responeEmit = await this.emitInfractionGim(createGimDto);
 
       if (responeEmit.errorCode !== ErrorCode.NONE) {
@@ -320,9 +333,12 @@ export class GimService {
   }
 
   /**
+   * Builds an incident update DTO from an obligation and its mapped status,
+   * setting the GIM bond id, obligation number, status and amount.
    *
-   * @param obligation
-   * @param statusIncident
+   * @param obligation Obligation returned by GIM.
+   * @param statusIncident Local incident status mapped from the obligation.
+   * @returns The populated incident update DTO.
    */
   private _buildAntDataResponse(
     obligation: Obligation,
@@ -355,10 +371,14 @@ export class GimService {
   }
 
   /**
+   * Builds an incident update DTO from an obligation, merging the existing
+   * incident's optional data (residentId) and appending the obligation to the
+   * external-response history.
    *
-   * @param obligation
-   * @param statusIncident
-   * @param incident
+   * @param obligation Obligation returned by GIM.
+   * @param statusIncident Local incident status mapped from the obligation.
+   * @param incident Current incident whose optional and external-response data is merged.
+   * @returns The populated incident update DTO.
    */
   private _buildObligationDataResponse(
     obligation: Obligation,
@@ -388,7 +408,7 @@ export class GimService {
       updateDto.optionalData = optionalData;
     }
 
-    // onResponseExternal: push obligation al array existente
+    // onResponseExternal: append obligation to the existing array
     updateDto.onResponseExternal = [
       ...(currentOnResponseExternal ?? []),
       obligation,
@@ -398,8 +418,11 @@ export class GimService {
   }
 
   /**
+   * Looks up a GIM taxpayer by identification number through the
+   * `findTaxPayer` external endpoint.
    *
-   * @param identificationNumber
+   * @param identificationNumber Identity card or RUC to search for.
+   * @returns Object with the error code and the taxpayer when found.
    */
   async getUserByIdentityCardGim(
     identificationNumber: string,
@@ -436,8 +459,12 @@ export class GimService {
   }
 
   /**
+   * Creates a natural person in GIM. Reuses the local user's data when the
+   * identity card exists in our system; otherwise builds a minimal default
+   * payload. Persists the resulting GIM residentId back to the local user.
    *
-   * @param createClientGimDto
+   * @param createClientGimDto Client data used to build the GIM natural-person payload.
+   * @returns Object with the error code and the created residentDTO when successful.
    */
   async createNewNaturalPersonGim(
     createClientGimDto: CreateClientGimDto,
@@ -476,8 +503,8 @@ export class GimService {
           phoneNumber: '',
           isForeigner: false,
           birthday: new Date().toISOString().split('T')[0], // current UTC date as YYYY-MM-DD
-          gender: TypeGenre.UNDEFINED, // already returns the correct string
-          maritalStatus: TypeMaritalStatus.SINGLE, // already returns the correct string
+          gender: TypeGenre.UNDEFINED, // already the correct string value
+          maritalStatus: TypeMaritalStatus.SINGLE, // already the correct string value
           isDead: false,
           isHandicaped: false,
         };
@@ -504,9 +531,9 @@ export class GimService {
           email: user.data[0].email?.trim().toLowerCase(),
           phoneNumber,
           isForeigner: !!user.data[0].isForeigner,
-          birthday: user.data[0].birthday?.split('T')[0], // por si viene con hora
-          gender: getGenreNameById(user.data[0].gender), // ya devuelve string correcto
-          maritalStatus: getMaritalStatusName(user.data[0].maritalStatus), // ya devuelve string correcto
+          birthday: user.data[0].birthday?.split('T')[0], // in case it includes a time component
+          gender: getGenreNameById(user.data[0].gender), // already the correct string value
+          maritalStatus: getMaritalStatusName(user.data[0].maritalStatus), // already the correct string value
           isDead: false,
           isHandicaped: !!user.data[0].isHandicaped,
         };
@@ -532,7 +559,7 @@ export class GimService {
           residentDTO: data.residentDTO,
         };
       } else {
-        // EN CASO DE QUE YA EXISTA EL CLIENTE EN EL GIM Y NO HAYA SIDO ENCONTRADO ANTES (pUEDE QUE LO REGISTRARON DESPUES DE LA BUSQUEDA)
+        // Client already exists in GIM but was not found earlier (it may have been registered after the initial search)
         if (data.code === '404' && data.residentDTO) {
           return {
             errorCode: ErrorCode.NONE,
@@ -558,8 +585,12 @@ export class GimService {
   }
 
   /**
+   * Creates a natural person in GIM directly from the provided DTO, without
+   * looking the user up in the local system. Used when the client data is
+   * supplied explicitly.
    *
-   * @param createClientGimNotExistDto
+   * @param createClientGimNotExistDto Explicit client data used to build the GIM payload.
+   * @returns Object with the error code and the created residentDTO when successful.
    */
   async createNewNaturalPersonGimNoExist(
     createClientGimNotExistDto: CreateClientGimNotExistDto,
@@ -596,11 +627,11 @@ export class GimService {
         email: createClientGimNotExistDto.email?.trim().toLowerCase(),
         phoneNumber,
         isForeigner: !!createClientGimNotExistDto.isForeigner,
-        birthday: createClientGimNotExistDto.birthday?.split('T')[0], // por si viene con hora
-        gender: getGenreNameById(createClientGimNotExistDto.gender), // ya devuelve string correcto
+        birthday: createClientGimNotExistDto.birthday?.split('T')[0], // in case it includes a time component
+        gender: getGenreNameById(createClientGimNotExistDto.gender), // already the correct string value
         maritalStatus: getMaritalStatusName(
           createClientGimNotExistDto.maritalStatus,
-        ), // ya devuelve string correcto
+        ), // already the correct string value
         isDead: false,
         isHandicaped: !!createClientGimNotExistDto.isHandicaped,
       };
@@ -616,7 +647,7 @@ export class GimService {
           residentDTO: data.residentDTO,
         };
       } else {
-        // EN CASO DE QUE YA EXISTA EL CLIENTE EN EL GIM Y NO HAYA SIDO ENCONTRADO ANTES (pUEDE QUE LO REGISTRARON DESPUES DE LA BUSQUEDA)
+        // Client already exists in GIM but was not found earlier (it may have been registered after the initial search)
         if (data.code === '404' && data.residentDTO) {
           return {
             errorCode: ErrorCode.NONE,
@@ -642,8 +673,11 @@ export class GimService {
   }
 
   /**
+   * Verifies an incident in GIM through the `verifateIncidentSimert`
+   * external endpoint.
    *
-   * @param id
+   * @param id Identifier of the incident to verify in GIM.
+   * @returns Object with the error code and the taxpayer data when found.
    */
   async verifateIncidentGim(
     id: string,
@@ -680,8 +714,13 @@ export class GimService {
 
   // Issue the debt directly into GIM
   /**
+   * Emits an infraction (sanction) in GIM via `emitSimertSanction`, resolving
+   * the incident-type code and building the request body from the incident
+   * data. Maps GIM error responses (closed till, disallowed entry code) to
+   * Spanish messages.
    *
-   * @param createGimDto
+   * @param createGimDto Incident data used to build the GIM sanction request.
+   * @returns Object with the error code, optional message and the GIM response.
    */
   async emitInfractionGim(createGimDto: CreateGimDto): Promise<{
     errorCode: number;
@@ -802,8 +841,11 @@ export class GimService {
 
   // Look up an obligation by ticket number
   /**
+   * Looks up a bond (obligation) in GIM by ticket number and identity card via
+   * the `findBondByNumber` endpoint.
    *
-   * @param findBondNumberDto
+   * @param findBondNumberDto DTO holding the ticket number and identity card to search for.
+   * @returns Object with the error code, optional message and the bond data when found.
    */
   async findBondByNumber(
     findBondNumberDto: FindBondNumberDto,
@@ -845,9 +887,13 @@ export class GimService {
   // Look up an obligation by ticket number AND identity card (returns ALL the
   // person's debts across every status — not just pending ones)
   /**
+   * Looks up obligations in GIM by citation (ticket) number and identity card
+   * via `findObligationsByCitation`. Returns all the person's debts regardless
+   * of status; an empty list means the debt has not been issued yet.
    *
-   * @param number
-   * @param identityCard
+   * @param number Citation (ticket) number to search for.
+   * @param identityCard Identity card of the taxpayer.
+   * @returns Object with the error code, optional message and the obligations response.
    */
   async findObligationsByCitation(
     number: string,
@@ -903,8 +949,12 @@ export class GimService {
 
   // Look up obligations by plate (returns ALL debts associated with the plate)
   /**
+   * Looks up obligations in GIM by license plate via
+   * `findObligationsByLicensePlate`. Returns all debts associated with the
+   * plate; an empty list means no debt has been issued.
    *
-   * @param licensePlate
+   * @param licensePlate License plate to search obligations for.
+   * @returns Object with the error code, optional message and the obligations response.
    */
   async findObligationsByLicensePlate(licensePlate: string): Promise<{
     errorCode: number;
@@ -957,11 +1007,15 @@ export class GimService {
   }
 
   /**
+   * Validates the GIM obligation status against the local system status and,
+   * when valid, updates the local incident with the mapped status and
+   * obligation data.
    *
-   * @param debtDataObligations
-   * @param incidentId
-   * @param createGimDto
-   * @param isTransacional
+   * @param debtDataObligations Obligations returned by GIM to validate.
+   * @param incidentId Identifier of the local incident to update.
+   * @param createGimDto Incident DTO whose status is updated from the validation.
+   * @param isTransacional Flag indicating whether the update runs within a transaction.
+   * @returns The validation result, including the error code and mapped status.
    */
   public async validateStatusSistemWithGim(
     debtDataObligations: Obligation[],
@@ -995,10 +1049,15 @@ export class GimService {
     }
   }
 
-  // VALIDAMOS CADA ESTADO DEL GIM CON LO QUE TENEMOS EN NUESTRO SISTEMA
+  // Validate each GIM obligation status against our own system
   /**
+   * Maps the first GIM obligation status to the corresponding local
+   * IncidentStatus and explanatory message, covering paid, issued, draft,
+   * erroneous, cancelled, approved, agreement, on-credit and pending-settlement
+   * cases.
    *
-   * @param debtDataObligations
+   * @param debtDataObligations Obligations returned by GIM; the first one is evaluated.
+   * @returns Object with the error code, mapped incident status, message and source data.
    */
   public async _validateStatusSistemWithGim(
     debtDataObligations: Obligation[],
@@ -1011,7 +1070,7 @@ export class GimService {
     try {
       const obligation = debtDataObligations[0];
       const { status } = obligation;
-      // LAS AGRUPACIONES DE ESTADOS ESTAN EN COMENTRIOS EN EL ENUM IncidentStatus
+      // The status groupings are documented as comments in the IncidentStatus enum
 
       let statusIncident: IncidentStatus;
       let message: string;
@@ -1094,9 +1153,13 @@ export class GimService {
     }
   }
 
-  // Validar Open Till
+  // Validate that the GIM till is open
   /**
+   * Checks whether the GIM till is currently open (within working hours) via
+   * the `validateOpenTill` endpoint, distinguishing timeout, unauthorized and
+   * internal-error cases.
    *
+   * @returns Object with the error code, a Spanish status message and the response data.
    */
   async validateOpenTill(): Promise<{
     errorCode: number;
@@ -1185,7 +1248,10 @@ export class GimService {
 
   // GIM login to obtain a Keycloak access_token
   /**
+   * Authenticates against GIM's Keycloak realm using the password grant and
+   * returns the resulting token response.
    *
+   * @returns Object with the error code, optional message and the Keycloak token response.
    */
   async loginGim(): Promise<{
     errorCode: number;
@@ -1238,7 +1304,10 @@ export class GimService {
 
   // Fetch the vehicle-type catalog from GIM
   /**
+   * Fetches the GIM vehicle-type catalog via `findVehicleTypesForSimert` and
+   * returns it sorted by id.
    *
+   * @returns Object with the error code, optional message and the sorted vehicle types.
    */
   async findVehicleTypesForSimert(): Promise<{
     errorCode: number;
@@ -1288,8 +1357,10 @@ export class GimService {
 
   // Issue a credit-card title (simert card) in GIM
   /**
+   * Issues a credit-card title (simert card) in GIM via `emitSimertCard`.
    *
-   * @param emissionCreditCardDto
+   * @param emissionCreditCardDto DTO with the resident, description, reference, entry code and quantity.
+   * @returns Object with the error code, optional message and the GIM emission response.
    */
   async emissionTitleCreditCard(
     emissionCreditCardDto: EmissionCreditCardDto,
@@ -1336,8 +1407,11 @@ export class GimService {
 
   // Register a deposit in GIM
   /**
+   * Registers a deposit in GIM via `registerDeposit`, coercing the amount to a
+   * number before sending.
    *
-   * @param registerDepositGimDto
+   * @param registerDepositGimDto DTO with the deposit details, including the amount.
+   * @returns Object with the error code, optional message and the GIM deposit response.
    */
   async registerDeposit(
     registerDepositGimDto: RegisterDepositGimDto,
@@ -1377,10 +1451,13 @@ export class GimService {
     }
   }
 
-  // Buscar obligaciones cliente
+  // Look up a client's obligations
   /**
+   * Retrieves a client's obligations (statement) from GIM via `findStatement`,
+   * keyed by identification number.
    *
-   * @param getClientGimDto
+   * @param getClientGimDto DTO holding the client's identification number.
+   * @returns Object with the error code, optional message and the obligations response.
    */
   async findObligations(
     getClientGimDto: GetClientGimDto,
@@ -1420,8 +1497,10 @@ export class GimService {
 
   // Emit a traffic sanction in GIM
   /**
+   * Emits a traffic sanction in GIM via the `emitSanction` endpoint.
    *
-   * @param emissionSanctionDto
+   * @param emissionSanctionDto DTO with the sanction details (entry code, resident, plate, dates, etc.).
+   * @returns Object with the error code, optional message and the GIM sanction response.
    */
   async emitSanction(
     emissionSanctionDto: EmissionSanctionDto,
@@ -1467,10 +1546,14 @@ export class GimService {
   }
 
   /**
+   * Emits an infraction in GIM and updates the local incident with the
+   * resulting obligation, without the prior ANT/resident resolution performed
+   * by issueIncidentGim.
    *
-   * @param createGimDto
-   * @param id
-   * @param isTransacional
+   * @param createGimDto Incident data used to emit the infraction.
+   * @param id Identifier of the local incident to update.
+   * @param isTransacional Flag indicating whether the update runs within a transaction.
+   * @returns Object with the error code, message and the resulting update DTO or error data.
    */
   async emitInfractionSimert(
     createGimDto: CreateGimDto,
@@ -1478,7 +1561,7 @@ export class GimService {
     isTransacional: number,
   ) {
     try {
-      // MANDAMOS A  EMITIR LA DEUDA EN EL GIM
+      // Issue the debt in GIM
       const responeEmit = await this.emitInfractionGim(createGimDto);
 
       if (responeEmit.errorCode !== ErrorCode.NONE) {

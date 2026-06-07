@@ -17,34 +17,40 @@ const MUNICIPALITY_ROLES = [
 ];
 
 /**
- *
+ * Guard that validates the Keycloak access token attached to the request and
+ * transparently refreshes it when it is expired or close to expiring. It routes
+ * the introspection/refresh calls to the proper realm (Service Hub or
+ * Municipality K) depending on the authenticated user type.
  */
 @Injectable()
 export class KeycloakTokenGuard implements CanActivate {
   private readonly logger = new Logger(KeycloakTokenGuard.name);
 
   /**
-   *
-   * @param jwtService
+   * Creates the guard instance.
+   * @param jwtService Service used to sign refreshed JWTs returned to the client.
    */
   constructor(private readonly jwtService: JwtService) {}
 
   /**
-   *
+   * Builds the OpenID Connect base URL for the Service Hub realm.
+   * @returns The Service Hub OpenID Connect endpoint base URL.
    */
   private get baseUrl(): string {
     return `${process.env.GIM_BASE_URL_LOGIN}/realms/${process.env.GIM2_REALM_SERVICE_HUB}/protocol/openid-connect`;
   }
 
   /**
-   *
+   * Builds the OpenID Connect base URL for the Municipality K realm.
+   * @returns The Municipality K OpenID Connect endpoint base URL.
    */
   private get baseUrlMunicipality(): string {
     return `${process.env.GIM_BASE_URL_LOGIN}/realms/${process.env.GIM2_REALM_MUNICIPIO_K}/protocol/openid-connect`;
   }
 
   /**
-   *
+   * Provides the OAuth client credentials for the Service Hub realm.
+   * @returns The client id and client secret for the Service Hub client.
    */
   private get clientParams() {
     return {
@@ -54,7 +60,8 @@ export class KeycloakTokenGuard implements CanActivate {
   }
 
   /**
-   *
+   * Provides the OAuth client credentials for the Municipality K realm.
+   * @returns The client id and client secret for the Municipality K client.
    */
   private get clientParamsMunicipality() {
     return {
@@ -63,27 +70,32 @@ export class KeycloakTokenGuard implements CanActivate {
     };
   }
 
-  private readonly REFRESH_THRESHOLD_SECONDS = 1 * 60; // 1 minutos
+  private readonly REFRESH_THRESHOLD_SECONDS = 1 * 60; // 1 minute
 
   /**
-   *
-   * @param roles
+   * Determines whether the given roles correspond to a municipal employee.
+   * @param roles Roles assigned to the authenticated user.
+   * @returns True if any role belongs to the municipality role set, otherwise false.
    */
   private isMunicipalEmployee(roles: TypeRol[]): boolean {
     return roles?.some((role) => MUNICIPALITY_ROLES.includes(role)) ?? false;
   }
 
   /**
-   *
-   * @param idTypeUser
+   * Determines whether the user type corresponds to a municipality user.
+   * @param idTypeUser User type identifier to evaluate.
+   * @returns True if the user type is municipality, otherwise false.
    */
   private isMunicipal(idTypeUser: IdTypeUser): boolean {
     return idTypeUser === IdTypeUser.MUNICIPALITY;
   }
 
   /**
-   *
-   * @param context
+   * Validates the Keycloak token on the incoming request, refreshing it when
+   * it is inactive or about to expire.
+   * @param context Execution context providing access to the HTTP request and response.
+   * @returns Promise resolving to true when access is granted.
+   * @throws UnauthorizedException When the token is missing or the session cannot be refreshed.
    */
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = context.switchToHttp().getRequest();
@@ -94,7 +106,6 @@ export class KeycloakTokenGuard implements CanActivate {
       throw new UnauthorizedException('Keycloak token not found');
     }
 
-    // const isMunicipality = this.isMunicipalEmployee(user.roles);
     const isMunicipality = this.isMunicipal(user.idTypeUser);
     const kcBaseUrl = isMunicipality ? this.baseUrlMunicipality : this.baseUrl;
     const kcClientParams = isMunicipality
@@ -123,11 +134,14 @@ export class KeycloakTokenGuard implements CanActivate {
   }
 
   /**
-   *
-   * @param user
-   * @param res
-   * @param kcBaseUrl
-   * @param kcClientParams
+   * Refreshes the Keycloak session and emits a freshly signed JWT through the
+   * response `x-token` header.
+   * @param user Authenticated user payload carrying the current Keycloak refresh token.
+   * @param res HTTP response used to return the newly signed JWT.
+   * @param kcBaseUrl Realm-specific OpenID Connect base URL.
+   * @param kcClientParams OAuth client credentials for the target realm.
+   * @returns Promise resolving to true once the session is refreshed.
+   * @throws UnauthorizedException When the refresh token is missing or the refresh fails.
    */
   private async doRefresh(
     user: any,
@@ -160,10 +174,11 @@ export class KeycloakTokenGuard implements CanActivate {
   }
 
   /**
-   *
-   * @param token
-   * @param kcBaseUrl
-   * @param kcClientParams
+   * Introspects a Keycloak access token to check whether it is still active.
+   * @param token Keycloak access token to introspect.
+   * @param kcBaseUrl Realm-specific OpenID Connect base URL.
+   * @param kcClientParams OAuth client credentials for the target realm.
+   * @returns Promise resolving to the token active state and optional expiration time.
    */
   private async introspect(
     token: string,
@@ -185,10 +200,11 @@ export class KeycloakTokenGuard implements CanActivate {
   }
 
   /**
-   *
-   * @param refreshToken
-   * @param kcBaseUrl
-   * @param kcClientParams
+   * Exchanges a Keycloak refresh token for a new pair of access and refresh tokens.
+   * @param refreshToken Keycloak refresh token to exchange.
+   * @param kcBaseUrl Realm-specific OpenID Connect base URL.
+   * @param kcClientParams OAuth client credentials for the target realm.
+   * @returns Promise resolving to the new token pair, or null when the refresh fails.
    */
   private async refresh(
     refreshToken: string,

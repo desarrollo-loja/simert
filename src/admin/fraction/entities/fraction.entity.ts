@@ -347,7 +347,8 @@ export class Fraction {
   incidents: Incident[];
 
   /**
-   *
+   * Before-insert hook that scales `timeByBlock` by the number of checkboxes,
+   * adjusts the resulting time and appends `beforeTime` when present.
    */
   @BeforeInsert()
   updateInsert(): void {

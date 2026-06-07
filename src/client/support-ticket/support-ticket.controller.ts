@@ -20,16 +20,17 @@ import { SupportTicketService } from './support-ticket.service';
 @Controller('client/support-ticket')
 export class SupportTicketController {
   /**
-   *
-   * @param supportTicketService
+   * @param supportTicketService Service that handles support ticket creation.
    */
   constructor(private readonly supportTicketService: SupportTicketService) {}
 
   /**
+   * Submits a new support ticket from the client app.
    *
-   * @param createSupportTicketDto
-   * @param userId
-   * @param _idDevice
+   * @param createSupportTicketDto Payload describing the support ticket to create.
+   * @param userId                 ID of the user submitting the ticket.
+   * @param _idDevice              UUID of the requesting device (currently unused).
+   * @returns Promise resolving to the created support ticket.
    */
   @ApiOperation({ summary: 'Submit a new support ticket from the client app' })
   // @Auth()

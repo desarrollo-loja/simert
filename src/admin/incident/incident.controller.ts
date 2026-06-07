@@ -34,14 +34,17 @@ import { IncidentService } from './incident.service';
 @Controller('admin/incident')
 export class IncidentController {
   /**
+   * Creates the controller and injects its dependencies.
    *
-   * @param incidentService
+   * @param incidentService Service handling incident business logic.
    */
   constructor(private readonly incidentService: IncidentService) {}
 
   /**
+   * Creates a new incident record.
    *
-   * @param createIncidentDto
+   * @param createIncidentDto Payload describing the incident to create.
+   * @returns The created incident.
    */
   @ApiOperation({ summary: 'Create a new incident record' })
   @Post()
@@ -50,10 +53,12 @@ export class IncidentController {
   }
 
   /**
+   * Lists incidents matching the provided filters (admin role required).
    *
-   * @param userId
-   * @param idDevice
-   * @param filterDto
+   * @param userId Identifier of the requesting user.
+   * @param idDevice Identifier of the requesting device.
+   * @param filterDto Filter criteria for the incident query.
+   * @returns The list of incidents matching the filters.
    */
   @ApiOperation({
     summary: 'List incidents with filters (admin role required)',
@@ -69,10 +74,12 @@ export class IncidentController {
   }
 
   /**
+   * Counts the total number of incidents matching the provided filters (admin role required).
    *
-   * @param userId
-   * @param idDevice
-   * @param filterDto
+   * @param userId Identifier of the requesting user.
+   * @param idDevice Identifier of the requesting device.
+   * @param filterDto Filter criteria for the count query.
+   * @returns The total number of matching incidents.
    */
   @ApiOperation({
     summary: 'Count total incidents matching filters (admin role required)',
@@ -88,9 +95,11 @@ export class IncidentController {
   }
 
   /**
+   * Lists incidents filtered by their associated transaction identifiers.
    *
-   * @param user
-   * @param filterDto
+   * @param user Authenticated user extracted from the JWT payload.
+   * @param filterDto Filter criteria including the transaction identifiers.
+   * @returns The list of incidents matching the transaction filters.
    */
   @ApiOperation({
     summary:
@@ -106,11 +115,13 @@ export class IncidentController {
   }
 
   /**
+   * Lists distinct incident clients for combo-box search.
    *
-   * @param filterDto
-   * @param _userId
-   * @param _idDevice
-   * @param _version
+   * @param filterDto Filter criteria for the client search.
+   * @param _userId Identifier of the requesting user (unused).
+   * @param _idDevice Identifier of the requesting device (unused).
+   * @param _version Request version (unused).
+   * @returns The list of distinct incident clients.
    */
   @ApiOperation({
     summary:
@@ -128,8 +139,10 @@ export class IncidentController {
   }
 
   /**
+   * Retrieves a single incident by its identifier.
    *
-   * @param id
+   * @param id Identifier of the incident to retrieve.
+   * @returns The incident matching the given identifier.
    */
   @ApiOperation({ summary: 'Get a single incident by id' })
   @Get(':id')
@@ -138,12 +151,14 @@ export class IncidentController {
   }
 
   /**
+   * Updates an incident, optionally wrapping the operation in a database transaction.
    *
-   * @param userId
-   * @param idDevice
-   * @param id
-   * @param isTransacional
-   * @param updateIncidentDto
+   * @param userId Identifier of the requesting user.
+   * @param idDevice Identifier of the requesting device.
+   * @param id Identifier of the incident to update.
+   * @param isTransacional When 1, the update runs inside a database transaction.
+   * @param updateIncidentDto Payload with the incident fields to update.
+   * @returns The updated incident.
    */
   @ApiOperation({
     summary: 'Update an incident (isTransacional=1 wraps in DB transaction)',
@@ -165,11 +180,13 @@ export class IncidentController {
   }
 
   /**
+   * Updates the GIM synchronization status of an incident after external emission.
    *
-   * @param userId
-   * @param idDevice
-   * @param id
-   * @param updateIncidentDto
+   * @param userId Identifier of the requesting user.
+   * @param idDevice Identifier of the requesting device.
+   * @param id Identifier of the incident to update.
+   * @param updateIncidentDto Payload with the GIM status fields to update.
+   * @returns The updated incident.
    */
   @ApiOperation({
     summary: 'Update incident GIM sync status after external emission',
@@ -185,10 +202,13 @@ export class IncidentController {
   }
 
   /**
+   * Uploads an incident evidence file to Alfresco.
    *
-   * @param userId
-   * @param idDevice
-   * @param file
+   * @param userId Identifier of the requesting user.
+   * @param idDevice Identifier of the requesting device.
+   * @param file Multipart file sent under the form-data key `file`.
+   * @returns The Alfresco upload result for the stored file.
+   * @throws BadRequestException When no file is provided in the request.
    */
   @ApiOperation({
     summary:
@@ -214,10 +234,13 @@ export class IncidentController {
   }
 
   /**
+   * Builds a download URL for an Alfresco-stored file.
    *
-   * @param userId
-   * @param idDevice
-   * @param alfrescoId
+   * @param userId Identifier of the requesting user.
+   * @param idDevice Identifier of the requesting device.
+   * @param alfrescoId Identifier of the Alfresco file.
+   * @returns The download URL for the requested file.
+   * @throws BadRequestException When no `alfrescoId` is provided.
    */
   @ApiOperation({
     summary: 'Get a download URL for an Alfresco-stored file by alfrescoId',
@@ -236,10 +259,13 @@ export class IncidentController {
   }
 
   /**
+   * Resolves the Alfresco nodeId from a stored shared-link URL or raw sharedId.
    *
-   * @param userId
-   * @param idDevice
-   * @param sharedUrl
+   * @param userId Identifier of the requesting user.
+   * @param idDevice Identifier of the requesting device.
+   * @param sharedUrl Shared-link URL or raw sharedId to resolve.
+   * @returns The resolved Alfresco nodeId.
+   * @throws BadRequestException When no `sharedUrl` query string is provided.
    */
   @ApiOperation({
     summary:
@@ -259,11 +285,13 @@ export class IncidentController {
   }
 
   /**
+   * Deletes an incident by its identifier.
    *
-   * @param user
-   * @param userId
-   * @param idDevice
-   * @param id
+   * @param user Authenticated user extracted from the JWT payload.
+   * @param userId Identifier of the requesting user.
+   * @param idDevice Identifier of the requesting device.
+   * @param id Identifier of the incident to delete.
+   * @returns The result of the delete operation.
    */
   @ApiOperation({ summary: 'Delete an incident by id' })
   @AuthWithKeycloak()
@@ -278,11 +306,13 @@ export class IncidentController {
   }
 
   /**
+   * Aggregates incident statistics by date range and filters.
    *
-   * @param filterDto
-   * @param _userId
-   * @param _idDevice
-   * @param _version
+   * @param filterDto Filter criteria including the date range.
+   * @param _userId Identifier of the requesting user (unused).
+   * @param _idDevice Identifier of the requesting device (unused).
+   * @param _version Request version (unused).
+   * @returns The aggregated incident statistics.
    */
   @ApiOperation({
     summary: 'Aggregate incident statistics by date range and filters',
@@ -299,11 +329,13 @@ export class IncidentController {
   }
 
   /**
+   * Lists fractions that have sanctions, applying optional filters.
    *
-   * @param filterDto
-   * @param _userId
-   * @param _idDevice
-   * @param _version
+   * @param filterDto Filter criteria for the fraction-sanction query.
+   * @param _userId Identifier of the requesting user (unused).
+   * @param _idDevice Identifier of the requesting device (unused).
+   * @param _version Request version (unused).
+   * @returns The list of fractions that have sanctions.
    */
   @ApiOperation({
     summary: 'List fractions that have sanctions, with optional filters',
@@ -319,11 +351,13 @@ export class IncidentController {
   }
 
   /**
+   * Counts the total number of fractions with sanctions matching the filters.
    *
-   * @param filterDto
-   * @param _userId
-   * @param _idDevice
-   * @param _version
+   * @param filterDto Filter criteria for the count query.
+   * @param _userId Identifier of the requesting user (unused).
+   * @param _idDevice Identifier of the requesting device (unused).
+   * @param _version Request version (unused).
+   * @returns The total number of matching fractions with sanctions.
    */
   @ApiOperation({
     summary: 'Count total fractions with sanctions matching filters',
@@ -340,11 +374,13 @@ export class IncidentController {
   }
 
   /**
+   * Retrieves incident statistics grouped by fraction.
    *
-   * @param filterDto
-   * @param _userId
-   * @param _idDevice
-   * @param _version
+   * @param filterDto Filter criteria for the statistics query.
+   * @param _userId Identifier of the requesting user (unused).
+   * @param _idDevice Identifier of the requesting device (unused).
+   * @param _version Request version (unused).
+   * @returns The incident statistics grouped by fraction.
    */
   @ApiOperation({ summary: 'Incident statistics grouped by fraction' })
   @AuthWithKeycloak()
@@ -359,11 +395,13 @@ export class IncidentController {
   }
 
   /**
+   * Aggregates the total parking time per vehicle/client from incident data.
    *
-   * @param filterDto
-   * @param _userId
-   * @param _idDevice
-   * @param _version
+   * @param filterDto Filter criteria for the aggregation query.
+   * @param _userId Identifier of the requesting user (unused).
+   * @param _idDevice Identifier of the requesting device (unused).
+   * @param _version Request version (unused).
+   * @returns The aggregated total parking time per vehicle/client.
    */
   @ApiOperation({
     summary:
@@ -380,11 +418,13 @@ export class IncidentController {
   }
 
   /**
+   * Retrieves full statistics combining fraction and sanction data.
    *
-   * @param filterDto
-   * @param _userId
-   * @param _idDevice
-   * @param _version
+   * @param filterDto Filter criteria for the statistics query.
+   * @param _userId Identifier of the requesting user (unused).
+   * @param _idDevice Identifier of the requesting device (unused).
+   * @param _version Request version (unused).
+   * @returns The combined fraction and sanction statistics.
    */
   @ApiOperation({
     summary: 'Full statistics combining fraction and sanction data',
@@ -401,13 +441,15 @@ export class IncidentController {
   }
 
   /**
+   * Finds pending incidents and synchronizes/emits them to GIM.
    *
-   * @param user
-   * @param userId
-   * @param idDevice
-   * @param isTransacional
-   * @param version
-   * @param filterDto
+   * @param user Authenticated user extracted from the JWT payload.
+   * @param userId Identifier of the requesting user.
+   * @param idDevice Identifier of the requesting device.
+   * @param isTransacional When 1, the operation runs inside a database transaction.
+   * @param version Request version.
+   * @param filterDto Filter criteria used to select pending incidents.
+   * @returns The result of the synchronize/emit operation.
    */
   @ApiOperation({
     summary: 'Find pending incidents and synchronize/emit them to GIM',
@@ -433,11 +475,13 @@ export class IncidentController {
   }
 
   /**
+   * Lists incident notifications, applying optional filters.
    *
-   * @param userId
-   * @param idDevice
-   * @param version
-   * @param filterDto
+   * @param userId Identifier of the requesting user.
+   * @param idDevice Identifier of the requesting device.
+   * @param version Request version.
+   * @param filterDto Filter criteria for the notification query.
+   * @returns The list of incident notifications.
    */
   @ApiOperation({
     summary: 'List incident notifications with optional filters',
@@ -453,13 +497,15 @@ export class IncidentController {
   }
 
   /**
+   * Advances an incident to the next workflow step.
    *
-   * @param user
-   * @param userId
-   * @param idDevice
-   * @param isTransacional
-   * @param version
-   * @param incidentDto
+   * @param user Authenticated user extracted from the JWT payload.
+   * @param userId Identifier of the requesting user.
+   * @param idDevice Identifier of the requesting device.
+   * @param isTransacional When 1, the operation runs inside a database transaction.
+   * @param version Request version.
+   * @param incidentDto Payload describing the incident to advance.
+   * @returns The result of advancing the incident.
    */
   @ApiOperation({
     summary:

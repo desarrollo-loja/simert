@@ -26,17 +26,20 @@ import { SalePointService } from './sale-point.service';
 @Controller('admin/sale-point')
 export class SalePointController {
   /**
+   * Creates the controller and injects its dependencies.
    *
-   * @param salePointService
+   * @param salePointService Service that handles sale point business logic.
    */
   constructor(private readonly salePointService: SalePointService) {}
 
   /**
+   * Creates a new sale point linked to the given user.
    *
-   * @param userId
-   * @param idDevice
-   * @param version
-   * @param createSalePointDto
+   * @param userId Identifier of the user the sale point is linked to.
+   * @param idDevice Identifier of the device issuing the request.
+   * @param version Client application version.
+   * @param createSalePointDto Payload with the data of the sale point to create.
+   * @returns Promise resolving to the created sale point.
    */
   @ApiOperation({ summary: 'Create a new sale point linked to a user' })
   @Post(':userId/:idDevice/:version')
@@ -50,11 +53,13 @@ export class SalePointController {
   }
 
   /**
+   * Lists sale points applying the provided filters.
    *
-   * @param userId
-   * @param idDevice
-   * @param version
-   * @param filterDto
+   * @param userId Identifier of the user issuing the request.
+   * @param idDevice Identifier of the device issuing the request.
+   * @param version Client application version.
+   * @param filterDto Filter and pagination criteria.
+   * @returns Promise resolving to the matching sale points.
    */
   @ApiOperation({ summary: 'List sale points with optional filters' })
   @Get(':userId/:idDevice/:version')
@@ -68,11 +73,13 @@ export class SalePointController {
   }
 
   /**
+   * Lists sale points applying additional filter criteria.
    *
-   * @param userId
-   * @param idDevice
-   * @param version
-   * @param filterDto
+   * @param userId Identifier of the user issuing the request.
+   * @param idDevice Identifier of the device issuing the request.
+   * @param version Client application version.
+   * @param filterDto Additional filter criteria.
+   * @returns Promise resolving to the matching sale points.
    */
   @ApiOperation({
     summary: 'List sale points applying additional filter criteria',
@@ -88,11 +95,13 @@ export class SalePointController {
   }
 
   /**
+   * Counts the total number of sale points matching the provided filters.
    *
-   * @param userId
-   * @param idDevice
-   * @param version
-   * @param filterDto
+   * @param userId Identifier of the user issuing the request.
+   * @param idDevice Identifier of the device issuing the request.
+   * @param version Client application version.
+   * @param filterDto Filter criteria used to count sale points.
+   * @returns Promise resolving to the total number of matching sale points.
    */
   @ApiOperation({ summary: 'Count total sale points matching filters' })
   @Get('total/:userId/:idDevice/:version')
@@ -106,12 +115,14 @@ export class SalePointController {
   }
 
   /**
+   * Updates a sale point identified by its id.
    *
-   * @param id
-   * @param userId
-   * @param idDevice
-   * @param version
-   * @param updateSalePointDto
+   * @param id Identifier of the sale point to update.
+   * @param userId Identifier of the user issuing the request.
+   * @param idDevice Identifier of the device issuing the request.
+   * @param version Client application version.
+   * @param updateSalePointDto Payload with the fields to update.
+   * @returns Promise resolving to the updated sale point.
    */
   @ApiOperation({ summary: 'Update a sale point by id' })
   @Patch(':id/:userId/:idDevice/:version')
@@ -126,11 +137,13 @@ export class SalePointController {
   }
 
   /**
+   * Checks whether a sale point exists for the given target user.
    *
-   * @param targetUserId
-   * @param _userId
-   * @param _idDevice
-   * @param _version
+   * @param targetUserId Identifier of the user whose sale point existence is checked.
+   * @param _userId Identifier of the user issuing the request.
+   * @param _idDevice Identifier of the device issuing the request.
+   * @param _version Client application version.
+   * @returns Promise resolving to whether a sale point exists for the target user.
    */
   @ApiOperation({
     summary: 'Check whether a sale point exists for a given userId',

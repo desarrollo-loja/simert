@@ -33,15 +33,18 @@ import { KeycloakService } from './keycloak.service';
 @Controller('api/keycloak')
 export class KeycloakController {
   /**
+   * Creates the controller and injects its delegated service.
    *
-   * @param keycloakService
+   * @param keycloakService Service handling all Keycloak identity and user-management logic.
    */
   constructor(private readonly keycloakService: KeycloakService) {}
 
   // POST api/keycloak/login-client
   /**
+   * Authenticates a ServiceHub client against the GIM2_REALM_SERVICE_HUB realm.
    *
-   * @param dto
+   * @param dto Client credentials used to log in.
+   * @returns Promise resolving to the Keycloak token response.
    */
   @ApiOperation({
     summary:
@@ -71,8 +74,10 @@ export class KeycloakController {
 
   // POST api/keycloak/login-client-municipality
   /**
+   * Authenticates a municipal employee against the GIM2_REALM_MUNICIPIO_K realm.
    *
-   * @param dto
+   * @param dto Municipal employee credentials used to log in.
+   * @returns Promise resolving to the Keycloak token response for the municipal user.
    */
   @ApiOperation({
     summary:
@@ -101,8 +106,10 @@ export class KeycloakController {
 
   // POST api/keycloak/create-user
   /**
+   * Creates a ServiceHub user in Keycloak.
    *
-   * @param dto
+   * @param dto User attributes for the new ServiceHub account.
+   * @returns Promise resolving to the created user identifier and confirmation message.
    */
   @ApiOperation({ summary: 'Create a ServiceHub user in Keycloak' })
   @ApiStandardResponse({
@@ -124,8 +131,10 @@ export class KeycloakController {
 
   // POST api/keycloak/create-user municipal
   /**
+   * Creates a municipal employee user in Keycloak.
    *
-   * @param dto
+   * @param dto User attributes for the new municipal employee account.
+   * @returns Promise resolving to the created user identifier and confirmation message.
    */
   @ApiOperation({ summary: 'Create a municipal employee user in Keycloak' })
   @ApiStandardResponse({
@@ -146,9 +155,11 @@ export class KeycloakController {
 
   // PUT api/keycloak/update-user/:id
   /**
+   * Updates a ServiceHub user in Keycloak.
    *
-   * @param id
-   * @param dto
+   * @param id Keycloak identifier of the user to update.
+   * @param dto User attributes to update.
+   * @returns Promise resolving to the update confirmation message.
    */
   @ApiOperation({ summary: 'Update a ServiceHub user in Keycloak' })
   @ApiStandardResponse({
@@ -165,9 +176,11 @@ export class KeycloakController {
 
   // PUT api/keycloak/update-user-municipality/:id
   /**
+   * Updates a municipal employee user in Keycloak.
    *
-   * @param id
-   * @param dto
+   * @param id Keycloak identifier of the municipal user to update.
+   * @param dto User attributes to update.
+   * @returns Promise resolving to the update confirmation message.
    */
   @ApiOperation({ summary: 'Update a municipal employee user in Keycloak' })
   @ApiStandardResponse({
@@ -187,8 +200,10 @@ export class KeycloakController {
 
   // GET api/keycloak/find-by-username/:username
   /**
+   * Finds a ServiceHub Keycloak user by exact username.
    *
-   * @param username
+   * @param username Exact username to search for.
+   * @returns Promise resolving to the list of matching Keycloak users.
    */
   @ApiOperation({
     summary: 'Find a ServiceHub Keycloak user by exact username',
@@ -219,8 +234,10 @@ export class KeycloakController {
 
   // GET api/keycloak/find-by-email?email=...
   /**
+   * Finds a ServiceHub Keycloak user by exact email.
    *
-   * @param email
+   * @param email Exact email to search for.
+   * @returns Promise resolving to the list of matching Keycloak users.
    */
   @ApiOperation({ summary: 'Find a ServiceHub Keycloak user by exact email' })
   @ApiStandardResponse({
@@ -248,8 +265,10 @@ export class KeycloakController {
   }
 
   /**
+   * Resets a ServiceHub user password by email, generating a temporary password and emailing it.
    *
-   * @param dto
+   * @param dto Reset request containing the target user's email.
+   * @returns Promise resolving to the reset result, including the user identifier and email-sent flag.
    */
   @ApiOperation({
     summary:
@@ -277,8 +296,10 @@ export class KeycloakController {
   }
 
   /**
+   * Resets a municipal employee password by email, generating a temporary password and emailing it.
    *
-   * @param dto
+   * @param dto Reset request containing the target employee's email.
+   * @returns Promise resolving to the reset result, including the user identifier and email-sent flag.
    */
   @ApiOperation({ summary: 'Reset a municipal employee password by email' })
   @ApiStandardResponse({
@@ -303,9 +324,11 @@ export class KeycloakController {
   }
 
   /**
+   * Changes the authenticated client's own password without sending an email.
    *
-   * @param user
-   * @param dto
+   * @param user Authenticated client extracted from the JWT.
+   * @param dto Payload containing the email and the new password.
+   * @returns Promise resolving to the password-update confirmation and user identifier.
    */
   @ApiOperation({
     summary:
@@ -333,9 +356,11 @@ export class KeycloakController {
   }
 
   /**
+   * Changes the authenticated municipal employee's own password without sending an email.
    *
-   * @param user
-   * @param dto
+   * @param user Authenticated municipal employee extracted from the JWT.
+   * @param dto Payload containing the email and the new password.
+   * @returns Promise resolving to the password-update confirmation and user identifier.
    */
   @ApiOperation({
     summary:
@@ -370,8 +395,10 @@ export class KeycloakController {
 
   // GET api/keycloak/find-by-identification?identification=...
   /**
+   * Finds a ServiceHub Keycloak user by exact identification.
    *
-   * @param identification
+   * @param identification Exact identification number to search for.
+   * @returns Promise resolving to the list of matching Keycloak users.
    */
   @ApiOperation({
     summary: 'Find a ServiceHub Keycloak user by exact identification',
@@ -402,8 +429,10 @@ export class KeycloakController {
 
   // GET api/keycloak/find-by-username/:username
   /**
+   * Finds a municipal Keycloak user by exact username.
    *
-   * @param username
+   * @param username Exact username to search for.
+   * @returns Promise resolving to the list of matching municipal Keycloak users.
    */
   @ApiOperation({ summary: 'Find a municipal Keycloak user by exact username' })
   @ApiStandardResponse({
@@ -433,8 +462,10 @@ export class KeycloakController {
 
   // GET api/keycloak/find-by-email?email=...
   /**
+   * Finds a municipal Keycloak user by exact email.
    *
-   * @param email
+   * @param email Exact email to search for.
+   * @returns Promise resolving to the list of matching municipal Keycloak users.
    */
   @ApiOperation({ summary: 'Find a municipal Keycloak user by exact email' })
   @ApiStandardResponse({
@@ -464,8 +495,10 @@ export class KeycloakController {
 
   // GET api/keycloak/find-by-identification?identification=...
   /**
+   * Finds a municipal Keycloak user by exact identification.
    *
-   * @param identification
+   * @param identification Exact identification number to search for.
+   * @returns Promise resolving to the list of matching municipal Keycloak users.
    */
   @ApiOperation({
     summary: 'Find a municipal Keycloak user by exact identification',
@@ -501,8 +534,10 @@ export class KeycloakController {
 
   // PATCH api/keycloak/set-status
   /**
+   * Enables or disables a ServiceHub user account in Keycloak.
    *
-   * @param dto
+   * @param dto Payload containing the user identifier and the desired enabled state.
+   * @returns Promise resolving to the status-update confirmation and the resulting enabled flag.
    */
   @ApiOperation({
     summary:
@@ -524,8 +559,10 @@ export class KeycloakController {
 
   // PATCH api/keycloak/set-status-municipality
   /**
+   * Enables or disables a municipal employee account in Keycloak.
    *
-   * @param dto
+   * @param dto Payload containing the user identifier and the desired enabled state.
+   * @returns Promise resolving to the status-update confirmation and the resulting enabled flag.
    */
   @ApiOperation({
     summary:

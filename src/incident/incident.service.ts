@@ -17,9 +17,10 @@ import { Repository } from 'typeorm';
 @Injectable()
 export class IncidentService {
   /**
+   * Creates the incident service with its repository and GIM integration.
    *
-   * @param incidentRepository
-   * @param gimService
+   * @param incidentRepository Repository used to read and persist incidents.
+   * @param gimService Service used to validate the till and register GIM deposits.
    */
   constructor(
     @InjectRepository(Incident)
@@ -34,7 +35,7 @@ export class IncidentService {
     parseInt(process.env.INTERVAL_VALIDATE_INCIDENT_MS || '') || 1000 * 60 * 2;
 
   /**
-   *
+   * Lifecycle hook that schedules the periodic incident validation job.
    */
   async onModuleInit() {
     this.logger.verbose('start call onModuleInit');
@@ -54,7 +55,10 @@ export class IncidentService {
   // onResponseExternal is persisted on every incident in the group.
   // ─────────────────────────────────────────────────────────────────────────
   /**
+   * Validates incidents emitted in GIM that are paid but pending deposit,
+   * groups them, registers the GIM deposit and updates their status.
    *
+   * @returns Promise resolving to the open-till validation result when the till is closed, otherwise nothing.
    */
   private async _validateIncidentEmitAndPay() {
     // Validate that the cashier window is open in GIM before proceeding
@@ -72,7 +76,7 @@ export class IncidentService {
 
       if (!incidents.length) return;
 
-      // Agrupar por identityCard + transactionId para enviar un bloque de las que se pagaron
+      // Group by identityCard + transactionId to send a block of the paid incidents
       const groups = incidents.reduce(
         (acc: Record<string, Incident[]>, incident) => {
           const key = `${incident.identityCard}|${incident.transactionId}`;
@@ -122,13 +126,16 @@ export class IncidentService {
   // Registers the GIM deposit using all bondIds belonging to the group
   // ─────────────────────────────────────────────────────────────────────────
   /**
+   * Registers a GIM deposit for a group of incidents sharing identity card
+   * and transaction, sending all their bond IDs in a single call.
    *
-   * @param group
+   * @param group Incidents belonging to the same identity card and transaction.
+   * @returns Promise resolving to the deposit result with error code, deposit data and a message.
    */
   private async _registerDeposit(group: Incident[]) {
     const { identityCard, transactionId } = group[0];
 
-    //control para evitar errores de decimales
+    // Guard against floating-point rounding errors
     const amount =
       group.reduce((acc, i) => {
         return acc + Number(i.amount) * 100;

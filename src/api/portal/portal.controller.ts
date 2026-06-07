@@ -14,13 +14,14 @@ import { PortalService } from './portal.service';
 @Controller('portal')
 export class PortalController {
   /**
-   *
-   * @param portalService
+   * @param portalService Service that handles portal entry operations.
    */
   constructor(private readonly portalService: PortalService) {}
 
   /**
+   * Returns all portal entries (placeholder, not implemented).
    *
+   * @returns A static placeholder message.
    */
   @ApiOperation({ summary: 'Placeholder: list all portal entries' })
   @ApiStandardResponse({
@@ -35,8 +36,10 @@ export class PortalController {
   }
 
   /**
+   * Returns a single portal entry by id (placeholder, not implemented).
    *
-   * @param id
+   * @param id Target portal entry ID.
+   * @returns A static placeholder message.
    */
   @ApiOperation({ summary: 'Placeholder: get a portal entry by id' })
   @ApiStandardResponse({

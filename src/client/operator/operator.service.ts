@@ -79,22 +79,24 @@ export class OperatorService {
   ];
 
   /**
+   * Creates the operator service and injects every repository and collaborator
+   * required for the operator flow (parking, increments, incidents and lookups).
    *
-   * @param fractionRepository
-   * @param blockOperatorRepository
-   * @param slotRepository
-   * @param fractionSatusRepository
-   * @param physicRepository
-   * @param zoneRepository
-   * @param rangeRepository
-   * @param checkboxUserRepository
-   * @param incidentRepository
-   * @param incidentTypeRepository
-   * @param commonService
-   * @param commonCacheService
-   * @param dinardapAntService
-   * @param dataSource
-   * @param gimService
+   * @param fractionRepository Repository for parking fraction records.
+   * @param blockOperatorRepository Repository for block-operator assignments.
+   * @param slotRepository Repository for parking slots.
+   * @param fractionSatusRepository Repository for fraction status history.
+   * @param physicRepository Repository for physical checkbox (Physic) records.
+   * @param zoneRepository Repository for parking zones.
+   * @param rangeRepository Repository for sale-point card ranges.
+   * @param checkboxUserRepository Repository for per-user checkbox balances.
+   * @param incidentRepository Repository for incidents (fines/notifications).
+   * @param incidentTypeRepository Repository for incident types.
+   * @param commonService Shared service for date utilities and notifications.
+   * @param commonCacheService Shared cache service for Redis-based values and locks.
+   * @param dinardapAntService Service for ANT plate/owner data enrichment.
+   * @param dataSource TypeORM data source used to create query runners and transactions.
+   * @param gimService Service for GIM synchronization of obligations.
    */
   constructor(
     @InjectRepository(Fraction)
@@ -140,10 +142,15 @@ export class OperatorService {
   ) {}
 
   /**
+   * Creates an incident (fine or notification), enriching it with ANT owner
+   * data when a plate is provided and computing the fine amount from the
+   * incident type percentage. When linked to a fraction, marks the fraction
+   * and its slot as sanctioned and notifies the owner.
    *
-   * @param userId
-   * @param idDevice
-   * @param createIncidentDto
+   * @param userId Identifier of the operator creating the incident.
+   * @param idDevice Identifier of the device that originated the request.
+   * @param createIncidentDto Payload describing the incident to create.
+   * @returns Promise resolving to the saved incident and an error code.
    */
   async createIncident(
     userId: number,
@@ -251,8 +258,12 @@ export class OperatorService {
   }
 
   /**
+   * Resolves the active card range for the given card number and returns the
+   * associated physical (Physic) checkbox records.
    *
-   * @param card
+   * @param card Card number to validate against active ranges and look up.
+   * @returns Promise resolving to an error code, the matching physic records,
+   *          the current date and whether a valid range was found.
    */
   async findAllPhysic(card: string) {
     try {
@@ -301,9 +312,14 @@ export class OperatorService {
   }
 
   /**
+   * Increments parking time for an existing fraction by creating a new fraction
+   * that continues the previous one, updating statuses, notifying the owner and
+   * persisting the corresponding physic record within a transaction.
    *
-   * @param idDevice
-   * @param incrementOperatorDto
+   * @param idDevice Identifier of the device that originated the request.
+   * @param incrementOperatorDto Payload with the fraction, user and checkbox data.
+   * @returns Promise resolving to an error code and, on success, the current
+   *          date and the resulting fraction.
    */
   async incrementTime(
     idDevice: string,
@@ -405,8 +421,14 @@ export class OperatorService {
   }
 
   /**
+   * Registers a new parking session: validates the slot availability and the
+   * user's consumed checkboxes, creates the fraction, marks the slot as
+   * occupied, notifies the owner and persists the physic record within a
+   * transaction.
    *
-   * @param createOperatorDto
+   * @param createOperatorDto Payload describing the parking session to create.
+   * @returns Promise resolving to an error code and, on success, the current
+   *          date and the created fraction.
    */
   async parking(createOperatorDto: CreateOperatorDto) {
     const { userId, transactionId, checkboxes, obsolete, physicId } =
@@ -520,8 +542,12 @@ export class OperatorService {
   }
 
   /**
+   * Returns the active, non-finalized blocks currently assigned to the operator
+   * within the valid date range.
    *
-   * @param userId
+   * @param userId Identifier of the operator whose blocks are requested.
+   * @returns Promise resolving to an error code, the current date and the list
+   *          of assigned blocks.
    */
   async findAllBlocks(userId: number) {
     try {
@@ -559,10 +585,14 @@ export class OperatorService {
   }
 
   /**
+   * Returns the active slots of a block paired with their latest fraction,
+   * combining a paginated slot query and the most recent fraction per slot.
    *
-   * @param blockId
-   * @param userId
-   * @param paginationDto
+   * @param blockId Identifier of the block whose slots are requested.
+   * @param userId Identifier of the operator requesting the data.
+   * @param paginationDto Pagination options (offset and limit).
+   * @returns Promise resolving to an error code, the current date and the slots
+   *          with their associated fraction.
    */
   async findAllFractions(
     blockId: number,
@@ -668,8 +698,11 @@ export class OperatorService {
   }
 
   /**
+   * Searches fractions by plate or card, excluding those finished by increment.
    *
-   * @param criteria
+   * @param criteria Plate or card value used to match fractions.
+   * @returns Promise resolving to an error code, the current date and the
+   *          matching fractions.
    */
   async findAllFractionsBycriteria(criteria: string) {
     try {
@@ -697,8 +730,11 @@ export class OperatorService {
   }
 
   /**
+   * Returns a single fraction by its identifier together with the current date.
    *
-   * @param fractionId
+   * @param fractionId Identifier of the fraction to retrieve.
+   * @returns Promise resolving to an error code, the current date and the
+   *          fraction.
    */
   async findFractionById(fractionId: number) {
     const currentDate = new Date();
@@ -707,7 +743,10 @@ export class OperatorService {
   }
 
   /**
+   * Returns the fixed default duration used for virtual parking fractions.
    *
+   * @returns Object with an error code, the current date and the virtual time
+   *          (`00:05:00`).
    */
   timeVirtual() {
     const currentDate = new Date();
@@ -715,7 +754,11 @@ export class OperatorService {
   }
 
   /**
+   * Generates the next virtual card number, continuing the sequence from the
+   * most recent virtual fraction or starting a new one when none exists.
    *
+   * @returns Promise resolving to the next virtual card number string in the
+   *          format `YYMMDD-NNNN`.
    */
   private async _findNextIdVirtual() {
     const currentDate = new Date();
@@ -750,7 +793,10 @@ export class OperatorService {
   }
 
   /**
+   * Builds the first virtual card number when no prior virtual fraction exists.
    *
+   * @returns Promise resolving to the initial virtual card number string in the
+   *          format `YYMMDD-0001`.
    */
   private async _generateFirstUniqueNumber() {
     // Get the current date and format it as "YEAR-MONTH-DAY"
@@ -762,8 +808,10 @@ export class OperatorService {
   }
 
   /**
+   * Loads a fraction by its identifier with its status, block and slot joined.
    *
-   * @param fractionId
+   * @param fractionId Identifier of the fraction to retrieve.
+   * @returns Promise resolving to the fraction entity, or `null` when not found.
    */
   private async _findFractionById(fractionId: number) {
     const fraction = await this.fractionRepository
@@ -778,9 +826,13 @@ export class OperatorService {
   }
 
   /**
+   * Finishes an active fraction by the operator: frees its slot, records the
+   * finished status and notifies the fraction owner.
    *
-   * @param userId
-   * @param fractionId
+   * @param userId Identifier of the operator finishing the fraction.
+   * @param fractionId Identifier of the fraction to finish.
+   * @returns Promise resolving to an error code (`NOT_FOUND` when the fraction
+   *          does not exist or is already finished, otherwise `NONE`).
    */
   async finished(userId: number, fractionId: number) {
     const fraction = await this.fractionRepository
@@ -863,10 +915,13 @@ export class OperatorService {
   }
 
   /**
+   * Persists the physic (checkbox) records for a fraction: optionally a
+   * back-dated record for obsolete checkboxes, and either an update of an
+   * existing physic or the creation of a new one.
    *
-   * @param fraction
-   * @param obsolete
-   * @param physicId
+   * @param fraction Fraction providing the user, card, zone and time data.
+   * @param obsolete Number of obsolete checkboxes to record on the prior day.
+   * @param physicId Identifier of an existing physic to update, or `0` to create.
    */
   private async _savePhysic(
     fraction: Fraction,
@@ -906,10 +961,13 @@ export class OperatorService {
   }
 
   /**
+   * Records (or updates) a fraction status-history entry and updates the
+   * fraction's current status, resolving the final status when finishing by
+   * operator depending on the prior status.
    *
-   * @param fraction
-   * @param statusId
-   * @param moment
+   * @param fraction Fraction whose status is being recorded.
+   * @param statusId Target status identifier to apply.
+   * @param moment Moment value associated with the status entry.
    */
   private async _saveSatus(
     fraction: Fraction,
@@ -957,10 +1015,11 @@ export class OperatorService {
   }
 
   /**
+   * Sends a status-change notification for a fraction to its owner.
    *
-   * @param userId
-   * @param status
-   * @param fractionId
+   * @param userId Identifier of the user to notify.
+   * @param status New fraction status to report.
+   * @param fractionId Identifier of the affected fraction.
    */
   private async _notifyChageStatus(
     userId: number,
@@ -981,9 +1040,14 @@ export class OperatorService {
   }
 
   /**
+   * Returns the slot pricing context for an operator: the slot with its block,
+   * zone and schedule data plus the operator's available checkbox balance, and
+   * whether the slot is available or occupied.
    *
-   * @param userId
-   * @param searchSlot
+   * @param userId Identifier of the operator requesting the slot price.
+   * @param searchSlot Slot code to look up.
+   * @returns Promise resolving to an error code (`NOT_FOUND`, `NONE` when
+   *          available or `OCCUPIED`), the slot and the available checkboxes.
    */
   async getPriceSlot(userId: number, searchSlot: string) {
     try {
@@ -1054,11 +1118,16 @@ export class OperatorService {
   }
 
   /**
+   * Returns the pending fines for an identity card, synchronizing each incident
+   * with GIM obligations (updating bond, obligation number, status and amount)
+   * and re-querying so only incidents still pending are returned.
    *
-   * @param userId
-   * @param idDevice
-   * @param identityCard
-   * @param _getIncidentDto
+   * @param userId Identifier of the operator performing the lookup.
+   * @param idDevice Identifier of the device that originated the request.
+   * @param identityCard Identity card number whose fines are requested.
+   * @param _getIncidentDto Additional incident query options (reserved).
+   * @returns Promise resolving to an error code, the current date and the
+   *          remaining pending incidents.
    */
   async findSanctionByIdentityCard(
     userId: number,
@@ -1177,9 +1246,12 @@ export class OperatorService {
   }
 
   /**
+   * Appends a new external response payload to the existing external response
+   * history, returning a new array without mutating the original.
    *
-   * @param onResponseExternal
-   * @param onResponseExternalData
+   * @param onResponseExternal Existing external response entries (may be null).
+   * @param onResponseExternalData New external response payload to append.
+   * @returns Array containing the previous entries plus the new payload when set.
    */
   private _formatOnExternalResponse(
     onResponseExternal: any[],

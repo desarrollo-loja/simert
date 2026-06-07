@@ -16,8 +16,9 @@ export class PhysicsService {
   private readonly logger = new Logger('PhysicsService');
 
   /**
+   * Creates the service with the injected `Physic` entity repository.
    *
-   * @param physicRepository
+   * @param physicRepository - TypeORM repository for the `physic` entity.
    */
   constructor(
     @InjectRepository(Physic)

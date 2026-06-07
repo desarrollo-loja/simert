@@ -31,18 +31,21 @@ import { ZoneService } from './zone.service';
 @Controller('admin/zone')
 export class ZoneController {
   /**
+   * Creates the controller and injects its dependencies.
    *
-   * @param zoneService
+   * @param zoneService Service that handles zone business logic.
    */
   constructor(private readonly zoneService: ZoneService) {}
 
   /**
+   * Creates a new parking zone.
    *
-   * @param user
-   * @param userId
-   * @param idDevice
-   * @param version
-   * @param createZoneDto
+   * @param user Authenticated user extracted from the Keycloak token.
+   * @param userId Identifier of the user performing the operation.
+   * @param idDevice Identifier of the device originating the request.
+   * @param version Client application version.
+   * @param createZoneDto Payload describing the zone to create.
+   * @returns Promise resolving to the standard response with the created zone.
    */
   @ApiOperation({ summary: 'Create a new zone' })
   @ApiStandardResponse({
@@ -63,12 +66,14 @@ export class ZoneController {
   }
 
   /**
+   * Lists all zones with their full payload and parsed geofence.
    *
-   * @param user
-   * @param userId
-   * @param idDevice
-   * @param version
-   * @param filterDto
+   * @param user Authenticated user extracted from the Keycloak token.
+   * @param userId Identifier of the user performing the operation.
+   * @param idDevice Identifier of the device originating the request.
+   * @param version Client application version.
+   * @param filterDto Filter criteria applied to the zone list.
+   * @returns Promise resolving to the standard response with the list of zones.
    */
   @ApiOperation({ summary: 'List all zones (full payload, parsed geofence)' })
   @ApiStandardResponse({
@@ -89,12 +94,14 @@ export class ZoneController {
   }
 
   /**
+   * Lists active zones returning only their id and name.
    *
-   * @param user
-   * @param userId
-   * @param idDevice
-   * @param version
-   * @param filterDto
+   * @param user Authenticated user extracted from the Keycloak token.
+   * @param userId Identifier of the user performing the operation.
+   * @param idDevice Identifier of the device originating the request.
+   * @param version Client application version.
+   * @param filterDto Filter criteria applied to the zone list.
+   * @returns Promise resolving to the standard response with the reduced active zones list.
    */
   @ApiOperation({ summary: 'List active zones (id, name only)' })
   @ApiStandardResponse({
@@ -121,12 +128,14 @@ export class ZoneController {
   }
 
   /**
+   * Lists active zones (alias endpoint) returning only their id and name.
    *
-   * @param user
-   * @param userId
-   * @param idDevice
-   * @param version
-   * @param filterDto
+   * @param user Authenticated user extracted from the Keycloak token.
+   * @param userId Identifier of the user performing the operation.
+   * @param idDevice Identifier of the device originating the request.
+   * @param version Client application version.
+   * @param filterDto Filter criteria applied to the zone list.
+   * @returns Promise resolving to the standard response with the reduced active zones list.
    */
   @ApiOperation({ summary: 'List active zones (alias)' })
   @ApiStandardResponse({
@@ -153,8 +162,10 @@ export class ZoneController {
   }
 
   /**
+   * Lists zones for the parking map, including id, name, geofence and color.
    *
-   * @param paginationDto
+   * @param paginationDto Filter and pagination criteria applied to the zone list.
+   * @returns Promise resolving to the standard response with zones for the parking map.
    */
   @ApiOperation({
     summary: 'Zones for parking map (id, name, geofence, color)',
@@ -169,13 +180,15 @@ export class ZoneController {
   }
 
   /**
+   * Updates an existing zone identified by its id.
    *
-   * @param user
-   * @param id
-   * @param userId
-   * @param idDevice
-   * @param version
-   * @param updateZoneDto
+   * @param user Authenticated user extracted from the Keycloak token.
+   * @param id Identifier of the zone to update.
+   * @param userId Identifier of the user performing the operation.
+   * @param idDevice Identifier of the device originating the request.
+   * @param version Client application version.
+   * @param updateZoneDto Payload describing the changes to apply.
+   * @returns Promise resolving to the standard response with the updated zone.
    */
   @ApiOperation({ summary: 'Update a zone' })
   @ApiStandardResponse({
@@ -198,12 +211,14 @@ export class ZoneController {
   }
 
   /**
+   * Soft deletes a zone identified by its id.
    *
-   * @param user
-   * @param id
-   * @param userId
-   * @param _idDevice
-   * @param _version
+   * @param user Authenticated user extracted from the Keycloak token.
+   * @param id Identifier of the zone to delete.
+   * @param userId Identifier of the user performing the operation.
+   * @param _idDevice Identifier of the device originating the request (unused).
+   * @param _version Client application version (unused).
+   * @returns Promise resolving to the standard response with the deleted zone.
    */
   @ApiOperation({ summary: 'Delete a zone by id (soft delete)' })
   @ApiStandardResponse({

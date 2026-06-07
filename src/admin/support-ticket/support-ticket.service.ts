@@ -20,8 +20,9 @@ export class SupportTicketService {
   private readonly logger = new Logger(SupportTicketService.name);
 
   /**
+   * Creates the service with the injected `SupportTicket` entity repository.
    *
-   * @param supportTicketRepository
+   * @param supportTicketRepository - TypeORM repository for the `SupportTicket` entity.
    */
   constructor(
     @InjectRepository(SupportTicket)

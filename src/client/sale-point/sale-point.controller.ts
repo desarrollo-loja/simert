@@ -22,18 +22,18 @@ import { SalePointService } from './sale-point.service';
 @Controller('client/sale-point')
 export class SalePointController {
   /**
-   *
-   * @param salePointService
+   * @param salePointService Service that resolves sale point records.
    */
   constructor(private readonly salePointService: SalePointService) {}
 
   // @Auth(TypeRol.ADMIN)
   /**
-   *
-   * @param userId
-   * @param idDevice
-   * @param version
-   * @param filterDto
+   * Lists active sale points operating in FIXED mode.
+   * @param userId Identifier of the requesting user.
+   * @param idDevice Device UUID issuing the request.
+   * @param version Client application version.
+   * @param filterDto Pagination and filtering options.
+   * @returns Promise resolving to the active fixed-mode sale points.
    */
   @ApiOperation({ summary: 'List active sale points in FIXED mode' })
   @ApiStandardResponse({
@@ -69,11 +69,12 @@ export class SalePointController {
 
   // @Auth(TypeRol.ADMIN)
   /**
-   *
-   * @param userId
-   * @param idDevice
-   * @param version
-   * @param filterDto
+   * Lists active sale points operating in MOBILE mode, joined with their live location.
+   * @param userId Identifier of the requesting user.
+   * @param idDevice Device UUID issuing the request.
+   * @param version Client application version.
+   * @param filterDto Pagination and filtering options.
+   * @returns Promise resolving to the active mobile-mode sale points with current location.
    */
   @ApiOperation({
     summary: 'List active sale points in MOBILE mode with live location',

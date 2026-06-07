@@ -18,8 +18,9 @@ export class SupportTicketService {
   private readonly logger = new Logger(SupportTicketService.name);
 
   /**
+   * Creates the service with its required dependencies.
    *
-   * @param supportTicketRepository
+   * @param supportTicketRepository TypeORM repository for the SupportTicket entity.
    */
   constructor(
     @InjectRepository(SupportTicket)
@@ -27,9 +28,13 @@ export class SupportTicketService {
   ) {}
 
   /**
+   * Creates a support ticket, defaulting the status to PENDING and falling back
+   * to the token's userId when the DTO does not provide one.
    *
-   * @param userId
-   * @param createSupportTicketDto
+   * @param userId Authenticated user identifier used when the DTO omits one.
+   * @param createSupportTicketDto Payload describing the support ticket to create.
+   * @returns Promise resolving to the created ticket, its reference number, a
+   *   success message and an error code.
    */
   async create(userId: number, createSupportTicketDto: CreateSupportTicketDto) {
     try {

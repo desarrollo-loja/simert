@@ -1,35 +1,11 @@
-// import js from "@eslint/js";
-// import globals from "globals";
-// import tseslint from "typescript-eslint";
-// import pluginVue from "eslint-plugin-vue";
-// import { defineConfig } from "eslint/config";
-
-// export default defineConfig([
-//   { files: ["**/*.{js,mjs,cjs,ts,mts,cts,vue}"], plugins: { js }, extends: ["js/recommended"], languageOptions: { globals: globals.browser } },
-//   tseslint.configs.recommended,
-//   pluginVue.configs["flat/essential"],
-//   { files: ["**/*.vue"], languageOptions: { parserOptions: { parser: tseslint.parser } } },
-// ]);
-// import js from "@eslint/js";
-// import globals from "globals";
-// import tseslint from "typescript-eslint";
-// import pluginVue from "eslint-plugin-vue";
-// import { defineConfig } from "eslint/config";
-
-// export default defineConfig([
-//   { files: ["**/*.{js,mjs,cjs,ts,mts,cts,vue}"], plugins: { js }, extends: ["js/recommended"], languageOptions: { globals: globals.browser } },
-//   tseslint.configs.recommended,
-//   pluginVue.configs["flat/essential"],
-//   { files: ["**/*.vue"], languageOptions: { parserOptions: { parser: tseslint.parser } } },
-// ]);
 import js from '@eslint/js';
-import globals from 'globals';
-import tseslint from 'typescript-eslint';
-import vue from 'eslint-plugin-vue';
+import eslintConfigPrettier from 'eslint-config-prettier';
 import jsdoc from 'eslint-plugin-jsdoc';
 import prettier from 'eslint-plugin-prettier';
 import simpleImportSort from 'eslint-plugin-simple-import-sort';
 import unusedImports from 'eslint-plugin-unused-imports';
+import globals from 'globals';
+import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
@@ -37,8 +13,6 @@ export default tseslint.config(
       'dist/**',
       'coverage/**',
       'node_modules/**',
-      '.nuxt/**',
-      '.output/**',
       'build/**',
       // Tests are not subject to the production lint rules (Anexo 2 policy):
       // they legitimately use `any` for mocks/spies and are excluded here.
@@ -54,14 +28,20 @@ export default tseslint.config(
 
   ...tseslint.configs.recommended,
 
-  ...vue.configs['flat/essential'],
+  // Desactiva las reglas de formato de los `recommended` que pueden chocar
+  // con Prettier. Se coloca ANTES del bloque de reglas propias para no pisar
+  // las reglas de espaciado explícitas definidas más abajo.
+  eslintConfigPrettier,
 
   {
-    files: ['**/*.{ts,tsx,js,jsx,vue}'],
+    // Backend NestJS: solo TypeScript/JavaScript. No hay archivos `.vue`,
+    // por eso se retiró `eslint-plugin-vue` y su bloque de parser.
+    files: ['**/*.{ts,tsx,js,jsx}'],
 
     languageOptions: {
+      // Entorno Node, no browser: incluir `globals.browser` ocultaba usos
+      // accidentales de `window`/`document` en código de servidor.
       globals: {
-        ...globals.browser,
         ...globals.node,
       },
     },
@@ -85,6 +65,20 @@ export default tseslint.config(
       // below, which honors the `^_` ignore patterns. Disable the recommended
       // rule to avoid duplicate, stricter errors on already-shipped code.
       '@typescript-eslint/no-unused-vars': 'off',
+
+      // ==========================================================
+      // 0.b Contratos externos GIM/ANT y deuda técnica heredada.
+      //     Coherente con el punto 0: reglas de `recommended` que
+      //     chocan con código ya en producción no deben romper el build.
+      // ==========================================================
+      // Los enums de contrato replican valores de sistemas de terceros
+      // (varios miembros comparten el mismo valor numérico a propósito).
+      '@typescript-eslint/no-duplicate-enum-values': 'off',
+
+      // Deuda real (no son contratos), visible como warning para que se
+      // limpie sin bloquear el pipeline de un proyecto en producción.
+      '@typescript-eslint/no-wrapper-object-types': 'warn',
+      'no-useless-escape': 'warn',
 
       // ==========================================================
       // 1. camelCase para variables, funciones, métodos y parámetros
@@ -116,7 +110,9 @@ export default tseslint.config(
 
         {
           selector: ['function', 'classMethod', 'typeMethod'],
-          format: ['camelCase'],
+          // PascalCase permitido para factories de decoradores custom estilo
+          // class-validator (p. ej. `IsEnumStringOrNumber`).
+          format: ['camelCase', 'PascalCase'],
           leadingUnderscore: 'allow',
         },
 
@@ -124,7 +120,12 @@ export default tseslint.config(
         // 2. Clases, interfaces, enums y type aliases en PascalCase
         // ==========================================================
         { selector: 'typeLike', format: ['PascalCase'] },
-        { selector: 'enumMember', format: ['UPPER_CASE', 'PascalCase'] },
+
+        // Los enum members son contratos igual que las propiedades: son
+        // claves de permisos GIM/ANT, valores de payload y query params que
+        // incluyen guiones bajos internos y minúsculas (p. ej.
+        // `Admin_Travel_TravelService`, `qr`, `url`). No se les fuerza formato.
+        { selector: 'enumMember', format: null },
 
         // Contracts: do not enforce a case on object/class properties.
         {
@@ -204,22 +205,42 @@ export default tseslint.config(
       // ==========================================================
       // 7. Documentación con JSDoc
       // ==========================================================
+      // `publicOnly: true` evita exigir JSDoc en helpers internos. Se omite
+      // `FunctionDeclaration` para no inundar de avisos las funciones de
+      // utilidad heredadas; se documentan clases y métodos expuestos.
       'jsdoc/require-jsdoc': [
         'warn',
         {
-          publicOnly: false,
+          publicOnly: true,
           require: {
-            FunctionDeclaration: true,
+            FunctionDeclaration: false,
             MethodDefinition: true,
             ClassDeclaration: true,
           },
         },
       ],
 
-      'jsdoc/require-param': 'warn',
-      'jsdoc/require-param-description': 'warn',
-      'jsdoc/require-returns': 'warn',
-      'jsdoc/require-description': 'warn',
+      // `checkConstructors: false`: no se exige documentar los constructores
+      // de NestJS (inyección de dependencias), que solo generaban ruido.
+      'jsdoc/require-param': ['warn', { checkConstructors: false }],
+      // `require-param-description` no soporta `checkConstructors`, así que se
+      // excluyen los constructores vía `contexts` (su `FunctionExpression`
+      // tiene `parent.kind === 'constructor'`). El resto de funciones/métodos
+      // sí debe describir sus @param.
+      'jsdoc/require-param-description': [
+        'warn',
+        {
+          contexts: [
+            'FunctionDeclaration',
+            'ArrowFunctionExpression',
+            'FunctionExpression:not([parent.kind="constructor"])',
+            'TSMethodSignature',
+            'TSEmptyBodyFunctionExpression',
+          ],
+        },
+      ],
+      'jsdoc/require-returns': ['warn', { checkConstructors: false }],
+      'jsdoc/require-description': ['warn', { checkConstructors: false }],
 
       // ==========================================================
       // 8. Imports ordenados y sin uso
@@ -238,16 +259,6 @@ export default tseslint.config(
           argsIgnorePattern: '^_',
         },
       ],
-    },
-  },
-
-  {
-    files: ['**/*.vue'],
-
-    languageOptions: {
-      parserOptions: {
-        parser: tseslint.parser,
-      },
     },
   },
 );

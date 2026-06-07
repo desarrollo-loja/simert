@@ -26,9 +26,8 @@ export class BlockService {
   private readonly logger = new Logger(BlockService.name);
 
   /**
-   *
-   * @param blockRepository
-   * @param loggerService
+   * @param blockRepository Repository for the {@link Block} entity.
+   * @param loggerService   Service that persists block audit log entries.
    */
   constructor(
     @InjectRepository(Block)
@@ -203,7 +202,9 @@ export class BlockService {
 
   /**
    * Placeholder — not yet implemented.
-   * @param id
+   *
+   * @param id Target block ID.
+   * @returns A placeholder string referencing the requested block ID.
    */
   findOne(id: number) {
     return `This action returns a #${id} block`;
@@ -242,7 +243,9 @@ export class BlockService {
 
   /**
    * Placeholder — not yet implemented.
-   * @param id
+   *
+   * @param id Target block ID.
+   * @returns A placeholder string referencing the removed block ID.
    */
   remove(id: number) {
     return `This action removes a #${id} block`;

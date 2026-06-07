@@ -19,10 +19,11 @@ export class MappingService {
   private readonly logger = new Logger('MappingService');
 
   /**
+   * Creates a new {@link MappingService}.
    *
-   * @param zoneRepository
-   * @param blockRepository
-   * @param slotRepository
+   * @param zoneRepository Repository for {@link Zone} entities.
+   * @param blockRepository Repository for {@link Block} entities.
+   * @param slotRepository Repository for {@link Slot} entities.
    */
   constructor(
     @InjectRepository(Zone)
@@ -36,8 +37,11 @@ export class MappingService {
   ) {}
 
   /**
+   * Retrieves all active zones that have valid coordinates, parsing each
+   * zone's GeoJSON multi-polygon boundary for map rendering.
    *
-   * @param paginationDto
+   * @param paginationDto Filter options, including an optional name search term.
+   * @returns Promise resolving to an object with the error code and the matching zones.
    */
   async findAllZones(paginationDto: FilterDto) {
     const { search } = paginationDto;
@@ -80,8 +84,11 @@ export class MappingService {
   }
 
   /**
+   * Retrieves all active blocks belonging to active zones, including their
+   * schedules and parsed GeoJSON multi-polygon boundaries for map rendering.
    *
-   * @param paginationDto
+   * @param paginationDto Filter options, including an optional name search term.
+   * @returns Promise resolving to an object with the error code, the matching blocks and the current date.
    */
   async findAllBlock(paginationDto: FilterDto) {
     const { search } = paginationDto;
@@ -144,8 +151,11 @@ export class MappingService {
   }
 
   /**
+   * Retrieves all active slots within active zones and blocks that have valid
+   * coordinates for map rendering.
    *
-   * @param paginationDto
+   * @param paginationDto Filter options, including an optional slot search term.
+   * @returns Promise resolving to an object with the error code and the matching slots.
    */
   async findAllSlot(paginationDto: FilterDto) {
     const { search } = paginationDto;
@@ -191,10 +201,13 @@ export class MappingService {
   }
 
   /**
+   * Retrieves the closest active slots to the given coordinates, ordered by
+   * distance and limited to the nearest 50 results.
    *
-   * @param latitude
-   * @param longitude
-   * @param paginationDto
+   * @param latitude Latitude used as the reference point for the search.
+   * @param longitude Longitude used as the reference point for the search.
+   * @param paginationDto Filter options, including an optional slot search term.
+   * @returns Promise resolving to an object with the error code and the nearby slots.
    */
   async findSlotNearby(
     latitude: number,

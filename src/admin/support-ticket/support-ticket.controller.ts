@@ -28,14 +28,17 @@ import { SupportTicketService } from './support-ticket.service';
 @Controller('admin/support-ticket')
 export class SupportTicketController {
   /**
+   * Creates the controller and injects its dependencies.
    *
-   * @param supportTicketService
+   * @param supportTicketService Service that handles support ticket business logic.
    */
   constructor(private readonly supportTicketService: SupportTicketService) {}
 
   /**
+   * Creates a new support ticket.
    *
-   * @param createSupportTicketDto
+   * @param createSupportTicketDto Payload describing the support ticket to create.
+   * @returns Promise resolving to the created support ticket.
    */
   @ApiOperation({ summary: 'Create a new support ticket' })
   @Post()
@@ -44,10 +47,12 @@ export class SupportTicketController {
   }
 
   /**
+   * Lists support tickets matching the provided filters.
    *
-   * @param userId
-   * @param idDevice
-   * @param filterDto
+   * @param userId Identifier of the requesting user.
+   * @param idDevice Identifier of the requesting device.
+   * @param filterDto Filter criteria used to narrow the result set.
+   * @returns Promise resolving to the list of matching support tickets.
    */
   @ApiOperation({ summary: 'List support tickets with filters' })
   @Patch('find-all/:userId/:idDevice')
@@ -60,10 +65,12 @@ export class SupportTicketController {
   }
 
   /**
+   * Counts the total number of support tickets matching the provided filters.
    *
-   * @param userId
-   * @param idDevice
-   * @param filterDto
+   * @param userId Identifier of the requesting user.
+   * @param idDevice Identifier of the requesting device.
+   * @param filterDto Filter criteria used to narrow the count.
+   * @returns Promise resolving to the total number of matching support tickets.
    */
   @ApiOperation({ summary: 'Count total support tickets matching filters' })
   @Patch('find-all-total/:userId/:idDevice')
@@ -76,8 +83,10 @@ export class SupportTicketController {
   }
 
   /**
+   * Retrieves a single support ticket by its identifier.
    *
-   * @param id
+   * @param id Identifier of the support ticket to retrieve.
+   * @returns Promise resolving to the matching support ticket.
    */
   @ApiOperation({ summary: 'Get a single support ticket by id' })
   @Get(':id')
@@ -86,11 +95,13 @@ export class SupportTicketController {
   }
 
   /**
+   * Updates the status or fields of an existing support ticket.
    *
-   * @param userId
-   * @param idDevice
-   * @param id
-   * @param updateSupportTicketDto
+   * @param userId Identifier of the requesting user.
+   * @param idDevice Identifier of the requesting device.
+   * @param id Identifier of the support ticket to update.
+   * @param updateSupportTicketDto Payload describing the fields to update.
+   * @returns Promise resolving to the updated support ticket.
    */
   @ApiOperation({ summary: 'Update a support ticket status or fields' })
   @Patch('update/:userId/:idDevice/:id')
@@ -104,11 +115,13 @@ export class SupportTicketController {
   }
 
   /**
+   * Deletes a support ticket by its identifier.
    *
-   * @param user
-   * @param userId
-   * @param idDevice
-   * @param id
+   * @param user Authenticated user resolved from the Keycloak token.
+   * @param userId Identifier of the requesting user.
+   * @param idDevice Identifier of the requesting device.
+   * @param id Identifier of the support ticket to delete.
+   * @returns Promise resolving to the result of the deletion.
    */
   @ApiOperation({ summary: 'Delete a support ticket by id' })
   @AuthWithKeycloak()

@@ -32,13 +32,16 @@ import { Block } from './entities/block.entity';
 @Controller('admin/block')
 export class BlockController {
   /**
+   * Creates a new BlockController instance.
    *
-   * @param blockService
+   * @param blockService Service that handles block business logic.
    */
   constructor(private readonly blockService: BlockService) {}
 
   /**
+   * Initializes the database with sample blocks (internal use only).
    *
+   * @returns Promise resolving to the created initial blocks.
    */
   @ApiOperation({ summary: 'Initialize sample blocks (internal use only)' })
   @ApiStandardResponse({
@@ -55,11 +58,13 @@ export class BlockController {
 
   // @Auth()
   /**
+   * Creates a new block (sector).
    *
-   * @param user
-   * @param userId
-   * @param idDevice
-   * @param createBlockDto
+   * @param user Authenticated user extracted from the JWT payload.
+   * @param userId Identifier of the user performing the operation.
+   * @param idDevice Unique identifier of the requesting device.
+   * @param createBlockDto Payload describing the block to create.
+   * @returns Promise resolving to the created block.
    */
   @ApiOperation({ summary: 'Create a new block (sector)' })
   @ApiStandardResponse({
@@ -79,11 +84,13 @@ export class BlockController {
 
   // @Auth()
   /**
+   * Retrieves a paginated list of blocks including their zone information.
    *
-   * @param user
-   * @param filterDto
-   * @param _userId
-   * @param _idDevice
+   * @param user Authenticated user extracted from the JWT payload.
+   * @param filterDto Pagination and filtering options.
+   * @param _userId Identifier of the user performing the operation.
+   * @param _idDevice Unique identifier of the requesting device.
+   * @returns Promise resolving to the paginated blocks list.
    */
   @ApiOperation({ summary: 'Paginated list of blocks with zone info' })
   @ApiStandardResponse({
@@ -107,8 +114,10 @@ export class BlockController {
   }
 
   /**
+   * Retrieves blocks filtered by zone with a reduced set of fields.
    *
-   * @param zoneId
+   * @param zoneId Identifier of the zone used to filter blocks.
+   * @returns Promise resolving to the reduced blocks list.
    */
   @ApiOperation({ summary: 'Blocks filtered by zone (reduced fields)' })
   @ApiStandardResponse({
@@ -121,9 +130,11 @@ export class BlockController {
   }
 
   /**
+   * Retrieves blocks for the parking module with a parsed multi-polygon geofence.
    *
-   * @param version
-   * @param filterDto
+   * @param version Version number used by the parking module.
+   * @param filterDto Pagination and filtering options.
+   * @returns Promise resolving to the blocks list with parsed geofence.
    */
   @ApiOperation({ summary: 'Blocks for parking module (with parsed geofence)' })
   @ApiStandardResponse({
@@ -145,8 +156,10 @@ export class BlockController {
   }
 
   /**
+   * Retrieves a single block by its identifier (placeholder).
    *
-   * @param id
+   * @param id Identifier of the block to retrieve.
+   * @returns Promise resolving to the requested block.
    */
   @ApiOperation({ summary: 'Get a block by id (placeholder)' })
   @ApiStandardResponse({
@@ -160,12 +173,15 @@ export class BlockController {
 
   // @Auth()
   /**
+   * Updates an existing block.
    *
-   * @param user
-   * @param userId
-   * @param idDevice
-   * @param id
-   * @param updateBlockDto
+   * @param user Authenticated user extracted from the JWT payload.
+   * @param userId Identifier of the user performing the operation.
+   * @param idDevice Unique identifier of the requesting device.
+   * @param id Identifier of the block to update.
+   * @param updateBlockDto Payload describing the fields to update.
+   * @returns Promise resolving to the updated block.
+   * @throws ForbiddenException When the authenticated user or device does not match the route parameters.
    */
   @ApiOperation({ summary: 'Update a block' })
   @ApiStandardResponse({
@@ -188,8 +204,10 @@ export class BlockController {
   }
 
   /**
+   * Removes a block by its identifier (placeholder).
    *
-   * @param id
+   * @param id Identifier of the block to remove.
+   * @returns Promise resolving once the block is removed.
    */
   @ApiOperation({ summary: 'Delete a block (placeholder)' })
   @ApiStandardResponse({
@@ -204,12 +222,14 @@ export class BlockController {
   // SIMERT SECTOR MODULE
   // @Auth()
   /**
+   * Lists blocks for the sector module using raw SQL with zone information.
    *
-   * @param user
-   * @param userId
-   * @param idDevice
-   * @param version
-   * @param filterDto
+   * @param user Authenticated user extracted from the JWT payload.
+   * @param userId Identifier of the user performing the operation.
+   * @param idDevice Unique identifier of the requesting device.
+   * @param version Version number used by the sector module.
+   * @param filterDto Pagination and filtering options.
+   * @returns Promise resolving to the blocks with parsed geofence and zone data.
    */
   @ApiOperation({
     summary: 'List blocks for the sector module (raw SQL with zone info)',
@@ -251,12 +271,14 @@ export class BlockController {
 
   // @Auth()
   /**
+   * Creates a new block for the sector module.
    *
-   * @param user
-   * @param userId
-   * @param idDevice
-   * @param version
-   * @param createBlockDto
+   * @param user Authenticated user extracted from the JWT payload.
+   * @param userId Identifier of the user performing the operation.
+   * @param idDevice Unique identifier of the requesting device.
+   * @param version Version number used by the sector module.
+   * @param createBlockDto Payload describing the block to create.
+   * @returns Promise resolving to the created block.
    */
   @ApiOperation({ summary: 'Create a new block for the sector module' })
   @ApiStandardResponse({
@@ -278,13 +300,16 @@ export class BlockController {
 
   // @Auth()
   /**
+   * Updates an existing block in the sector module.
    *
-   * @param user
-   * @param userId
-   * @param idDevice
-   * @param version
-   * @param id
-   * @param updateBlockDto
+   * @param user Authenticated user extracted from the JWT payload.
+   * @param userId Identifier of the user performing the operation.
+   * @param idDevice Unique identifier of the requesting device.
+   * @param version Version number used by the sector module.
+   * @param id Identifier of the block to update.
+   * @param updateBlockDto Payload describing the fields to update.
+   * @returns Promise resolving to the updated block.
+   * @throws ForbiddenException When the authenticated user or device does not match the route parameters.
    */
   @ApiOperation({ summary: 'Update a block in the sector module' })
   @ApiStandardResponse({

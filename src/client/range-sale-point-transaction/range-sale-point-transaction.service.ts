@@ -25,13 +25,14 @@ export class RangeSalePointTransactionService {
   private readonly logger = new Logger('RangeSalePointTransactionService');
 
   /**
+   * Creates the service and injects its repositories and collaborators.
    *
-   * @param rangeSalePointTransactionRepository
-   * @param rangeSalePointRepository
-   * @param checkboxUserRepository
-   * @param loggerService
-   * @param commonService
-   * @param dataSource
+   * @param rangeSalePointTransactionRepository Repository for RangeSalePointTransaction entities.
+   * @param rangeSalePointRepository Repository for RangeSalePoint entities.
+   * @param checkboxUserRepository Repository for CheckboxUser entities.
+   * @param loggerService Service used to persist audit log entries.
+   * @param commonService Shared service used to dispatch notifications.
+   * @param dataSource TypeORM data source used to manage transactions.
    */
   constructor(
     @InjectRepository(RangeSalePointTransaction)
@@ -53,9 +54,15 @@ export class RangeSalePointTransactionService {
   ) {}
 
   /**
+   * Processes a point-of-sale card-transfer purchase within a single
+   * transaction: validates available stock, locks the RangeSalePoint with a
+   * pessimistic write lock, records the transaction, credits the buyer's
+   * CheckboxUser balance, and notifies the buyer.
    *
-   * @param userId
-   * @param createRangeSalePointTransactionDto
+   * @param userId Identifier of the user performing the purchase.
+   * @param createRangeSalePointTransactionDto Payload describing the purchase to process.
+   * @returns Promise resolving to a result object with an error code, a Spanish
+   * message and, on success, the created transaction and updated RangeSalePoint.
    */
   async create(
     userId: number,
@@ -170,9 +177,9 @@ export class RangeSalePointTransactionService {
    *
    * @param userIdBuy - Target user that received the checkbox bundle.
    * @param data - Payload describing the completed transaction.
-   * @param data.fractions
-   * @param data.card
-   * @param data.totalFractions
+   * @param data.fractions Number of fractions (spaces) contained in a single card.
+   * @param data.card Number of cards included in the transaction.
+   * @param data.totalFractions Total number of fractions credited to the buyer.
    */
   private _notifyTransferSaleCard(
     userIdBuy: number,
@@ -193,8 +200,11 @@ export class RangeSalePointTransactionService {
   }
 
   /**
+   * Builds the dynamic SQL `WHERE` conditions and their bound parameters from
+   * the provided filter, currently supporting an optional `userId` filter.
    *
-   * @param filterDto
+   * @param filterDto Filter criteria used to narrow the query.
+   * @returns Object containing the list of conditions and the parameter map.
    */
   private _buildConditionsAndParameters(filterDto: FilterDto) {
     const { userId } = filterDto;

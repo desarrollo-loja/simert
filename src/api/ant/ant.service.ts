@@ -35,14 +35,15 @@ export class AntService {
 
   private readonly xmlParser = new XMLParser({
     ignoreAttributes: false,
-    removeNSPrefix: true, // clave para no pelear con soapenv:, ns2:, etc
+    removeNSPrefix: true, // strips soapenv:, ns2:, etc. prefixes
     parseTagValue: true,
     trimValues: true,
   });
 
   /**
+   * Creates the ANT service and resolves the ANT base URL from configuration.
    *
-   * @param configService
+   * @param configService Configuration service used to read ANT connection settings.
    */
   constructor(private readonly configService: ConfigService) {
     this.antBaseUrl = this.configService.get<string>('ANT_BASE_URL');
@@ -50,7 +51,9 @@ export class AntService {
   }
 
   /**
+   * Returns a stubbed list of ANT records used for local development.
    *
+   * @returns Promise resolving to an object with the error code and the stubbed ANT data.
    */
   async findAll() {
     try {
@@ -67,8 +70,10 @@ export class AntService {
   }
 
   /**
+   * Looks up vehicle owner data by plate number through the ANT service.
    *
-   * @param plate
+   * @param plate Vehicle plate number to query.
+   * @returns Promise resolving to the lookup result with owner data or a not-found error.
    */
   async getUserDataByPlateAnt(plate: string): Promise<AntLookupResult> {
     const antData = await this._getAntDataByPlate(plate);
@@ -84,16 +89,18 @@ export class AntService {
     return { errorCode: ErrorCode.NONE, data: antData };
   }
 
-  // RECURSO EN FORMATO DE PROTOCOLO SOAP LLAMADO consultarVehiculo
+  // SOAP protocol resource named consultarVehiculo
   /**
+   * Calls the ANT SOAP `consultarVehiculo` operation and parses the XML response.
    *
-   * @param plate
+   * @param plate Vehicle plate number to query.
+   * @returns Promise resolving to the normalised owner data, or `null` when not found or on error.
    */
   private async _getAntDataByPlate(
     plate: string,
   ): Promise<AntDataResponse | null> {
     if (!this.antBaseUrl) {
-      this.logger.error('ANT_BASE_URL no configurado');
+      this.logger.error('ANT_BASE_URL not configured');
 
       return null;
     }
@@ -112,8 +119,8 @@ export class AntService {
     `.trim();
 
     const config: AxiosRequestConfig = {
-      method: 'POST', // SOAP siempre usa POST
-      // La URL base es la IP indicada sin el ?wsdl
+      method: 'POST', // SOAP always uses POST
+      // Base URL is the provided IP without the ?wsdl suffix
       url,
       data: xmlBody,
       timeout: 15000,
@@ -124,16 +131,16 @@ export class AntService {
         username: process.env.ANT_USERNAME ?? '',
         password: process.env.ANT_PASSWORD ?? '',
       },
-      responseType: 'text', // IMPORTANTE: queremos el XML raw
+      responseType: 'text', // IMPORTANT: we want the raw XML
     };
 
     try {
       const { data: xml } = await axios.request<string>(config);
 
-      // 1) parse XML -> objeto
+      // 1) Parse XML into an object
       const parsed = this.xmlParser.parse(xml);
 
-      // 2) navegar envelope/body/response/return/vehicle
+      // 2) Navigate envelope/body/response/return/vehicle
       const body =
         parsed?.Envelope?.Body ??
         parsed?.Envelope?.body ??
@@ -143,7 +150,7 @@ export class AntService {
         body?.consultarVehiculoResponse ??
         body?.consultarVehiculoResponse?.return;
 
-      // En RPC literal, a veces viene:
+      // In RPC literal it sometimes comes as:
       // Body.consultarVehiculoResponse.return.vehicle
       const payload = body?.consultarVehiculoResponse?.return ?? response;
 
@@ -171,8 +178,10 @@ export class AntService {
   }
 
   /**
+   * Builds a normalised {@link AntDataResponse} from a raw ANT vehicle payload.
    *
-   * @param vehicle
+   * @param vehicle Raw vehicle object returned by the ANT SOAP service.
+   * @returns Promise resolving to the normalised owner data, or `null` when no relevant data is present.
    */
   private async _buildAntDataResponse(
     vehicle: AntDataByPlateResponse | any,

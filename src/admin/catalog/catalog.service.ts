@@ -23,9 +23,8 @@ export class CatalogService {
   private readonly logger = new Logger('CatalogService');
 
   /**
-   *
-   * @param catalogRepository
-   * @param loggerService
+   * @param catalogRepository TypeORM repository for the Catalog entity.
+   * @param loggerService Service used to persist audit log entries.
    */
   constructor(
     @InjectRepository(Catalog)

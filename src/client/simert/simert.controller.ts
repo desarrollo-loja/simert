@@ -34,17 +34,20 @@ import { SimertService } from './simert.service';
 @Controller('client/simert')
 export class SimertController {
   /**
+   * Creates a new SimertController.
    *
-   * @param simertService
+   * @param simertService Service handling the Simert parking business logic.
    */
   constructor(private readonly simertService: SimertService) {}
 
   /**
+   * Returns all active fractions for the given user.
    *
-   * @param user
-   * @param userId
-   * @param _idDevice
-   * @param _version
+   * @param user Authenticated user payload extracted from the Keycloak token.
+   * @param userId Identifier of the user whose active fractions are requested.
+   * @param _idDevice Identifier of the requesting device (unused).
+   * @param _version Client API version (unused).
+   * @returns Promise resolving to the user's active fractions with block/zone/slot info.
    */
   @ApiOperation({ summary: 'Find all active fractions for the given user' })
   @ApiStandardResponse({
@@ -67,12 +70,14 @@ export class SimertController {
   }
 
   /**
+   * Returns a single fraction by its identifier with block/zone/slot info.
    *
-   * @param user
-   * @param userId
-   * @param idDevice
-   * @param fractionId
-   * @param _version
+   * @param user Authenticated user payload extracted from the Keycloak token.
+   * @param userId Identifier of the requesting user.
+   * @param idDevice Identifier of the requesting device.
+   * @param fractionId Identifier of the fraction to retrieve.
+   * @param _version Client API version (unused).
+   * @returns Promise resolving to the fraction detail, or null if not found.
    */
   @ApiOperation({
     summary: 'Find a single fraction by id with block/zone/slot',
@@ -98,13 +103,15 @@ export class SimertController {
   }
 
   /**
+   * Starts a parking fraction on a slot, consuming checkboxes when the parking is paid.
    *
-   * @param user
-   * @param meta
-   * @param userId
-   * @param idDevice
-   * @param version
-   * @param createSimertDto
+   * @param user Authenticated user payload extracted from the Keycloak token.
+   * @param meta Request metadata attached to the parking operation.
+   * @param userId Identifier of the requesting user.
+   * @param idDevice Identifier of the requesting device.
+   * @param version Client API version.
+   * @param createSimertDto Payload describing the parking fraction to create.
+   * @returns Promise resolving to the created parking fraction with the slot marked as occupied.
    */
   @ApiOperation({
     summary: 'Start a parking fraction on a slot (consumes checkboxes if paid)',
@@ -139,13 +146,15 @@ export class SimertController {
   }
 
   /**
+   * Increments parking time on an existing fraction, consuming checkboxes.
    *
-   * @param user
-   * @param meta
-   * @param userId
-   * @param idDevice
-   * @param version
-   * @param incrementSimertDto
+   * @param user Authenticated user payload extracted from the Keycloak token.
+   * @param meta Request metadata attached to the increment operation.
+   * @param userId Identifier of the requesting user.
+   * @param idDevice Identifier of the requesting device.
+   * @param version Client API version.
+   * @param incrementSimertDto Payload describing the time increment to apply.
+   * @returns Promise resolving to the new fraction created with the incremented time.
    */
   @ApiOperation({
     summary:
@@ -179,12 +188,14 @@ export class SimertController {
   }
 
   /**
+   * Finishes a parking fraction and frees its slot.
    *
-   * @param user
-   * @param userId
-   * @param idDevice
-   * @param fractionId
-   * @param _version
+   * @param user Authenticated user payload extracted from the Keycloak token.
+   * @param userId Identifier of the requesting user.
+   * @param idDevice Identifier of the requesting device.
+   * @param fractionId Identifier of the fraction to finish.
+   * @param _version Client API version (unused).
+   * @returns Promise resolving once the fraction is finished and the slot is released.
    */
   @ApiOperation({ summary: 'Finish a parking fraction and free the slot' })
   @ApiStandardResponse({
@@ -205,12 +216,14 @@ export class SimertController {
   }
 
   /**
+   * Returns a slot by name with its pricing, schedules and the user's available checkboxes.
    *
-   * @param user
-   * @param userId
-   * @param idDevice
-   * @param searchSlot
-   * @param _version
+   * @param user Authenticated user payload extracted from the Keycloak token.
+   * @param userId Identifier of the requesting user.
+   * @param idDevice Identifier of the requesting device.
+   * @param searchSlot Name of the slot to look up.
+   * @param _version Client API version (unused).
+   * @returns Promise resolving to the slot info with pricing and the user's available checkboxes.
    */
   @ApiOperation({
     summary: 'Get a slot by name with pricing, schedules and user checkboxes',
@@ -236,12 +249,14 @@ export class SimertController {
   }
 
   /**
+   * Returns the user's fraction history across the current month and history partitions.
    *
-   * @param user
-   * @param userId
-   * @param idDevice
-   * @param version
-   * @param searchFractionDto
+   * @param user Authenticated user payload extracted from the Keycloak token.
+   * @param userId Identifier of the user whose fraction history is requested.
+   * @param idDevice Identifier of the requesting device.
+   * @param version Client API version.
+   * @param searchFractionDto Filters for the history query (year/month and optional date range).
+   * @returns Promise resolving to the user's fraction history matching the provided filters.
    */
   @ApiOperation({
     summary:

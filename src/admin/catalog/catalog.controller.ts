@@ -26,8 +26,9 @@ import { UpdateCatalogDto } from './dto/update-catalog.dto';
 @Controller('admin/catalog')
 export class CatalogController {
   /**
+   * Creates a new {@link CatalogController}.
    *
-   * @param catalogService
+   * @param catalogService Service handling catalog business logic.
    */
   constructor(private readonly catalogService: CatalogService) {}
 

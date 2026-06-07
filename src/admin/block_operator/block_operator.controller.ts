@@ -32,8 +32,9 @@ import { BlockOperator } from './entities/block_operator.entity';
 @Controller('admin/block-operator')
 export class BlockOperatorController {
   /**
+   * Creates a new controller instance.
    *
-   * @param blockOperatorService
+   * @param blockOperatorService Service that handles block-operator assignment business logic.
    */
   constructor(private readonly blockOperatorService: BlockOperatorService) {}
 

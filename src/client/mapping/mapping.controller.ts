@@ -28,19 +28,21 @@ import { MappingService } from './mapping.service';
 @Controller('client/mapping')
 export class MappingController {
   /**
+   * Creates a new MappingController.
    *
-   * @param mappingService
+   * @param mappingService Service that resolves zone/block/slot map data.
    */
   constructor(private readonly mappingService: MappingService) {}
 
-  // @Auth()
   /**
+   * Lists all activated zones with their parsed geofence.
    *
-   * @param user
-   * @param userId
-   * @param idDevice
-   * @param version
-   * @param paginationDto
+   * @param user Authenticated user extracted from the Keycloak token.
+   * @param userId Identifier of the requesting user (route param).
+   * @param idDevice UUID of the requesting device (route param).
+   * @param version Client application version (route param).
+   * @param paginationDto Pagination and filtering options.
+   * @returns Promise resolving to the list of active zones.
    */
   @ApiOperation({ summary: 'List all activated zones with parsed geofence' })
   @ApiStandardResponse({
@@ -62,14 +64,15 @@ export class MappingController {
     return this.mappingService.findAllZones(paginationDto);
   }
 
-  // @Auth()
   /**
+   * Lists all blocks with their zone, schedules and parsed geofence.
    *
-   * @param user
-   * @param userId
-   * @param idDevice
-   * @param version
-   * @param paginationDto
+   * @param user Authenticated user extracted from the Keycloak token.
+   * @param userId Identifier of the requesting user (route param).
+   * @param idDevice UUID of the requesting device (route param).
+   * @param version Client application version (route param).
+   * @param paginationDto Pagination and filtering options.
+   * @returns Promise resolving to the list of blocks with zone and schedules.
    */
   @ApiOperation({
     summary: 'List all blocks with zone, schedules and parsed geofence',
@@ -95,14 +98,15 @@ export class MappingController {
     return this.mappingService.findAllBlock(paginationDto);
   }
 
-  // @Auth()
   /**
+   * Lists all slots with their zone and block, excluding 0/0 coordinates.
    *
-   * @param user
-   * @param userId
-   * @param idDevice
-   * @param version
-   * @param paginationDto
+   * @param user Authenticated user extracted from the Keycloak token.
+   * @param userId Identifier of the requesting user (route param).
+   * @param idDevice UUID of the requesting device (route param).
+   * @param version Client application version (route param).
+   * @param paginationDto Pagination and filtering options.
+   * @returns Promise resolving to the list of slots with zone and block.
    */
   @ApiOperation({
     summary: 'List all slots with zone and block (excluding 0/0 coordinates)',
@@ -126,16 +130,17 @@ export class MappingController {
     return this.mappingService.findAllSlot(paginationDto);
   }
 
-  // @Auth()
   /**
+   * Finds slots near a given latitude/longitude, ordered by distance.
    *
-   * @param user
-   * @param userId
-   * @param idDevice
-   * @param latitude
-   * @param longitude
-   * @param version
-   * @param paginationDto
+   * @param user Authenticated user extracted from the Keycloak token.
+   * @param userId Identifier of the requesting user (route param).
+   * @param idDevice UUID of the requesting device (route param).
+   * @param latitude Latitude of the reference point (route param).
+   * @param longitude Longitude of the reference point (route param).
+   * @param version Client application version (route param).
+   * @param paginationDto Pagination and filtering options.
+   * @returns Promise resolving to the nearby slots ordered by distance.
    */
   @ApiOperation({
     summary:

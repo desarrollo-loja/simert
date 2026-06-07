@@ -23,8 +23,9 @@ import { AgentActivitiesService } from './agent-activities.service';
 @Controller('admin/agent-activities')
 export class AgentActivitiesController {
   /**
+   * Creates a new controller instance.
    *
-   * @param agentActivitiesService
+   * @param agentActivitiesService Service that handles agent activity queries and filtering.
    */
   constructor(
     private readonly agentActivitiesService: AgentActivitiesService,

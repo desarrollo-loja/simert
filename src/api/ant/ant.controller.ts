@@ -14,13 +14,16 @@ import { AntService } from './ant.service';
 @Controller('api/ant')
 export class AntController {
   /**
+   * Creates the controller with its delegated ANT service.
    *
-   * @param antService
+   * @param antService Service that performs ANT vehicle lookups.
    */
   constructor(private readonly antService: AntService) {}
 
   /**
+   * Returns a simulated list of ANT records for development purposes.
    *
+   * @returns Promise resolving to the simulated ANT records.
    */
   @ApiOperation({
     summary: 'Sample mock list of ANT entries (simulation only)',
@@ -45,11 +48,13 @@ export class AntController {
   }
 
   /**
+   * Looks up vehicle owner data by plate through the ANT SOAP service.
    *
-   * @param userId
-   * @param idDevice
-   * @param applicationId
-   * @param plate
+   * @param userId Identifier of the requesting user.
+   * @param idDevice Identifier of the requesting device.
+   * @param applicationId Identifier of the requesting application.
+   * @param plate Vehicle plate number to query.
+   * @returns Promise resolving to the ANT owner data or a not-found result.
    */
   @ApiOperation({
     summary: 'Look up vehicle owner data by plate via ANT SOAP service',

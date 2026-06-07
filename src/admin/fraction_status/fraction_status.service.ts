@@ -16,8 +16,9 @@ export class FractionStatusService {
   private readonly logger = new Logger('FractionStatusService');
 
   /**
+   * Creates a new {@link FractionStatusService}.
    *
-   * @param fractionStatusRepository
+   * @param fractionStatusRepository Repository for the {@link FractionStatus} entity.
    */
   constructor(
     @InjectRepository(FractionStatus)

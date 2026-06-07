@@ -25,9 +25,8 @@ export class DinardapAntService {
   private token: string;
 
   /**
-   *
-   * @param configService
-   * @param commonGimService
+   * @param configService Provides access to environment configuration values.
+   * @param commonGimService Supplies the GIM Keycloak token used to authenticate requests.
    */
   constructor(
     private readonly configService: ConfigService,
@@ -39,13 +38,15 @@ export class DinardapAntService {
   }
 
   /**
-   *
-   * @param plate
+   * Resolves vehicle owner data for a given plate by validating its format and
+   * querying the DINARDAP–ANT gateway.
+   * @param plate Vehicle plate to look up.
+   * @returns Promise resolving to the lookup result with owner data or an error code.
    */
   async getUserDataByPlateAnt(plate: string): Promise<AntLookupResult> {
     const normalizedPlate = (plate ?? '').trim().toUpperCase();
     if (!this._isValidPlate(normalizedPlate)) {
-      this.logger.warn(`Placa inválida recibida: "${plate}"`);
+      this.logger.warn(`Invalid plate received: "${plate}"`);
       return {
         errorCode: ErrorCode.NOT_VALID,
         data: null,
@@ -70,19 +71,21 @@ export class DinardapAntService {
   }
 
   /**
-   *
-   * @param plate
+   * Checks whether a plate matches the expected alphanumeric format (5 to 8 characters).
+   * @param plate Normalized plate string to validate.
+   * @returns `true` when the plate format is valid, otherwise `false`.
    */
   private _isValidPlate(plate: string): boolean {
     return /^[A-Z0-9]{5,8}$/.test(plate);
   }
 
   /**
-   * Traduce un error de axios al consumir el recurso DINARDAP/ANT a un
-   * mensaje legible para el cliente. Si el error trae status HTTP conocido
-   * devuelve un mensaje específico (401, 403, 404, 5xx…); caso contrario
-   * cae al mensaje genérico de servicio fuera de línea.
-   * @param error
+   * Translates an axios error raised while consuming the DINARDAP/ANT resource
+   * into a client-readable message. When the error carries a known HTTP status it
+   * returns a specific message (401, 403, 404, 5xx…); otherwise it falls back to
+   * the generic service-offline message.
+   * @param error Axios error captured during the request.
+   * @returns Object containing the mapped error code and message.
    */
   private _buildAntErrorMessage(error: any): {
     errorCode: ErrorCode;
@@ -142,9 +145,10 @@ export class DinardapAntService {
   }
 
   /**
-   * Convierte el array de columnas [{campo, valor}] en un objeto plano { campo: valor }
-   * para facilitar el acceso a los datos: cols['apellido1'], cols['correo'], etc.
-   * @param columnasArray
+   * Converts the column array [{campo, valor}] into a flat object { campo: valor }
+   * to simplify data access, e.g. cols['apellido1'], cols['correo'], etc.
+   * @param columnasArray Array of column entries with `campo` and `valor` fields.
+   * @returns Flat record mapping each column name to its value.
    */
   private _parseCols(
     columnasArray: { campo: string; valor: string }[],
@@ -157,8 +161,10 @@ export class DinardapAntService {
   }
 
   /**
-   *
-   * @param plate
+   * Performs the authenticated HTTP request to the DINARDAP–ANT gateway and maps
+   * the response into a normalized owner/vehicle/registration data object.
+   * @param plate Normalized vehicle plate to query.
+   * @returns Promise resolving to the parsed data, an error code, and a message.
    */
   private async _getAntDataByPlate(plate: string): Promise<{
     data: AntResponse | null;
@@ -166,7 +172,7 @@ export class DinardapAntService {
     message: string;
   }> {
     if (!this.dinardapAntBaseUrl) {
-      this.logger.error('DINARDAP_ANT_BASE_URL no configurado');
+      this.logger.error('DINARDAP_ANT_BASE_URL not configured');
       return {
         data: null,
         errorCode: ErrorCode.SYSTEM_INACTIVE,
@@ -179,7 +185,7 @@ export class DinardapAntService {
     const accessToken = this.token;
 
     if (!accessToken) {
-      this.logger.error('Token GIM2 no disponible para DINARDAP ANT');
+      this.logger.error('GIM2 token not available for DINARDAP ANT');
       return {
         data: null,
         errorCode: ErrorCode.UNAUTHORIZED,
@@ -205,14 +211,14 @@ export class DinardapAntService {
     try {
       const { data } = await axios.request<any>(config);
 
-      // Estructura: paquete.entidades.entidad[0].filas.fila[0].columnas.columna[]
+      // Structure: paquete.entidades.entidad[0].filas.fila[0].columnas.columna[]
       const entidadRaw =
         data?.paquete?.entidades?.entidad?.[0] ??
         data?.paquete?.entidades?.entidad ??
         null;
 
       if (!entidadRaw) {
-        this.logger.warn(`No se encontró entidad para la placa ${plate}`);
+        this.logger.warn(`No entity found for plate ${plate}`);
         return {
           data: null,
           errorCode: ErrorCode.NOT_FOUND,
@@ -221,14 +227,14 @@ export class DinardapAntService {
         };
       }
 
-      // Extraer primera fila y aplanar columnas a objeto plano { campo: valor }
+      // Extract the first row and flatten columns into a plain object { campo: valor }
       const filaRaw =
         entidadRaw?.filas?.fila?.[0] ?? entidadRaw?.filas?.fila ?? null;
       const cols: Record<string, string> = filaRaw?.columnas?.columna
         ? this._parseCols(filaRaw.columnas.columna)
         : {};
 
-      // ── Persona ──────────────────────────────────────────────────────────────
+      // ── Person ──────────────────────────────────────────────────────────────
       const firstName = String(cols['nombres'] || '').trim();
       const apellido1 = String(cols['apellido1'] || '').trim();
       const apellido2 = String(cols['apellido2'] || '').trim();
@@ -263,7 +269,7 @@ export class DinardapAntService {
 
       if (!fullName && !identityCard && !email) {
         this.logger.warn(
-          `La respuesta vino sin datos útiles para la placa ${plate}`,
+          `The response contained no useful data for plate ${plate}`,
         );
         return {
           data: null,

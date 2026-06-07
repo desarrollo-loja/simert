@@ -20,8 +20,9 @@ export class LService {
   private readonly logger = new Logger('LService');
 
   /**
+   * Creates the service with the injected `L` entity repository.
    *
-   * @param lRepository
+   * @param lRepository - TypeORM repository for the `L` tracking buffer entity.
    */
   constructor(
     @InjectRepository(L)

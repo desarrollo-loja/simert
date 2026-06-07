@@ -25,18 +25,21 @@ import { ScheduleService } from './schedule.service';
 @Controller('admin/schedule')
 export class ScheduleController {
   /**
+   * Creates a new schedule controller instance.
    *
-   * @param scheduleService
+   * @param scheduleService Service that handles schedule business logic.
    */
   constructor(private readonly scheduleService: ScheduleService) {}
 
   /**
+   * Creates a new parking schedule for a block.
    *
-   * @param user
-   * @param userId
-   * @param idDevice
-   * @param version
-   * @param createScheduleDto
+   * @param user Authenticated user payload extracted from the Keycloak token.
+   * @param userId Identifier of the user performing the operation.
+   * @param idDevice Identifier of the device originating the request.
+   * @param version Application version of the requesting client.
+   * @param createScheduleDto Payload describing the schedule to create.
+   * @returns Promise resolving to the created schedule.
    */
   @ApiOperation({ summary: 'Create a new parking schedule for a block' })
   // @Auth()
@@ -53,9 +56,11 @@ export class ScheduleController {
   }
 
   /**
+   * Lists all schedules associated with a given block.
    *
-   * @param user
-   * @param id
+   * @param user Authenticated user payload extracted from the Keycloak token.
+   * @param id Identifier of the block whose schedules are retrieved.
+   * @returns Promise resolving to the schedules for the block.
    */
   @ApiOperation({ summary: 'List all schedules for a given block id' })
   // @Auth()
@@ -69,13 +74,15 @@ export class ScheduleController {
   }
 
   /**
+   * Activates or deactivates a schedule by its identifier.
    *
-   * @param user
-   * @param id
-   * @param userId
-   * @param idDevice
-   * @param version
-   * @param updateScheduleDto
+   * @param user Authenticated user payload extracted from the Keycloak token.
+   * @param id Identifier of the schedule to activate or deactivate.
+   * @param userId Identifier of the user performing the operation.
+   * @param idDevice Identifier of the device originating the request.
+   * @param version Application version of the requesting client.
+   * @param updateScheduleDto Payload describing the active state to apply.
+   * @returns Promise resolving to the updated schedule.
    */
   @ApiOperation({ summary: 'Activate or deactivate a schedule by id' })
   // @Auth()
@@ -93,12 +100,14 @@ export class ScheduleController {
   }
 
   /**
+   * Updates schedule properties such as time ranges and days.
    *
-   * @param user
-   * @param userId
-   * @param idDevice
-   * @param version
-   * @param updateScheduleDto
+   * @param user Authenticated user payload extracted from the Keycloak token.
+   * @param userId Identifier of the user performing the operation.
+   * @param idDevice Identifier of the device originating the request.
+   * @param version Application version of the requesting client.
+   * @param updateScheduleDto Payload describing the schedule properties to update.
+   * @returns Promise resolving to the updated schedule.
    */
   @ApiOperation({
     summary: 'Update schedule properties (time ranges, days, etc.)',

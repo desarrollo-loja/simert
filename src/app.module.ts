@@ -222,8 +222,8 @@ import { PublicModule } from './public/public.module';
 })
 export class AppModule implements NestModule {
   /**
-   *
-   * @param consumer
+   * Registers application-wide middleware.
+   * @param consumer Middleware consumer used to apply middleware to routes.
    */
   configure(consumer: MiddlewareConsumer) {
     consumer.apply(ResponseTimeMiddleware).forRoutes('*');
