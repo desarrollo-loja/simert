@@ -23,4 +23,8 @@ export class CreateGimDto extends CreateIncidentDto {
   @IsOptional()
   @IsString()
   updatedAt?: string;
+
+  @IsOptional()
+  @IsString()
+  register?: string;
 }
