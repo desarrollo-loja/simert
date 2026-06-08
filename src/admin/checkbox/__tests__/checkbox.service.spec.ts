@@ -182,8 +182,13 @@ describe('CheckboxService', () => {
       expect(params).toEqual(['a', 'b']);
     });
 
-    it('appends date range condition when dateFrom and dateTo are provided', async () => {
-      repo.query.mockResolvedValueOnce([]);
+    it('appends the date range condition and binds params in order (dynamic range path)', async () => {
+      // A single-month range probes that month's archive once (call[0]),
+      // then runs the data query (call[1]). The WHERE/params contract is
+      // unchanged: transactionId IN first, then the register date range.
+      repo.query
+        .mockResolvedValueOnce([{ exists: true }]) // history."2026_01_checkbox" exists
+        .mockResolvedValueOnce([]); // data query
 
       await service.findAllByTransactionId({
         transactionIds: ['a'],
@@ -191,9 +196,73 @@ describe('CheckboxService', () => {
         dateTo: '2026-01-31',
       } as any);
 
-      const [sql, params] = repo.query.mock.calls[0];
+      const [sql, params] = repo.query.mock.calls[1];
+      expect(sql).toContain('c."transactionId" IN ($1)');
       expect(sql).toContain('DATE(c.register) BETWEEN $2 AND $3');
       expect(params).toEqual(['a', '2026-01-01', '2026-01-31']);
+    });
+
+    it('builds a UNION ALL across every monthly archive in the date range', async () => {
+      // Range spans Jan + Feb 2026 -> one existence probe per month (calls 0,1),
+      // then the data query (call[2]) over the UNION ALL of both archives.
+      repo.query
+        .mockResolvedValueOnce([{ exists: true }]) // history."2026_01_checkbox"
+        .mockResolvedValueOnce([{ exists: true }]) // history."2026_02_checkbox"
+        .mockResolvedValueOnce([
+          { id: 7, transactionId: 'a', statusIncident: 100, onResponseExternal: null, optionalData: null },
+        ]);
+
+      const result: any = await service.findAllByTransactionId({
+        transactionIds: ['a'],
+        dateFrom: '2026-01-15',
+        dateTo: '2026-02-10',
+      } as any);
+
+      expect(result.errorCode).toBe(ErrorCode.NONE);
+      const [sql, params] = repo.query.mock.calls[2];
+      expect(sql).toContain('UNION ALL');
+      expect(sql).toContain('history."2026_01_checkbox"');
+      expect(sql).toContain('history."2026_02_checkbox"');
+      expect(sql).toContain('c."transactionId" IN ($1)');
+      expect(sql).toContain('DATE(c.register) BETWEEN $2 AND $3');
+      expect(params).toEqual(['a', '2026-01-15', '2026-02-10']);
+    });
+
+    it('includes the live public.checkbox table when dateTo is within the last 3 days', async () => {
+      // Use today's date so the recent-window check is deterministically true.
+      const today = new Date();
+      const yyyy = today.getFullYear();
+      const mm = String(today.getMonth() + 1).padStart(2, '0');
+      const dd = String(today.getDate()).padStart(2, '0');
+      const isoDate = `${yyyy}-${mm}-${dd}`;
+
+      repo.query
+        .mockResolvedValueOnce([{ exists: false }]) // current-month archive missing
+        .mockResolvedValueOnce([]); // data query
+
+      await service.findAllByTransactionId({
+        transactionIds: ['a'],
+        dateFrom: isoDate,
+        dateTo: isoDate,
+      } as any);
+
+      const [sql] = repo.query.mock.calls[1];
+      expect(sql).toContain('public.checkbox');
+    });
+
+    it('returns empty checkboxes when no source table is available for the range', async () => {
+      // Old range with no archive and well outside the recent window:
+      // no source -> only the existence probe runs, no data query.
+      repo.query.mockResolvedValueOnce([{ exists: false }]);
+
+      const result = await service.findAllByTransactionId({
+        transactionIds: ['a'],
+        dateFrom: '2020-01-01',
+        dateTo: '2020-01-31',
+      } as any);
+
+      expect(result).toEqual({ errorCode: ErrorCode.NONE, checkboxes: [] });
+      expect(repo.query).toHaveBeenCalledTimes(1);
     });
 
     it('returns empty when only one of year/month is provided', async () => {
@@ -275,6 +344,37 @@ describe('CheckboxService', () => {
     it('returns false when the query throws', async () => {
       repo.query.mockRejectedValueOnce(new Error('e'));
       const result = await (service as any)._tableExists('x');
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('_historyTableExists (private)', () => {
+    it('splits the schema-qualified name and binds both parts as parameters', async () => {
+      repo.query.mockResolvedValueOnce([{ exists: true }]);
+
+      const result = await (service as any)._historyTableExists(
+        'history."2026_03_checkbox"',
+      );
+
+      expect(result).toBe(true);
+      // Schema and table name are bound separately, quotes stripped.
+      expect(repo.query.mock.calls[0][1]).toEqual([
+        'history',
+        '2026_03_checkbox',
+      ]);
+    });
+
+    it('returns false (and does not query) when no schema prefix is supplied', async () => {
+      const result = await (service as any)._historyTableExists(
+        '2026_03_checkbox',
+      );
+      expect(result).toBe(false);
+      expect(repo.query).not.toHaveBeenCalled();
+    });
+
+    it('returns false when the query throws', async () => {
+      repo.query.mockRejectedValueOnce(new Error('e'));
+      const result = await (service as any)._historyTableExists('history."x"');
       expect(result).toBe(false);
     });
   });
