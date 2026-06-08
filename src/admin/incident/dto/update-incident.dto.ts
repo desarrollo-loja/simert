@@ -16,4 +16,7 @@ export class UpdateIncidentDto extends PartialType(CreateIncidentDto) {
   @IsOptional()
   @Min(1)
   month?: number;
+
+  @IsOptional()
+  register?: string;
 }
