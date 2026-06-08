@@ -160,6 +160,39 @@ export class GimService {
   }
 
   /**
+   * Classifies an error raised by an outbound GIM call and, when it indicates
+   * that the GIM server itself is unavailable — a transport failure (no HTTP
+   * response: DNS, connection refused, socket hang up), a timeout, or a 5xx
+   * response — returns a normalized client response flagged with
+   * `HTTP_ERROR_REINTENT` so the front can tell the user the GIM resource
+   * failed and retry. Returns `null` for any other error (e.g. a logical 4xx),
+   * letting the caller keep its own business-error handling.
+   *
+   * @param error Error thrown by axios / `_postToExternalApi`.
+   * @returns A client response when the GIM server is unreachable; otherwise `null`.
+   */
+  private _gimServerErrorOrNull(
+    error: any,
+  ): { errorCode: number; data: null; message: string } | null {
+    const status = error?.response?.status;
+    const isTransportError = axios.isAxiosError(error) && !error.response;
+    const isTimeout =
+      error?.code === 'ECONNABORTED' || error?.code === 'ETIMEDOUT';
+    const isServerError = typeof status === 'number' && status >= 500;
+
+    if (isTransportError || isTimeout || isServerError) {
+      return {
+        errorCode: ErrorCode.HTTP_ERROR_REINTENT,
+        message:
+          'No hay comunicación con el municipio (GIM), el recurso no está disponible, por favor intente más tarde',
+        data: null,
+      };
+    }
+
+    return null;
+  }
+
+  /**
    * Issues an incident debt in GIM end to end: completes missing client data
    * from the ANT, resolves or creates the GIM resident, checks whether the
    * debt was already issued, emits the infraction when needed, and updates the
@@ -1486,6 +1519,10 @@ export class GimService {
       }
     } catch (error) {
       this.logger.error(`Error findObligations: ${error.response?.data}`);
+      // GIM server unavailable (down/timeout/5xx): tell the front the resource
+      // failed and is retriable instead of a generic "not found".
+      const serverError = this._gimServerErrorOrNull(error);
+      if (serverError) return serverError;
       return {
         errorCode: ErrorCode.NOT_FOUND,
         message:
