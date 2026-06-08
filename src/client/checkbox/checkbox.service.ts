@@ -9,6 +9,7 @@ import { CommonAuthService } from 'src/common/common.auth.service';
 import { CommonCheckboxService } from 'src/common/common.checkbox.service';
 import { CommonGimService } from 'src/common/common.gim.service';
 import { CommonService } from 'src/common/common.service';
+import { BillingDataDto } from 'src/common/dto/billing-data.dto';
 import { CreateNotificationDto } from 'src/common/dto/create-notification.dto';
 import { DebitAmounDto } from 'src/common/dto/debit-amoun.dto';
 import { GetTransactionDto } from 'src/common/dto/get-transaction.dto';
@@ -34,6 +35,13 @@ import { DataSource, Repository } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 
 import { CreateCheckboxDto } from './dto/create-checkbox.dto';
+
+/**
+ * Catalog name holding the accounting account code applied to card purchases.
+ * Not part of the shared `CatalogType` enum (which lives in the `src/common`
+ * submodule), so it is referenced by its literal name.
+ */
+const ACCOUNTING_ACCOUNT_CARD_CATALOG = 'accountingAccountCard';
 
 /**
  * Service that handles the client-facing checkbox (prepaid balance) flow:
@@ -99,7 +107,7 @@ export class CheckboxService implements OnModuleInit {
     private readonly gimService: GimService,
 
     private readonly dataSource: DataSource,
-  ) { }
+  ) {}
 
   /**
    * Loads all catalog entries into the in-memory map on module startup.
@@ -152,14 +160,14 @@ export class CheckboxService implements OnModuleInit {
       // that bypass the pipe from injecting SQL.
       const safeYear =
         Number.isInteger(Number(year)) &&
-          Number(year) >= 2000 &&
-          Number(year) <= 2100
+        Number(year) >= 2000 &&
+        Number(year) <= 2100
           ? Number(year)
           : null;
       const safeMonth =
         Number.isInteger(Number(month)) &&
-          Number(month) >= 1 &&
-          Number(month) <= 12
+        Number(month) >= 1 &&
+        Number(month) <= 12
           ? Number(month)
           : null;
 
@@ -528,6 +536,16 @@ export class CheckboxService implements OnModuleInit {
         }),
       ];
 
+      // Billing/accounting codes queried from the `catalog` table: the first
+      // `key` of `typeRubroCard` and of `accountingAccountCard` respectively.
+      const [code, accountingAccountCode] = await Promise.all([
+        this._firstCatalogKey(CatalogType.TypeRubroCard, '573'),
+        this._firstCatalogKey(
+          ACCOUNTING_ACCOUNT_CARD_CATALOG,
+          '1.4.03.99.21.001',
+        ),
+      ]);
+
       const debitAmounDto = new DebitAmounDto({
         register,
         concept,
@@ -538,16 +556,40 @@ export class CheckboxService implements OnModuleInit {
         billing_data: {
           ...createCheckboxDto.billing_data,
           typeService: TypeService.PARKING,
-        },
+          code,
+          accountingAccountCode,
+        } as BillingDataDto,
         purchase_data: purchaseData,
         credentialId,
         commission,
       });
-
       return debitAmounDto;
     } catch {
       // Returns undefined on failure; callers handle the missing DTO.
     }
+  }
+
+  /**
+   * Queries the `catalog` table by name and returns the first entry's `key`
+   * from its `data` array, stringified.
+   *
+   * @param catalogName Value of the catalog `name` column to look up.
+   * @param fallback Value returned when the catalog row is missing, its `data`
+   *   is empty or the first entry has no `key`. Defaults to an empty string.
+   * @returns The first entry's `key` as a string, or `fallback`.
+   */
+  private async _firstCatalogKey(
+    catalogName: string,
+    fallback = '',
+  ): Promise<string> {
+    const catalog = await this.catalogRepository.findOne({
+      where: { name: catalogName },
+    });
+    const data = catalog?.data;
+    if (Array.isArray(data) && data.length > 0 && data[0]?.key != null) {
+      return String(data[0].key);
+    }
+    return fallback;
   }
 
   /**
