@@ -27,7 +27,7 @@ export class FractionService {
   constructor(
     @InjectRepository(Fraction)
     private readonly fractionRepository: Repository<Fraction>,
-  ) { }
+  ) {}
 
   /**
    * Lists parking fractions with pagination, reading either from the live

@@ -29,7 +29,7 @@ export class TrakingService {
 
     @InjectDataSource('tracking_controller')
     private readonly dataSource: DataSource,
-  ) { }
+  ) {}
 
   private tableTracking = '';
   private tableJob = '';
