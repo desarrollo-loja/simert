@@ -32,7 +32,7 @@ export class RangeSalePointService {
 
     @Inject(LoggerService)
     private readonly loggerService: LoggerService,
-  ) {}
+  ) { }
 
   /**
    * Creates a new range sale point record and emits an audit log entry.
@@ -74,7 +74,7 @@ export class RangeSalePointService {
       const query = this.rangeSalePointRepository
         .createQueryBuilder('rsp')
         .addSelect(
-          `TO_CHAR(rsp."createdAt" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD HH24:MI:SS')`,
+          `TO_CHAR(rsp."createdAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`,
           'rsp_createdAt',
         )
         .addSelect(

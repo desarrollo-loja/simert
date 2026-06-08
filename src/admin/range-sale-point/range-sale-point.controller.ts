@@ -29,7 +29,7 @@ export class RangeSalePointController {
    *
    * @param rangeSalePointService Service handling range sale point business logic.
    */
-  constructor(private readonly rangeSalePointService: RangeSalePointService) {}
+  constructor(private readonly rangeSalePointService: RangeSalePointService) { }
 
   /**
    * Creates a new range sale point assignment.
