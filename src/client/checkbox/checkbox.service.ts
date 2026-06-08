@@ -344,8 +344,10 @@ export class CheckboxService implements OnModuleInit {
   async buyCheckboxs(idDevice: string, createCheckboxDto: CreateCheckboxDto) {
     // Validate that the cashier window is open in GIM
     const openTill = await this.gimService.validateOpenTill();
-    if (openTill.errorCode !== ErrorCode.NONE || openTill.data === undefined)
-      return openTill;
+    if (openTill.errorCode !== ErrorCode.NONE || openTill.data === undefined) {
+      return { errorCode: ErrorCode.GIM_CLOSE, message: 'La jornada no se encuentra aperturada.' };
+    }
+
     const {
       userId,
       transactionId,
