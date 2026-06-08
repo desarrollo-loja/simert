@@ -617,6 +617,7 @@ export class CheckboxService implements OnModuleInit {
             entryCode,
           );
 
+        console.log(`emisionResult`, emisionResult);
         if (emisionResult && emisionResult.errorCode !== ErrorCode.NONE) {
           this.logger.error(
             `_saveResponsePay: failed to issue credit title for checkbox ${checkbox.id}`,
