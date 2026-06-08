@@ -10,6 +10,13 @@ export class IncidentDto extends CreateIncidentDto {
   @IsString()
   createdAt?: string;
 
+  // Accepted (and ignored by the workflow logic) so clients can echo back the
+  // full incident object — including the application-set `register` timestamp —
+  // without tripping the global `forbidNonWhitelisted` validation.
+  @IsOptional()
+  @IsString()
+  register?: string;
+
   @IsNumber()
   @IsOptional()
   @Min(2000)
