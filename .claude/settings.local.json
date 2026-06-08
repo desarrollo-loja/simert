@@ -61,7 +61,9 @@
       "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\Usuario\\\\Documents\\\\proyectoSimertLoja\\\\simert-web\" -Recurse -Filter \"*fraction*\" -ErrorAction SilentlyContinue)",
       "Bash(Select-Object -First 20)",
       "Bash(Get-Content -Path \"c:\\\\Users\\\\Usuario\\\\Documents\\\\proyectoSimertLoja\\\\simert-web\\\\src\\\\services\\\\simert\\\\fraction.service.ts\" -TotalCount 30)",
-      "Bash(Select-String -Pattern \"admin/fraction\")"
+      "Bash(Select-String -Pattern \"admin/fraction\")",
+      "Bash(echo \"build exit: $?\")",
+      "Bash(echo \"eslint exit: $?\")"
     ]
   }
 }

@@ -1952,113 +1952,173 @@ export class IncidentService {
     incidentDto: IncidentDto,
     isTransacional: number,
   ) {
-    if (!incidentDto.identityCard) {
-      return {
-        errorCode: ErrorCode.NOT_FOUND,
-        message: 'La incidencia no tiene una cedula ruc o pasaporte vinculado',
-      };
-    }
+    const TRACE = `[advanceNextProcess][id=${incidentDto?.id}][user=${userId}]`;
+    this.logger.log(
+      `${TRACE} STEP 0 — entry. isTransacional=${isTransacional}, ` +
+        `internalState=${incidentDto?.internalState}, ` +
+        `nroTicket=${incidentDto?.nroTicket}, identityCard=${incidentDto?.identityCard}`,
+    );
 
-    if (!incidentDto.nroTicket) {
-      return {
-        errorCode: ErrorCode.NOT_FOUND,
-        message: 'La incidencia no tiene un numero de boleta vinculado',
-      };
-    }
+    try {
+      if (!incidentDto.identityCard) {
+        this.logger.warn(`${TRACE} STEP 1 — missing identityCard, aborting`);
+        return {
+          errorCode: ErrorCode.NOT_FOUND,
+          message:
+            'La incidencia no tiene una cedula ruc o pasaporte vinculado',
+        };
+      }
 
-    const validateIncident =
-      await this.commonGimService.findObligationsByCitation(
-        userId,
-        idDevice,
-        incidentDto.nroTicket,
-        incidentDto.identityCard,
+      if (!incidentDto.nroTicket) {
+        this.logger.warn(`${TRACE} STEP 1 — missing nroTicket, aborting`);
+        return {
+          errorCode: ErrorCode.NOT_FOUND,
+          message: 'La incidencia no tiene un numero de boleta vinculado',
+        };
+      }
+
+      this.logger.log(
+        `${TRACE} STEP 2 — calling GIM findObligationsByCitation...`,
+      );
+      const validateIncident =
+        await this.commonGimService.findObligationsByCitation(
+          userId,
+          idDevice,
+          incidentDto.nroTicket,
+          incidentDto.identityCard,
+        );
+      this.logger.log(
+        `${TRACE} STEP 2 — GIM responded. errorCode=${validateIncident?.errorCode}, ` +
+          `obligations=${validateIncident?.data?.length ?? 'n/a'}`,
       );
 
-    let internalState = incidentDto.internalState;
+      let internalState = incidentDto.internalState;
 
-    // Workflow transition: each handler advances to the next department.
-    // REVENUE_DEPARTMENT is terminal and stays in place.
-    if (
-      incidentDto.internalState === InternalStateIncident.SIMERT_ADMINISTRATION
-    ) {
-      internalState = InternalStateIncident.TRAFFIC_POLICE_STATION;
-    } else if (
-      incidentDto.internalState === InternalStateIncident.TRAFFIC_POLICE_STATION
-    ) {
-      internalState = InternalStateIncident.REVENUE_DEPARTMENT;
-    } else if (
-      incidentDto.internalState === InternalStateIncident.REVENUE_DEPARTMENT
-    ) {
-      internalState = InternalStateIncident.REVENUE_DEPARTMENT;
-    }
-
-    if (validateIncident.errorCode === ErrorCode.NONE) {
-      // If GIM already returned an existing obligation, the debt has been
-      // emitted and the incident jumps directly to the revenue department.
-      if (validateIncident.data.length > 0) {
+      // Workflow transition: each handler advances to the next department.
+      // REVENUE_DEPARTMENT is terminal and stays in place.
+      if (
+        incidentDto.internalState ===
+        InternalStateIncident.SIMERT_ADMINISTRATION
+      ) {
+        internalState = InternalStateIncident.TRAFFIC_POLICE_STATION;
+      } else if (
+        incidentDto.internalState ===
+        InternalStateIncident.TRAFFIC_POLICE_STATION
+      ) {
+        internalState = InternalStateIncident.REVENUE_DEPARTMENT;
+      } else if (
+        incidentDto.internalState === InternalStateIncident.REVENUE_DEPARTMENT
+      ) {
         internalState = InternalStateIncident.REVENUE_DEPARTMENT;
       }
-    }
 
-    const fieldsToUpdate = { internalState };
-    const incidentId = incidentDto.id;
+      if (validateIncident.errorCode === ErrorCode.NONE) {
+        // If GIM already returned an existing obligation, the debt has been
+        // emitted and the incident jumps directly to the revenue department.
+        if (validateIncident.data.length > 0) {
+          internalState = InternalStateIncident.REVENUE_DEPARTMENT;
+        }
+      }
+      this.logger.log(
+        `${TRACE} STEP 3 — resolved internalState transition to ${internalState}`,
+      );
 
-    // Case 1: transactional flag set — try main `public.incident` table first,
-    // then fall through to historical if not found there.
-    if (isTransacional) {
-      const exists = await this.incidentRepository.findOne({
-        where: { id: incidentId },
-      });
-      if (exists) {
-        await this.incidentRepository.update(incidentId, fieldsToUpdate);
-        const incident = await this.incidentRepository.findOne({
+      const fieldsToUpdate = { internalState };
+      const incidentId = incidentDto.id;
+
+      // Case 1: transactional flag set — try main `public.incident` table first,
+      // then fall through to historical if not found there.
+      if (isTransacional) {
+        this.logger.log(
+          `${TRACE} STEP 4 — transactional path, looking up public.incident...`,
+        );
+        const exists = await this.incidentRepository.findOne({
           where: { id: incidentId },
         });
+        if (exists) {
+          this.logger.log(
+            `${TRACE} STEP 4 — found in public.incident, updating...`,
+          );
+          await this.incidentRepository.update(incidentId, fieldsToUpdate);
+          const incident = await this.incidentRepository.findOne({
+            where: { id: incidentId },
+          });
 
-        this.loggerService.saveIncidentLogger({
-          id: incidentId,
-          userId,
-          typeOperation: TypeOperation.UPDATE,
-          incident,
+          this.loggerService.saveIncidentLogger({
+            id: incidentId,
+            userId,
+            typeOperation: TypeOperation.UPDATE,
+            incident,
+          });
+
+          this.logger.log(
+            `${TRACE} STEP 4 — DONE (public.incident updated)`,
+          );
+          return { incident, errorCode: ErrorCode.NONE };
+        }
+        this.logger.log(
+          `${TRACE} STEP 4 — not in public.incident, falling through to historical`,
+        );
+        // Not in public.incident — fall through to historical resolution below.
+      }
+
+      // Historical update.
+      // Path A: caller supplies year/month — build the historical table directly.
+      // Path B: derive year/month from createdAt in the body (incidentDto.createdAt).
+      // Path C (Case 1 fallback only): last resort — no date available at all.
+      let table: string;
+
+      if (
+        incidentDto.year &&
+        incidentDto.month &&
+        this._isValidYearMonth(incidentDto.year, incidentDto.month)
+      ) {
+        const monthStr = String(incidentDto.month).padStart(2, '0');
+        table = `history."${incidentDto.year}_${monthStr}_incident"`;
+      } else if (incidentDto.createdAt) {
+        // Normalize "YYYY-MM-DD HH:mm:ss" (space separator) to ISO format so
+        // Date parsing is consistent across all JS environments.
+        const normalized = incidentDto.createdAt.replace(' ', 'T');
+        const date = new Date(normalized);
+        if (!isNaN(date.getTime())) {
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          table = `history."${year}_${month}_incident"`;
+        }
+      }
+
+      if (!table) {
+        this.logger.log(
+          `${TRACE} STEP 5 — no table from DTO, resolving createdAt from DB...`,
+        );
+        const current = await this.incidentRepository.findOne({
+          where: { id: incidentId },
+          select: ['id', 'createdAt'],
         });
 
-        return { incident, errorCode: ErrorCode.NONE };
-      }
-      // Not in public.incident — fall through to historical resolution below.
-    }
+        if (!current?.createdAt) {
+          this.logger.warn(
+            `${TRACE} STEP 5 — no createdAt found, cannot resolve table, aborting`,
+          );
+          return {
+            incident: null,
+            errorCode: ErrorCode.NOT_FOUND,
+            message: 'No se encontro la incidencia para actualizar',
+          };
+        }
 
-    // Historical update.
-    // Path A: caller supplies year/month — build the historical table directly.
-    // Path B: derive year/month from createdAt in the body (incidentDto.createdAt).
-    // Path C (Case 1 fallback only): last resort — no date available at all.
-    let table: string;
-
-    if (
-      incidentDto.year &&
-      incidentDto.month &&
-      this._isValidYearMonth(incidentDto.year, incidentDto.month)
-    ) {
-      const monthStr = String(incidentDto.month).padStart(2, '0');
-      table = `history."${incidentDto.year}_${monthStr}_incident"`;
-    } else if (incidentDto.createdAt) {
-      // Normalize "YYYY-MM-DD HH:mm:ss" (space separator) to ISO format so
-      // Date parsing is consistent across all JS environments.
-      const normalized = incidentDto.createdAt.replace(' ', 'T');
-      const date = new Date(normalized);
-      if (!isNaN(date.getTime())) {
+        const date = new Date(current.createdAt);
         const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, '0');
         table = `history."${year}_${month}_incident"`;
       }
-    }
+      this.logger.log(`${TRACE} STEP 5 — resolved historical table=${table}`);
 
-    if (!table) {
-      const current = await this.incidentRepository.findOne({
-        where: { id: incidentId },
-        select: ['id', 'createdAt'],
-      });
-
-      if (!current?.createdAt) {
+      const exists = await this._tableExists(table);
+      this.logger.log(
+        `${TRACE} STEP 6 — _tableExists(${table})=${exists}`,
+      );
+      if (!exists) {
         return {
           incident: null,
           errorCode: ErrorCode.NOT_FOUND,
@@ -2066,42 +2126,43 @@ export class IncidentService {
         };
       }
 
-      const date = new Date(current.createdAt);
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      table = `history."${year}_${month}_incident"`;
+      this.logger.log(
+        `${TRACE} STEP 7 — updating historical row in ${table}...`,
+      );
+      const incident = await this._updateHistoricalRow(
+        table,
+        fieldsToUpdate,
+        incidentId,
+      );
+
+      if (!incident) {
+        this.logger.warn(
+          `${TRACE} STEP 7 — _updateHistoricalRow returned no row, aborting`,
+        );
+        return {
+          incident: null,
+          errorCode: ErrorCode.NOT_FOUND,
+          message: 'No se encontro la incidencia para actualizar',
+        };
+      }
+
+      this.loggerService.saveIncidentLogger({
+        id: incidentDto.id,
+        userId,
+        typeOperation: TypeOperation.UPDATE,
+        incident,
+      });
+
+      this.logger.log(`${TRACE} STEP 8 — DONE (historical row updated)`);
+      return { incident, errorCode: ErrorCode.NONE };
+    } catch (error) {
+      // Trace exactly where the flow broke: the last "STEP N" log emitted
+      // before this entry marks the failing step.
+      this.logger.error(
+        `${TRACE} FAILED — ${error?.message ?? error}`,
+        error?.stack,
+      );
+      throw error;
     }
-
-    const exists = await this._tableExists(table);
-    if (!exists) {
-      return {
-        incident: null,
-        errorCode: ErrorCode.NOT_FOUND,
-        message: 'No se encontro la incidencia para actualizar',
-      };
-    }
-
-    const incident = await this._updateHistoricalRow(
-      table,
-      fieldsToUpdate,
-      incidentId,
-    );
-
-    if (!incident) {
-      return {
-        incident: null,
-        errorCode: ErrorCode.NOT_FOUND,
-        message: 'No se encontro la incidencia para actualizar',
-      };
-    }
-
-    this.loggerService.saveIncidentLogger({
-      id: incidentDto.id,
-      userId,
-      typeOperation: TypeOperation.UPDATE,
-      incident,
-    });
-
-    return { incident, errorCode: ErrorCode.NONE };
   }
 }
