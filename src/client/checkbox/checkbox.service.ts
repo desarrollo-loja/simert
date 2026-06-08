@@ -336,6 +336,7 @@ export class CheckboxService implements OnModuleInit {
   async buyCheckboxs(idDevice: string, createCheckboxDto: CreateCheckboxDto) {
     // Validate that the cashier window is open in GIM
     const openTill = await this.gimService.validateOpenTill();
+    console.log(`output-> openTill`, openTill);
     if (openTill.errorCode !== ErrorCode.NONE) return openTill;
 
     const {
