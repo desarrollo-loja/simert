@@ -63,7 +63,8 @@
       "Bash(Get-Content -Path \"c:\\\\Users\\\\Usuario\\\\Documents\\\\proyectoSimertLoja\\\\simert-web\\\\src\\\\services\\\\simert\\\\fraction.service.ts\" -TotalCount 30)",
       "Bash(Select-String -Pattern \"admin/fraction\")",
       "Bash(echo \"build exit: $?\")",
-      "Bash(echo \"eslint exit: $?\")"
+      "Bash(echo \"eslint exit: $?\")",
+      "Bash(git -C src/common rev-parse HEAD)"
     ]
   }
 }

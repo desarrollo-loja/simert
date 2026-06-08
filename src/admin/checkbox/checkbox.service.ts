@@ -26,7 +26,7 @@ export class CheckboxService {
   constructor(
     @InjectRepository(Checkbox)
     private readonly checkboxRepository: Repository<Checkbox>,
-  ) {}
+  ) { }
 
   /**
    * Lists checkbox records from the live or historical table, applying
@@ -114,10 +114,25 @@ export class CheckboxService {
   }
 
   /**
-   * Lists checkbox records matching a set of transaction IDs, optionally
-   * narrowed by date range and resolved against the live or historical table.
-   * @param filterDto Filter criteria including `transactionIds`, period and date range.
+   * Lists checkbox records matching a set of transaction IDs.
+   *
+   * Source-table routing (only the FROM source is built dynamically; the
+   * SELECT, the `transactionId IN (...)`/date-range filters and the ORDER BY
+   * are identical across every branch):
+   * - `dateFrom` + `dateTo` (current front-end contract) -> dynamically
+   *   `UNION ALL`s every monthly archive `history."YYYY_MM_checkbox"` whose
+   *   month falls within the range and that already exists, plus the live
+   *   `public.checkbox` table only when `dateTo` is within the last 3 days, so
+   *   the most recent, not-yet-archived rows are still returned. See
+   *   {@link _buildCheckboxRangeSource}.
+   * - Legacy `year`/`month` period -> single historical `YYYY_MM_checkbox`
+   *   archive when it exists, otherwise the live `checkbox` table.
+   * - No range and no period -> live `checkbox` table.
+   *
+   * @param filterDto Filter criteria including `transactionIds`, the
+   *   `dateFrom`/`dateTo` range and the legacy `year`/`month` period.
    * @returns An object with an `errorCode` and the matching `checkbox`/`checkboxes` rows.
+   * @throws Delegates DB errors to {@link handleDbExceptions}.
    */
   async findAllByTransactionId(filterDto: FilterDto) {
     const { transactionIds, year, month, dateFrom, dateTo } = filterDto;
@@ -127,6 +142,21 @@ export class CheckboxService {
     }
 
     try {
+      // Current front-end contract: a date range that may span several months.
+      // Build the data source dynamically from the monthly archives in range
+      // plus the live table when the range reaches the most recent days.
+      if (dateFrom && dateTo) {
+        const fromSource = await this._buildCheckboxRangeSource(
+          dateFrom,
+          dateTo,
+        );
+        if (!fromSource) {
+          return { errorCode: ErrorCode.NONE, checkboxes: [] };
+        }
+        return await this._runFindByTransactionIdQuery(fromSource, filterDto);
+      }
+
+      // Legacy single-period routing (year/month) with live-table fallback.
       const resolved = await this._resolveYearMonthTable(year, month);
       if (resolved === null) {
         return { checkbox: [] };
@@ -134,43 +164,64 @@ export class CheckboxService {
       const { tableName, tableExists } = resolved;
 
       if (tableExists || (!year && !month)) {
-        const parameters: any[] = [];
-        const conditions: string[] = [];
-
-        const placeholders = transactionIds
-          .map((id) => {
-            parameters.push(id);
-            return `$${parameters.length}`;
-          })
-          .join(', ');
-        conditions.push(`c."transactionId" IN (${placeholders})`);
-
-        if (dateFrom && dateTo) {
-          parameters.push(dateFrom, dateTo);
-          conditions.push(
-            `DATE(c.register) BETWEEN $${parameters.length - 1} AND $${parameters.length}`,
-          );
-        }
-
-        const query = `
-          SELECT c.id, c."transactionId", c."statusIncident", c."onResponseExternal", c."optionalData"
-          FROM ${tableName} c
-          WHERE ${conditions.join(' AND ')}
-          ORDER BY c.id DESC;
-        `;
-
-        const checkboxes = await this.checkboxRepository.query(
-          query,
-          parameters,
-        );
-
-        return { errorCode: ErrorCode.NONE, checkboxes };
+        return await this._runFindByTransactionIdQuery(tableName, filterDto);
       } else {
         return { errorCode: ErrorCode.NONE, checkboxes: [] };
       }
     } catch (error) {
       handleDbExceptions(error, this.logger);
     }
+  }
+
+  /**
+   * Runs the `findAllByTransactionId` lookup against the supplied FROM source
+   * (a single table name or a parenthesized `UNION ALL` subquery aliased as
+   * `c`), applying the fixed SELECT, the `transactionId IN (...)` filter, the
+   * optional `register` date-range filter and the `ORDER BY c.id DESC`.
+   *
+   * Every value is bound as a `$N` parameter, so nothing is interpolated from
+   * raw input.
+   *
+   * @param fromSource Table identifier or parenthesized subquery aliased as `c`.
+   * @param filterDto Filter carrying `transactionIds` and the optional
+   *   `dateFrom`/`dateTo` range.
+   * @returns `{ errorCode, checkboxes }` with the matching rows.
+   */
+  private async _runFindByTransactionIdQuery(
+    fromSource: string,
+    filterDto: FilterDto,
+  ): Promise<{ errorCode: ErrorCode; checkboxes: any[] }> {
+    const { transactionIds, dateFrom, dateTo } = filterDto;
+
+    const parameters: any[] = [];
+    const conditions: string[] = [];
+
+    // Bind each transactionId to its own $N placeholder to prevent SQL injection.
+    const placeholders = transactionIds
+      .map((id) => {
+        parameters.push(id);
+        return `$${parameters.length}`;
+      })
+      .join(', ');
+    conditions.push(`c."transactionId" IN (${placeholders})`);
+
+    if (dateFrom && dateTo) {
+      parameters.push(dateFrom, dateTo);
+      conditions.push(
+        `DATE(c.register) BETWEEN $${parameters.length - 1} AND $${parameters.length}`,
+      );
+    }
+
+    const query = `
+          SELECT c.id, c."transactionId", c."statusIncident", c."onResponseExternal", c."optionalData"
+          FROM ${fromSource} c
+          WHERE ${conditions.join(' AND ')}
+          ORDER BY c.id DESC;
+        `;
+
+    const checkboxes = await this.checkboxRepository.query(query, parameters);
+
+    return { errorCode: ErrorCode.NONE, checkboxes };
   }
 
   /**
@@ -300,6 +351,225 @@ export class CheckboxService {
     }
 
     return { conditions, parameters };
+  }
+
+  /**
+   * Builds the dynamic FROM source for a date-range checkbox query: a
+   * `UNION ALL` of every monthly archive `history."YYYY_MM_checkbox"` whose
+   * month falls within [`dateFrom`, `dateTo`] and that already exists, plus the
+   * live `public.checkbox` table when `dateTo` is within the last 3 days (so
+   * recent, not-yet-archived rows are still returned).
+   *
+   * Every UNION branch projects the same fixed column list — exactly the
+   * columns the outer query references in its SELECT (`id`, `transactionId`,
+   * `statusIncident`, `onResponseExternal`, `optionalData`), its WHERE
+   * (`register`) and its ORDER BY (`id`) — so the rows stay union-compatible
+   * regardless of incidental column drift between the archives and the live
+   * table. The result is parenthesized so the caller can alias it as `c`.
+   *
+   * The table names are never interpolated from raw input: `year`/`month` are
+   * validated by {@link _isValidYearMonth} (via {@link _extractYearMonth}) and
+   * each resulting identifier is verified against `information_schema` through
+   * {@link _historyTableExists}.
+   *
+   * @param dateFrom Inclusive range start (`YYYY-MM-DD`).
+   * @param dateTo   Inclusive range end (`YYYY-MM-DD`).
+   * @returns The parenthesized `UNION ALL` subquery, or `null` when no archive
+   *   in range exists and the live table is not eligible.
+   */
+  private async _buildCheckboxRangeSource(
+    dateFrom: string,
+    dateTo: string,
+  ): Promise<string | null> {
+    const schema = 'history';
+    const columns =
+      '"id", "transactionId", "statusIncident", "onResponseExternal", "optionalData", "register"';
+
+    const selects: string[] = [];
+
+    for (const { year, month } of this._enumerateRangeMonths(
+      dateFrom,
+      dateTo,
+    )) {
+      const monthPadded = month.toString().padStart(2, '0');
+      const historicalTable = `${schema}."${year}_${monthPadded}_checkbox"`;
+      if (await this._historyTableExists(historicalTable)) {
+        selects.push(`SELECT ${columns} FROM ${historicalTable}`);
+      }
+    }
+
+    // Include the transactional table only when the range reaches the last 3 days.
+    if (this._isDateWithinLastDays(dateTo, 3)) {
+      selects.push(`SELECT ${columns} FROM public.checkbox`);
+    }
+
+    if (selects.length === 0) {
+      return null;
+    }
+
+    return `(${selects.join(' UNION ALL ')})`;
+  }
+
+  /**
+   * Enumerates every `{ year, month }` between two dates, inclusive of both the
+   * start and end months. Used to resolve which monthly history archives a
+   * date-range query must read.
+   *
+   * @param dateFrom Range start (`YYYY-MM-DD`); only year and month are used.
+   * @param dateTo   Range end (`YYYY-MM-DD`); only year and month are used.
+   * @returns Ordered list of months in range, or an empty array when either
+   *   bound is missing/invalid or `dateFrom` is after `dateTo`.
+   */
+  private _enumerateRangeMonths(
+    dateFrom: string,
+    dateTo: string,
+  ): { year: number; month: number }[] {
+    const from = this._extractYearMonth(dateFrom);
+    const to = this._extractYearMonth(dateTo);
+    if (!from || !to) {
+      return [];
+    }
+
+    const months: { year: number; month: number }[] = [];
+    let year = from.year;
+    let month = from.month;
+
+    while (year < to.year || (year === to.year && month <= to.month)) {
+      months.push({ year, month });
+      month += 1;
+      if (month > 12) {
+        month = 1;
+        year += 1;
+      }
+    }
+
+    return months;
+  }
+
+  /**
+   * Parses the leading `YYYY-MM` of a date string and validates it through
+   * {@link _isValidYearMonth}, guarding against SQL injection before the values
+   * are interpolated into historical table identifiers.
+   *
+   * @param value Date string expected to start with `YYYY-MM`.
+   * @returns `{ year, month }` when valid, otherwise `null`.
+   */
+  private _extractYearMonth(
+    value: string,
+  ): { year: number; month: number } | null {
+    if (!value) {
+      return null;
+    }
+    const match = /^(\d{4})-(\d{2})/.exec(String(value));
+    if (!match) {
+      return null;
+    }
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    return this._isValidYearMonth(year, month) ? { year, month } : null;
+  }
+
+  /**
+   * Checks whether a date falls within the last `days` days relative to today
+   * (inclusive). Used to decide whether the live `public.checkbox` table must
+   * be included alongside the monthly archives.
+   *
+   * @param value Date string expected to start with `YYYY-MM-DD`.
+   * @param days  Size of the recent window in days.
+   * @returns `true` when `value` is on or after `today - days`.
+   */
+  private _isDateWithinLastDays(value: string, days: number): boolean {
+    const target = this._extractDate(value);
+    if (!target) {
+      return false;
+    }
+    const threshold = new Date();
+    threshold.setHours(0, 0, 0, 0);
+    threshold.setDate(threshold.getDate() - days);
+    return target.getTime() >= threshold.getTime();
+  }
+
+  /**
+   * Parses the leading `YYYY-MM-DD` of a string into a local `Date` at
+   * midnight, ignoring any time/zone suffix.
+   *
+   * @param value Date string expected to start with `YYYY-MM-DD`.
+   * @returns The parsed `Date`, or `null` when the format does not match.
+   */
+  private _extractDate(value: string): Date | null {
+    const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value));
+    if (!match) {
+      return null;
+    }
+    const date = new Date(
+      Number(match[1]),
+      Number(match[2]) - 1,
+      Number(match[3]),
+    );
+    date.setHours(0, 0, 0, 0);
+    return date;
+  }
+
+  /**
+   * Guards against SQL injection by validating year and month values before
+   * they are interpolated into raw SQL table identifiers.
+   *
+   * @param year  Value to validate as an integer in the range 2000–2100.
+   * @param month Value to validate as an integer in the range 1–12.
+   * @returns `true` when both values are in the accepted range.
+   */
+  private _isValidYearMonth(year: any, month: any): boolean {
+    const y = Number(year);
+    const m = Number(month);
+    return (
+      Number.isInteger(y) &&
+      y >= 2000 &&
+      y <= 2100 &&
+      Number.isInteger(m) &&
+      m >= 1 &&
+      m <= 12
+    );
+  }
+
+  /**
+   * Checks whether a schema-qualified table (`schema."name"`) exists in
+   * `information_schema.tables`. Used for the historical archive lookups in
+   * the `history` schema, which the public-schema-only {@link _tableExists}
+   * cannot resolve.
+   *
+   * @param tableName Fully-qualified name in the form `schema."name"`.
+   * @returns `true` when the table exists, `false` when it does not, when no
+   *   schema prefix was provided, or when the lookup fails.
+   */
+  private async _historyTableExists(tableName: string): Promise<boolean> {
+    const names = tableName.split('.');
+    if (names.length <= 1) {
+      this.logger.error(`No schema was specified for table ${tableName}`);
+      return false;
+    }
+
+    const tableSchema = names[0].replace(/"/g, '').trim();
+    const tableNameOnly = names[1].replace(/"/g, '').trim();
+
+    const query = `
+      SELECT EXISTS(
+        SELECT 1
+        FROM information_schema.tables
+        WHERE table_schema = $1
+          AND table_name = $2
+      ) AS "exists";
+    `;
+
+    try {
+      const result = await this.checkboxRepository.query(query, [
+        tableSchema,
+        tableNameOnly,
+      ]);
+      return !!result[0]?.exists;
+    } catch (error) {
+      this.logger.error(error);
+      return false;
+    }
   }
 
   // ─── Endpoints consumed by CommonCheckboxService via HTTP ──────────────

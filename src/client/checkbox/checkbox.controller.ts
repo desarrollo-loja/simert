@@ -34,7 +34,7 @@ export class CheckboxController {
    *
    * @param checkboxService Service that handles checkbox transaction business logic.
    */
-  constructor(private readonly checkboxService: CheckboxService) {}
+  constructor(private readonly checkboxService: CheckboxService) { }
 
   /**
    * Lists checkbox balance transactions for a user, applying date and pagination filters.

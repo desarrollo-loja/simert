@@ -99,7 +99,7 @@ export class CheckboxService implements OnModuleInit {
     private readonly gimService: GimService,
 
     private readonly dataSource: DataSource,
-  ) {}
+  ) { }
 
   /**
    * Loads all catalog entries into the in-memory map on module startup.
@@ -152,14 +152,14 @@ export class CheckboxService implements OnModuleInit {
       // that bypass the pipe from injecting SQL.
       const safeYear =
         Number.isInteger(Number(year)) &&
-        Number(year) >= 2000 &&
-        Number(year) <= 2100
+          Number(year) >= 2000 &&
+          Number(year) <= 2100
           ? Number(year)
           : null;
       const safeMonth =
         Number.isInteger(Number(month)) &&
-        Number(month) >= 1 &&
-        Number(month) <= 12
+          Number(month) >= 1 &&
+          Number(month) <= 12
           ? Number(month)
           : null;
 
