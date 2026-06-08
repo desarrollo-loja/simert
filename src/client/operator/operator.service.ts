@@ -310,7 +310,7 @@ export class OperatorService {
         .getOne();
 
       if (!queryVerifyTiraje) {
-        return { errorCode: ErrorCode.NOT_FOUND, physic: [], range: false };
+        return { errorCode: ErrorCode.NONE, physic: [], range: false };
       }
 
       const physicResult = await this.physicRepository
