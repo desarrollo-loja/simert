@@ -54,6 +54,10 @@ import { IncrementOperatorDto } from './dto/increment-operator.dto';
 export class OperatorService {
   private readonly logger = new Logger('OperatorService');
 
+  /** Expected client-supplied `register` datetime format: `YYYY-MM-DD HH:MM:SS`. */
+  private static readonly REGISTER_DATETIME_PATTERN =
+    /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/;
+
   private readonly columsFraction: string[] = [
     'f.id',
     'f.typeFraction',
@@ -157,6 +161,10 @@ export class OperatorService {
     idDevice: string,
     createIncidentDto: CreateIncidentDto,
   ) {
+    // Validate and resolve the registration datetime before entering the
+    // try/catch so a malformed value surfaces as a clean 400 instead of being
+    // mapped to a 500 by handleDbExceptions.
+    const register = this._resolveRegister(createIncidentDto.register);
     try {
       const { fractionId, incidentCategory, incidentTypeId } =
         createIncidentDto;
@@ -198,10 +206,6 @@ export class OperatorService {
         });
       }
 
-      // Use the client-supplied registration datetime when present;
-      // otherwise fall back to the server's local time.
-      const register =
-        createIncidentDto.register?.trim() || this.commonService.getDate();
       const incident = this.incidentRepository.create({
         ...createIncidentDto,
         description: createIncidentDto.description ?? '',
@@ -255,6 +259,27 @@ export class OperatorService {
     } catch (error) {
       handleDbExceptions(error, this.logger);
     }
+  }
+
+  /**
+   * Resolves the incident registration datetime from the client payload.
+   *
+   * The supplied value is used only when it is present and matches the expected
+   * `YYYY-MM-DD HH:MM:SS` format; when omitted or malformed, the server's local
+   * time is used as a fallback.
+   *
+   * @param register Client-supplied registration datetime, if any.
+   * @returns The registration datetime as `YYYY-MM-DD HH:MM:SS`.
+   */
+  private _resolveRegister(register?: string): string {
+    const trimmedRegister = register?.trim();
+    if (
+      !trimmedRegister ||
+      !OperatorService.REGISTER_DATETIME_PATTERN.test(trimmedRegister)
+    ) {
+      return this.commonService.getDate();
+    }
+    return trimmedRegister;
   }
 
   /**
