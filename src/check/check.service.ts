@@ -365,7 +365,9 @@ export class CheckService {
               );
 
               if (emision.errorCode !== ErrorCode.NONE) {
-                this.logger.warn(`[Emisión fallida] checkbox ${checkbox}`);
+                this.logger.warn(
+                  `[Emisión fallida] checkbox ${JSON.stringify(checkbox)}`,
+                );
 
                 this.logger.warn(
                   `[Emisión fallida] checkbox ${checkbox.id}: ${emision.message}`,
