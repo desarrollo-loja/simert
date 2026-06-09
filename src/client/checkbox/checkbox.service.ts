@@ -652,8 +652,13 @@ export class CheckboxService implements OnModuleInit {
       try {
         const { userId } = checkbox;
 
+        // ─── PRUEBA TEMPORAL: GIM deshabilitado al momento del pago ───
+        // Se deja el checkbox en PAID con statusIncident = null (sin emitir ni
+        // registrar depósito) para verificar que el hilo
+        // _validateCheckboxToEmitAndPay (check.service.ts) lo recoja y complete
+        // la emisión/depósito en GIM. REVERTIR (descomentar) tras la prueba.
+        /*
         // Issue the credit title in GIM
-        // const emisionResult = await this._resolveResidentIdAndEmitCreditCard(idDevice, checkbox);
         const emisionResult =
           await this.commonCheckboxService.resolveResidentIdAndEmitCreditCard(
             idDevice,
@@ -676,14 +681,11 @@ export class CheckboxService implements OnModuleInit {
           checkbox.statusIncident = IncidentStatus.SUPPLIED;
 
           // Register the deposit in GIM
-          // const depositResult = await this._registerDepositGim(idDevice, checkbox);
           const depositResult =
             await this.commonCheckboxService.registerDepositGim(
               idDevice,
               checkbox,
             );
-
-          // this._registerDepositGim(idDevice, checkbox);
 
           if (depositResult && depositResult.errorCode !== ErrorCode.NONE) {
             if (depositResult.dataDeposit)
@@ -700,6 +702,7 @@ export class CheckboxService implements OnModuleInit {
             checkbox.statusIncident = IncidentStatus.PAYED;
           }
         }
+        */
 
         // Update the checkbox with the new status fields
         const updateData = {
