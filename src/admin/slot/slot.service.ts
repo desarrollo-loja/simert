@@ -34,7 +34,7 @@ export class SlotService {
 
     @Inject(LoggerService)
     private readonly loggerService: LoggerService,
-  ) { }
+  ) {}
 
   /**
    * Seeds the database with a single sample slot (internal / development use only).
@@ -416,13 +416,13 @@ export class SlotService {
    * Returns occupancy statistics for slots grouped by status.
    *
    * Mirrors the JOIN structure of {@link findAllSlotBlockParking}: zone and block
-   * are inner-joined (slots must belong to both), fractions and their statuses are
-   * left-joined so that slots without fractions are still counted via `s.status`.
+   * are inner-joined, fractions and their statuses are left-joined so that slots
+   * without fractions are still counted via `s.status`.
    *
-   * The `exceeded` bucket is driven by `fraction.status.id` rather than `s.status`
-   * so that it reflects the authoritative fraction-level state. All other buckets
-   * use `s.status`. `COUNT(DISTINCT …)` prevents double-counting slots that have
-   * multiple historical fractions.
+   * The `exceeded` bucket is driven by the fraction's `status` row (`st.id`) so
+   * that it reflects the authoritative fraction-level state. All other buckets use
+   * `s.status`. `COUNT(DISTINCT …)` prevents double-counting slots that carry
+   * multiple historical fraction rows.
    *
    * @param filterDto Optional `zoneId` and `blockId` filters.
    * @returns Counts per status category (available, occupied, exceeded, etc.).
@@ -431,49 +431,42 @@ export class SlotService {
     try {
       const { zoneId, blockId } = filterDto;
 
-      const query = this.slotRepository
-        .createQueryBuilder('s')
-        .innerJoin('s.zone', 'zone')
-        .innerJoin('s.block', 'block')
-        .leftJoin('s.fractions', 'fraction')
-        .select(
-          `COUNT(DISTINCT CASE WHEN s.status = ${StatusSlot.AVAILABLE} THEN s.id END)`,
-          'available',
-        )
-        .addSelect(
-          `COUNT(DISTINCT CASE WHEN s.status = ${StatusSlot.OCCUPIED} THEN s.id END)`,
-          'occupied',
-        )
-        .addSelect(
-          `COUNT(DISTINCT CASE WHEN status.id = ${StatusSlot.EXCEEDED} THEN s.id END)`,
-          'exceeded',
-        )
-        .addSelect(
-          `COUNT(DISTINCT CASE WHEN s.status = ${StatusSlot.SANCTIONED} THEN s.id END)`,
-          'sanctioned',
-        )
-        .addSelect(
-          `COUNT(DISTINCT CASE WHEN s.status = ${StatusSlot.GRACE_TIME} THEN s.id END)`,
-          'grace_time',
-        )
-        .addSelect(
-          `COUNT(DISTINCT CASE WHEN s.status = ${StatusSlot.PCD} THEN s.id END)`,
-          'pcd',
-        )
-        .addSelect(
-          `COUNT(DISTINCT CASE WHEN s.status = ${StatusSlot.OUT_OF_SERVICE} THEN s.id END)`,
-          'out_of_service',
-        );
+      const conditions: string[] = [];
+      const parameters: any[] = [];
+
+      const addParam = (value: any): string => {
+        parameters.push(value);
+        return `$${parameters.length}`;
+      };
 
       if (zoneId && Number(zoneId) > 0) {
-        query.andWhere('s.zoneId = :zoneId', { zoneId });
+        conditions.push(`s."zoneId" = ${addParam(zoneId)}`);
       }
-
       if (blockId && Number(blockId) > 0) {
-        query.andWhere('s.blockId = :blockId', { blockId });
+        conditions.push(`s."blockId" = ${addParam(blockId)}`);
       }
 
-      const slots = await query.getRawMany();
+      let query = `
+        SELECT
+          COUNT(DISTINCT CASE WHEN s.status = ${StatusSlot.AVAILABLE}     THEN s.id END) AS available,
+          COUNT(DISTINCT CASE WHEN s.status = ${StatusSlot.OCCUPIED}      THEN s.id END) AS occupied,
+          COUNT(DISTINCT CASE WHEN st.id    = ${StatusSlot.EXCEEDED}      THEN s.id END) AS exceeded,
+          COUNT(DISTINCT CASE WHEN s.status = ${StatusSlot.SANCTIONED}    THEN s.id END) AS sanctioned,
+          COUNT(DISTINCT CASE WHEN s.status = ${StatusSlot.GRACE_TIME}    THEN s.id END) AS grace_time,
+          COUNT(DISTINCT CASE WHEN s.status = ${StatusSlot.PCD}           THEN s.id END) AS pcd,
+          COUNT(DISTINCT CASE WHEN s.status = ${StatusSlot.OUT_OF_SERVICE} THEN s.id END) AS out_of_service
+        FROM public.slot s
+        INNER JOIN public.zone  zone ON zone.id  = s."zoneId"
+        INNER JOIN public.block blk  ON blk.id   = s."blockId"
+        LEFT  JOIN public.fraction frac ON frac."slotId"   = s.id
+        LEFT  JOIN public.status   st   ON st.id            = frac."statusId"
+      `;
+
+      if (conditions.length > 0) {
+        query += ' WHERE ' + conditions.join(' AND ');
+      }
+
+      const slots = await this.slotRepository.query(query, parameters);
 
       if (slots.length === 0)
         return {
