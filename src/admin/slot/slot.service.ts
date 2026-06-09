@@ -34,7 +34,7 @@ export class SlotService {
 
     @Inject(LoggerService)
     private readonly loggerService: LoggerService,
-  ) {}
+  ) { }
 
   /**
    * Seeds the database with a single sample slot (internal / development use only).
@@ -415,33 +415,65 @@ export class SlotService {
   /**
    * Returns occupancy statistics for slots grouped by status.
    *
+   * Mirrors the JOIN structure of {@link findAllSlotBlockParking}: zone and block
+   * are inner-joined (slots must belong to both), fractions and their statuses are
+   * left-joined so that slots without fractions are still counted via `s.status`.
+   *
+   * The `exceeded` bucket is driven by `fraction.status.id` rather than `s.status`
+   * so that it reflects the authoritative fraction-level state. All other buckets
+   * use `s.status`. `COUNT(DISTINCT …)` prevents double-counting slots that have
+   * multiple historical fractions.
+   *
    * @param filterDto Optional `zoneId` and `blockId` filters.
    * @returns Counts per status category (available, occupied, exceeded, etc.).
    */
   async findStatistics(filterDto: FilterDto) {
     try {
-      const tableName = 'public.slot';
+      const { zoneId, blockId } = filterDto;
 
-      const { parameters, conditions } =
-        this._buildStatisticsQueryParameters(filterDto);
+      const query = this.slotRepository
+        .createQueryBuilder('s')
+        .innerJoin('s.zone', 'zone')
+        .innerJoin('s.block', 'block')
+        .leftJoin('s.fractions', 'fraction')
+        .select(
+          `COUNT(DISTINCT CASE WHEN s.status = ${StatusSlot.AVAILABLE} THEN s.id END)`,
+          'available',
+        )
+        .addSelect(
+          `COUNT(DISTINCT CASE WHEN s.status = ${StatusSlot.OCCUPIED} THEN s.id END)`,
+          'occupied',
+        )
+        .addSelect(
+          `COUNT(DISTINCT CASE WHEN status.id = ${StatusSlot.EXCEEDED} THEN s.id END)`,
+          'exceeded',
+        )
+        .addSelect(
+          `COUNT(DISTINCT CASE WHEN s.status = ${StatusSlot.SANCTIONED} THEN s.id END)`,
+          'sanctioned',
+        )
+        .addSelect(
+          `COUNT(DISTINCT CASE WHEN s.status = ${StatusSlot.GRACE_TIME} THEN s.id END)`,
+          'grace_time',
+        )
+        .addSelect(
+          `COUNT(DISTINCT CASE WHEN s.status = ${StatusSlot.PCD} THEN s.id END)`,
+          'pcd',
+        )
+        .addSelect(
+          `COUNT(DISTINCT CASE WHEN s.status = ${StatusSlot.OUT_OF_SERVICE} THEN s.id END)`,
+          'out_of_service',
+        );
 
-      let query = `
-              SELECT
-                COUNT(CASE WHEN s.status = ${StatusSlot.AVAILABLE} THEN 1 END) AS available,
-                COUNT(CASE WHEN s.status = ${StatusSlot.OCCUPIED} THEN 1 END) AS occupied,
-                COUNT(CASE WHEN s.status = ${StatusSlot.EXCEEDED} THEN 1 END) AS exceeded,
-                COUNT(CASE WHEN s.status = ${StatusSlot.SANCTIONED} THEN 1 END) AS sanctioned,
-                COUNT(CASE WHEN s.status = ${StatusSlot.GRACE_TIME} THEN 1 END) AS grace_time,
-                COUNT(CASE WHEN s.status = ${StatusSlot.PCD} THEN 1 END) AS pcd,
-                COUNT(CASE WHEN s.status = ${StatusSlot.OUT_OF_SERVICE} THEN 1 END) AS out_of_service
-              FROM ${tableName} s
-      `;
-
-      if (conditions.length > 0) {
-        query += ' WHERE ' + conditions.join(' AND ');
+      if (zoneId && Number(zoneId) > 0) {
+        query.andWhere('s.zoneId = :zoneId', { zoneId });
       }
 
-      const slots = await this.slotRepository.query(query, parameters);
+      if (blockId && Number(blockId) > 0) {
+        query.andWhere('s.blockId = :blockId', { blockId });
+      }
+
+      const slots = await query.getRawMany();
 
       if (slots.length === 0)
         return {
@@ -456,37 +488,6 @@ export class SlotService {
     } catch (error) {
       handleDbExceptions(error, this.logger);
     }
-  }
-
-  /**
-   * Builds the parameterized WHERE conditions for slot statistics queries.
-   *
-   * @param filterDto Filter with optional `zoneId` and `blockId`.
-   * @returns `{ parameters, conditions }` ready for raw SQL execution.
-   */
-  private _buildStatisticsQueryParameters(filterDto: FilterDto): {
-    parameters: any[];
-    conditions: string[];
-  } {
-    const { zoneId, blockId } = filterDto;
-
-    const conditions: string[] = [];
-    const parameters: any[] = [];
-
-    const addParam = (value: any) => {
-      parameters.push(value);
-      return `$${parameters.length}`;
-    };
-
-    if (zoneId) {
-      conditions.push(`s."zoneId" = ${addParam(zoneId)}`);
-    }
-
-    if (blockId) {
-      conditions.push(`s."blockId" = ${addParam(blockId)}`);
-    }
-
-    return { parameters, conditions };
   }
 
   /**
