@@ -560,7 +560,9 @@ export class GimService {
           country: Consts.COUNTRY_GIM,
           city: Consts.CITY_GIM,
           neighborhood: this._removeAccents(user.data[0].neighborhood),
-          address: this._removeAccents(user.data[0].address),
+          // GIM rejects an empty address ("La dirección no puede ser nula o
+          // vacía."), so fall back to the default city when it is missing.
+          address: this._removeAccents(user.data[0].address) || Consts.CITY_GIM,
           email: user.data[0].email?.trim().toLowerCase(),
           phoneNumber,
           isForeigner: !!user.data[0].isForeigner,
