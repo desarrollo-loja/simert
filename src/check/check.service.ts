@@ -309,7 +309,15 @@ export class CheckService {
   private async _validateCheckboxToEmitAndPay() {
     // Validate that the cashier window is open in GIM
     const openTill = await this.gimService.validateOpenTill();
-    if (openTill.errorCode !== ErrorCode.NONE) return openTill;
+    this.logger.log(
+      `[Job GIM] validateOpenTill -> errorCode=${openTill.errorCode} message=${openTill.message}`,
+    );
+    if (openTill.errorCode !== ErrorCode.NONE) {
+      this.logger.warn(
+        `[Job GIM] abortado: caja GIM no disponible (errorCode=${openTill.errorCode})`,
+      );
+      return openTill;
+    }
 
     try {
       // Load every paid checkbox whose incident status is still pending
@@ -332,6 +340,9 @@ export class CheckService {
         order: { register: 'ASC' },
       });
 
+      this.logger.log(
+        `[Job GIM] checkboxes pendientes de emisión/depósito: ${checkboxes.length}`,
+      );
       if (!checkboxes.length) return;
 
       for (const checkbox of checkboxes) {
