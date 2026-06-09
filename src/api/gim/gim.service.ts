@@ -579,7 +579,7 @@ export class GimService {
         body,
       );
 
-      if (user && user.errorCode === ErrorCode.NONE)
+      if (user && user.errorCode === ErrorCode.NONE && data?.residentDTO?.id)
         this.commonAuthService.updateResidentId(
           user.data[0].id,
           createClientGimDto.identityCard,
@@ -602,6 +602,11 @@ export class GimService {
         }
       }
 
+      // GIM did not return a residentDTO: log the raw response so the rejection
+      // reason (code/message/validationErrors) is visible for diagnosis.
+      this.logger.warn(
+        `createNewNaturalPersonGim: GIM sin residentDTO -> ${JSON.stringify(data)}`,
+      );
       return {
         errorCode: ErrorCode.NOT_FOUND,
         residentDTO: null,
