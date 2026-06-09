@@ -456,16 +456,19 @@ export class CheckService {
    * descriptive message.
    */
   private async _emitCreditCard(checkbox: Checkbox) {
-    const { userId, identityCard, transactionId } = checkbox;
+    const { userId, transactionId } = checkbox;
     let residentId: number = null;
 
-    // 1) Look up residentId in our DB
-    const user = await this.commonAuthService.filterByIdentityCard(
-      userId,
-      identityCard,
-    );
-    if (user.errorCode === ErrorCode.NONE) {
-      residentId = user.data?.residentId ?? null;
+    // 1) Resolve the user by userId in our DB. findUserByIdAndApplication
+    //    returns the user object (not a list), so its fields are read directly.
+    //    The verified account identity card is the source of truth; fall back to
+    //    the checkbox value only when the account is missing it.
+    const account =
+      await this.commonAuthService.findUserByIdAndApplication(userId);
+    const user = account.errorCode === ErrorCode.NONE ? account.data : null;
+    const identityCard = user?.identityCard ?? checkbox.identityCard;
+    if (user) {
+      residentId = user.residentId ?? null;
     }
 
     // 2) If not in our DB, query GIM
@@ -482,9 +485,9 @@ export class CheckService {
       const createClientGimDto: CreateClientGimDto = {
         controllerId: userId,
         identityCard,
-        firstName: user.data?.firstName,
-        lastName: user.data?.lastName,
-        emailClient: user.data?.email,
+        firstName: user?.firstName,
+        lastName: user?.lastName,
+        emailClient: user?.email,
       };
       const createUserGim =
         await this.gimService.createNewNaturalPersonGim(createClientGimDto);
