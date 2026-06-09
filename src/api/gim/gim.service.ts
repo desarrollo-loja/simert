@@ -616,6 +616,11 @@ export class GimService {
     } catch (error: any) {
       this.logger.error(` ${error}`);
       this.logger.error(`Error createClientGim: ${error.message}`);
+      // Log the raw GIM response body (e.g. a 500) so the server-side failure
+      // reason is visible instead of just the generic Axios status message.
+      this.logger.error(
+        `createNewNaturalPersonGim: GIM HTTP ${error?.response?.status} body -> ${JSON.stringify(error?.response?.data)}`,
+      );
 
       return {
         errorCode: ErrorCode.HTTP_ERROR_REINTENT,
