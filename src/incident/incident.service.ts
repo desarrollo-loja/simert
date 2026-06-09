@@ -63,7 +63,15 @@ export class IncidentService {
   private async _validateIncidentEmitAndPay() {
     // Validate that the cashier window is open in GIM before proceeding
     const openTill = await this.gimService.validateOpenTill();
-    if (openTill.errorCode !== ErrorCode.NONE) return openTill;
+    this.logger.log(
+      `[Job GIM] validateOpenTill -> errorCode=${openTill.errorCode} message=${openTill.message}`,
+    );
+    if (openTill.errorCode !== ErrorCode.NONE) {
+      this.logger.warn(
+        `[Job GIM] abortado: caja GIM no disponible (errorCode=${openTill.errorCode})`,
+      );
+      return openTill;
+    }
 
     try {
       const incidents = await this.incidentRepository.find({
@@ -74,6 +82,9 @@ export class IncidentService {
         order: { register: 'ASC' },
       });
 
+      this.logger.log(
+        `[Job GIM] incidentes pendientes de depósito: ${incidents.length}`,
+      );
       if (!incidents.length) return;
 
       // Group by identityCard + transactionId to send a block of the paid incidents
