@@ -651,6 +651,7 @@ export class CheckboxService implements OnModuleInit {
     if (statusPayment === StatusPayment.PAID) {
       try {
         const { userId } = checkbox;
+        console.log(`checkbox->`,checkbox);
 
         // Issue the credit title in GIM
         // const emisionResult = await this._resolveResidentIdAndEmitCreditCard(idDevice, checkbox);
