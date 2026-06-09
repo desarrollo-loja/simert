@@ -273,20 +273,26 @@ export class IncidentService {
   /**
    * Returns incidents filtered by a list of `transactionIds`.
    *
-   * Mirrors `CheckboxService.findAllByTransactionId`: the only differences are
-   * the queried table and how its name is resolved. The source table
-   * (`public.incident` or `history."YYYY_MM_incident"`) is resolved through
-   * {@link _resolveIncidentTable}, exactly as {@link findAll} does. No extra
-   * business logic is applied here.
+   * Source-table routing (only the FROM source is built dynamically; the
+   * SELECT, the `transactionId IN (...)`/date-range filters and the ORDER BY
+   * are identical across every branch):
+   * - `dateFrom` + `dateTo` (current front-end contract) → dynamically
+   *   `UNION ALL`s every monthly archive `history."YYYY_MM_incident"` whose
+   *   month falls within the range and that already exists, plus the live
+   *   `public.incident` table only when `dateTo` is within the last 3 days. See
+   *   {@link _buildIncidentRangeSource}.
+   * - No range → legacy `year`/`month` routing via {@link _resolveIncidentTable}
+   *   (`public.incident` or a single historical archive).
    *
    * SQL-injection safety:
-   * - The table name is never built from raw input: `_resolveIncidentTable`
-   *   validates `year`/`month` as bounded integers and verifies the resulting
-   *   identifier against `information_schema` before use.
+   * - Table names are never built from raw input: {@link _buildIncidentRangeSource}
+   *   validates each year/month through {@link _isValidYearMonth} and verifies
+   *   every resulting identifier against `information_schema`; the legacy path
+   *   applies the same guards via {@link _resolveIncidentTable}.
    * - Every `transactionId` and date value is bound as a `$N` parameter.
    *
    * @param filterDto Filter carrying `transactionIds`, and optionally
-   *   `dateFrom`/`dateTo` and `year`/`month` for archive routing.
+   *   `dateFrom`/`dateTo` for range routing or `year`/`month` for legacy routing.
    * @returns Object with the `incidents` array and `errorCode`.
    */
   async findAllByTransactionId(filterDto: IncidentFilterDto) {
@@ -297,7 +303,27 @@ export class IncidentService {
     }
 
     try {
-      const table = await this._resolveIncidentTable(filterDto);
+      let table: string;
+
+      if (dateFrom && dateTo) {
+        // Current front-end contract: date range that may span several months.
+        // The projection covers every column the outer query references in its
+        // SELECT, WHERE (register) and ORDER BY (id).
+        const columns =
+          '"id", "transactionId", "statusIncident", "onResponseExternal", "register"';
+        const rangeSource = await this._buildIncidentRangeSource(
+          dateFrom,
+          dateTo,
+          columns,
+        );
+        if (!rangeSource) {
+          return { errorCode: ErrorCode.NONE, incidents: [] };
+        }
+        table = rangeSource;
+      } else {
+        // Legacy single-period routing (year/month) with live-table fallback.
+        table = await this._resolveIncidentTable(filterDto);
+      }
 
       const parameters: any[] = [];
       const conditions: string[] = [];
