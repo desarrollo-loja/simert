@@ -1576,6 +1576,7 @@ export class IncidentService {
 
         if (response && response.errorCode === ErrorCode.NONE) {
           // Update each incident with statusIncident PAYED and the accumulated onResponseExternal
+          const mergedOnResponseExternal: any[] = [];
           for (const incident of incidents) {
             const onResponseExternal = [...(incident.onResponseExternal ?? [])];
             if (response.data) onResponseExternal.push(response.data);
@@ -1586,7 +1587,19 @@ export class IncidentService {
               statusIncident: IncidentStatus.PAYED,
               onResponseExternal,
             });
+            mergedOnResponseExternal.push(...onResponseExternal);
           }
+          // Sync the complete GIM response chain (including deposit) to Transaction
+          this.commonService
+            .syncOnResponseExternal(
+              incidentPayments[0].transactionId,
+              mergedOnResponseExternal,
+            )
+            .catch((err) =>
+              this.logger.error(
+                `syncOnResponseExternal failed for transaction ${incidentPayments[0].transactionId}: ${err.message}`,
+              ),
+            );
         } else {
           await this.incidentRepository.update(
             { id: In(ids) },
