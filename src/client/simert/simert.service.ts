@@ -110,7 +110,7 @@ export class SimertService {
     private readonly commonCacheService: CommonCacheService,
 
     private readonly dataSource: DataSource,
-  ) {}
+  ) { }
 
   /**
    * Returns all active (not yet finished) fractions owned by the given user,
@@ -371,6 +371,14 @@ export class SimertService {
 
     if (slot.status == StatusSlot.OCCUPIED) {
       return { errorCode: ErrorCode.OCCUPIED };
+    }
+
+    if (slot.status == StatusSlot.EXCEEDED) {
+      return { errorCode: ErrorCode.EXCEEDED, message: 'Tienes un parqueo excedido. Por favor sal del parqueadero.' };
+    }
+
+    if (slot.status == StatusSlot.SANCTIONED) {
+      return { errorCode: ErrorCode.SANCTIONED, message: 'Tienes un parqueo con una sanción.' };
     }
 
     const fractionCheck = await this.fractionRepository.findOne({
