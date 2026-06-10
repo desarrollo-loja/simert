@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Incident } from 'src/admin/incident/entities/incident.entity';
 import { GimService } from 'src/api/gim/gim.service';
+import { CommonService } from 'src/common/common.service';
 import { RegisterDepositGimDto } from 'src/common/dto/register-deposit-gim.dto';
 import { ErrorCode } from 'src/common/glob/error';
 import { StatusPayment } from 'src/common/glob/status/status_payment';
@@ -21,6 +22,7 @@ export class IncidentService {
    *
    * @param incidentRepository Repository used to read and persist incidents.
    * @param gimService Service used to validate the till and register GIM deposits.
+   * @param commonService Shared service used to sync GIM responses to simert-pay.
    */
   constructor(
     @InjectRepository(Incident)
@@ -28,6 +30,9 @@ export class IncidentService {
 
     @Inject(GimService)
     private readonly gimService: GimService,
+
+    @Inject(CommonService)
+    private readonly commonService: CommonService,
   ) {}
 
   private readonly logger = new Logger('IncidentService');
@@ -121,6 +126,13 @@ export class IncidentService {
             }
 
             await this.incidentRepository.save(incident);
+
+            if (incident.statusIncident === IncidentStatus.PAYED) {
+              await this.commonService.syncOnResponseExternal(
+                incident.transactionId,
+                incident.onResponseExternal,
+              );
+            }
           }
         } catch (err) {
           this.logger.error(`[Job GIM] Error grupo ${key}: ${err.message}`);

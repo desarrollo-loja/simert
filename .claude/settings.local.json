@@ -64,7 +64,19 @@
       "Bash(Select-String -Pattern \"admin/fraction\")",
       "Bash(echo \"build exit: $?\")",
       "Bash(echo \"eslint exit: $?\")",
-      "Bash(git -C src/common rev-parse HEAD)"
+      "Bash(git -C src/common rev-parse HEAD)",
+      "PowerShell(Set-Location \"c:\\\\Users\\\\LENOVO\\\\Documents\\\\Simert\\\\simert\"; npx nest build; Write-Host \"Exit: $LASTEXITCODE\")",
+      "PowerShell(Set-Location \"c:\\\\Users\\\\LENOVO\\\\Documents\\\\Simert\\\\simert\"; npx nest build 2>&1; Write-Host \"simert build exit: $LASTEXITCODE\")",
+      "PowerShell(Set-Location \"c:\\\\Users\\\\LENOVO\\\\Documents\\\\Simert\\\\simert-pay\"; npx nest build 2>&1; Write-Host \"simert-pay build exit: $LASTEXITCODE\")",
+      "PowerShell(Set-Location \"c:\\\\Users\\\\LENOVO\\\\Documents\\\\Simert\\\\simert\"; npx eslint \"src/client/incident/incident.service.ts\" \"src/client/checkbox/checkbox.service.ts\" 2>&1; Write-Host \"simert lint exit: $LASTEXITCODE\")",
+      "PowerShell(Set-Location \"c:\\\\Users\\\\LENOVO\\\\Documents\\\\Simert\\\\simert-pay\"; npx eslint \"src/admin/deuna/entities/deuna.entity.ts\" \"src/admin/ahorita/entities/ahorita.entity.ts\" \"src/admin/place-to-pay/entities/place-to-pay.entity.ts\" \"src/admin/transaction/entities/transaction.entity.ts\" \"src/common/dto/debit-amoun.dto.ts\" \"src/api/deuna/deuna.service.ts\" \"src/api/bnl/bnl.service.ts\" \"src/api/place-to-pay/place-to-pay.service.ts\" 2>&1; Write-Host \"simert-pay lint exit: $LASTEXITCODE\")",
+      "Bash(git -C src/common diff --stat HEAD)",
+      "Bash(cp \"c:/Users/LENOVO/Documents/Simert/simert/src/common/common.service.ts\" \"c:/Users/LENOVO/Documents/Simert/simert-pay/src/common/common.service.ts\" && echo \"copied\")",
+      "Bash(echo \"Exit: $?\")",
+      "Bash(echo \"simert push exit: $?\")"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\LENOVO\\Documents\\Simert\\simert-pay\\src\\common"
     ]
   }
 }

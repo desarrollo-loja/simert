@@ -99,7 +99,7 @@ export class CheckService {
       this.logger.log(`Catalogs loaded in memory: ${this.catalogs.size}`);
     } catch (error) {
       this.logger.error(
-        `onModuleInit: error loading catalogs - ${error.message}`,
+        `onModuleInit: error loading catalogs - ${(error as any).message}`,
       );
     }
 
@@ -401,15 +401,22 @@ export class CheckService {
           }
 
           await this.checkboxRepository.save(checkbox);
+
+          if (checkbox.statusIncident === IncidentStatus.PAYED) {
+            await this.commonService.syncOnResponseExternal(
+              checkbox.transactionId,
+              checkbox.onResponseExternal,
+            );
+          }
         } catch (err) {
           this.logger.error(
-            `[Job GIM] Error checkbox ${checkbox.id}: ${err.message}`,
+            `[Job GIM] Error checkbox ${checkbox.id}: ${(err as any).message}`,
           );
         }
       }
     } catch (error) {
       this.logger.error(
-        `Call _validateCheckboxToEmitAndPay err: ${error.message}`,
+        `Call _validateCheckboxToEmitAndPay err: ${(error as any).message}`,
       );
     }
   }
