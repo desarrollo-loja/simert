@@ -1472,6 +1472,8 @@ export class GimService {
         body,
       );
 
+      console.log(`registerDeposit `, data);
+
       if (data && data.ok && data.reference && data.total) {
         return {
           errorCode: ErrorCode.NONE,

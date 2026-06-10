@@ -1570,6 +1570,7 @@ export class IncidentService {
         const response = await this.gimService.registerDeposit(
           registerDepositGimDto,
         );
+        console.log('registerDeposit response : ', response);
 
         if (response && response.errorCode === ErrorCode.NONE) {
           // Update each incident with statusIncident PAYED and the accumulated onResponseExternal
