@@ -26,7 +26,7 @@ export class CheckboxService {
   constructor(
     @InjectRepository(Checkbox)
     private readonly checkboxRepository: Repository<Checkbox>,
-  ) { }
+  ) {}
 
   /**
    * Lists checkbox records from the live or historical table, applying

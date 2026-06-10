@@ -32,7 +32,7 @@ export class RangeSalePointService {
 
     @Inject(LoggerService)
     private readonly loggerService: LoggerService,
-  ) { }
+  ) {}
 
   /**
    * Creates a new range sale point record and emits an audit log entry.

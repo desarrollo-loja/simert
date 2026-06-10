@@ -110,7 +110,7 @@ export class SimertService {
     private readonly commonCacheService: CommonCacheService,
 
     private readonly dataSource: DataSource,
-  ) { }
+  ) {}
 
   /**
    * Returns all active (not yet finished) fractions owned by the given user,
