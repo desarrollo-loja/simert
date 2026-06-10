@@ -1472,7 +1472,8 @@ export class GimService {
         body,
       );
 
-      console.log(`registerDeposit `, data);
+      console.log(`registerDeposit  data`, data);
+      console.log(`registerDeposit body `, body);
 
       if (data && data.ok && data.reference && data.total) {
         return {
