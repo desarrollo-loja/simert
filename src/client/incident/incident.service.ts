@@ -833,7 +833,7 @@ export class IncidentService {
     let typePaymentResponsibility: TypePaymentResponsibility;
 
     try {
-      const concept = await this._buildPaymentConcept(
+      const { concept, onResponseExternal } = await this._buildPaymentConcept(
         incidents.map((incident) => incident.id),
         optionalData,
       );
@@ -895,6 +895,7 @@ export class IncidentService {
               codes,
               accountingAccountCodes,
               ownerName,
+              onResponseExternal,
             );
             if (responseDeunaV2['errorCode'] === ErrorCode.NONE) {
               urlDeuna = responseDeunaV2['deeplink'];
@@ -919,6 +920,7 @@ export class IncidentService {
               codes,
               accountingAccountCodes,
               ownerName,
+              onResponseExternal,
             );
 
             if (responseAhorita['errorCode'] === ErrorCode.NONE) {
@@ -944,6 +946,7 @@ export class IncidentService {
               codes,
               accountingAccountCodes,
               ownerName,
+              onResponseExternal,
             );
 
             if (responsePlaceToPay['errorCode'] === ErrorCode.NONE) {
@@ -1001,28 +1004,32 @@ export class IncidentService {
   }
 
   /**
-   * Builds the human-readable concept that travels with the payment to
-   * simert-pay. Reads each incident's `nroObligation` (bondNumber) from DB
-   * and appends them so simert-pay can correlate the resulting transaction
-   * against the obligations being paid (e.g. "Pago de multa #18650477, #18650478").
+   * Builds the human-readable concept and collects the accumulated GIM
+   * responses for the payment batch.
+   *
+   * Reads each incident's `nroObligation` and `onResponseExternal` from DB.
+   * The concept is used by simert-pay to correlate the transaction against
+   * the obligations being paid (e.g. "Pago de multa #18650477, #18650478").
+   * The `onResponseExternal` array is the flat merge of all GIM responses
+   * across every incident in the batch and is stored in the provider record
+   * (Deuna / Ahorita / PlaceToPay) for audit purposes.
    *
    * If the caller provides a `concept` entry in `optionalData`, it is
-   * prepended (existing behavior) so callers can override the prefix.
-   * Downstream truncation in simert-pay (`LengthDb.concept`) still applies
-   * when the joined string exceeds the column length.
+   * prepended so callers can override the prefix. Downstream truncation in
+   * simert-pay (`LengthDb.concept`) still applies when the string overflows.
    *
    * @param incidentIds Ids of the incidents covered by the payment batch.
    * @param optionalData Optional caller-supplied extras; honors `concept` key.
-   * @returns The final concept string passed to `_parseDebitAmounDto`.
+   * @returns Object with the final `concept` string and merged `onResponseExternal`.
    */
   private async _buildPaymentConcept(
     incidentIds: number[],
     optionalData?: OptionalDataInterface[],
-  ): Promise<string> {
+  ): Promise<{ concept: string; onResponseExternal: any[] }> {
     const incidents =
       (await this.incidentRepository.find({
         where: { id: In(incidentIds) },
-        select: ['nroObligation'],
+        select: ['nroObligation', 'onResponseExternal'],
       })) ?? [];
 
     const bondNumbersText = incidents
@@ -1042,7 +1049,11 @@ export class IncidentService {
       concept = `${conceptElement.value} | ${concept}`;
     }
 
-    return concept;
+    const onResponseExternal = incidents.flatMap(
+      (incident) => incident.onResponseExternal ?? [],
+    );
+
+    return { concept, onResponseExternal };
   }
 
   /**
@@ -1287,6 +1298,7 @@ export class IncidentService {
    * @param codes Billing codes attached to the transaction.
    * @param accountingAccountCodes Accounting account codes attached to the transaction.
    * @param ownerName Owner name attached to the billing data.
+   * @param onResponseExternal Accumulated GIM responses to persist in the provider record.
    * @returns Promise resolving to the finalized provider response envelope.
    */
   private async _payDeunaV2(
@@ -1298,6 +1310,7 @@ export class IncidentService {
     codes: string,
     accountingAccountCodes: string,
     ownerName: string,
+    onResponseExternal: any[],
   ) {
     const { userId, typePaymentMethod, credentialId, amount } = payIncidentDto;
     const { register } = debitAmounDto;
@@ -1332,6 +1345,7 @@ export class IncidentService {
         typePaymentResponsibility,
       ),
     });
+    Object.assign(registerDeunaDto, { onResponseExternal });
 
     const response = await this.commonService.payDeUnaV2(
       idDevice,
@@ -1361,6 +1375,7 @@ export class IncidentService {
    * @param codes Billing codes attached to the transaction.
    * @param accountingAccountCodes Accounting account codes attached to the transaction.
    * @param ownerName Owner name attached to the billing data.
+   * @param onResponseExternal Accumulated GIM responses to persist in the provider record.
    * @returns Promise resolving to the finalized provider response envelope.
    */
   private async _payAhorita(
@@ -1372,6 +1387,7 @@ export class IncidentService {
     codes: string,
     accountingAccountCodes: string,
     ownerName: string,
+    onResponseExternal: any[],
   ) {
     const { userId, typePaymentMethod, credentialId, amount } = payIncidentDto;
     const { register } = debitAmounDto;
@@ -1406,6 +1422,7 @@ export class IncidentService {
         typePaymentResponsibility,
       ),
     });
+    Object.assign(registerAhoritaDto, { onResponseExternal });
 
     const response = await this.commonService.payAhorita(
       idDevice,
@@ -1435,6 +1452,7 @@ export class IncidentService {
    * @param codes Billing codes attached to the transaction.
    * @param accountingAccountCodes Accounting account codes attached to the transaction.
    * @param ownerName Owner name attached to the billing data.
+   * @param onResponseExternal Accumulated GIM responses to persist in the provider record.
    * @returns Promise resolving to the finalized provider response envelope.
    */
   private async _payPlaceToPay(
@@ -1446,6 +1464,7 @@ export class IncidentService {
     codes: string,
     accountingAccountCodes: string,
     ownerName: string,
+    onResponseExternal: any[],
   ) {
     const { userId, typePaymentMethod, credentialId, amount } = payIncidentDto;
     const { register } = debitAmounDto;
@@ -1481,6 +1500,7 @@ export class IncidentService {
       ),
       referenceId,
     });
+    Object.assign(registerPlaceToPayDto, { onResponseExternal });
 
     const response = await this.commonService.payPlaceToPay(
       idDevice,
