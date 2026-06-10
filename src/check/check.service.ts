@@ -583,7 +583,9 @@ export class CheckService {
       amount,
       identificationNumber: identityCard,
       bondIds: [bondEntry?.bondId],
-      paymentDate: new Date().toISOString().split('T')[0],
+      paymentDate: new Date().toLocaleDateString('en-CA', {
+        timeZone: 'America/Guayaquil',
+      }),
       transactionId,
     };
 
