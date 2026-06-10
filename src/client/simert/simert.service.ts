@@ -110,7 +110,7 @@ export class SimertService {
     private readonly commonCacheService: CommonCacheService,
 
     private readonly dataSource: DataSource,
-  ) { }
+  ) {}
 
   /**
    * Returns all active (not yet finished) fractions owned by the given user,
@@ -351,6 +351,54 @@ export class SimertService {
       createSimertDto;
     const register = this.commonService.getDate();
 
+    const fractionByPlate = await this.fractionRepository.findOne({
+      where: [
+        { plate: createSimertDto.plate, status: { id: StatusFraction.ACTIVE } },
+        {
+          plate: createSimertDto.plate,
+          status: { id: StatusFraction.NEXT_TO_EXCEEDED_TIME },
+        },
+        {
+          plate: createSimertDto.plate,
+          status: { id: StatusFraction.EXCEEDED_TIME },
+        },
+        {
+          plate: createSimertDto.plate,
+          status: { id: StatusFraction.SANCTIONED },
+        },
+      ],
+      relations: { status: true },
+      order: { id: 'DESC' },
+    });
+
+    if (fractionByPlate) {
+      switch (fractionByPlate.status.id) {
+        case StatusFraction.ACTIVE:
+          return {
+            errorCode: ErrorCode.OCCUPIED,
+            message: 'La placa ya tiene una fracción activa',
+          };
+        case StatusFraction.NEXT_TO_EXCEEDED_TIME:
+          return {
+            errorCode: ErrorCode.EXCEEDED,
+            message:
+              'La placa tiene una fracción próxima a exceder el tiempo permitido',
+          };
+        case StatusFraction.EXCEEDED_TIME:
+          return {
+            errorCode: ErrorCode.EXCEEDED,
+            message: 'La placa tiene una fracción con tiempo excedido',
+          };
+        case StatusFraction.SANCTIONED:
+          return {
+            errorCode: ErrorCode.SANCTIONED,
+            message: 'La placa tiene una sanción activa',
+          };
+        default:
+          return { errorCode: ErrorCode.OCCUPIED };
+      }
+    }
+
     const slot = await this.slotRepository
       .createQueryBuilder('s')
       .select([
@@ -371,14 +419,6 @@ export class SimertService {
 
     if (slot.status == StatusSlot.OCCUPIED) {
       return { errorCode: ErrorCode.OCCUPIED };
-    }
-
-    if (slot.status == StatusSlot.EXCEEDED) {
-      return { errorCode: ErrorCode.EXCEEDED, message: 'Tienes un parqueo excedido. Por favor sal del parqueadero.' };
-    }
-
-    if (slot.status == StatusSlot.SANCTIONED) {
-      return { errorCode: ErrorCode.SANCTIONED, message: 'Tienes un parqueo con una sanción.' };
     }
 
     const fractionCheck = await this.fractionRepository.findOne({
