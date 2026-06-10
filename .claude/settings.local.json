@@ -73,7 +73,8 @@
       "Bash(git -C src/common diff --stat HEAD)",
       "Bash(cp \"c:/Users/LENOVO/Documents/Simert/simert/src/common/common.service.ts\" \"c:/Users/LENOVO/Documents/Simert/simert-pay/src/common/common.service.ts\" && echo \"copied\")",
       "Bash(echo \"Exit: $?\")",
-      "Bash(echo \"simert push exit: $?\")"
+      "Bash(echo \"simert push exit: $?\")",
+      "Bash(npx --prefix \"c:/Users/LENOVO/Documents/Simert/simert\" ts-node --version)"
     ],
     "additionalDirectories": [
       "c:\\Users\\LENOVO\\Documents\\Simert\\simert-pay\\src\\common"

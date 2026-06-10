@@ -93,16 +93,14 @@ async function main() {
     await dataSource.query(`
       SELECT "transactionId", "onResponseExternal"
       FROM public.incident
-      WHERE "statusIncident" = 700
-        AND "onResponseExternal" IS NOT NULL
+      WHERE "onResponseExternal" IS NOT NULL
     `);
 
   const checkboxRows: { transactionId: string; onResponseExternal: any[] }[] =
     await dataSource.query(`
       SELECT "transactionId", "onResponseExternal"
       FROM public.checkbox
-      WHERE "statusIncident" = 700
-        AND "onResponseExternal" IS NOT NULL
+      WHERE "onResponseExternal" IS NOT NULL
     `);
 
   console.log(`Found ${incidentRows.length} incident rows`);
