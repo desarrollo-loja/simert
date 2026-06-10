@@ -110,7 +110,7 @@ export class SimertService {
     private readonly commonCacheService: CommonCacheService,
 
     private readonly dataSource: DataSource,
-  ) {}
+  ) { }
 
   /**
    * Returns all active (not yet finished) fractions owned by the given user,
@@ -380,7 +380,7 @@ export class SimertService {
           };
         case StatusFraction.NEXT_TO_EXCEEDED_TIME:
           return {
-            errorCode: ErrorCode.EXCEEDED,
+            errorCode: ErrorCode.NEXT_TO_EXCEEDED_TIME,
             message:
               'La placa tiene una fracción próxima a exceder el tiempo permitido',
           };
