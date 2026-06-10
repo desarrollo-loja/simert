@@ -1563,7 +1563,9 @@ export class IncidentService {
           amount: amount.toFixed(2),
           identificationNumber: incidents[0].identityCard,
           bondIds: bondIds,
-          paymentDate: new Date().toISOString().split('T')[0],
+          paymentDate: new Intl.DateTimeFormat('sv-SE', {
+            timeZone: 'America/Guayaquil',
+          }).format(new Date()),
           transactionId: incidentPayments[0].transactionId,
         };
 
