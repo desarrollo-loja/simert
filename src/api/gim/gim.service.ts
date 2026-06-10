@@ -574,8 +574,6 @@ export class GimService {
         };
       }
 
-      console.log('body createNewNaturalPersonGim', JSON.stringify(body));
-
       const data = await this._postToExternalApi<CreateNaturalPersonResponse>(
         'createNewNaturalPerson',
         body,
@@ -1471,9 +1469,6 @@ export class GimService {
         'registerDeposit',
         body,
       );
-
-      console.log(`registerDeposit  data `, data);
-      console.log(`registerDeposit body `, body);
 
       if (data && data.ok && data.reference && data.total) {
         return {
