@@ -201,7 +201,7 @@ export class PhysicsService {
    * identifiers to lowercase, which would break the camelCase columns of the
    * `physic` table (e.g. `"userId"`, `"zoneId"`).
    *
-   * @param filterDto Optional filters (`userId`, `zoneId`, `search`,
+   * @param filterDto Optional filters (`userId`, `zoneId`, `blockId`, `search`,
    *   `dateFrom`, `dateTo`, `timeByBlock`).
    * @returns The `whereClause` string (empty when no filters are provided) and
    *   the ordered `parameters` array aligned with the `$1..$N` placeholders.
@@ -210,7 +210,8 @@ export class PhysicsService {
     whereClause: string;
     parameters: any[];
   } {
-    const { userId, zoneId, search, dateFrom, dateTo, timeByBlock } = filterDto;
+    const { userId, zoneId, blockId, search, dateFrom, dateTo, timeByBlock } =
+      filterDto;
     const conditions: string[] = [];
     const parameters: any[] = [];
 
@@ -222,6 +223,16 @@ export class PhysicsService {
     if (zoneId) {
       parameters.push(zoneId);
       conditions.push(`p."zoneId" = $${parameters.length}`);
+    }
+
+    // `physic` has no `blockId`; the block is joined through the zone (see
+    // findAll). Since the UI cascades zone → sector, `blockId` always arrives
+    // with its `zoneId`, so this condition adds no rows beyond the zone filter
+    // — its purpose is to pin the (otherwise arbitrary) Sector column to the
+    // chosen block. Counts stay correct off `zoneId` alone.
+    if (blockId) {
+      parameters.push(blockId);
+      conditions.push(`b."id" = $${parameters.length}`);
     }
 
     if (search) {

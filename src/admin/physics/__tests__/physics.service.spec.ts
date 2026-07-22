@@ -62,8 +62,10 @@ describe('PhysicsService', () => {
       await service.findAll({
         userId: 1,
         zoneId: 2,
+        blockId: 3,
         search: 'card-x',
-        dateFrom: '2026-01-01',
+        dateFrom: '2026-01-01 05:00:00',
+        dateTo: '2026-01-02 04:59:59',
         timeByBlock: 'hour',
         limit: 50,
         offset: 5,
@@ -72,12 +74,25 @@ describe('PhysicsService', () => {
       const [sql, params] = repo.query.mock.calls[0];
       expect(sql).toContain('p."userId" = $1');
       expect(sql).toContain('p."zoneId" = $2');
-      expect(sql).toContain('p."card" = $3');
-      expect(sql).toContain('DATE(p."registerAt") = $4');
-      expect(sql).toContain('p."timeByBlock" = $5');
-      // LIMIT/OFFSET placeholders follow the 5 filter parameters.
-      expect(sql).toContain('LIMIT $6 OFFSET $7');
-      expect(params).toEqual([1, 2, 'card-x', '2026-01-01', 'hour', 50, 5]);
+      // `physic` has no blockId; the sector filter is applied on the joined block.
+      expect(sql).toContain('b."id" = $3');
+      expect(sql).toContain('p."card" = $4');
+      // The date filter is a closed UTC range on `createdAt` (needs both bounds).
+      expect(sql).toContain('p."createdAt" BETWEEN $5 AND $6');
+      expect(sql).toContain('p."timeByBlock" = $7');
+      // LIMIT/OFFSET placeholders follow the 7 filter parameters.
+      expect(sql).toContain('LIMIT $8 OFFSET $9');
+      expect(params).toEqual([
+        1,
+        2,
+        3,
+        'card-x',
+        '2026-01-01 05:00:00',
+        '2026-01-02 04:59:59',
+        'hour',
+        50,
+        5,
+      ]);
     });
 
     it('routes errors through handleDbExceptions', async () => {

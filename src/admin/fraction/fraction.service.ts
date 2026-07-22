@@ -853,9 +853,9 @@ export class FractionService {
    * the supplied filter DTO fields.
    *
    * @param filterDto Filter fields: plate search, statusId, typeFraction,
-   *   zoneId, blockId, slotId, userId, typeSize, typeSlot, and date ranges
-   *   (either timezone-aware `fromCreatedAt`/`toCreatedAt` or plain
-   *   `dateFrom`/`dateTo`).
+   *   zoneId, blockId, slotId, userId, timeByBlock, typeSize, typeSlot, and
+   *   date ranges (either timezone-aware `fromCreatedAt`/`toCreatedAt` or
+   *   plain `dateFrom`/`dateTo`).
    * @returns `{ parameters, conditions }` ready to be spliced into a raw
    *   SQL query with positional `$N` placeholders.
    */
@@ -879,6 +879,7 @@ export class FractionService {
       toCreatedAt,
       userId,
       typeSize,
+      timeByBlock,
     } = filterDto;
 
     const conditions: string[] = [];
@@ -915,6 +916,10 @@ export class FractionService {
 
     if (userId) {
       conditions.push(`f."userId" = ${addParam(userId)}`);
+    }
+
+    if (timeByBlock) {
+      conditions.push(`f."timeByBlock" = ${addParam(timeByBlock)}`);
     }
 
     if (typeSize) {
