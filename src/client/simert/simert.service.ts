@@ -243,6 +243,8 @@ export class SimertService {
         beforeTime: fractionOld.time,
         timeByBlock: fractionOld.block.timePerFraction,
         checkboxes: checkboxes,
+        // Balance remaining after this increment consumes its fractions.
+        availableCheckboxes: checkboxUser.checkboxes - checkboxes,
         slot: fractionOld.slot,
         block: fractionOld.block,
         zone: fractionOld.zone,
@@ -448,6 +450,13 @@ export class SimertService {
         ...createSimertDto,
         timeByBlock: slot.block.timePerFraction,
         checkboxes: checkboxes,
+        // Balance remaining after this session consumes its fractions. For paid
+        // parking the consumption is subtracted; for non-paid nothing is consumed
+        // so the balance is unchanged. Powers the "Fracciones disponibles" column
+        // in the digital consumption report.
+        availableCheckboxes: isPaidParking
+          ? checkboxUser.checkboxes - checkboxes
+          : checkboxUser.checkboxes,
         slot: slot,
         block: slot.block,
         zone: slot.zone,

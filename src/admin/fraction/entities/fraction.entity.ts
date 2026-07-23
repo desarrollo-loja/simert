@@ -133,6 +133,19 @@ export class Fraction {
   checkboxes: number;
 
   @ApiPropertyOptional({
+    example: 6,
+    description:
+      'Remaining fraction (checkbox) balance the user had after this session consumed its fractions. Null for sessions created before this field existed',
+  })
+  @Column('int', {
+    nullable: true,
+    default: null,
+    comment:
+      'Remaining fraction (checkbox) balance the user had after this session consumed its fractions (null for legacy rows / non-digital sessions)',
+  })
+  availableCheckboxes: number;
+
+  @ApiPropertyOptional({
     example: 'LOJ1234',
     description:
       'License plate of the parked vehicle (null for virtual card sessions)',

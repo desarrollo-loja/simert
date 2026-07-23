@@ -75,9 +75,14 @@ export class FractionService {
       if (tableExists || (!year && !month)) {
         const { parameters, conditions } =
           this._buildQueryParameters(filterDto);
+        // `availableCheckboxes` only exists on the live `fraction` table; the
+        // monthly `history.*` archives predate it, so it is selected only when
+        // querying the live table to avoid breaking historical queries.
+        const availableCheckboxesCol =
+          tableName === 'fraction' ? 'f."availableCheckboxes",' : '';
         let query = `
         SELECT f.id, f."userId", f."transactionId", f.time, f."typeFraction",
-        f.plate, f.alias, f.tint, f.image,
+        f.plate, f.alias, f.tint, f.image, ${availableCheckboxesCol}
         TO_CHAR(f."createdAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS') AS "createdAt",
         TO_CHAR(f."departureDate", 'YYYY-MM-DD"T"HH24:MI:SS.MS') AS "departureDate",
         f."timeByBlock",
