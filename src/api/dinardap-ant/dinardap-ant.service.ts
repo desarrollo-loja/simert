@@ -4,6 +4,7 @@ import axios, { AxiosRequestConfig } from 'axios';
 import { CommonGimService } from 'src/common/common.gim.service';
 import { ErrorCode } from 'src/common/glob/error';
 import { AntResponse } from 'src/common/intefaces/ant_response.interface';
+import { LoggerService } from 'src/common/logger.service.ts';
 
 type AntLookupResult =
     | { errorCode: ErrorCode.NONE; data: AntResponse }
@@ -27,10 +28,12 @@ export class DinardapAntService {
     /**
      * @param configService Provides access to environment configuration values.
      * @param commonGimService Supplies the GIM Keycloak token used to authenticate requests.
+     * @param loggerService Audit logger used to record ANT integration failures.
      */
     constructor(
         private readonly configService: ConfigService,
         private readonly commonGimService: CommonGimService,
+        private readonly loggerService: LoggerService,
     ) {
         this.dinardapAntBaseUrl = this.configService.get<string>(
             'DINARDAP_ANT_BASE_URL',
@@ -176,6 +179,16 @@ export class DinardapAntService {
     }> {
         if (!this.dinardapAntBaseUrl) {
             this.logger.error('DINARDAP_ANT_BASE_URL not configured');
+            this.loggerService.saveLogsAntLogger({
+                resource: 'DINARDAP_ANT',
+                service: 'DinardapAntService',
+                method: 'getUserDataByPlateAnt',
+                endpoint: 'GET /api/dinardap/vehicles/{plate}/registration',
+                params: { plate },
+                errorCode: ErrorCode.SYSTEM_INACTIVE,
+                message: 'DINARDAP_ANT_BASE_URL not configured',
+            });
+
             return {
                 data: null,
                 errorCode: ErrorCode.SYSTEM_INACTIVE,
@@ -189,6 +202,16 @@ export class DinardapAntService {
 
         if (!accessToken) {
             this.logger.error('GIM2 token not available for DINARDAP ANT');
+            this.loggerService.saveLogsAntLogger({
+                resource: 'DINARDAP_ANT',
+                service: 'DinardapAntService',
+                method: 'getUserDataByPlateAnt',
+                endpoint: 'GET /api/dinardap/vehicles/{plate}/registration',
+                params: { plate },
+                errorCode: ErrorCode.UNAUTHORIZED,
+                message: 'GIM2 token not available for DINARDAP ANT',
+            });
+
             return {
                 data: null,
                 errorCode: ErrorCode.UNAUTHORIZED,
@@ -316,6 +339,21 @@ export class DinardapAntService {
                 `DINARDAP ANT lookup failed plate=${plate}: ${error?.response?.data ? JSON.stringify(error.response.data) : (error?.message ?? error)}`,
             );
             const mapped = this._buildAntErrorMessage(error);
+            this.loggerService.saveLogsAntLogger({
+                resource: 'DINARDAP_ANT',
+                service: 'DinardapAntService',
+                method: 'getUserDataByPlateAnt',
+                endpoint: url,
+                params: { plate },
+                httpStatus: error?.response?.status,
+                errorCode: mapped.errorCode,
+                message: mapped.message,
+                response: error?.response?.data,
+                exception: error?.name
+                    ? `${error.name}: ${error.message}`
+                    : String(error),
+            });
+
             return {
                 data: null,
                 errorCode: mapped.errorCode,

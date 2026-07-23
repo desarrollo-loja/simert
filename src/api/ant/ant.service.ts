@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import axios, { AxiosRequestConfig } from 'axios';
 import { XMLParser } from 'fast-xml-parser';
 import { ErrorCode } from 'src/common/glob/error';
+import { LoggerService } from 'src/common/logger.service.ts';
 
 import { AntDataByPlateResponse } from './interfaces/ant-responses.interfaces';
 
@@ -44,8 +45,12 @@ export class AntService {
      * Creates the ANT service and resolves the ANT base URL from configuration.
      *
      * @param configService Configuration service used to read ANT connection settings.
+     * @param loggerService Audit logger used to record ANT integration failures.
      */
-    constructor(private readonly configService: ConfigService) {
+    constructor(
+        private readonly configService: ConfigService,
+        private readonly loggerService: LoggerService,
+    ) {
         this.antBaseUrl = this.configService.get<string>('ANT_BASE_URL');
         // this.antApiKey = this.configService.get<string>('ANT_API_KEY');
     }
@@ -101,6 +106,14 @@ export class AntService {
     ): Promise<AntDataResponse | null> {
         if (!this.antBaseUrl) {
             this.logger.error('ANT_BASE_URL not configured');
+            this.loggerService.saveLogsAntLogger({
+                resource: 'ANT_SOAP',
+                service: 'AntService',
+                method: 'getUserDataByPlateAnt',
+                endpoint: 'consultarVehiculo',
+                params: { plate },
+                message: 'ANT_BASE_URL not configured',
+            });
 
             return null;
         }
@@ -173,6 +186,20 @@ export class AntService {
             this.logger.error(
                 `ANT lookup failed plate=${plate}: ${error?.message ?? error}`,
             );
+            this.loggerService.saveLogsAntLogger({
+                resource: 'ANT_SOAP',
+                service: 'AntService',
+                method: 'getUserDataByPlateAnt',
+                endpoint: url,
+                params: { plate },
+                httpStatus: error?.response?.status,
+                response: error?.response?.data,
+                message: error?.message ?? String(error),
+                exception: error?.name
+                    ? `${error.name}: ${error.message}`
+                    : String(error),
+            });
+
             return null;
         }
     }
