@@ -1262,7 +1262,6 @@ export class GimService {
         'validateOpenTill',
         {},
       );
-      console.log('data', data);
 
       if (
         data &&
