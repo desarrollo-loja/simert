@@ -27,7 +27,7 @@ export class FractionService {
   constructor(
     @InjectRepository(Fraction)
     private readonly fractionRepository: Repository<Fraction>,
-  ) {}
+  ) { }
 
   /**
    * Lists parking fractions with pagination, reading either from the live
@@ -879,6 +879,7 @@ export class FractionService {
       toCreatedAt,
       userId,
       typeSize,
+      timeByBlock
     } = filterDto;
 
     const conditions: string[] = [];
@@ -931,6 +932,11 @@ export class FractionService {
 
     if (typeSlot) {
       conditions.push(`slot."typeSlot" = ${addParam(Number(typeSlot))}`);
+    }
+
+    if (timeByBlock) {
+      parameters.push(timeByBlock);
+      conditions.push(`f."timeByBlock" = $${parameters.length}`);
     }
 
     if (isTimeZone) {
