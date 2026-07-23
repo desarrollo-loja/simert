@@ -13,12 +13,12 @@ import { MappingService } from './mapping.service';
  *
  */
 @Module({
-  controllers: [MappingController],
-  providers: [MappingService],
-  imports: [
-    TypeOrmModule.forFeature([Zone, Block, Slot]),
-    AuthModule,
-    LoggerModule,
-  ],
+    controllers: [MappingController],
+    providers: [MappingService],
+    imports: [
+        TypeOrmModule.forFeature([Zone, Block, Slot]),
+        AuthModule,
+        LoggerModule,
+    ],
 })
 export class MappingModule {}

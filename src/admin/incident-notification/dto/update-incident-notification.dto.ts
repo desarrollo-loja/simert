@@ -6,5 +6,5 @@ import { CreateIncidentNotificationDto } from './create-incident-notification.dt
  *
  */
 export class UpdateIncidentNotificationDto extends PartialType(
-  CreateIncidentNotificationDto,
+    CreateIncidentNotificationDto,
 ) {}

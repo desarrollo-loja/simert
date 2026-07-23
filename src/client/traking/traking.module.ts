@@ -9,8 +9,8 @@ import { TrakingService } from './traking.service';
  *
  */
 @Module({
-  controllers: [TrakingController],
-  providers: [TrakingService],
-  imports: [TypeOrmModule.forFeature([L])],
+    controllers: [TrakingController],
+    providers: [TrakingService],
+    imports: [TypeOrmModule.forFeature([L])],
 })
 export class TrakingModule {}

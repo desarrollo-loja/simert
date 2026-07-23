@@ -465,8 +465,11 @@ describe('FractionService', () => {
         toCreatedAt: '2026-01-02',
         timeZoneUTC: '-05:00',
       });
-      expect(conditions.some((c) => c.includes('AT TIME ZONE'))).toBe(true);
-      expect(parameters).toContain('-05:00');
+      // The local day range is converted to its UTC-equivalent window in JS and
+      // bound as a closed range on `createdAt`; the offset itself is not a param.
+      expect(conditions.some((c) => c.includes('f."createdAt" BETWEEN'))).toBe(true);
+      expect(parameters).toContain('2026-01-01 05:00:00');
+      expect(parameters).toContain('2026-01-02 05:00:00');
     });
 
     it('does not push BETWEEN if dateFrom/dateTo missing', () => {
@@ -479,7 +482,7 @@ describe('FractionService', () => {
         isTimeZone: true,
         fromCreatedAt: '2026-01-01',
       });
-      expect(conditions.some((c) => c.includes('AT TIME ZONE'))).toBe(false);
+      expect(conditions.some((c) => c.includes('f."createdAt" BETWEEN'))).toBe(false);
     });
   });
 });

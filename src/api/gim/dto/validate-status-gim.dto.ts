@@ -7,17 +7,17 @@ import { CreateGimDto } from './create-gim.dto';
  *
  */
 export class ValidateStatusGimDto {
-  @IsArray()
-  debtDataObligations: any[];
+    @IsArray()
+    debtDataObligations: any[];
 
-  @IsInt()
-  incidentId: number;
+    @IsInt()
+    incidentId: number;
 
-  @IsInt()
-  isTransacional: number;
+    @IsInt()
+    isTransacional: number;
 
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => CreateGimDto)
-  createGimDto?: CreateGimDto;
+    @IsOptional()
+    @ValidateNested()
+    @Type(() => CreateGimDto)
+    createGimDto?: CreateGimDto;
 }

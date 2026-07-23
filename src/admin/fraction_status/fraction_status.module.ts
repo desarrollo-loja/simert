@@ -10,8 +10,8 @@ import { FractionStatusService } from './fraction_status.service';
  *
  */
 @Module({
-  controllers: [FractionStatusController],
-  providers: [FractionStatusService],
-  imports: [TypeOrmModule.forFeature([FractionStatus]), AuthModule],
+    controllers: [FractionStatusController],
+    providers: [FractionStatusService],
+    imports: [TypeOrmModule.forFeature([FractionStatus]), AuthModule],
 })
 export class FractionStatusModule {}

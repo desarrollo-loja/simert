@@ -11,7 +11,7 @@ import { IncidentService } from './incident.service';
  * that are paid but pending deposit, and syncs the GIM responses to simert-pay.
  */
 @Module({
-  providers: [IncidentService],
-  imports: [TypeOrmModule.forFeature([Incident]), GimModule, CommonModule],
+    providers: [IncidentService],
+    imports: [TypeOrmModule.forFeature([Incident]), GimModule, CommonModule],
 })
 export class IncidentCheckModule {}

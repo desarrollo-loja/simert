@@ -15,13 +15,13 @@ import { CheckboxService } from './checkbox.service';
  *
  */
 @Module({
-  controllers: [CheckboxController],
-  providers: [CheckboxService],
-  imports: [
-    TypeOrmModule.forFeature([Checkbox, CheckboxUser, Card, Catalog]),
-    AuthModule,
-    CommonModule,
-    GimModule,
-  ],
+    controllers: [CheckboxController],
+    providers: [CheckboxService],
+    imports: [
+        TypeOrmModule.forFeature([Checkbox, CheckboxUser, Card, Catalog]),
+        AuthModule,
+        CommonModule,
+        GimModule,
+    ],
 })
 export class CheckboxModule {}

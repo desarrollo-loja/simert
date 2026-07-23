@@ -12,35 +12,35 @@ import { Repository } from 'typeorm';
  */
 @Injectable()
 export class IncidentTypeService {
-  private readonly logger = new Logger(IncidentTypeService.name);
+    private readonly logger = new Logger(IncidentTypeService.name);
 
-  /**
-   * Creates a new IncidentTypeService.
-   * @param incidentTypeRepository Repository used to query IncidentType entities.
-   * @param loggerService Shared logger service for audit and diagnostic logging.
-   */
-  constructor(
-    @InjectRepository(IncidentType)
-    private readonly incidentTypeRepository: Repository<IncidentType>,
+    /**
+     * Creates a new IncidentTypeService.
+     * @param incidentTypeRepository Repository used to query IncidentType entities.
+     * @param loggerService Shared logger service for audit and diagnostic logging.
+     */
+    constructor(
+        @InjectRepository(IncidentType)
+        private readonly incidentTypeRepository: Repository<IncidentType>,
 
-    @Inject(LoggerService)
-    private readonly loggerService: LoggerService,
-  ) {}
+        @Inject(LoggerService)
+        private readonly loggerService: LoggerService,
+    ) {}
 
-  /**
-   * Retrieves all active incident types ordered by creation date descending.
-   * @returns An object containing the active incident types and a success error code.
-   */
-  async getIncidentType() {
-    try {
-      const incidentTypes = await this.incidentTypeRepository.find({
-        where: { isActivated: true },
-        order: { createdAt: 'DESC' },
-      });
+    /**
+     * Retrieves all active incident types ordered by creation date descending.
+     * @returns An object containing the active incident types and a success error code.
+     */
+    async getIncidentType() {
+        try {
+            const incidentTypes = await this.incidentTypeRepository.find({
+                where: { isActivated: true },
+                order: { createdAt: 'DESC' },
+            });
 
-      return { incidentTypes, errorCode: ErrorCode.NONE };
-    } catch (error) {
-      handleDbExceptions(error, this.logger);
+            return { incidentTypes, errorCode: ErrorCode.NONE };
+        } catch (error) {
+            handleDbExceptions(error, this.logger);
+        }
     }
-  }
 }

@@ -13,45 +13,45 @@ import { Physic } from './entities/physic.entity';
  */
 @Injectable()
 export class PhysicsService {
-  private readonly logger = new Logger('PhysicsService');
+    private readonly logger = new Logger('PhysicsService');
 
-  /**
-   * Creates the service with the injected `Physic` entity repository.
-   *
-   * @param physicRepository - TypeORM repository for the `physic` entity.
-   */
-  constructor(
-    @InjectRepository(Physic)
-    private readonly physicRepository: Repository<Physic>,
-  ) {}
+    /**
+     * Creates the service with the injected `Physic` entity repository.
+     *
+     * @param physicRepository - TypeORM repository for the `physic` entity.
+     */
+    constructor(
+        @InjectRepository(Physic)
+        private readonly physicRepository: Repository<Physic>,
+    ) {}
 
-  /**
-   * Retrieves a paginated list of physical card usage records.
-   *
-   * Runs a raw SQL query (no ORM query builder) with INNER JOINs to `zone`,
-   * `block` and `slot`. Because the `physic` table only stores `zoneId` (no
-   * `blockId`/`slotId`), the block/slot joins are made through the zone, which
-   * naturally fans the rows out (one `physic` × N blocks × M slots). To return
-   * one row per `physic`, the query uses `SELECT DISTINCT ON (p."id")` and the
-   * `ORDER BY` picks the lowest `block.id` and `slot.id` as the representative
-   * row. The reported `blockName`/`slotName` are therefore arbitrary and do not
-   * necessarily reflect where the user actually parked.
-   * Runs a raw SQL query (no ORM query builder) with an INNER JOIN to the
-   * `zone` table, so only records pointing to an existing zone are returned.
-   * The selected columns and response shape are kept identical to the previous
-   * ORM-based implementation.
-   *
-   * @param filterDto Pagination (`limit`, `offset`) and optional filters
-   *   (`userId`, `zoneId`, `search`, `dateFrom`, `dateTo`, `timeByBlock`).
-   * @returns Object with `errorCode` and the `physics` array of records.
-   */
-  async findAll(filterDto: FilterDto) {
-    try {
-      const { limit = 20, offset = 0 } = filterDto;
+    /**
+     * Retrieves a paginated list of physical card usage records.
+     *
+     * Runs a raw SQL query (no ORM query builder) with INNER JOINs to `zone`,
+     * `block` and `slot`. Because the `physic` table only stores `zoneId` (no
+     * `blockId`/`slotId`), the block/slot joins are made through the zone, which
+     * naturally fans the rows out (one `physic` × N blocks × M slots). To return
+     * one row per `physic`, the query uses `SELECT DISTINCT ON (p."id")` and the
+     * `ORDER BY` picks the lowest `block.id` and `slot.id` as the representative
+     * row. The reported `blockName`/`slotName` are therefore arbitrary and do not
+     * necessarily reflect where the user actually parked.
+     * Runs a raw SQL query (no ORM query builder) with an INNER JOIN to the
+     * `zone` table, so only records pointing to an existing zone are returned.
+     * The selected columns and response shape are kept identical to the previous
+     * ORM-based implementation.
+     *
+     * @param filterDto Pagination (`limit`, `offset`) and optional filters
+     *   (`userId`, `zoneId`, `search`, `dateFrom`, `dateTo`, `timeByBlock`).
+     * @returns Object with `errorCode` and the `physics` array of records.
+     */
+    async findAll(filterDto: FilterDto) {
+        try {
+            const { limit = 20, offset = 0 } = filterDto;
 
-      const { whereClause, parameters } = this._buildRawFilter(filterDto);
+            const { whereClause, parameters } = this._buildRawFilter(filterDto);
 
-      const sql = `
+            const sql = `
         SELECT DISTINCT ON (p."id")
           p."id",
           p."userId",
@@ -77,180 +77,199 @@ export class PhysicsService {
         LIMIT $${parameters.length + 1} OFFSET $${parameters.length + 2}
       `;
 
-      const physics = await this.physicRepository.query(sql, [
-        ...parameters,
-        limit,
-        offset,
-      ]);
+            const physics = await this.physicRepository.query(sql, [
+                ...parameters,
+                limit,
+                offset,
+            ]);
 
-      return { errorCode: ErrorCode.NONE, physics };
-    } catch (error) {
-      handleDbExceptions(error, this.logger);
-    }
-  }
-
-  /**
-   * Returns the count of distinct physical card identifiers matching the given
-   * filters (i.e. unique card numbers, not unique records).
-   *
-   * @param filterDto Optional filters (`userId`, `zoneId`, `search`,
-   *   `dateFrom`, `dateTo`, `timeByBlock`).
-   * @returns Object with `errorCode` and the numeric `total` of unique cards.
-   */
-  async findAllTotalUnique(filterDto: FilterDto) {
-    try {
-      const query = this.physicRepository
-        .createQueryBuilder('p')
-        .select('COUNT(DISTINCT p.card)', 'total');
-
-      const { conditions, parameters } =
-        this._buildConditionsAndParameters(filterDto);
-      if (conditions.length) {
-        query.andWhere(conditions.join(' AND '), parameters);
-      }
-
-      const result = await query.getRawOne<{ total: string }>();
-      const total = parseInt(result.total, 10);
-
-      return { errorCode: ErrorCode.NONE, total };
-    } catch (error) {
-      handleDbExceptions(error, this.logger);
-    }
-  }
-
-  /**
-   * Returns the total number of physical card records matching the given
-   * filters (counts every row, not distinct cards).
-   *
-   * @param filterDto Optional filters (`userId`, `zoneId`, `search`,
-   *   `dateFrom`, `dateTo`, `timeByBlock`).
-   * @returns Object with `errorCode` and the numeric `total`.
-   */
-  async findAllTotal(filterDto: FilterDto) {
-    try {
-      const query = this.physicRepository.createQueryBuilder('p');
-
-      const { conditions, parameters } =
-        this._buildConditionsAndParameters(filterDto);
-      if (conditions.length) {
-        query.andWhere(conditions.join(' AND '), parameters);
-      }
-
-      const total = await query.getCount();
-
-      return { errorCode: ErrorCode.NONE, total };
-    } catch (error) {
-      handleDbExceptions(error, this.logger);
-    }
-  }
-
-  /**
-   * Builds the TypeORM QueryBuilder conditions and named-parameter map for
-   * the ORM-based query variants ({@link findAllTotalUnique},
-   * {@link findAllTotal}).
-   *
-   * Uses named parameters (`:paramName`) compatible with QueryBuilder's
-   * `andWhere` API.
-   *
-   * @param filterDto Optional filters to apply.
-   * @returns Object with the `conditions` string array and the `parameters`
-   *   named-parameter record.
-   */
-  private _buildConditionsAndParameters(filterDto: FilterDto) {
-    const { userId, zoneId, search, dateFrom, dateTo, timeByBlock } = filterDto;
-    const conditions: string[] = [];
-    const parameters: Record<string, any> = {};
-
-    if (userId) {
-      conditions.push('p.userId = :userId');
-      parameters['userId'] = userId;
+            return { errorCode: ErrorCode.NONE, physics };
+        } catch (error) {
+            handleDbExceptions(error, this.logger);
+        }
     }
 
-    if (zoneId) {
-      conditions.push('p.zoneId = :zoneId');
-      parameters['zoneId'] = zoneId;
+    /**
+     * Returns the count of distinct physical card identifiers matching the given
+     * filters (i.e. unique card numbers, not unique records).
+     *
+     * @param filterDto Optional filters (`userId`, `zoneId`, `search`,
+     *   `dateFrom`, `dateTo`, `timeByBlock`).
+     * @returns Object with `errorCode` and the numeric `total` of unique cards.
+     */
+    async findAllTotalUnique(filterDto: FilterDto) {
+        try {
+            const query = this.physicRepository
+                .createQueryBuilder('p')
+                .select('COUNT(DISTINCT p.card)', 'total');
+
+            const { conditions, parameters } =
+                this._buildConditionsAndParameters(filterDto);
+            if (conditions.length) {
+                query.andWhere(conditions.join(' AND '), parameters);
+            }
+
+            const result = await query.getRawOne<{ total: string }>();
+            const total = parseInt(result.total, 10);
+
+            return { errorCode: ErrorCode.NONE, total };
+        } catch (error) {
+            handleDbExceptions(error, this.logger);
+        }
     }
 
-    if (search) {
-      conditions.push('p.card ILIKE :search');
-      parameters['search'] = `%${search}%`;
+    /**
+     * Returns the total number of physical card records matching the given
+     * filters (counts every row, not distinct cards).
+     *
+     * @param filterDto Optional filters (`userId`, `zoneId`, `search`,
+     *   `dateFrom`, `dateTo`, `timeByBlock`).
+     * @returns Object with `errorCode` and the numeric `total`.
+     */
+    async findAllTotal(filterDto: FilterDto) {
+        try {
+            const query = this.physicRepository.createQueryBuilder('p');
+
+            const { conditions, parameters } =
+                this._buildConditionsAndParameters(filterDto);
+            if (conditions.length) {
+                query.andWhere(conditions.join(' AND '), parameters);
+            }
+
+            const total = await query.getCount();
+
+            return { errorCode: ErrorCode.NONE, total };
+        } catch (error) {
+            handleDbExceptions(error, this.logger);
+        }
     }
 
-    if (dateFrom && dateTo) {
-      // Same UTC-range filter as the raw `findAll` query so counts and list stay
-      // consistent: the front sends the local day as a closed UTC range and
-      // `createdAt` is stored in UTC.
-      conditions.push('p.createdAt BETWEEN :dateFrom AND :dateTo');
-      parameters['dateFrom'] = dateFrom;
-      parameters['dateTo'] = dateTo;
+    /**
+     * Builds the TypeORM QueryBuilder conditions and named-parameter map for
+     * the ORM-based query variants ({@link findAllTotalUnique},
+     * {@link findAllTotal}).
+     *
+     * Uses named parameters (`:paramName`) compatible with QueryBuilder's
+     * `andWhere` API.
+     *
+     * @param filterDto Optional filters to apply.
+     * @returns Object with the `conditions` string array and the `parameters`
+     *   named-parameter record.
+     */
+    private _buildConditionsAndParameters(filterDto: FilterDto) {
+        const { userId, zoneId, search, dateFrom, dateTo, timeByBlock } =
+            filterDto;
+        const conditions: string[] = [];
+        const parameters: Record<string, any> = {};
+
+        if (userId) {
+            conditions.push('p.userId = :userId');
+            parameters['userId'] = userId;
+        }
+
+        if (zoneId) {
+            conditions.push('p.zoneId = :zoneId');
+            parameters['zoneId'] = zoneId;
+        }
+
+        if (search) {
+            conditions.push('p.card ILIKE :search');
+            parameters['search'] = `%${search}%`;
+        }
+
+        if (dateFrom && dateTo) {
+            // Same UTC-range filter as the raw `findAll` query so counts and list stay
+            // consistent: the front sends the local day as a closed UTC range and
+            // `createdAt` is stored in UTC.
+            conditions.push('p.createdAt BETWEEN :dateFrom AND :dateTo');
+            parameters['dateFrom'] = dateFrom;
+            parameters['dateTo'] = dateTo;
+        }
+
+        if (timeByBlock) {
+            conditions.push('p.timeByBlock = :timeByBlock');
+            parameters['timeByBlock'] = timeByBlock;
+        }
+
+        return { conditions, parameters };
     }
 
-    if (timeByBlock) {
-      conditions.push('p.timeByBlock = :timeByBlock');
-      parameters['timeByBlock'] = timeByBlock;
+    /**
+     * Builds the `WHERE` clause and positional parameter list for the raw SQL
+     * variant of {@link findAll}.
+     *
+     * Column names are wrapped in double quotes because Postgres folds unquoted
+     * identifiers to lowercase, which would break the camelCase columns of the
+     * `physic` table (e.g. `"userId"`, `"zoneId"`).
+     *
+     * @param filterDto Optional filters (`userId`, `zoneId`, `blockId`, `search`,
+     *   `dateFrom`, `dateTo`, `timeByBlock`).
+     * @returns The `whereClause` string (empty when no filters are provided) and
+     *   the ordered `parameters` array aligned with the `$1..$N` placeholders.
+     */
+    private _buildRawFilter(filterDto: FilterDto): {
+        whereClause: string;
+        parameters: any[];
+    } {
+        const {
+            userId,
+            zoneId,
+            blockId,
+            search,
+            dateFrom,
+            dateTo,
+            timeByBlock,
+        } = filterDto;
+        const conditions: string[] = [];
+        const parameters: any[] = [];
+
+        if (userId) {
+            parameters.push(userId);
+            conditions.push(`p."userId" = $${parameters.length}`);
+        }
+
+        if (zoneId) {
+            parameters.push(zoneId);
+            conditions.push(`p."zoneId" = $${parameters.length}`);
+        }
+
+        // `physic` has no `blockId`; the block is joined through the zone (see
+        // findAll). Since the UI cascades zone → sector, `blockId` always arrives
+        // with its `zoneId`, so this condition adds no rows beyond the zone filter
+        // — its purpose is to pin the (otherwise arbitrary) Sector column to the
+        // chosen block. Counts stay correct off `zoneId` alone.
+        if (blockId) {
+            parameters.push(blockId);
+            conditions.push(`b."id" = $${parameters.length}`);
+        }
+
+        if (search) {
+            parameters.push(search);
+            conditions.push(`p."card" = $${parameters.length}`);
+        }
+
+        if (dateFrom && dateTo) {
+            // The front sends the selected local day already converted to a closed UTC
+            // range [dateFrom, dateTo] (e.g. 2026-06-04 -> 2026-06-04 05:00:00 ..
+            // 2026-06-05 04:59:59). `createdAt` is stored in UTC, so comparing it
+            // against that UTC window returns exactly the rows of the chosen local day.
+            parameters.push(dateFrom);
+            const fromPlaceholder = `$${parameters.length}`;
+            parameters.push(dateTo);
+            const toPlaceholder = `$${parameters.length}`;
+            conditions.push(
+                `p."createdAt" BETWEEN ${fromPlaceholder} AND ${toPlaceholder}`,
+            );
+        }
+
+        if (timeByBlock) {
+            parameters.push(timeByBlock);
+            conditions.push(`p."timeByBlock" = $${parameters.length}`);
+        }
+
+        const whereClause = conditions.length
+            ? `WHERE ${conditions.join(' AND ')}`
+            : '';
+        return { whereClause, parameters };
     }
-
-    return { conditions, parameters };
-  }
-
-  /**
-   * Builds the `WHERE` clause and positional parameter list for the raw SQL
-   * variant of {@link findAll}.
-   *
-   * Column names are wrapped in double quotes because Postgres folds unquoted
-   * identifiers to lowercase, which would break the camelCase columns of the
-   * `physic` table (e.g. `"userId"`, `"zoneId"`).
-   *
-   * @param filterDto Optional filters (`userId`, `zoneId`, `search`,
-   *   `dateFrom`, `dateTo`, `timeByBlock`).
-   * @returns The `whereClause` string (empty when no filters are provided) and
-   *   the ordered `parameters` array aligned with the `$1..$N` placeholders.
-   */
-  private _buildRawFilter(filterDto: FilterDto): {
-    whereClause: string;
-    parameters: any[];
-  } {
-    const { userId, zoneId, search, dateFrom, dateTo, timeByBlock } = filterDto;
-    const conditions: string[] = [];
-    const parameters: any[] = [];
-
-    if (userId) {
-      parameters.push(userId);
-      conditions.push(`p."userId" = $${parameters.length}`);
-    }
-
-    if (zoneId) {
-      parameters.push(zoneId);
-      conditions.push(`p."zoneId" = $${parameters.length}`);
-    }
-
-    if (search) {
-      parameters.push(search);
-      conditions.push(`p."card" = $${parameters.length}`);
-    }
-
-    if (dateFrom && dateTo) {
-      // The front sends the selected local day already converted to a closed UTC
-      // range [dateFrom, dateTo] (e.g. 2026-06-04 -> 2026-06-04 05:00:00 ..
-      // 2026-06-05 04:59:59). `createdAt` is stored in UTC, so comparing it
-      // against that UTC window returns exactly the rows of the chosen local day.
-      parameters.push(dateFrom);
-      const fromPlaceholder = `$${parameters.length}`;
-      parameters.push(dateTo);
-      const toPlaceholder = `$${parameters.length}`;
-      conditions.push(
-        `p."createdAt" BETWEEN ${fromPlaceholder} AND ${toPlaceholder}`,
-      );
-    }
-
-    if (timeByBlock) {
-      parameters.push(timeByBlock);
-      conditions.push(`p."timeByBlock" = $${parameters.length}`);
-    }
-
-    const whereClause = conditions.length
-      ? `WHERE ${conditions.join(' AND ')}`
-      : '';
-    return { whereClause, parameters };
-  }
 }

@@ -11,8 +11,8 @@ import { Block } from './entities/block.entity';
  *
  */
 @Module({
-  controllers: [BlockController],
-  providers: [BlockService],
-  imports: [TypeOrmModule.forFeature([Block]), AuthModule, LoggerModule],
+    controllers: [BlockController],
+    providers: [BlockService],
+    imports: [TypeOrmModule.forFeature([Block]), AuthModule, LoggerModule],
 })
 export class BlockModule {}

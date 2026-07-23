@@ -10,8 +10,8 @@ import { LService } from './l.service';
  *
  */
 @Module({
-  controllers: [LController],
-  providers: [LService],
-  imports: [TypeOrmModule.forFeature([L]), AuthModule],
+    controllers: [LController],
+    providers: [LService],
+    imports: [TypeOrmModule.forFeature([L]), AuthModule],
 })
 export class LModule {}

@@ -15,57 +15,60 @@ import { CreateSupportTicketDto } from './dto/create-support-ticket.dto';
  */
 @Injectable()
 export class SupportTicketService {
-  private readonly logger = new Logger(SupportTicketService.name);
+    private readonly logger = new Logger(SupportTicketService.name);
 
-  /**
-   * Creates the service with its required dependencies.
-   *
-   * @param supportTicketRepository TypeORM repository for the SupportTicket entity.
-   */
-  constructor(
-    @InjectRepository(SupportTicket)
-    private readonly supportTicketRepository: Repository<SupportTicket>,
-  ) {}
+    /**
+     * Creates the service with its required dependencies.
+     *
+     * @param supportTicketRepository TypeORM repository for the SupportTicket entity.
+     */
+    constructor(
+        @InjectRepository(SupportTicket)
+        private readonly supportTicketRepository: Repository<SupportTicket>,
+    ) {}
 
-  /**
-   * Creates a support ticket, defaulting the status to PENDING and falling back
-   * to the token's userId when the DTO does not provide one.
-   *
-   * @param userId Authenticated user identifier used when the DTO omits one.
-   * @param createSupportTicketDto Payload describing the support ticket to create.
-   * @returns Promise resolving to the created ticket, its reference number, a
-   *   success message and an error code.
-   */
-  async create(userId: number, createSupportTicketDto: CreateSupportTicketDto) {
-    try {
-      // Use the userId from the DTO if provided, otherwise fall back to the parameter
-      if (!createSupportTicketDto.userId) {
-        createSupportTicketDto.userId = userId;
-      }
+    /**
+     * Creates a support ticket, defaulting the status to PENDING and falling back
+     * to the token's userId when the DTO does not provide one.
+     *
+     * @param userId Authenticated user identifier used when the DTO omits one.
+     * @param createSupportTicketDto Payload describing the support ticket to create.
+     * @returns Promise resolving to the created ticket, its reference number, a
+     *   success message and an error code.
+     */
+    async create(
+        userId: number,
+        createSupportTicketDto: CreateSupportTicketDto,
+    ) {
+        try {
+            // Use the userId from the DTO if provided, otherwise fall back to the parameter
+            if (!createSupportTicketDto.userId) {
+                createSupportTicketDto.userId = userId;
+            }
 
-      // If no status is provided, default to PENDING
-      if (!createSupportTicketDto.status) {
-        createSupportTicketDto.status = SupportTicketStatus.PENDING;
-      }
+            // If no status is provided, default to PENDING
+            if (!createSupportTicketDto.status) {
+                createSupportTicketDto.status = SupportTicketStatus.PENDING;
+            }
 
-      const supportTicket = this.supportTicketRepository.create({
-        ...createSupportTicketDto,
-      });
+            const supportTicket = this.supportTicketRepository.create({
+                ...createSupportTicketDto,
+            });
 
-      const savedTicket =
-        await this.supportTicketRepository.save(supportTicket);
+            const savedTicket =
+                await this.supportTicketRepository.save(supportTicket);
 
-      // Generate reference ticket number
-      const ticketNumber = `ST-${savedTicket.id.toString().padStart(6, '0')}`;
+            // Generate reference ticket number
+            const ticketNumber = `ST-${savedTicket.id.toString().padStart(6, '0')}`;
 
-      return {
-        errorCode: ErrorCode.NONE,
-        supportTicket: savedTicket,
-        ticketNumber,
-        message: `Ticket creado exitosamente. Número de referencia: ${ticketNumber}`,
-      };
-    } catch (error) {
-      handleDbExceptions(error, this.logger);
+            return {
+                errorCode: ErrorCode.NONE,
+                supportTicket: savedTicket,
+                ticketNumber,
+                message: `Ticket creado exitosamente. Número de referencia: ${ticketNumber}`,
+            };
+        } catch (error) {
+            handleDbExceptions(error, this.logger);
+        }
     }
-  }
 }

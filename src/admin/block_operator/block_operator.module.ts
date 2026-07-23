@@ -11,12 +11,12 @@ import { BlockOperator } from './entities/block_operator.entity';
  *
  */
 @Module({
-  controllers: [BlockOperatorController],
-  providers: [BlockOperatorService],
-  imports: [
-    TypeOrmModule.forFeature([BlockOperator]),
-    AuthModule,
-    LoggerModule,
-  ],
+    controllers: [BlockOperatorController],
+    providers: [BlockOperatorService],
+    imports: [
+        TypeOrmModule.forFeature([BlockOperator]),
+        AuthModule,
+        LoggerModule,
+    ],
 })
 export class BlockOperatorModule {}

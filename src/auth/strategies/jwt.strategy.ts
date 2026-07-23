@@ -13,37 +13,39 @@ import { JwtPayload } from '../interfaces/jwt-payload.interface';
  */
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  /**
-   * Creates a new JwtStrategy and configures the JWT secret and extractor.
-   * @param commonAuthService Shared auth service used to resolve users from token claims.
-   */
-  constructor(private readonly commonAuthService: CommonAuthService) {
-    super({
-      secretOrKey: process.env.JWT_SECREAT,
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-    });
-  }
+    /**
+     * Creates a new JwtStrategy and configures the JWT secret and extractor.
+     * @param commonAuthService Shared auth service used to resolve users from token claims.
+     */
+    constructor(private readonly commonAuthService: CommonAuthService) {
+        super({
+            secretOrKey: process.env.JWT_SECREAT,
+            jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+        });
+    }
 
-  /**
-   * Validates the decoded JWT payload and ensures the user exists and is active.
-   * @param payload Decoded JWT payload containing the user id and roles.
-   * @returns The validated JWT payload.
-   * @throws UnauthorizedException When the token is invalid or the user is inactive.
-   */
-  async validate(payload: JwtPayload): Promise<JwtPayload> {
-    const { id, roles } = payload;
+    /**
+     * Validates the decoded JWT payload and ensures the user exists and is active.
+     * @param payload Decoded JWT payload containing the user id and roles.
+     * @returns The validated JWT payload.
+     * @throws UnauthorizedException When the token is invalid or the user is inactive.
+     */
+    async validate(payload: JwtPayload): Promise<JwtPayload> {
+        const { id, roles } = payload;
 
-    if (roles?.includes(TypeRol.SERVER)) return payload as any;
+        if (roles?.includes(TypeRol.SERVER)) return payload as any;
 
-    const { errorCode, data: user } =
-      await this.commonAuthService.findUserByIdAndApplication(id);
+        const { errorCode, data: user } =
+            await this.commonAuthService.findUserByIdAndApplication(id);
 
-    if (errorCode !== ErrorCode.NONE || !user)
-      throw new UnauthorizedException('Token not valid');
+        if (errorCode !== ErrorCode.NONE || !user)
+            throw new UnauthorizedException('Token not valid');
 
-    if (!user.isActive)
-      throw new UnauthorizedException('User is inactive, talk with an admin');
+        if (!user.isActive)
+            throw new UnauthorizedException(
+                'User is inactive, talk with an admin',
+            );
 
-    return payload;
-  }
+        return payload;
+    }
 }

@@ -7,16 +7,16 @@ import { CreateIncidentDto } from './create-incident.dto';
  *
  */
 export class UpdateIncidentDto extends PartialType(CreateIncidentDto) {
-  @IsNumber()
-  @IsOptional()
-  @Min(2000)
-  year?: number;
+    @IsNumber()
+    @IsOptional()
+    @Min(2000)
+    year?: number;
 
-  @IsNumber()
-  @IsOptional()
-  @Min(1)
-  month?: number;
+    @IsNumber()
+    @IsOptional()
+    @Min(1)
+    month?: number;
 
-  @IsOptional()
-  register?: string;
+    @IsOptional()
+    register?: string;
 }

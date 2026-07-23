@@ -10,8 +10,8 @@ import { ZoneService } from './zone.service';
  *
  */
 @Module({
-  controllers: [ZoneController],
-  providers: [ZoneService],
-  imports: [TypeOrmModule.forFeature([Zone]), AuthModule, LoggerModule],
+    controllers: [ZoneController],
+    providers: [ZoneService],
+    imports: [TypeOrmModule.forFeature([Zone]), AuthModule, LoggerModule],
 })
 export class ZoneModule {}

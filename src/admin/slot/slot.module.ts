@@ -10,8 +10,8 @@ import { SlotService } from './slot.service';
  *
  */
 @Module({
-  controllers: [SlotController],
-  providers: [SlotService],
-  imports: [TypeOrmModule.forFeature([Slot]), AuthModule, LoggerModule],
+    controllers: [SlotController],
+    providers: [SlotService],
+    imports: [TypeOrmModule.forFeature([Slot]), AuthModule, LoggerModule],
 })
 export class SlotModule {}

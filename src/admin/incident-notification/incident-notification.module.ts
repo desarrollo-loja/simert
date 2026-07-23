@@ -9,8 +9,8 @@ import { IncidentNotificationService } from './incident-notification.service';
  *
  */
 @Module({
-  controllers: [IncidentNotificationController],
-  providers: [IncidentNotificationService],
-  imports: [TypeOrmModule.forFeature([IncidentNotification])],
+    controllers: [IncidentNotificationController],
+    providers: [IncidentNotificationService],
+    imports: [TypeOrmModule.forFeature([IncidentNotification])],
 })
 export class IncidentNotificationModule {}

@@ -2257,7 +2257,6 @@ parking_simert/
 ├── eslint.config.js
 ├── tsconfig.json · tsconfig.build.json
 ├── package.json
-├── CLAUDE.md
 └── README.md
 ```
 

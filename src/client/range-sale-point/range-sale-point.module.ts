@@ -11,12 +11,12 @@ import { RangeSalePointService } from './range-sale-point.service';
  *
  */
 @Module({
-  controllers: [RangeSalePointController],
-  providers: [RangeSalePointService],
-  imports: [
-    TypeOrmModule.forFeature([RangeSalePoint]),
-    LoggerModule,
-    AuthModule,
-  ],
+    controllers: [RangeSalePointController],
+    providers: [RangeSalePointService],
+    imports: [
+        TypeOrmModule.forFeature([RangeSalePoint]),
+        LoggerModule,
+        AuthModule,
+    ],
 })
 export class RangeSalePointModule {}

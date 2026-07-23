@@ -1,9 +1,9 @@
 import {
-  IsBoolean,
-  IsNumber,
-  IsString,
-  MaxLength,
-  MinLength,
+    IsBoolean,
+    IsNumber,
+    IsString,
+    MaxLength,
+    MinLength,
 } from 'class-validator';
 import { LengthDb } from 'src/common/glob/length.db';
 
@@ -11,23 +11,23 @@ import { LengthDb } from 'src/common/glob/length.db';
  *
  */
 export class CreateCardDto {
-  // @IsPositive()
-  // id: number;
+    // @IsPositive()
+    // id: number;
 
-  @IsString()
-  @MaxLength(LengthDb.name)
-  @MinLength(3)
-  name: string;
+    @IsString()
+    @MaxLength(LengthDb.name)
+    @MinLength(3)
+    name: string;
 
-  @IsNumber()
-  price: number;
+    @IsNumber()
+    price: number;
 
-  @IsNumber()
-  commission: number;
+    @IsNumber()
+    commission: number;
 
-  @IsNumber()
-  checkboxes: number;
+    @IsNumber()
+    checkboxes: number;
 
-  @IsBoolean()
-  isActivated: boolean;
+    @IsBoolean()
+    isActivated: boolean;
 }

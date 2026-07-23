@@ -15,10 +15,10 @@ import { RoleProtected } from './role-protected.decorator';
 // PascalCase is the NestJS convention for decorator factories (used as `@Auth`).
 
 export function Auth(...roles: TypeRol[]) {
-  return applyDecorators(
-    RoleProtected(...roles),
-    UseGuards(AuthGuard(), UserRoleGuard),
-  );
+    return applyDecorators(
+        RoleProtected(...roles),
+        UseGuards(AuthGuard(), UserRoleGuard),
+    );
 }
 
 /**
@@ -30,8 +30,8 @@ export function Auth(...roles: TypeRol[]) {
 // PascalCase is the NestJS convention for decorator factories (used as `@AuthWithKeycloak`).
 
 export function AuthWithKeycloak(...roles: TypeRol[]) {
-  return applyDecorators(
-    RoleProtected(...roles),
-    UseGuards(AuthGuard(), UserRoleGuard, KeycloakTokenGuard),
-  );
+    return applyDecorators(
+        RoleProtected(...roles),
+        UseGuards(AuthGuard(), UserRoleGuard, KeycloakTokenGuard),
+    );
 }

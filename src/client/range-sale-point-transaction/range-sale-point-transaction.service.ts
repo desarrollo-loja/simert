@@ -22,200 +22,200 @@ import { CreateRangeSalePointTransactionDto } from './dto/create-range-sale-poin
  */
 @Injectable()
 export class RangeSalePointTransactionService {
-  private readonly logger = new Logger('RangeSalePointTransactionService');
+    private readonly logger = new Logger('RangeSalePointTransactionService');
 
-  /**
-   * Creates the service and injects its repositories and collaborators.
-   *
-   * @param rangeSalePointTransactionRepository Repository for RangeSalePointTransaction entities.
-   * @param rangeSalePointRepository Repository for RangeSalePoint entities.
-   * @param checkboxUserRepository Repository for CheckboxUser entities.
-   * @param loggerService Service used to persist audit log entries.
-   * @param commonService Shared service used to dispatch notifications.
-   * @param dataSource TypeORM data source used to manage transactions.
-   */
-  constructor(
-    @InjectRepository(RangeSalePointTransaction)
-    private readonly rangeSalePointTransactionRepository: Repository<RangeSalePointTransaction>,
+    /**
+     * Creates the service and injects its repositories and collaborators.
+     *
+     * @param rangeSalePointTransactionRepository Repository for RangeSalePointTransaction entities.
+     * @param rangeSalePointRepository Repository for RangeSalePoint entities.
+     * @param checkboxUserRepository Repository for CheckboxUser entities.
+     * @param loggerService Service used to persist audit log entries.
+     * @param commonService Shared service used to dispatch notifications.
+     * @param dataSource TypeORM data source used to manage transactions.
+     */
+    constructor(
+        @InjectRepository(RangeSalePointTransaction)
+        private readonly rangeSalePointTransactionRepository: Repository<RangeSalePointTransaction>,
 
-    @InjectRepository(RangeSalePoint)
-    private readonly rangeSalePointRepository: Repository<RangeSalePoint>,
+        @InjectRepository(RangeSalePoint)
+        private readonly rangeSalePointRepository: Repository<RangeSalePoint>,
 
-    @InjectRepository(CheckboxUser)
-    private readonly checkboxUserRepository: Repository<CheckboxUser>,
+        @InjectRepository(CheckboxUser)
+        private readonly checkboxUserRepository: Repository<CheckboxUser>,
 
-    @Inject(LoggerService)
-    private readonly loggerService: LoggerService,
+        @Inject(LoggerService)
+        private readonly loggerService: LoggerService,
 
-    @Inject(CommonService)
-    private readonly commonService: CommonService,
+        @Inject(CommonService)
+        private readonly commonService: CommonService,
 
-    private readonly dataSource: DataSource,
-  ) {}
+        private readonly dataSource: DataSource,
+    ) {}
 
-  /**
-   * Processes a point-of-sale card-transfer purchase within a single
-   * transaction: validates available stock, locks the RangeSalePoint with a
-   * pessimistic write lock, records the transaction, credits the buyer's
-   * CheckboxUser balance, and notifies the buyer.
-   *
-   * @param userId Identifier of the user performing the purchase.
-   * @param createRangeSalePointTransactionDto Payload describing the purchase to process.
-   * @returns Promise resolving to a result object with an error code, a Spanish
-   * message and, on success, the created transaction and updated RangeSalePoint.
-   */
-  async create(
-    userId: number,
-    createRangeSalePointTransactionDto: CreateRangeSalePointTransactionDto,
-  ) {
-    const queryRunner = this.dataSource.createQueryRunner();
+    /**
+     * Processes a point-of-sale card-transfer purchase within a single
+     * transaction: validates available stock, locks the RangeSalePoint with a
+     * pessimistic write lock, records the transaction, credits the buyer's
+     * CheckboxUser balance, and notifies the buyer.
+     *
+     * @param userId Identifier of the user performing the purchase.
+     * @param createRangeSalePointTransactionDto Payload describing the purchase to process.
+     * @returns Promise resolving to a result object with an error code, a Spanish
+     * message and, on success, the created transaction and updated RangeSalePoint.
+     */
+    async create(
+        userId: number,
+        createRangeSalePointTransactionDto: CreateRangeSalePointTransactionDto,
+    ) {
+        const queryRunner = this.dataSource.createQueryRunner();
 
-    const { rangeSalePointId, amount, userIdBuy, userIdSell } =
-      createRangeSalePointTransactionDto;
+        const { rangeSalePointId, amount, userIdBuy, userIdSell } =
+            createRangeSalePointTransactionDto;
 
-    const rangeSalePoint = await this.rangeSalePointRepository
-      .createQueryBuilder('rsp')
-      .select(['rsp.id', 'rsp.sold', 'salePoint.id'])
-      .innerJoin('rsp.salePoint', 'salePoint')
-      .where('rsp.id = :rangeSalePointId', { rangeSalePointId })
-      .getOne();
+        const rangeSalePoint = await this.rangeSalePointRepository
+            .createQueryBuilder('rsp')
+            .select(['rsp.id', 'rsp.sold', 'salePoint.id'])
+            .innerJoin('rsp.salePoint', 'salePoint')
+            .where('rsp.id = :rangeSalePointId', { rangeSalePointId })
+            .getOne();
 
-    if (!rangeSalePoint)
-      return {
-        errorCode: ErrorCode.NOT_FOUND,
-        message: 'No se encontro el rango de venta',
-      };
+        if (!rangeSalePoint)
+            return {
+                errorCode: ErrorCode.NOT_FOUND,
+                message: 'No se encontro el rango de venta',
+            };
 
-    if (rangeSalePoint.sold - amount < 0)
-      return {
-        errorCode: ErrorCode.NOT_FOUND,
-        message: 'No hay valores suficientes para la venta',
-      };
+        if (rangeSalePoint.sold - amount < 0)
+            return {
+                errorCode: ErrorCode.NOT_FOUND,
+                message: 'No hay valores suficientes para la venta',
+            };
 
-    try {
-      await queryRunner.connect();
-      await queryRunner.startTransaction();
+        try {
+            await queryRunner.connect();
+            await queryRunner.startTransaction();
 
-      const rangeSalePointLock = await queryRunner.manager
-        .createQueryBuilder()
-        .select('rsp')
-        .from(RangeSalePoint, 'rsp')
-        .where('rsp.id = :rangeSalePointId', {
-          rangeSalePointId: rangeSalePoint.id,
-        })
-        .setLock('pessimistic_write') // Write lock
-        .getOne();
+            const rangeSalePointLock = await queryRunner.manager
+                .createQueryBuilder()
+                .select('rsp')
+                .from(RangeSalePoint, 'rsp')
+                .where('rsp.id = :rangeSalePointId', {
+                    rangeSalePointId: rangeSalePoint.id,
+                })
+                .setLock('pessimistic_write') // Write lock
+                .getOne();
 
-      if (!rangeSalePointLock) {
-        throw new Error('REJECTED');
-      }
+            if (!rangeSalePointLock) {
+                throw new Error('REJECTED');
+            }
 
-      // Create the transaction
-      const transactionRangeSalePoint =
-        this.rangeSalePointTransactionRepository.create({
-          userIdBuy: userIdBuy,
-          userIdSell: userIdSell,
-          amount: amount,
-          rangeSalePoint: rangeSalePoint,
-        });
+            // Create the transaction
+            const transactionRangeSalePoint =
+                this.rangeSalePointTransactionRepository.create({
+                    userIdBuy: userIdBuy,
+                    userIdSell: userIdSell,
+                    amount: amount,
+                    rangeSalePoint: rangeSalePoint,
+                });
 
-      await queryRunner.manager.save(transactionRangeSalePoint);
+            await queryRunner.manager.save(transactionRangeSalePoint);
 
-      rangeSalePointLock.sold -= amount;
-      await queryRunner.manager.save(rangeSalePointLock);
+            rangeSalePointLock.sold -= amount;
+            await queryRunner.manager.save(rangeSalePointLock);
 
-      const spaceCard: number = 12;
-      const totalSpaceCard: number = amount * spaceCard;
+            const spaceCard: number = 12;
+            const totalSpaceCard: number = amount * spaceCard;
 
-      const checkboxUser = await this.checkboxUserRepository.findOne({
-        where: { userId: userIdBuy },
-      });
+            const checkboxUser = await this.checkboxUserRepository.findOne({
+                where: { userId: userIdBuy },
+            });
 
-      if (checkboxUser) {
-        checkboxUser.checkboxes += totalSpaceCard;
-        await queryRunner.manager.save(checkboxUser);
-      } else {
-        const checkboxUser = await this.checkboxUserRepository.create({
-          userId: userIdBuy,
-          checkboxes: totalSpaceCard,
-        });
-        await queryRunner.manager.save(checkboxUser);
-      }
+            if (checkboxUser) {
+                checkboxUser.checkboxes += totalSpaceCard;
+                await queryRunner.manager.save(checkboxUser);
+            } else {
+                const checkboxUser = await this.checkboxUserRepository.create({
+                    userId: userIdBuy,
+                    checkboxes: totalSpaceCard,
+                });
+                await queryRunner.manager.save(checkboxUser);
+            }
 
-      await queryRunner.commitTransaction();
+            await queryRunner.commitTransaction();
 
-      this._notifyTransferSaleCard(userIdBuy, {
-        fractions: spaceCard,
-        card: amount,
-        totalFractions: totalSpaceCard,
-      });
+            this._notifyTransferSaleCard(userIdBuy, {
+                fractions: spaceCard,
+                card: amount,
+                totalFractions: totalSpaceCard,
+            });
 
-      return {
-        errorCode: ErrorCode.NONE,
-        message: 'Transaccion exitosa',
-        rangeSalePointTransaction: transactionRangeSalePoint,
-        rangeSalePoint: rangeSalePointLock,
-      };
-    } catch (error) {
-      await queryRunner.rollbackTransaction();
-      handleDbExceptions(error, this.logger);
-    } finally {
-      await queryRunner.release();
-    }
-    return {
-      errorCode: ErrorCode.NOT_VALID,
-      message: 'Ocurrio un error al crear la transaccion',
-    };
-  }
-
-  /**
-   * Dispatches a `TRANSFER_SALE_CARD` push notification to the buyer after
-   * a point-of-sale card-transfer transaction is successfully committed.
-   *
-   * Errors are swallowed by {@link CommonService.notify} so a failed push
-   * never rolls back or breaks the caller's response.
-   *
-   * @param userIdBuy - Target user that received the checkbox bundle.
-   * @param data - Payload describing the completed transaction.
-   * @param data.fractions Number of fractions (spaces) contained in a single card.
-   * @param data.card Number of cards included in the transaction.
-   * @param data.totalFractions Total number of fractions credited to the buyer.
-   */
-  private _notifyTransferSaleCard(
-    userIdBuy: number,
-    data: {
-      fractions: number;
-      card: number;
-      totalFractions: number;
-    },
-  ): void {
-    const notification = new CreateNotificationDto({
-      userId: userIdBuy,
-      notification: {
-        type: TypeNotification.TRANSFER_SALE_CARD,
-        data,
-      },
-    });
-    this.commonService.notify(notification);
-  }
-
-  /**
-   * Builds the dynamic SQL `WHERE` conditions and their bound parameters from
-   * the provided filter, currently supporting an optional `userId` filter.
-   *
-   * @param filterDto Filter criteria used to narrow the query.
-   * @returns Object containing the list of conditions and the parameter map.
-   */
-  private _buildConditionsAndParameters(filterDto: FilterDto) {
-    const { userId } = filterDto;
-    const conditions: string[] = [];
-    const parameters: Record<string, any> = {};
-
-    if (userId) {
-      conditions.push('rsp.userId = :userId');
-      parameters['userId'] = userId;
+            return {
+                errorCode: ErrorCode.NONE,
+                message: 'Transaccion exitosa',
+                rangeSalePointTransaction: transactionRangeSalePoint,
+                rangeSalePoint: rangeSalePointLock,
+            };
+        } catch (error) {
+            await queryRunner.rollbackTransaction();
+            handleDbExceptions(error, this.logger);
+        } finally {
+            await queryRunner.release();
+        }
+        return {
+            errorCode: ErrorCode.NOT_VALID,
+            message: 'Ocurrio un error al crear la transaccion',
+        };
     }
 
-    return { conditions, parameters };
-  }
+    /**
+     * Dispatches a `TRANSFER_SALE_CARD` push notification to the buyer after
+     * a point-of-sale card-transfer transaction is successfully committed.
+     *
+     * Errors are swallowed by {@link CommonService.notify} so a failed push
+     * never rolls back or breaks the caller's response.
+     *
+     * @param userIdBuy - Target user that received the checkbox bundle.
+     * @param data - Payload describing the completed transaction.
+     * @param data.fractions Number of fractions (spaces) contained in a single card.
+     * @param data.card Number of cards included in the transaction.
+     * @param data.totalFractions Total number of fractions credited to the buyer.
+     */
+    private _notifyTransferSaleCard(
+        userIdBuy: number,
+        data: {
+            fractions: number;
+            card: number;
+            totalFractions: number;
+        },
+    ): void {
+        const notification = new CreateNotificationDto({
+            userId: userIdBuy,
+            notification: {
+                type: TypeNotification.TRANSFER_SALE_CARD,
+                data,
+            },
+        });
+        this.commonService.notify(notification);
+    }
+
+    /**
+     * Builds the dynamic SQL `WHERE` conditions and their bound parameters from
+     * the provided filter, currently supporting an optional `userId` filter.
+     *
+     * @param filterDto Filter criteria used to narrow the query.
+     * @returns Object containing the list of conditions and the parameter map.
+     */
+    private _buildConditionsAndParameters(filterDto: FilterDto) {
+        const { userId } = filterDto;
+        const conditions: string[] = [];
+        const parameters: Record<string, any> = {};
+
+        if (userId) {
+            conditions.push('rsp.userId = :userId');
+            parameters['userId'] = userId;
+        }
+
+        return { conditions, parameters };
+    }
 }

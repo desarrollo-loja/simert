@@ -15,13 +15,13 @@ import { CheckService } from './check.service';
  *
  */
 @Module({
-  providers: [CheckService],
-  imports: [
-    TypeOrmModule.forFeature([Fraction, Checkbox, BlockOperator, Catalog]),
-    CommonModule,
-    AuthModule,
-    GimModule,
-    CommonCacheModule,
-  ],
+    providers: [CheckService],
+    imports: [
+        TypeOrmModule.forFeature([Fraction, Checkbox, BlockOperator, Catalog]),
+        CommonModule,
+        AuthModule,
+        GimModule,
+        CommonCacheModule,
+    ],
 })
 export class CheckModule {}

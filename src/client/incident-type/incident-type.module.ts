@@ -10,8 +10,8 @@ import { IncidentTypeService } from './incident-type.service';
  *
  */
 @Module({
-  controllers: [IncidentTypeController],
-  providers: [IncidentTypeService],
-  imports: [TypeOrmModule.forFeature([IncidentType]), LoggerModule],
+    controllers: [IncidentTypeController],
+    providers: [IncidentTypeService],
+    imports: [TypeOrmModule.forFeature([IncidentType]), LoggerModule],
 })
 export class IncidentTypeModule {}

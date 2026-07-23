@@ -1,10 +1,10 @@
 import {
-  Body,
-  Controller,
-  Param,
-  ParseIntPipe,
-  ParseUUIDPipe,
-  Post,
+    Body,
+    Controller,
+    Param,
+    ParseIntPipe,
+    ParseUUIDPipe,
+    Post,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
@@ -19,36 +19,36 @@ import { RangeSalePointTransactionService } from './range-sale-point-transaction
 @ApiBearerAuth('keycloak')
 @Controller('client/range-sale-point-transaction')
 export class RangeSalePointTransactionController {
-  /**
-   * @param rangeSalePointTransactionService Service that handles range sale point transactions.
-   */
-  constructor(
-    private readonly rangeSalePointTransactionService: RangeSalePointTransactionService,
-  ) {}
+    /**
+     * @param rangeSalePointTransactionService Service that handles range sale point transactions.
+     */
+    constructor(
+        private readonly rangeSalePointTransactionService: RangeSalePointTransactionService,
+    ) {}
 
-  /**
-   * Creates a new range sale point transaction for the given user.
-   *
-   * @param userId                             ID of the user the transaction belongs to.
-   * @param idDevice                           UUID of the requesting device.
-   * @param version                            Client app version number.
-   * @param createRangeSalePointTransactionDto Payload describing the transaction to create.
-   * @returns Promise resolving to the created range sale point transaction.
-   */
-  @ApiOperation({
-    summary: 'Create a new range sale point transaction for a user',
-  })
-  @Post('create/:userId/:idDevice/:version')
-  create(
-    @Param('userId', ParseIntPipe) userId: number,
-    @Param('idDevice', ParseUUIDPipe) idDevice: string,
-    @Param('version', ParseIntPipe) version: number,
-    @Body()
-    createRangeSalePointTransactionDto: CreateRangeSalePointTransactionDto,
-  ) {
-    return this.rangeSalePointTransactionService.create(
-      userId,
-      createRangeSalePointTransactionDto,
-    );
-  }
+    /**
+     * Creates a new range sale point transaction for the given user.
+     *
+     * @param userId                             ID of the user the transaction belongs to.
+     * @param idDevice                           UUID of the requesting device.
+     * @param version                            Client app version number.
+     * @param createRangeSalePointTransactionDto Payload describing the transaction to create.
+     * @returns Promise resolving to the created range sale point transaction.
+     */
+    @ApiOperation({
+        summary: 'Create a new range sale point transaction for a user',
+    })
+    @Post('create/:userId/:idDevice/:version')
+    create(
+        @Param('userId', ParseIntPipe) userId: number,
+        @Param('idDevice', ParseUUIDPipe) idDevice: string,
+        @Param('version', ParseIntPipe) version: number,
+        @Body()
+        createRangeSalePointTransactionDto: CreateRangeSalePointTransactionDto,
+    ) {
+        return this.rangeSalePointTransactionService.create(
+            userId,
+            createRangeSalePointTransactionDto,
+        );
+    }
 }

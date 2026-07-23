@@ -8,9 +8,9 @@ import { AntService } from './ant.service';
  *
  */
 @Module({
-  imports: [ConfigModule],
-  providers: [AntService],
-  controllers: [AntController],
-  exports: [AntService],
+    imports: [ConfigModule],
+    providers: [AntService],
+    controllers: [AntController],
+    exports: [AntService],
 })
 export class AntModule {}

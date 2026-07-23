@@ -7,21 +7,21 @@ import { TypePaymentMethod } from 'src/common/glob/type/type_payment_method';
  *
  */
 export class CreateIncidentPaymentDto {
-  @IsNumber()
-  incidentId: number;
+    @IsNumber()
+    incidentId: number;
 
-  @IsString()
-  referenceId: string;
+    @IsString()
+    referenceId: string;
 
-  @IsUUID()
-  transactionId: string;
+    @IsUUID()
+    transactionId: string;
 
-  @IsNumber()
-  moment: StatusMoment;
+    @IsNumber()
+    moment: StatusMoment;
 
-  @IsNumber()
-  typePaymentMethod: TypePaymentMethod;
+    @IsNumber()
+    typePaymentMethod: TypePaymentMethod;
 
-  @IsNumber()
-  statusPayment: StatusPayment;
+    @IsNumber()
+    statusPayment: StatusPayment;
 }

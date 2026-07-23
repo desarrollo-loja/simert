@@ -12,14 +12,14 @@ import { IncidentPaymentService } from './incident-payment.service';
  *
  */
 @Module({
-  controllers: [IncidentPaymentController],
-  providers: [IncidentPaymentService],
-  imports: [
-    TypeOrmModule.forFeature([IncidentPayment]),
-    AuthModule,
-    LoggerModule,
-    CommonGimModule,
-  ],
-  exports: [IncidentPaymentService],
+    controllers: [IncidentPaymentController],
+    providers: [IncidentPaymentService],
+    imports: [
+        TypeOrmModule.forFeature([IncidentPayment]),
+        AuthModule,
+        LoggerModule,
+        CommonGimModule,
+    ],
+    exports: [IncidentPaymentService],
 })
 export class IncidentPaymentModule {}

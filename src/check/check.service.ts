@@ -30,147 +30,148 @@ import { DataSource, IsNull, Repository } from 'typeorm';
  */
 @Injectable()
 export class CheckService {
-  /**
-   * Injects the repositories, data source and shared services required to
-   * reconcile fractions and checkboxes against the GIM payment provider.
-   *
-   * @param fractionRepository Repository for parking fraction entities.
-   * @param checkboxRepository Repository for checkbox (payment) entities.
-   * @param blockOperatorRepository Repository for block-operator assignments.
-   * @param catalogRepository Repository for catalog configuration entries.
-   * @param dataSource TypeORM data source used for raw SQL queries.
-   * @param commonService Shared service used to dispatch notifications.
-   * @param commonAuthService Shared auth service used to resolve client data.
-   * @param gimService GIM API client used to issue titles and register deposits.
-   * @param commonCacheService Shared cache service used to cache block operators.
-   */
-  constructor(
-    @InjectRepository(Fraction)
-    private readonly fractionRepository: Repository<Fraction>,
+    /**
+     * Injects the repositories, data source and shared services required to
+     * reconcile fractions and checkboxes against the GIM payment provider.
+     *
+     * @param fractionRepository Repository for parking fraction entities.
+     * @param checkboxRepository Repository for checkbox (payment) entities.
+     * @param blockOperatorRepository Repository for block-operator assignments.
+     * @param catalogRepository Repository for catalog configuration entries.
+     * @param dataSource TypeORM data source used for raw SQL queries.
+     * @param commonService Shared service used to dispatch notifications.
+     * @param commonAuthService Shared auth service used to resolve client data.
+     * @param gimService GIM API client used to issue titles and register deposits.
+     * @param commonCacheService Shared cache service used to cache block operators.
+     */
+    constructor(
+        @InjectRepository(Fraction)
+        private readonly fractionRepository: Repository<Fraction>,
 
-    @InjectRepository(Checkbox)
-    private readonly checkboxRepository: Repository<Checkbox>,
+        @InjectRepository(Checkbox)
+        private readonly checkboxRepository: Repository<Checkbox>,
 
-    @InjectRepository(BlockOperator)
-    private readonly blockOperatorRepository: Repository<BlockOperator>,
+        @InjectRepository(BlockOperator)
+        private readonly blockOperatorRepository: Repository<BlockOperator>,
 
-    @InjectRepository(Catalog)
-    private readonly catalogRepository: Repository<Catalog>,
+        @InjectRepository(Catalog)
+        private readonly catalogRepository: Repository<Catalog>,
 
-    private readonly dataSource: DataSource,
+        private readonly dataSource: DataSource,
 
-    @Inject(CommonService)
-    private readonly commonService: CommonService,
+        @Inject(CommonService)
+        private readonly commonService: CommonService,
 
-    @Inject(CommonAuthService)
-    private readonly commonAuthService: CommonAuthService,
+        @Inject(CommonAuthService)
+        private readonly commonAuthService: CommonAuthService,
 
-    @Inject(GimService)
-    private readonly gimService: GimService,
+        @Inject(GimService)
+        private readonly gimService: GimService,
 
-    @Inject(CommonCacheService)
-    private readonly commonCacheService: CommonCacheService,
-  ) {}
+        @Inject(CommonCacheService)
+        private readonly commonCacheService: CommonCacheService,
+    ) {}
 
-  private readonly logger = new Logger('CheckService');
-  private readonly intervalTransferCheck: number =
-    parseInt(process.env.INTERVAL_TRANSFER_CHECK_MS || '') || 1000 * 60 * 1; //por defecto un minuto
+    private readonly logger = new Logger('CheckService');
+    private readonly intervalTransferCheck: number =
+        parseInt(process.env.INTERVAL_TRANSFER_CHECK_MS || '') || 1000 * 60 * 1; //por defecto un minuto
 
-  private readonly intervalValidateCheckbox: number =
-    parseInt(process.env.INTERVAL_VALIDATE_CHECKBOX_MS || '') || 1000 * 60 * 2; //por defecto 3 minutos
+    private readonly intervalValidateCheckbox: number =
+        parseInt(process.env.INTERVAL_VALIDATE_CHECKBOX_MS || '') ||
+        1000 * 60 * 2; //por defecto 3 minutos
 
-  private readonly timeCacheBlockOperator =
-    60 * (Number(process.env.TIME_CACHE_BLOCK_OPERATOR) || 5);
+    private readonly timeCacheBlockOperator =
+        60 * (Number(process.env.TIME_CACHE_BLOCK_OPERATOR) || 5);
 
-  private readonly catalogs: Map<string, any> = new Map();
+    private readonly catalogs: Map<string, any> = new Map();
 
-  /**
-   * Lifecycle hook that preloads catalogs into memory and schedules the
-   * recurring jobs that handle fraction expiration and checkbox settlement.
-   */
-  async onModuleInit() {
-    this.logger.verbose('start call onModuleInit');
+    /**
+     * Lifecycle hook that preloads catalogs into memory and schedules the
+     * recurring jobs that handle fraction expiration and checkbox settlement.
+     */
+    async onModuleInit() {
+        this.logger.verbose('start call onModuleInit');
 
-    try {
-      const all = await this.catalogRepository.find();
-      for (const catalog of all) {
-        this.catalogs.set(catalog.name, catalog.data);
-      }
-      this.logger.log(`Catalogs loaded in memory: ${this.catalogs.size}`);
-    } catch (error) {
-      this.logger.error(
-        `onModuleInit: error loading catalogs - ${(error as any).message}`,
-      );
+        try {
+            const all = await this.catalogRepository.find();
+            for (const catalog of all) {
+                this.catalogs.set(catalog.name, catalog.data);
+            }
+            this.logger.log(`Catalogs loaded in memory: ${this.catalogs.size}`);
+        } catch (error) {
+            this.logger.error(
+                `onModuleInit: error loading catalogs - ${(error as any).message}`,
+            );
+        }
+
+        // Watch fractions that are about to expire and notify the user
+        setInterval(() => this._transferCheck(), this.intervalTransferCheck);
+
+        // Watch checkboxes that are about to expire — paid internally but not yet at the municipality
+        setInterval(
+            () => this._validateCheckboxToEmitAndPay(),
+            this.intervalValidateCheckbox,
+        );
     }
 
-    // Watch fractions that are about to expire and notify the user
-    setInterval(() => this._transferCheck(), this.intervalTransferCheck);
-
-    // Watch checkboxes that are about to expire — paid internally but not yet at the municipality
-    setInterval(
-      () => this._validateCheckboxToEmitAndPay(),
-      this.intervalValidateCheckbox,
-    );
-  }
-
-  /**
-   * Resolves the GIM revenue code (rubro) and its description for credit-title
-   * issuance, falling back to environment defaults when the catalog is empty.
-   *
-   * @returns The entry code, description and the optional-data pairs required
-   * by the GIM emission request.
-   */
-  private _buildRubroOptionalData(): {
-    entryCode: string;
-    description: string;
-    optionalData: { key: string; value: string | object }[];
-  } {
-    const rubroCatalog = this.catalogs.get(CatalogType.TypeRubroCard);
-    let entryCode: string;
-    let description: string;
-    if (Array.isArray(rubroCatalog) && rubroCatalog.length > 0) {
-      const first = rubroCatalog[0];
-      entryCode = String(first.key);
-      description = first.valor;
-    } else {
-      entryCode = process.env.CODE_ENTRY_EMISION_CARD || '573';
-      description =
-        process.env.CODE_ENTRY_EMISION_CARD_DESCRIPTION ||
-        'Compra de tarjeta simert | Loja';
+    /**
+     * Resolves the GIM revenue code (rubro) and its description for credit-title
+     * issuance, falling back to environment defaults when the catalog is empty.
+     *
+     * @returns The entry code, description and the optional-data pairs required
+     * by the GIM emission request.
+     */
+    private _buildRubroOptionalData(): {
+        entryCode: string;
+        description: string;
+        optionalData: { key: string; value: string | object }[];
+    } {
+        const rubroCatalog = this.catalogs.get(CatalogType.TypeRubroCard);
+        let entryCode: string;
+        let description: string;
+        if (Array.isArray(rubroCatalog) && rubroCatalog.length > 0) {
+            const first = rubroCatalog[0];
+            entryCode = String(first.key);
+            description = first.valor;
+        } else {
+            entryCode = process.env.CODE_ENTRY_EMISION_CARD || '573';
+            description =
+                process.env.CODE_ENTRY_EMISION_CARD_DESCRIPTION ||
+                'Compra de tarjeta simert | Loja';
+        }
+        return {
+            entryCode,
+            description,
+            optionalData: [
+                // GIM revenue code (entryCode) used when issuing the credit title
+                { key: 'rubro', value: entryCode },
+                // Human-readable description associated with the revenue code
+                { key: 'description', value: description },
+            ],
+        };
     }
-    return {
-      entryCode,
-      description,
-      optionalData: [
-        // GIM revenue code (entryCode) used when issuing the credit title
-        { key: 'rubro', value: entryCode },
-        // Human-readable description associated with the revenue code
-        { key: 'description', value: description },
-      ],
-    };
-  }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Watch parked fractions and advance them through the expiration lifecycle
-  // ─────────────────────────────────────────────────────────────────────────
-  /**
-   * Periodic job that moves active fractions through their expiration states
-   * driven by the paid time and the block's configured grace period:
-   *
-   * - When the paid time is over (`now > departureDate`) an ACTIVE/INCREMENTED
-   *   fraction enters the grace window and becomes `NEXT_TO_EXCEEDED_TIME` (300).
-   * - When the grace window is over (`now > departureDate + block.timeGrace`) a
-   *   fraction already in `NEXT_TO_EXCEEDED_TIME` becomes `EXCEEDED_TIME` (301).
-   *
-   * The grace value is read live from `block.timeGrace` through an indexed PK
-   * join, so each fraction always reflects its block's current grace setting.
-   * Every transition notifies the owning user and the block operators.
-   */
-  private async _transferCheck(): Promise<void> {
-    try {
-      // The grace span is the block's "time" value turned into an interval
-      // (time - time = interval), added to departureDate to get the grace deadline.
-      const fractions = await this.dataSource.query(`
+    // ─────────────────────────────────────────────────────────────────────────
+    // Watch parked fractions and advance them through the expiration lifecycle
+    // ─────────────────────────────────────────────────────────────────────────
+    /**
+     * Periodic job that moves active fractions through their expiration states
+     * driven by the paid time and the block's configured grace period:
+     *
+     * - When the paid time is over (`now > departureDate`) an ACTIVE/INCREMENTED
+     *   fraction enters the grace window and becomes `NEXT_TO_EXCEEDED_TIME` (300).
+     * - When the grace window is over (`now > departureDate + block.timeGrace`) a
+     *   fraction already in `NEXT_TO_EXCEEDED_TIME` becomes `EXCEEDED_TIME` (301).
+     *
+     * The grace value is read live from `block.timeGrace` through an indexed PK
+     * join, so each fraction always reflects its block's current grace setting.
+     * Every transition notifies the owning user and the block operators.
+     */
+    private async _transferCheck(): Promise<void> {
+        try {
+            // The grace span is the block's "time" value turned into an interval
+            // (time - time = interval), added to departureDate to get the grace deadline.
+            const fractions = await this.dataSource.query(`
             SELECT f.id, f."userId", f."statusId", f."blockId"
             FROM fraction f
             JOIN block b ON b.id = f."blockId"
@@ -187,452 +188,480 @@ export class CheckService {
               )
           `);
 
-      for (const fraction of fractions) {
-        const { id, userId, statusId, blockId } = fraction;
-        if (statusId < StatusFraction.NEXT_TO_EXCEEDED_TIME) {
-          // Paid time is over: enter the grace window → NEXT_TO_EXCEEDED_TIME (300)
-          await this.fractionRepository
-            .createQueryBuilder()
-            .update()
-            .set({ status: { id: StatusFraction.NEXT_TO_EXCEEDED_TIME } })
-            .whereInIds(id)
-            .execute();
-          this._notifyChangeStatus(
-            userId,
-            StatusFraction.NEXT_TO_EXCEEDED_TIME,
-            id,
-          );
-          this._notifyBlockOperators(
-            blockId,
-            StatusFraction.NEXT_TO_EXCEEDED_TIME,
-            id,
-          );
-        } else {
-          // Grace window elapsed (departureDate + block.timeGrace) → EXCEEDED_TIME (301)
-          await this.fractionRepository
-            .createQueryBuilder()
-            .update()
-            .set({ status: { id: StatusFraction.EXCEEDED_TIME } })
-            .whereInIds(id)
-            .execute();
-          this._notifyChangeStatus(userId, StatusFraction.EXCEEDED_TIME, id);
-          this._notifyBlockOperators(blockId, StatusFraction.EXCEEDED_TIME, id);
-        }
-      }
-    } catch (err) {
-      this.logger.error(`Call _transferCheck err: ${err}`);
-    }
-  }
-
-  /**
-   * Notifies the active operators of a block about a fraction status change,
-   * loading and caching the block's operator list to avoid repeated queries.
-   *
-   * @param blockId Identifier of the block whose operators are notified.
-   * @param statusFraction New fraction status to broadcast.
-   * @param fractionId Identifier of the affected fraction.
-   */
-  private async _notifyBlockOperators(
-    blockId: number,
-    statusFraction: StatusFraction,
-    fractionId: number,
-  ) {
-    const cacheKey = `BLOCK_OPERATORS:${blockId}`;
-    const secondsCache = this.timeCacheBlockOperator;
-
-    let blockOperators: BlockOperator[] = (await this.commonCacheService.get(
-      cacheKey,
-    )) as BlockOperator[];
-
-    // On a cache miss, load the block's active operators and cache the result.
-    if (!blockOperators) {
-      blockOperators = await this.blockOperatorRepository
-        .createQueryBuilder('bo')
-        .select(['bo.id', 'bo.userId'])
-        .where('bo.blockId = :blockId', { blockId })
-        .andWhere(
-          `DATE(bo.from) <= DATE(NOW() AT TIME ZONE 'America/Guayaquil') AND DATE(bo.to) >= DATE(NOW() AT TIME ZONE 'America/Guayaquil')`,
-        )
-        .getMany();
-
-      await this.commonCacheService.set(cacheKey, blockOperators, secondsCache);
-    }
-
-    for (const operator of blockOperators) {
-      this._notifyChangeStatus(
-        operator.userId,
-        statusFraction,
-        fractionId.toString(),
-      );
-    }
-  }
-
-  /**
-   * Sends a status-change notification for a fraction to a single user.
-   *
-   * @param userId Identifier of the user to notify.
-   * @param status New fraction status to report.
-   * @param ids Identifier of the affected fraction.
-   */
-  private async _notifyChangeStatus(
-    userId: number,
-    status: number,
-    ids: string,
-  ) {
-    const notification = new CreateNotificationDto({
-      userId,
-      notification: {
-        type: TypeNotification.CHANGE_STATUS_SIMERT,
-        data: { fractionId: ids, status },
-      },
-    });
-    this.commonService.notify(notification);
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // Job every 10 min: completes the GIM cycle for checkboxes with PAID payment.
-  //
-  // statusIncident null | ENTERED → emit credit title + register deposit
-  // statusIncident SUPPLIED       → only register deposit
-  // any other state               → mark statusPayment = ERROR
-  //
-  // `onResponseExternal` is always persisted at the end of each checkbox.
-  // ─────────────────────────────────────────────────────────────────────────
-  /**
-   * Periodic job that completes the GIM cycle for paid checkboxes: issues the
-   * credit title when needed, registers the deposit and persists the provider
-   * responses. Aborts early when the GIM cashier window is closed.
-   *
-   * @returns Nothing when processing runs; the open-till validation result when
-   * the GIM cashier window is closed.
-   */
-  private async _validateCheckboxToEmitAndPay() {
-    // Validate that the cashier window is open in GIM
-    const openTill = await this.gimService.validateOpenTill();
-    this.logger.log(
-      `[Job GIM] validateOpenTill -> errorCode=${openTill.errorCode} message=${openTill.message}`,
-    );
-    if (openTill.errorCode !== ErrorCode.NONE) {
-      this.logger.warn(
-        `[Job GIM] abortado: caja GIM no disponible (errorCode=${openTill.errorCode})`,
-      );
-      return openTill;
-    }
-
-    try {
-      // Load every paid checkbox whose incident status is still pending
-      const checkboxes: Checkbox[] = await this.checkboxRepository.find({
-        where: [
-          { statusPayment: StatusPayment.PAID, statusIncident: IsNull() },
-          {
-            statusPayment: StatusPayment.PAID,
-            statusIncident: IncidentStatus.ENTERED,
-          },
-          {
-            statusPayment: StatusPayment.PAID,
-            statusIncident: IncidentStatus.APPROVED,
-          },
-          {
-            statusPayment: StatusPayment.PAID,
-            statusIncident: IncidentStatus.SUPPLIED,
-          },
-        ],
-        order: { register: 'ASC' },
-      });
-
-      this.logger.log(
-        `[Job GIM] checkboxes pendientes de emisión/depósito: ${checkboxes.length}`,
-      );
-      if (!checkboxes.length) return;
-
-      for (const checkbox of checkboxes) {
-        try {
-          checkbox.onResponseExternal = checkbox.onResponseExternal ?? [];
-          const { statusIncident } = checkbox;
-
-          switch (statusIncident) {
-            // Title not yet issued and deposit not yet registered
-            case null:
-            case IncidentStatus.ENTERED:
-            case IncidentStatus.APPROVED: {
-              // Issue the credit title
-              const emision = await this._emitCreditCard(checkbox);
-
-              // Persist the issuance response
-              this.addResponse(
-                checkbox.onResponseExternal,
-                emision.dataEmision,
-              );
-
-              if (emision.errorCode !== ErrorCode.NONE) {
-                this.logger.warn(
-                  `[Emisión fallida] checkbox ${JSON.stringify(checkbox)}`,
-                );
-
-                this.logger.warn(
-                  `[Emisión fallida] checkbox ${checkbox.id}: ${emision.message}`,
-                );
-                await this.checkboxRepository.save(checkbox);
-                continue;
-              }
-
-              checkbox.statusIncident = IncidentStatus.SUPPLIED;
-
-              // Register the deposit
-              const deposit = await this._registerDeposit(checkbox);
-              this._applyDepositOutcome(checkbox, deposit);
-              break;
+            for (const fraction of fractions) {
+                const { id, userId, statusId, blockId } = fraction;
+                if (statusId < StatusFraction.NEXT_TO_EXCEEDED_TIME) {
+                    // Paid time is over: enter the grace window → NEXT_TO_EXCEEDED_TIME (300)
+                    await this.fractionRepository
+                        .createQueryBuilder()
+                        .update()
+                        .set({
+                            status: {
+                                id: StatusFraction.NEXT_TO_EXCEEDED_TIME,
+                            },
+                        })
+                        .whereInIds(id)
+                        .execute();
+                    this._notifyChangeStatus(
+                        userId,
+                        StatusFraction.NEXT_TO_EXCEEDED_TIME,
+                        id,
+                    );
+                    this._notifyBlockOperators(
+                        blockId,
+                        StatusFraction.NEXT_TO_EXCEEDED_TIME,
+                        id,
+                    );
+                } else {
+                    // Grace window elapsed (departureDate + block.timeGrace) → EXCEEDED_TIME (301)
+                    await this.fractionRepository
+                        .createQueryBuilder()
+                        .update()
+                        .set({ status: { id: StatusFraction.EXCEEDED_TIME } })
+                        .whereInIds(id)
+                        .execute();
+                    this._notifyChangeStatus(
+                        userId,
+                        StatusFraction.EXCEEDED_TIME,
+                        id,
+                    );
+                    this._notifyBlockOperators(
+                        blockId,
+                        StatusFraction.EXCEEDED_TIME,
+                        id,
+                    );
+                }
             }
-
-            case IncidentStatus.SUPPLIED: {
-              // Title already issued → only register the deposit
-              const depositSupplied = await this._registerDeposit(checkbox);
-              this._applyDepositOutcome(checkbox, depositSupplied);
-              break;
-            }
-
-            default:
-              // Unexpected state → flag as error
-              this.logger.warn(
-                `[Estado inválido] checkbox ${checkbox.id} statusIncident=${statusIncident}`,
-              );
-              // checkbox.statusPayment = StatusPayment.ERROR;
-              break;
-          }
-
-          await this.checkboxRepository.save(checkbox);
-
-          if (checkbox.statusIncident === IncidentStatus.PAYED) {
-            await this.commonService.syncOnResponseExternal(
-              checkbox.transactionId,
-              checkbox.onResponseExternal,
-            );
-          }
         } catch (err) {
-          this.logger.error(
-            `[Job GIM] Error checkbox ${checkbox.id}: ${(err as any).message}`,
-          );
+            this.logger.error(`Call _transferCheck err: ${err}`);
         }
-      }
-    } catch (error) {
-      this.logger.error(
-        `Call _validateCheckboxToEmitAndPay err: ${(error as any).message}`,
-      );
-    }
-  }
-
-  /**
-   * Applies the outcome of a GIM deposit to a checkbox: stores the provider
-   * response in `onResponseExternal` and, on success, advances the incident
-   * status to PAYED; on failure it logs a warning. Shared by the
-   * "emit + deposit" and "deposit only" branches of
-   * `_validateCheckboxToEmitAndPay`.
-   *
-   * @param checkbox Checkbox being settled (mutated in place).
-   * @param deposit Result returned by `_registerDeposit`.
-   * @param deposit.errorCode Error code reported by the deposit registration.
-   * @param deposit.dataDeposit Provider response payload for the deposit.
-   * @param deposit.message Optional human-readable message describing the outcome.
-   */
-  private _applyDepositOutcome(
-    checkbox: Checkbox,
-    deposit: { errorCode: number; dataDeposit: any; message?: string },
-  ): void {
-    // Persist the deposit response
-    this.addResponse(checkbox.onResponseExternal, deposit.dataDeposit);
-
-    if (deposit.errorCode === ErrorCode.NONE) {
-      checkbox.statusIncident = IncidentStatus.PAYED;
-    } else {
-      this.logger.warn(
-        `[Depósito fallido] checkbox ${checkbox.id}: ${deposit.message}`,
-      );
-    }
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // Resolve the client's residentId in GIM and issue the credit title
-  // ─────────────────────────────────────────────────────────────────────────
-  /**
-   * Resolves the client's GIM residentId (looking it up locally, querying GIM
-   * or creating the client when needed) and issues the credit title for the
-   * checkbox.
-   *
-   * @param checkbox Checkbox whose credit title is issued.
-   * @returns An object with the error code, the GIM emission payload and a
-   * descriptive message.
-   */
-  private async _emitCreditCard(checkbox: Checkbox) {
-    const { userId, transactionId } = checkbox;
-    let residentId: number = null;
-
-    // 1) Resolve the user by userId in our DB. findUserByIdAndApplication
-    //    returns the user object (not a list), so its fields are read directly.
-    //    The verified account identity card is the source of truth; fall back to
-    //    the checkbox value only when the account is missing it.
-    const account =
-      await this.commonAuthService.findUserByIdAndApplication(userId);
-    const user = account.errorCode === ErrorCode.NONE ? account.data : null;
-    const identityCard = user?.identityCard ?? checkbox.identityCard;
-    if (user) {
-      residentId = user.residentId ?? null;
     }
 
-    // 2) If not in our DB, query GIM
-    if (!residentId) {
-      const userGim =
-        await this.gimService.getUserByIdentityCardGim(identityCard);
-      if (userGim.errorCode === ErrorCode.NONE) {
-        residentId = userGim.taxpayer?.id ?? null;
-      }
+    /**
+     * Notifies the active operators of a block about a fraction status change,
+     * loading and caching the block's operator list to avoid repeated queries.
+     *
+     * @param blockId Identifier of the block whose operators are notified.
+     * @param statusFraction New fraction status to broadcast.
+     * @param fractionId Identifier of the affected fraction.
+     */
+    private async _notifyBlockOperators(
+        blockId: number,
+        statusFraction: StatusFraction,
+        fractionId: number,
+    ) {
+        const cacheKey = `BLOCK_OPERATORS:${blockId}`;
+        const secondsCache = this.timeCacheBlockOperator;
+
+        let blockOperators: BlockOperator[] =
+            (await this.commonCacheService.get(cacheKey)) as BlockOperator[];
+
+        // On a cache miss, load the block's active operators and cache the result.
+        if (!blockOperators) {
+            blockOperators = await this.blockOperatorRepository
+                .createQueryBuilder('bo')
+                .select(['bo.id', 'bo.userId'])
+                .where('bo.blockId = :blockId', { blockId })
+                .andWhere(
+                    `DATE(bo.from) <= DATE(NOW() AT TIME ZONE 'America/Guayaquil') AND DATE(bo.to) >= DATE(NOW() AT TIME ZONE 'America/Guayaquil')`,
+                )
+                .getMany();
+
+            await this.commonCacheService.set(
+                cacheKey,
+                blockOperators,
+                secondsCache,
+            );
+        }
+
+        for (const operator of blockOperators) {
+            this._notifyChangeStatus(
+                operator.userId,
+                statusFraction,
+                fractionId.toString(),
+            );
+        }
     }
 
-    // 3) If GIM does not know the client either, create them there
-    if (!residentId) {
-      const createClientGimDto: CreateClientGimDto = {
-        controllerId: userId,
-        identityCard,
-        firstName: user?.firstName,
-        lastName: user?.lastName,
-        emailClient: user?.email,
-      };
-      const createUserGim =
-        await this.gimService.createNewNaturalPersonGim(createClientGimDto);
-      if (createUserGim.errorCode === ErrorCode.NONE) {
-        residentId = createUserGim.residentDTO?.id ?? null;
-        this.commonAuthService.updateResidentId(
-          userId,
-          identityCard,
-          residentId,
+    /**
+     * Sends a status-change notification for a fraction to a single user.
+     *
+     * @param userId Identifier of the user to notify.
+     * @param status New fraction status to report.
+     * @param ids Identifier of the affected fraction.
+     */
+    private async _notifyChangeStatus(
+        userId: number,
+        status: number,
+        ids: string,
+    ) {
+        const notification = new CreateNotificationDto({
+            userId,
+            notification: {
+                type: TypeNotification.CHANGE_STATUS_SIMERT,
+                data: { fractionId: ids, status },
+            },
+        });
+        this.commonService.notify(notification);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Job every 10 min: completes the GIM cycle for checkboxes with PAID payment.
+    //
+    // statusIncident null | ENTERED → emit credit title + register deposit
+    // statusIncident SUPPLIED       → only register deposit
+    // any other state               → mark statusPayment = ERROR
+    //
+    // `onResponseExternal` is always persisted at the end of each checkbox.
+    // ─────────────────────────────────────────────────────────────────────────
+    /**
+     * Periodic job that completes the GIM cycle for paid checkboxes: issues the
+     * credit title when needed, registers the deposit and persists the provider
+     * responses. Aborts early when the GIM cashier window is closed.
+     *
+     * @returns Nothing when processing runs; the open-till validation result when
+     * the GIM cashier window is closed.
+     */
+    private async _validateCheckboxToEmitAndPay() {
+        // Validate that the cashier window is open in GIM
+        const openTill = await this.gimService.validateOpenTill();
+        this.logger.log(
+            `[Job GIM] validateOpenTill -> errorCode=${openTill.errorCode} message=${openTill.message}`,
         );
-      }
+        if (openTill.errorCode !== ErrorCode.NONE) {
+            this.logger.warn(
+                `[Job GIM] abortado: caja GIM no disponible (errorCode=${openTill.errorCode})`,
+            );
+            return openTill;
+        }
+
+        try {
+            // Load every paid checkbox whose incident status is still pending
+            const checkboxes: Checkbox[] = await this.checkboxRepository.find({
+                where: [
+                    {
+                        statusPayment: StatusPayment.PAID,
+                        statusIncident: IsNull(),
+                    },
+                    {
+                        statusPayment: StatusPayment.PAID,
+                        statusIncident: IncidentStatus.ENTERED,
+                    },
+                    {
+                        statusPayment: StatusPayment.PAID,
+                        statusIncident: IncidentStatus.APPROVED,
+                    },
+                    {
+                        statusPayment: StatusPayment.PAID,
+                        statusIncident: IncidentStatus.SUPPLIED,
+                    },
+                ],
+                order: { register: 'ASC' },
+            });
+
+            this.logger.log(
+                `[Job GIM] checkboxes pendientes de emisión/depósito: ${checkboxes.length}`,
+            );
+            if (!checkboxes.length) return;
+
+            for (const checkbox of checkboxes) {
+                try {
+                    checkbox.onResponseExternal =
+                        checkbox.onResponseExternal ?? [];
+                    const { statusIncident } = checkbox;
+
+                    switch (statusIncident) {
+                        // Title not yet issued and deposit not yet registered
+                        case null:
+                        case IncidentStatus.ENTERED:
+                        case IncidentStatus.APPROVED: {
+                            // Issue the credit title
+                            const emision =
+                                await this._emitCreditCard(checkbox);
+
+                            // Persist the issuance response
+                            this.addResponse(
+                                checkbox.onResponseExternal,
+                                emision.dataEmision,
+                            );
+
+                            if (emision.errorCode !== ErrorCode.NONE) {
+                                this.logger.warn(
+                                    `[Emisión fallida] checkbox ${JSON.stringify(checkbox)}`,
+                                );
+
+                                this.logger.warn(
+                                    `[Emisión fallida] checkbox ${checkbox.id}: ${emision.message}`,
+                                );
+                                await this.checkboxRepository.save(checkbox);
+                                continue;
+                            }
+
+                            checkbox.statusIncident = IncidentStatus.SUPPLIED;
+
+                            // Register the deposit
+                            const deposit =
+                                await this._registerDeposit(checkbox);
+                            this._applyDepositOutcome(checkbox, deposit);
+                            break;
+                        }
+
+                        case IncidentStatus.SUPPLIED: {
+                            // Title already issued → only register the deposit
+                            const depositSupplied =
+                                await this._registerDeposit(checkbox);
+                            this._applyDepositOutcome(
+                                checkbox,
+                                depositSupplied,
+                            );
+                            break;
+                        }
+
+                        default:
+                            // Unexpected state → flag as error
+                            this.logger.warn(
+                                `[Estado inválido] checkbox ${checkbox.id} statusIncident=${statusIncident}`,
+                            );
+                            // checkbox.statusPayment = StatusPayment.ERROR;
+                            break;
+                    }
+
+                    await this.checkboxRepository.save(checkbox);
+
+                    if (checkbox.statusIncident === IncidentStatus.PAYED) {
+                        await this.commonService.syncOnResponseExternal(
+                            checkbox.transactionId,
+                            checkbox.onResponseExternal,
+                        );
+                    }
+                } catch (err) {
+                    this.logger.error(
+                        `[Job GIM] Error checkbox ${checkbox.id}: ${(err as any).message}`,
+                    );
+                }
+            }
+        } catch (error) {
+            this.logger.error(
+                `Call _validateCheckboxToEmitAndPay err: ${(error as any).message}`,
+            );
+        }
     }
 
-    if (!residentId) {
-      return {
-        errorCode: ErrorCode.NOT_VALID,
-        dataEmision: null,
-        message: 'No se pudo verificar la información del cliente en el GIM',
-      };
+    /**
+     * Applies the outcome of a GIM deposit to a checkbox: stores the provider
+     * response in `onResponseExternal` and, on success, advances the incident
+     * status to PAYED; on failure it logs a warning. Shared by the
+     * "emit + deposit" and "deposit only" branches of
+     * `_validateCheckboxToEmitAndPay`.
+     *
+     * @param checkbox Checkbox being settled (mutated in place).
+     * @param deposit Result returned by `_registerDeposit`.
+     * @param deposit.errorCode Error code reported by the deposit registration.
+     * @param deposit.dataDeposit Provider response payload for the deposit.
+     * @param deposit.message Optional human-readable message describing the outcome.
+     */
+    private _applyDepositOutcome(
+        checkbox: Checkbox,
+        deposit: { errorCode: number; dataDeposit: any; message?: string },
+    ): void {
+        // Persist the deposit response
+        this.addResponse(checkbox.onResponseExternal, deposit.dataDeposit);
+
+        if (deposit.errorCode === ErrorCode.NONE) {
+            checkbox.statusIncident = IncidentStatus.PAYED;
+        } else {
+            this.logger.warn(
+                `[Depósito fallido] checkbox ${checkbox.id}: ${deposit.message}`,
+            );
+        }
     }
 
-    // 4) Issue the credit title
-    const { entryCode } = this._buildRubroOptionalData();
-    const emisionCreditCard: EmissionCreditCardDto = {
-      entryCode,
-      residentId,
-      description: 'Compra de Tarjeta de parking',
-      reference: transactionId,
-      quantity: 1,
-    };
+    // ─────────────────────────────────────────────────────────────────────────
+    // Resolve the client's residentId in GIM and issue the credit title
+    // ─────────────────────────────────────────────────────────────────────────
+    /**
+     * Resolves the client's GIM residentId (looking it up locally, querying GIM
+     * or creating the client when needed) and issues the credit title for the
+     * checkbox.
+     *
+     * @param checkbox Checkbox whose credit title is issued.
+     * @returns An object with the error code, the GIM emission payload and a
+     * descriptive message.
+     */
+    private async _emitCreditCard(checkbox: Checkbox) {
+        const { userId, transactionId } = checkbox;
+        let residentId: number = null;
 
-    const emision =
-      await this.gimService.emissionTitleCreditCard(emisionCreditCard);
+        // 1) Resolve the user by userId in our DB. findUserByIdAndApplication
+        //    returns the user object (not a list), so its fields are read directly.
+        //    The verified account identity card is the source of truth; fall back to
+        //    the checkbox value only when the account is missing it.
+        const account =
+            await this.commonAuthService.findUserByIdAndApplication(userId);
+        const user = account.errorCode === ErrorCode.NONE ? account.data : null;
+        const identityCard = user?.identityCard ?? checkbox.identityCard;
+        if (user) {
+            residentId = user.residentId ?? null;
+        }
 
-    if (emision.errorCode !== ErrorCode.NONE) {
-      this.logger.error(
-        `[_emitCreditCard] Error generando título checkbox ${checkbox.id}: ${emision.data?.message}`,
-      );
-      return {
-        errorCode: ErrorCode.NOT_VALID,
-        dataEmision: emision.data,
-        message: 'No se pudo generar el título de crédito',
-      };
+        // 2) If not in our DB, query GIM
+        if (!residentId) {
+            const userGim =
+                await this.gimService.getUserByIdentityCardGim(identityCard);
+            if (userGim.errorCode === ErrorCode.NONE) {
+                residentId = userGim.taxpayer?.id ?? null;
+            }
+        }
+
+        // 3) If GIM does not know the client either, create them there
+        if (!residentId) {
+            const createClientGimDto: CreateClientGimDto = {
+                controllerId: userId,
+                identityCard,
+                firstName: user?.firstName,
+                lastName: user?.lastName,
+                emailClient: user?.email,
+            };
+            const createUserGim =
+                await this.gimService.createNewNaturalPersonGim(
+                    createClientGimDto,
+                );
+            if (createUserGim.errorCode === ErrorCode.NONE) {
+                residentId = createUserGim.residentDTO?.id ?? null;
+                this.commonAuthService.updateResidentId(
+                    userId,
+                    identityCard,
+                    residentId,
+                );
+            }
+        }
+
+        if (!residentId) {
+            return {
+                errorCode: ErrorCode.NOT_VALID,
+                dataEmision: null,
+                message:
+                    'No se pudo verificar la información del cliente en el GIM',
+            };
+        }
+
+        // 4) Issue the credit title
+        const { entryCode } = this._buildRubroOptionalData();
+        const emisionCreditCard: EmissionCreditCardDto = {
+            entryCode,
+            residentId,
+            description: 'Compra de Tarjeta de parking',
+            reference: transactionId,
+            quantity: 1,
+        };
+
+        const emision =
+            await this.gimService.emissionTitleCreditCard(emisionCreditCard);
+
+        if (emision.errorCode !== ErrorCode.NONE) {
+            this.logger.error(
+                `[_emitCreditCard] Error generando título checkbox ${checkbox.id}: ${emision.data?.message}`,
+            );
+            return {
+                errorCode: ErrorCode.NOT_VALID,
+                dataEmision: emision.data,
+                message: 'No se pudo generar el título de crédito',
+            };
+        }
+
+        return {
+            errorCode: ErrorCode.NONE,
+            dataEmision: emision.data,
+            message: 'Emisión correcta',
+        };
     }
 
-    return {
-      errorCode: ErrorCode.NONE,
-      dataEmision: emision.data,
-      message: 'Emisión correcta',
-    };
-  }
+    // ─────────────────────────────────────────────────────────────────────────
+    // Register the deposit in GIM using the bondId from the previous issuance
+    // ─────────────────────────────────────────────────────────────────────────
+    /**
+     * Registers the deposit in GIM using the bondId obtained from the previous
+     * credit-title issuance stored in the checkbox response history.
+     *
+     * @param checkbox Checkbox whose deposit is registered.
+     * @returns An object with the error code, the GIM deposit payload and a
+     * descriptive message.
+     */
+    private async _registerDeposit(checkbox: Checkbox) {
+        const { amount, identityCard, transactionId } = checkbox;
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Register the deposit in GIM using the bondId from the previous issuance
-  // ─────────────────────────────────────────────────────────────────────────
-  /**
-   * Registers the deposit in GIM using the bondId obtained from the previous
-   * credit-title issuance stored in the checkbox response history.
-   *
-   * @param checkbox Checkbox whose deposit is registered.
-   * @returns An object with the error code, the GIM deposit payload and a
-   * descriptive message.
-   */
-  private async _registerDeposit(checkbox: Checkbox) {
-    const { amount, identityCard, transactionId } = checkbox;
+        const onResponseExternal = Array.isArray(checkbox.onResponseExternal)
+            ? checkbox.onResponseExternal
+            : [];
+        const bondEntry = onResponseExternal.find(
+            (item: any) => item?.bondId != null,
+        );
 
-    const onResponseExternal = Array.isArray(checkbox.onResponseExternal)
-      ? checkbox.onResponseExternal
-      : [];
-    const bondEntry = onResponseExternal.find(
-      (item: any) => item?.bondId != null,
-    );
+        if (!bondEntry) {
+            this.logger.error(
+                `No se encontró bondId en onResponseExternal para la transacción ${transactionId}`,
+            );
+            return {
+                errorCode: ErrorCode.NOT_VALID,
+                dataDeposit: null,
+                message: 'No se encontró bondId para registrar el depósito',
+            };
+        }
 
-    if (!bondEntry) {
-      this.logger.error(
-        `No se encontró bondId en onResponseExternal para la transacción ${transactionId}`,
-      );
-      return {
-        errorCode: ErrorCode.NOT_VALID,
-        dataDeposit: null,
-        message: 'No se encontró bondId para registrar el depósito',
-      };
+        const registerDepositGimDto: RegisterDepositGimDto = {
+            amount,
+            identificationNumber: identityCard,
+            bondIds: [bondEntry?.bondId],
+            paymentDate: new Date().toLocaleDateString('en-CA', {
+                timeZone: 'America/Guayaquil',
+            }),
+            transactionId,
+        };
+
+        const response = await this.gimService.registerDeposit(
+            registerDepositGimDto,
+        );
+
+        if (response.errorCode !== ErrorCode.NONE) {
+            this.logger.error(
+                `[_registerDepositCheck] Error depósito checkbox ${checkbox.id}: ${response.data?.message}`,
+            );
+            return {
+                errorCode: ErrorCode.NOT_VALID,
+                dataDeposit: response.data,
+                message: 'No se pudo registrar el depósito',
+            };
+        }
+
+        return {
+            errorCode: ErrorCode.NONE,
+            dataDeposit: response.data,
+            message: 'Depósito correcto',
+        };
     }
 
-    const registerDepositGimDto: RegisterDepositGimDto = {
-      amount,
-      identificationNumber: identityCard,
-      bondIds: [bondEntry?.bondId],
-      paymentDate: new Date().toLocaleDateString('en-CA', {
-        timeZone: 'America/Guayaquil',
-      }),
-      transactionId,
-    };
+    /**
+     * Appends a provider response to the checkbox history, replacing an identical
+     * existing entry and capping the list at 20 items.
+     *
+     * @param list Response history to update in place.
+     * @param item Provider response to store; ignored when null or undefined.
+     */
+    private addResponse(list: any[], item: any) {
+        if (!item) return;
 
-    const response = await this.gimService.registerDeposit(
-      registerDepositGimDto,
-    );
-
-    if (response.errorCode !== ErrorCode.NONE) {
-      this.logger.error(
-        `[_registerDepositCheck] Error depósito checkbox ${checkbox.id}: ${response.data?.message}`,
-      );
-      return {
-        errorCode: ErrorCode.NOT_VALID,
-        dataDeposit: response.data,
-        message: 'No se pudo registrar el depósito',
-      };
+        // Replace if an identical response already exists, append otherwise
+        const itemKey = JSON.stringify(item);
+        const existingIndex = list.findIndex(
+            (existing) => JSON.stringify(existing) === itemKey,
+        );
+        if (existingIndex >= 0) {
+            list[existingIndex] = item;
+            return;
+        }
+        if (list.length >= 20) {
+            list.pop();
+        }
+        list.push(item);
     }
-
-    return {
-      errorCode: ErrorCode.NONE,
-      dataDeposit: response.data,
-      message: 'Depósito correcto',
-    };
-  }
-
-  /**
-   * Appends a provider response to the checkbox history, replacing an identical
-   * existing entry and capping the list at 20 items.
-   *
-   * @param list Response history to update in place.
-   * @param item Provider response to store; ignored when null or undefined.
-   */
-  private addResponse(list: any[], item: any) {
-    if (!item) return;
-
-    // Replace if an identical response already exists, append otherwise
-    const itemKey = JSON.stringify(item);
-    const existingIndex = list.findIndex(
-      (existing) => JSON.stringify(existing) === itemKey,
-    );
-    if (existingIndex >= 0) {
-      list[existingIndex] = item;
-      return;
-    }
-    if (list.length >= 20) {
-      list.pop();
-    }
-    list.push(item);
-  }
 }

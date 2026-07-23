@@ -20,23 +20,23 @@ import { IncidentService } from './incident.service';
  *
  */
 @Module({
-  controllers: [IncidentController],
-  providers: [IncidentService],
-  imports: [
-    TypeOrmModule.forFeature([
-      Incident,
-      IncidentType,
-      IncidentPayment,
-      Fraction,
-      FractionStatus,
-      Slot,
-    ]),
-    AuthModule,
-    LoggerModule,
-    CommonAntModule,
-    CommonModule,
-    DinardapAntModule,
-    GimModule,
-  ],
+    controllers: [IncidentController],
+    providers: [IncidentService],
+    imports: [
+        TypeOrmModule.forFeature([
+            Incident,
+            IncidentType,
+            IncidentPayment,
+            Fraction,
+            FractionStatus,
+            Slot,
+        ]),
+        AuthModule,
+        LoggerModule,
+        CommonAntModule,
+        CommonModule,
+        DinardapAntModule,
+        GimModule,
+    ],
 })
 export class IncidentModule {}

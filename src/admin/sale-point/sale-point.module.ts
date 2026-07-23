@@ -11,8 +11,8 @@ import { SalePointService } from './sale-point.service';
  *
  */
 @Module({
-  controllers: [SalePointController],
-  providers: [SalePointService],
-  imports: [TypeOrmModule.forFeature([SalePoint]), AuthModule, LoggerModule],
+    controllers: [SalePointController],
+    providers: [SalePointService],
+    imports: [TypeOrmModule.forFeature([SalePoint]), AuthModule, LoggerModule],
 })
 export class SalePointModule {}

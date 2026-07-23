@@ -1,34 +1,34 @@
 export interface DinardapAntResponse {
-  paquete: Paquete;
+    paquete: Paquete;
 }
 
 export interface Paquete {
-  numeroPaquete: string;
-  entidades: Entidades;
+    numeroPaquete: string;
+    entidades: Entidades;
 }
 
 export interface Entidades {
-  entidad: Entidad[];
+    entidad: Entidad[];
 }
 
 export interface Entidad {
-  nombre: string;
-  filas: Filas;
+    nombre: string;
+    filas: Filas;
 }
 
 export interface Filas {
-  fila: Fila[];
+    fila: Fila[];
 }
 
 export interface Fila {
-  columnas: Columnas;
+    columnas: Columnas;
 }
 
 export interface Columnas {
-  columna: Columna[];
+    columna: Columna[];
 }
 
 export interface Columna {
-  campo: string;
-  valor: string;
+    campo: string;
+    valor: string;
 }

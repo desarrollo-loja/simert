@@ -10,9 +10,9 @@ import { KeycloakService } from './keycloak.service';
  *
  */
 @Module({
-  imports: [ConfigModule, CommonGimModule, AuthModule],
-  controllers: [KeycloakController],
-  providers: [KeycloakService],
-  exports: [KeycloakService],
+    imports: [ConfigModule, CommonGimModule, AuthModule],
+    controllers: [KeycloakController],
+    providers: [KeycloakService],
+    exports: [KeycloakService],
 })
 export class KeycloakModule {}

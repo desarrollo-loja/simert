@@ -15,32 +15,32 @@ import { IncidentPaymentService } from './incident-payment.service';
 @ApiBearerAuth('keycloak')
 @Controller('admin/incident-payment')
 export class IncidentPaymentController {
-  /**
-   * Creates the controller and injects its delegated service.
-   *
-   * @param incidentPaymentService Service handling incident payment queries.
-   */
-  constructor(
-    private readonly incidentPaymentService: IncidentPaymentService,
-  ) {}
+    /**
+     * Creates the controller and injects its delegated service.
+     *
+     * @param incidentPaymentService Service handling incident payment queries.
+     */
+    constructor(
+        private readonly incidentPaymentService: IncidentPaymentService,
+    ) {}
 
-  /**
-   * Lists incident payments matching the provided transaction filter.
-   *
-   * @param user Authenticated user extracted from the Keycloak token.
-   * @param filterDto Filter carrying the transaction identifiers to match.
-   * @returns Promise resolving to the matching incident payment records.
-   */
-  @ApiOperation({
-    summary:
-      'List incident payments filtered by transactionIds (id, transactionId, optionalData)',
-  })
-  @AuthWithKeycloak(TypeRol.ADMIN)
-  @Patch('find-all-by-transaction-id/:userId/:idDevice/:version')
-  findAllByTransactionId(
-    @GetUser() user: JwtPayload,
-    @Body() filterDto: FilterDto,
-  ) {
-    return this.incidentPaymentService.findAllByTransactionId(filterDto);
-  }
+    /**
+     * Lists incident payments matching the provided transaction filter.
+     *
+     * @param user Authenticated user extracted from the Keycloak token.
+     * @param filterDto Filter carrying the transaction identifiers to match.
+     * @returns Promise resolving to the matching incident payment records.
+     */
+    @ApiOperation({
+        summary:
+            'List incident payments filtered by transactionIds (id, transactionId, optionalData)',
+    })
+    @AuthWithKeycloak(TypeRol.ADMIN)
+    @Patch('find-all-by-transaction-id/:userId/:idDevice/:version')
+    findAllByTransactionId(
+        @GetUser() user: JwtPayload,
+        @Body() filterDto: FilterDto,
+    ) {
+        return this.incidentPaymentService.findAllByTransactionId(filterDto);
+    }
 }

@@ -10,8 +10,8 @@ import { FractionService } from './fraction.service';
  *
  */
 @Module({
-  controllers: [FractionController],
-  providers: [FractionService],
-  imports: [TypeOrmModule.forFeature([Fraction]), AuthModule],
+    controllers: [FractionController],
+    providers: [FractionService],
+    imports: [TypeOrmModule.forFeature([Fraction]), AuthModule],
 })
 export class FractionModule {}

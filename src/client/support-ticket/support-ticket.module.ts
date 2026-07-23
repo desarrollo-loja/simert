@@ -11,12 +11,12 @@ import { SupportTicketService } from './support-ticket.service';
  *
  */
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([SupportTicket]),
-    AuthModule,
-    LoggerModule,
-  ],
-  controllers: [SupportTicketController],
-  providers: [SupportTicketService],
+    imports: [
+        TypeOrmModule.forFeature([SupportTicket]),
+        AuthModule,
+        LoggerModule,
+    ],
+    controllers: [SupportTicketController],
+    providers: [SupportTicketService],
 })
 export class SupportTicketModule {}

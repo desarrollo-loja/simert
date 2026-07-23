@@ -14,17 +14,17 @@ import { GimService } from './gim.service';
  *
  */
 @Module({
-  imports: [
-    ConfigModule,
-    IncidentModule,
-    IncidentTypeModule,
-    CommonAuthModule,
-    CommonGimModule,
-    DinardapAntModule,
-    AuthModule,
-  ],
-  controllers: [GimController],
-  providers: [GimService],
-  exports: [GimService],
+    imports: [
+        ConfigModule,
+        IncidentModule,
+        IncidentTypeModule,
+        CommonAuthModule,
+        CommonGimModule,
+        DinardapAntModule,
+        AuthModule,
+    ],
+    controllers: [GimController],
+    providers: [GimService],
+    exports: [GimService],
 })
 export class GimModule {}

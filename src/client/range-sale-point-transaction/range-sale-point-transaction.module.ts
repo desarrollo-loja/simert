@@ -13,17 +13,17 @@ import { RangeSalePointTransactionService } from './range-sale-point-transaction
  *
  */
 @Module({
-  controllers: [RangeSalePointTransactionController],
-  providers: [RangeSalePointTransactionService],
-  imports: [
-    TypeOrmModule.forFeature([
-      RangeSalePointTransaction,
-      RangeSalePoint,
-      CheckboxUser,
-    ]),
-    LoggerModule,
-    CommonModule,
-  ],
-  exports: [RangeSalePointTransactionService],
+    controllers: [RangeSalePointTransactionController],
+    providers: [RangeSalePointTransactionService],
+    imports: [
+        TypeOrmModule.forFeature([
+            RangeSalePointTransaction,
+            RangeSalePoint,
+            CheckboxUser,
+        ]),
+        LoggerModule,
+        CommonModule,
+    ],
+    exports: [RangeSalePointTransactionService],
 })
 export class RangeSalePointTransactionModule {}

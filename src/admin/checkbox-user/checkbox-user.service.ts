@@ -24,125 +24,125 @@ import { CheckboxUser } from './entities/checkbox-user.entity';
  */
 @Injectable()
 export class CheckboxUserService {
-  private readonly logger = new Logger('CheckboxUserService');
+    private readonly logger = new Logger('CheckboxUserService');
 
-  /**
-   * Creates the service with its injected repository.
-   *
-   * @param checkboxUserRepository TypeORM repository for the CheckboxUser entity.
-   */
-  constructor(
-    @InjectRepository(CheckboxUser)
-    private readonly checkboxUserRepository: Repository<CheckboxUser>,
-  ) {}
+    /**
+     * Creates the service with its injected repository.
+     *
+     * @param checkboxUserRepository TypeORM repository for the CheckboxUser entity.
+     */
+    constructor(
+        @InjectRepository(CheckboxUser)
+        private readonly checkboxUserRepository: Repository<CheckboxUser>,
+    ) {}
 
-  /**
-   * Paginated rows of the digital-consumption report.
-   *
-   * @param filterDto `userId` restricts the report to a single user;
-   *   `limit`/`offset` paginate the result set.
-   * @returns Object with `errorCode` and `rows`, each row containing
-   *   `{ userId, saldo, createdAt }`.
-   */
-  async findReport(filterDto: FilterDto) {
-    try {
-      const { limit = 10, offset = 0, userId } = filterDto;
+    /**
+     * Paginated rows of the digital-consumption report.
+     *
+     * @param filterDto `userId` restricts the report to a single user;
+     *   `limit`/`offset` paginate the result set.
+     * @returns Object with `errorCode` and `rows`, each row containing
+     *   `{ userId, saldo, createdAt }`.
+     */
+    async findReport(filterDto: FilterDto) {
+        try {
+            const { limit = 10, offset = 0, userId } = filterDto;
 
-      const qb = this.checkboxUserRepository
-        .createQueryBuilder('cu')
-        .select(['cu.userId', 'cu.checkboxes'])
-        .addSelect(
-          `TO_CHAR(cu."createdAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`,
-          'cu_createdAt',
-        )
-        .orderBy('cu.id', 'DESC')
-        .limit(limit)
-        .offset(offset);
-      if (userId) {
-        qb.where('cu.userId = :userId', { userId });
-      }
-      const result = await qb.getRawAndEntities();
-      const rows = result.entities.map((entity, i) => ({
-        userId: entity.userId,
-        saldo: entity.checkboxes,
-        createdAt: result.raw[i]?.cu_createdAt ?? null,
-      }));
+            const qb = this.checkboxUserRepository
+                .createQueryBuilder('cu')
+                .select(['cu.userId', 'cu.checkboxes'])
+                .addSelect(
+                    `TO_CHAR(cu."createdAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS')`,
+                    'cu_createdAt',
+                )
+                .orderBy('cu.id', 'DESC')
+                .limit(limit)
+                .offset(offset);
+            if (userId) {
+                qb.where('cu.userId = :userId', { userId });
+            }
+            const result = await qb.getRawAndEntities();
+            const rows = result.entities.map((entity, i) => ({
+                userId: entity.userId,
+                saldo: entity.checkboxes,
+                createdAt: result.raw[i]?.cu_createdAt ?? null,
+            }));
 
-      return { errorCode: ErrorCode.NONE, rows };
-    } catch (error) {
-      handleDbExceptions(error, this.logger);
+            return { errorCode: ErrorCode.NONE, rows };
+        } catch (error) {
+            handleDbExceptions(error, this.logger);
+        }
     }
-  }
 
-  /**
-   * Total CheckboxUser rows available for pagination of the report,
-   * honoring the same `userId` filter used by {@link findReport}.
-   *
-   * @param filterDto Optional `userId` filter.
-   * @returns Object with `errorCode` and the numeric `total`.
-   */
-  async findReportTotal(filterDto: FilterDto) {
-    try {
-      const { userId } = filterDto;
-      const where = userId ? { userId } : {};
-      const total = await this.checkboxUserRepository.count({ where });
-      return { errorCode: ErrorCode.NONE, total };
-    } catch (error) {
-      handleDbExceptions(error, this.logger);
+    /**
+     * Total CheckboxUser rows available for pagination of the report,
+     * honoring the same `userId` filter used by {@link findReport}.
+     *
+     * @param filterDto Optional `userId` filter.
+     * @returns Object with `errorCode` and the numeric `total`.
+     */
+    async findReportTotal(filterDto: FilterDto) {
+        try {
+            const { userId } = filterDto;
+            const where = userId ? { userId } : {};
+            const total = await this.checkboxUserRepository.count({ where });
+            return { errorCode: ErrorCode.NONE, total };
+        } catch (error) {
+            handleDbExceptions(error, this.logger);
+        }
     }
-  }
 
-  // ─── CRUD placeholders ────────────────────────────────────────────────
-  // Kept as stubs: real CheckboxUser lifecycle is owned by the client
-  // services (parking session + paid checkbox purchase).
+    // ─── CRUD placeholders ────────────────────────────────────────────────
+    // Kept as stubs: real CheckboxUser lifecycle is owned by the client
+    // services (parking session + paid checkbox purchase).
 
-  /**
-   * Placeholder create action; the real lifecycle is owned by the client services.
-   *
-   * @param _createCheckboxUserDto Payload describing the CheckboxUser to create.
-   * @returns A static confirmation message.
-   */
-  create(_createCheckboxUserDto: CreateCheckboxUserDto) {
-    return 'This action adds a new checkboxUser';
-  }
+    /**
+     * Placeholder create action; the real lifecycle is owned by the client services.
+     *
+     * @param _createCheckboxUserDto Payload describing the CheckboxUser to create.
+     * @returns A static confirmation message.
+     */
+    create(_createCheckboxUserDto: CreateCheckboxUserDto) {
+        return 'This action adds a new checkboxUser';
+    }
 
-  /**
-   * Placeholder list action; the real lifecycle is owned by the client services.
-   *
-   * @returns A static confirmation message.
-   */
-  findAll() {
-    return `This action returns all checkboxUser`;
-  }
+    /**
+     * Placeholder list action; the real lifecycle is owned by the client services.
+     *
+     * @returns A static confirmation message.
+     */
+    findAll() {
+        return `This action returns all checkboxUser`;
+    }
 
-  /**
-   * Placeholder single-fetch action; the real lifecycle is owned by the client services.
-   *
-   * @param id Identifier of the CheckboxUser to fetch.
-   * @returns A static confirmation message.
-   */
-  findOne(id: number) {
-    return `This action returns a #${id} checkboxUser`;
-  }
+    /**
+     * Placeholder single-fetch action; the real lifecycle is owned by the client services.
+     *
+     * @param id Identifier of the CheckboxUser to fetch.
+     * @returns A static confirmation message.
+     */
+    findOne(id: number) {
+        return `This action returns a #${id} checkboxUser`;
+    }
 
-  /**
-   * Placeholder update action; the real lifecycle is owned by the client services.
-   *
-   * @param id Identifier of the CheckboxUser to update.
-   * @param _updateCheckboxUserDto Payload describing the fields to update.
-   * @returns A static confirmation message.
-   */
-  update(id: number, _updateCheckboxUserDto: UpdateCheckboxUserDto) {
-    return `This action updates a #${id} checkboxUser`;
-  }
+    /**
+     * Placeholder update action; the real lifecycle is owned by the client services.
+     *
+     * @param id Identifier of the CheckboxUser to update.
+     * @param _updateCheckboxUserDto Payload describing the fields to update.
+     * @returns A static confirmation message.
+     */
+    update(id: number, _updateCheckboxUserDto: UpdateCheckboxUserDto) {
+        return `This action updates a #${id} checkboxUser`;
+    }
 
-  /**
-   * Placeholder remove action; the real lifecycle is owned by the client services.
-   *
-   * @param id Identifier of the CheckboxUser to remove.
-   * @returns A static confirmation message.
-   */
-  remove(id: number) {
-    return `This action removes a #${id} checkboxUser`;
-  }
+    /**
+     * Placeholder remove action; the real lifecycle is owned by the client services.
+     *
+     * @param id Identifier of the CheckboxUser to remove.
+     * @returns A static confirmation message.
+     */
+    remove(id: number) {
+        return `This action removes a #${id} checkboxUser`;
+    }
 }

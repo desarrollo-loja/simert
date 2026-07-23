@@ -11,12 +11,12 @@ import { AgentActivity } from './entities/agent-activity.entity';
  *
  */
 @Module({
-  controllers: [AgentActivitiesController],
-  providers: [AgentActivitiesService],
-  imports: [
-    TypeOrmModule.forFeature([AgentActivity]),
-    AuthModule,
-    LoggerModule,
-  ],
+    controllers: [AgentActivitiesController],
+    providers: [AgentActivitiesService],
+    imports: [
+        TypeOrmModule.forFeature([AgentActivity]),
+        AuthModule,
+        LoggerModule,
+    ],
 })
 export class AgentActivitiesModule {}

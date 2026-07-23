@@ -11,8 +11,8 @@ import { AdminService } from './admin.service';
  *
  */
 @Module({
-  controllers: [AdminController],
-  providers: [AdminService],
-  imports: [TypeOrmModule.forFeature([Slot]), AuthModule, CommonModule],
+    controllers: [AdminController],
+    providers: [AdminService],
+    imports: [TypeOrmModule.forFeature([Slot]), AuthModule, CommonModule],
 })
 export class AdminModule {}

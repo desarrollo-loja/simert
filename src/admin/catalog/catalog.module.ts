@@ -11,8 +11,8 @@ import { Catalog } from './entities/catalog.entity';
  *
  */
 @Module({
-  controllers: [CatalogController],
-  providers: [CatalogService],
-  imports: [TypeOrmModule.forFeature([Catalog]), AuthModule, LoggerModule],
+    controllers: [CatalogController],
+    providers: [CatalogService],
+    imports: [TypeOrmModule.forFeature([Catalog]), AuthModule, LoggerModule],
 })
 export class CatalogModule {}

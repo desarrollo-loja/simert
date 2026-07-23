@@ -1,0 +1,13 @@
+# Git submodule — must never be modified from this repo.
+src/common/
+
+# Generated / vendored output.
+dist/
+coverage/
+node_modules/
+
+# Tests must not be modified; also excluded from the lint/Sonar gate.
+**/*.spec.ts
+**/*.e2e-spec.ts
+**/__tests__/**
+test/

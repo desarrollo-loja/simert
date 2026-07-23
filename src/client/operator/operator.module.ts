@@ -23,26 +23,26 @@ import { OperatorService } from './operator.service';
  *
  */
 @Module({
-  controllers: [OperatorController],
-  providers: [OperatorService],
-  imports: [
-    TypeOrmModule.forFeature([
-      Fraction,
-      BlockOperator,
-      Slot,
-      FractionStatus,
-      Physic,
-      Zone,
-      Range,
-      CheckboxUser,
-      Incident,
-      IncidentType,
-    ]),
-    AuthModule,
-    CommonModule,
-    CommonCacheModule,
-    DinardapAntModule,
-    GimModule,
-  ],
+    controllers: [OperatorController],
+    providers: [OperatorService],
+    imports: [
+        TypeOrmModule.forFeature([
+            Fraction,
+            BlockOperator,
+            Slot,
+            FractionStatus,
+            Physic,
+            Zone,
+            Range,
+            CheckboxUser,
+            Incident,
+            IncidentType,
+        ]),
+        AuthModule,
+        CommonModule,
+        CommonCacheModule,
+        DinardapAntModule,
+        GimModule,
+    ],
 })
 export class OperatorModule {}

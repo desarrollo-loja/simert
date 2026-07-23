@@ -12,12 +12,12 @@ import { AgentActivitiesService } from './agent-activities.service';
  *
  */
 @Module({
-  controllers: [AgentActivitiesController],
-  providers: [AgentActivitiesService],
-  imports: [
-    TypeOrmModule.forFeature([AgentActivity, BlockOperator]),
-    AuthModule,
-    LoggerModule,
-  ],
+    controllers: [AgentActivitiesController],
+    providers: [AgentActivitiesService],
+    imports: [
+        TypeOrmModule.forFeature([AgentActivity, BlockOperator]),
+        AuthModule,
+        LoggerModule,
+    ],
 })
 export class AgentActivitiesModule {}

@@ -9,9 +9,9 @@ import { DinardapAntService } from './dinardap-ant.service';
  *
  */
 @Module({
-  imports: [ConfigModule, CommonGimModule],
-  controllers: [DinardapAntController],
-  providers: [DinardapAntService],
-  exports: [DinardapAntService],
+    imports: [ConfigModule, CommonGimModule],
+    controllers: [DinardapAntController],
+    providers: [DinardapAntService],
+    exports: [DinardapAntService],
 })
 export class DinardapAntModule {}

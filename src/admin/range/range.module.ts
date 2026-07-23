@@ -11,8 +11,8 @@ import { RangeService } from './range.service';
  *
  */
 @Module({
-  controllers: [RangeController],
-  providers: [RangeService],
-  imports: [TypeOrmModule.forFeature([Range]), AuthModule, LoggerModule],
+    controllers: [RangeController],
+    providers: [RangeService],
+    imports: [TypeOrmModule.forFeature([Range]), AuthModule, LoggerModule],
 })
 export class RangeModule {}

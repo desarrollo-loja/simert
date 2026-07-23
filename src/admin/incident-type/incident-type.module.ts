@@ -11,9 +11,13 @@ import { IncidentTypeService } from './incident-type.service';
  *
  */
 @Module({
-  controllers: [IncidentTypeController],
-  providers: [IncidentTypeService],
-  imports: [TypeOrmModule.forFeature([IncidentType]), LoggerModule, AuthModule],
-  exports: [IncidentTypeService],
+    controllers: [IncidentTypeController],
+    providers: [IncidentTypeService],
+    imports: [
+        TypeOrmModule.forFeature([IncidentType]),
+        LoggerModule,
+        AuthModule,
+    ],
+    exports: [IncidentTypeService],
 })
 export class IncidentTypeModule {}

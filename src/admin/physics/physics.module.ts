@@ -10,8 +10,8 @@ import { PhysicsService } from './physics.service';
  *
  */
 @Module({
-  controllers: [PhysicsController],
-  providers: [PhysicsService],
-  imports: [TypeOrmModule.forFeature([Physic]), AuthModule],
+    controllers: [PhysicsController],
+    providers: [PhysicsService],
+    imports: [TypeOrmModule.forFeature([Physic]), AuthModule],
 })
 export class PhysicsModule {}

@@ -14,42 +14,42 @@ import { IncidentPayment } from './entities/incident-payment.entity';
  */
 @Injectable()
 export class IncidentPaymentService {
-  private readonly logger = new Logger(IncidentPaymentService.name);
+    private readonly logger = new Logger(IncidentPaymentService.name);
 
-  /**
-   * Creates a new {@link IncidentPaymentService}.
-   *
-   * @param incidentPaymentRepository Repository for the {@link IncidentPayment} entity.
-   */
-  constructor(
-    @InjectRepository(IncidentPayment)
-    private readonly incidentPaymentRepository: Repository<IncidentPayment>,
-  ) {}
+    /**
+     * Creates a new {@link IncidentPaymentService}.
+     *
+     * @param incidentPaymentRepository Repository for the {@link IncidentPayment} entity.
+     */
+    constructor(
+        @InjectRepository(IncidentPayment)
+        private readonly incidentPaymentRepository: Repository<IncidentPayment>,
+    ) {}
 
-  /**
-   * Returns id, transactionId and optionalData for incident payments
-   * whose transactionId is in the list supplied via filterDto.transactionIds.
-   *
-   * @param filterDto - Filter containing the transactionIds array to look up.
-   * @returns Object with errorCode and matching incidentPayments array.
-   */
-  async findAllByTransactionId(filterDto: FilterDto) {
-    const { transactionIds } = filterDto;
+    /**
+     * Returns id, transactionId and optionalData for incident payments
+     * whose transactionId is in the list supplied via filterDto.transactionIds.
+     *
+     * @param filterDto - Filter containing the transactionIds array to look up.
+     * @returns Object with errorCode and matching incidentPayments array.
+     */
+    async findAllByTransactionId(filterDto: FilterDto) {
+        const { transactionIds } = filterDto;
 
-    if (!Array.isArray(transactionIds) || transactionIds.length === 0) {
-      return { errorCode: ErrorCode.NONE, incidentPayments: [] };
+        if (!Array.isArray(transactionIds) || transactionIds.length === 0) {
+            return { errorCode: ErrorCode.NONE, incidentPayments: [] };
+        }
+
+        try {
+            const incidentPayments = await this.incidentPaymentRepository.find({
+                select: ['id', 'transactionId', 'optionalData'],
+                where: { transactionId: In(transactionIds) },
+                order: { id: 'DESC' },
+            });
+
+            return { errorCode: ErrorCode.NONE, incidentPayments };
+        } catch (error) {
+            handleDbExceptions(error, this.logger);
+        }
     }
-
-    try {
-      const incidentPayments = await this.incidentPaymentRepository.find({
-        select: ['id', 'transactionId', 'optionalData'],
-        where: { transactionId: In(transactionIds) },
-        order: { id: 'DESC' },
-      });
-
-      return { errorCode: ErrorCode.NONE, incidentPayments };
-    } catch (error) {
-      handleDbExceptions(error, this.logger);
-    }
-  }
 }

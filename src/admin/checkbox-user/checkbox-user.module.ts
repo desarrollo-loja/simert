@@ -10,8 +10,8 @@ import { CheckboxUser } from './entities/checkbox-user.entity';
  *
  */
 @Module({
-  controllers: [CheckboxUserController],
-  providers: [CheckboxUserService],
-  imports: [TypeOrmModule.forFeature([CheckboxUser]), AuthModule],
+    controllers: [CheckboxUserController],
+    providers: [CheckboxUserService],
+    imports: [TypeOrmModule.forFeature([CheckboxUser]), AuthModule],
 })
 export class CheckboxUserModule {}

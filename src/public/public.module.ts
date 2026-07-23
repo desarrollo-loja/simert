@@ -15,8 +15,8 @@ import { PublicService } from './public.service';
  * No authentication is required. All operations are SELECT-only queries.
  */
 @Module({
-  imports: [TypeOrmModule.forFeature([Zone, Block, Slot, Schedule])],
-  controllers: [PublicController],
-  providers: [PublicService],
+    imports: [TypeOrmModule.forFeature([Zone, Block, Slot, Schedule])],
+    controllers: [PublicController],
+    providers: [PublicService],
 })
 export class PublicModule {}

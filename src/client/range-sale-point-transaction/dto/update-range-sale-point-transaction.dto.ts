@@ -6,5 +6,5 @@ import { CreateRangeSalePointTransactionDto } from './create-range-sale-point-tr
  *
  */
 export class UpdateRangeSalePointTransactionDto extends PartialType(
-  CreateRangeSalePointTransactionDto,
+    CreateRangeSalePointTransactionDto,
 ) {}

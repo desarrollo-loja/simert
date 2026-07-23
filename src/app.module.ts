@@ -62,170 +62,170 @@ import { PublicModule } from './public/public.module';
  *
  */
 @Module({
-  imports: [
-    ConfigModule.forRoot(),
-    CacheModule.register({
-      isGlobal: true,
-      store: redisStore,
-      host: process.env.DB_HOST_CACHE,
-      port: +process.env.DB_PORT_CACHE,
-      password: process.env.DB_PASSWORD_CACHE,
-      prefix: process.env.NODE_ENV === 'production' ? `P|` : `D|`, // Prefijo basado en el entorno para generar keys diferentes para ambos entornos del mismo recurso
-      // Default cache TTL is 5 s; override per method as needed:
-      // ttl: 10, // seconds
-      // max: 20, // maximum number of items in cache
-      // ttl: null,  // Disable global default so per-method TTL is not overridden
-    }),
-    TypeOrmModule.forRoot({
-      type: 'postgres',
-      host: process.env.DB_HOST,
-      port: +process.env.DB_PORT,
-      username: process.env.DB_USERNAME,
-      password: process.env.DB_PASSWORD,
-      database: process.env.DB_NAME,
-      // insecureAuth: false,
-      // ----------- OJO -----------
-      // ALERTA NO MODIFICAR NUNCA--
-      // ---- NI EN DESARROLLO -----
-      //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-      entities: [],
-      autoLoadEntities: true, // Siempre true
-      // keepConnectionAlive: true,// Siempre true
-      // legacySpatialSupport: false,// Siempre true
-      //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-      //
-      // NUNCA PONER EN TRUE EN SUS .ENV
-      // SYNCHRONIZE=FALSE
-      //
-      synchronize: process.env.SYNCHRONIZE === 'TRUE',
-      //
-      // dropSchema: false,// NUNCA ACTIVAR
-      // ALERTA NO MODIFICAR NUNCA--
-      // ----------- OJO -----------
-      extra: {
-        connectionLimit: process.env.T_CONNECTIONLIMIT
-          ? +process.env.T_CONNECTIONLIMIT
-          : 10,
-      },
-      schema: 'public',
-      //logging: ['query', 'error'],
-    }),
+    imports: [
+        ConfigModule.forRoot(),
+        CacheModule.register({
+            isGlobal: true,
+            store: redisStore,
+            host: process.env.DB_HOST_CACHE,
+            port: +process.env.DB_PORT_CACHE,
+            password: process.env.DB_PASSWORD_CACHE,
+            prefix: process.env.NODE_ENV === 'production' ? `P|` : `D|`, // Prefijo basado en el entorno para generar keys diferentes para ambos entornos del mismo recurso
+            // Default cache TTL is 5 s; override per method as needed:
+            // ttl: 10, // seconds
+            // max: 20, // maximum number of items in cache
+            // ttl: null,  // Disable global default so per-method TTL is not overridden
+        }),
+        TypeOrmModule.forRoot({
+            type: 'postgres',
+            host: process.env.DB_HOST,
+            port: +process.env.DB_PORT,
+            username: process.env.DB_USERNAME,
+            password: process.env.DB_PASSWORD,
+            database: process.env.DB_NAME,
+            // insecureAuth: false,
+            // ----------- OJO -----------
+            // ALERTA NO MODIFICAR NUNCA--
+            // ---- NI EN DESARROLLO -----
+            //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+            entities: [],
+            autoLoadEntities: true, // Siempre true
+            // keepConnectionAlive: true,// Siempre true
+            // legacySpatialSupport: false,// Siempre true
+            //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+            //
+            // NUNCA PONER EN TRUE EN SUS .ENV
+            // SYNCHRONIZE=FALSE
+            //
+            synchronize: process.env.SYNCHRONIZE === 'TRUE',
+            //
+            // dropSchema: false,// NUNCA ACTIVAR
+            // ALERTA NO MODIFICAR NUNCA--
+            // ----------- OJO -----------
+            extra: {
+                connectionLimit: process.env.T_CONNECTIONLIMIT
+                    ? +process.env.T_CONNECTIONLIMIT
+                    : 10,
+            },
+            schema: 'public',
+            //logging: ['query', 'error'],
+        }),
 
-    TypeOrmModule.forRoot({
-      name: 'tracking',
-      type: 'postgres', // Cambia el tipo de base de datos a MySQL
-      host: process.env.DB_HOST_TRAKING,
-      port: +process.env.DB_PORT_TRAKING,
-      username: process.env.DB_USERNAME_TRAKING,
-      password: process.env.DB_PASSWORD_TRAKING,
-      database: process.env.DB_NAME_TRAKING,
-      // ----------- OJO -----------
-      // ALERTA NO MODIFICAR NUNCA--
-      // ---- NI EN DESARROLLO -----
-      //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-      entities: [],
-      autoLoadEntities: false, // Siempre true
-      //keepConnectionAlive: true,// Siempre true
-      //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-      // debug: true,
-      synchronize: false,
-      // dropSchema: false,// NUNCA ACTIVAR
-      // ALERTA NO MODIFICAR NUNCA--
-      // ----------- OJO -----------,
-      extra: {
-        connectionLimit: process.env.H_CONNECTIONLIMIT
-          ? +process.env.H_CONNECTIONLIMIT
-          : 10,
-      },
-    }),
-    TypeOrmModule.forRoot({
-      name: 'tracking_controller',
-      type: 'postgres', // Cambia el tipo de base de datos a MySQL
-      host: process.env.DB_HOST_TRAKING_CONTROLLER,
-      port: +process.env.DB_PORT_TRAKING_CONTROLLER,
-      username: process.env.DB_USERNAME_TRAKING_CONTROLLER,
-      password: process.env.DB_PASSWORD_TRAKING_CONTROLLER,
-      database: process.env.DB_NAME_TRAKING_CONTROLLER,
-      // ----------- OJO -----------
-      // ALERTA NO MODIFICAR NUNCA--
-      // ---- NI EN DESARROLLO -----
-      //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-      entities: [],
-      autoLoadEntities: false, // Siempre true
-      //keepConnectionAlive: true,// Siempre true
-      //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-      // debug: true,
-      synchronize: process.env.SYNCHRONIZE === 'TRUE',
+        TypeOrmModule.forRoot({
+            name: 'tracking',
+            type: 'postgres', // Cambia el tipo de base de datos a MySQL
+            host: process.env.DB_HOST_TRAKING,
+            port: +process.env.DB_PORT_TRAKING,
+            username: process.env.DB_USERNAME_TRAKING,
+            password: process.env.DB_PASSWORD_TRAKING,
+            database: process.env.DB_NAME_TRAKING,
+            // ----------- OJO -----------
+            // ALERTA NO MODIFICAR NUNCA--
+            // ---- NI EN DESARROLLO -----
+            //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+            entities: [],
+            autoLoadEntities: false, // Siempre true
+            //keepConnectionAlive: true,// Siempre true
+            //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+            // debug: true,
+            synchronize: false,
+            // dropSchema: false,// NUNCA ACTIVAR
+            // ALERTA NO MODIFICAR NUNCA--
+            // ----------- OJO -----------,
+            extra: {
+                connectionLimit: process.env.H_CONNECTIONLIMIT
+                    ? +process.env.H_CONNECTIONLIMIT
+                    : 10,
+            },
+        }),
+        TypeOrmModule.forRoot({
+            name: 'tracking_controller',
+            type: 'postgres', // Cambia el tipo de base de datos a MySQL
+            host: process.env.DB_HOST_TRAKING_CONTROLLER,
+            port: +process.env.DB_PORT_TRAKING_CONTROLLER,
+            username: process.env.DB_USERNAME_TRAKING_CONTROLLER,
+            password: process.env.DB_PASSWORD_TRAKING_CONTROLLER,
+            database: process.env.DB_NAME_TRAKING_CONTROLLER,
+            // ----------- OJO -----------
+            // ALERTA NO MODIFICAR NUNCA--
+            // ---- NI EN DESARROLLO -----
+            //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+            entities: [],
+            autoLoadEntities: false, // Siempre true
+            //keepConnectionAlive: true,// Siempre true
+            //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+            // debug: true,
+            synchronize: process.env.SYNCHRONIZE === 'TRUE',
 
-      // dropSchema: false,// NUNCA ACTIVAR
-      // ALERTA NO MODIFICAR NUNCA--
-      // ----------- OJO -----------,
-      extra: {
-        connectionLimit: process.env.H_CONNECTIONLIMIT
-          ? +process.env.H_CONNECTIONLIMIT
-          : 10,
-      },
-    }),
-    LoggerModule,
-    CommonModule,
-    AuthModule,
-    ConfigModule,
-    SlotModule,
-    BlockModule,
-    ZoneModule,
-    FractionModule,
-    SimertModule,
-    DataModule,
-    StatusModule,
-    FractionStatusModule,
-    OperatorModule,
-    BlockOperatorModule,
-    CheckModule,
-    IncidentCheckModule,
-    CheckboxModuleAdmin,
-    CheckboxModuleClient,
-    CheckboxUserModule,
-    CardModule,
-    CommonCacheModule,
-    AdminModule,
-    MappingModule,
-    ScheduleModule,
-    TrakingModule,
-    LModule,
-    SalePointModule,
-    RangeModule,
-    PhysicsModule,
-    SalePointModuleClient,
-    IncidentTypeModule,
-    IncidentTypeModuleAdmin,
-    IncidentModule,
-    IncidentModuleAdmin,
-    IncidentPaymentModule,
-    RangeSalePointModule,
-    RangeSalePointModuleClient,
-    RangeSalePointTransactionModuleAdmin,
-    RangeSalePointTransactionModuleClient,
-    SupportTicketModule,
-    SupportTicketModuleAdmin,
-    AgentActivitiesModuleAdmin,
-    AgentActivitiesModuleClient,
-    AntModule,
-    GimModule,
-    IncidentNotificationModule,
-    PortalModule,
-    DinardapAntModule,
-    KeycloakModule,
-    CatalogModule,
-    PublicModule,
-  ],
-  controllers: [AppController],
+            // dropSchema: false,// NUNCA ACTIVAR
+            // ALERTA NO MODIFICAR NUNCA--
+            // ----------- OJO -----------,
+            extra: {
+                connectionLimit: process.env.H_CONNECTIONLIMIT
+                    ? +process.env.H_CONNECTIONLIMIT
+                    : 10,
+            },
+        }),
+        LoggerModule,
+        CommonModule,
+        AuthModule,
+        ConfigModule,
+        SlotModule,
+        BlockModule,
+        ZoneModule,
+        FractionModule,
+        SimertModule,
+        DataModule,
+        StatusModule,
+        FractionStatusModule,
+        OperatorModule,
+        BlockOperatorModule,
+        CheckModule,
+        IncidentCheckModule,
+        CheckboxModuleAdmin,
+        CheckboxModuleClient,
+        CheckboxUserModule,
+        CardModule,
+        CommonCacheModule,
+        AdminModule,
+        MappingModule,
+        ScheduleModule,
+        TrakingModule,
+        LModule,
+        SalePointModule,
+        RangeModule,
+        PhysicsModule,
+        SalePointModuleClient,
+        IncidentTypeModule,
+        IncidentTypeModuleAdmin,
+        IncidentModule,
+        IncidentModuleAdmin,
+        IncidentPaymentModule,
+        RangeSalePointModule,
+        RangeSalePointModuleClient,
+        RangeSalePointTransactionModuleAdmin,
+        RangeSalePointTransactionModuleClient,
+        SupportTicketModule,
+        SupportTicketModuleAdmin,
+        AgentActivitiesModuleAdmin,
+        AgentActivitiesModuleClient,
+        AntModule,
+        GimModule,
+        IncidentNotificationModule,
+        PortalModule,
+        DinardapAntModule,
+        KeycloakModule,
+        CatalogModule,
+        PublicModule,
+    ],
+    controllers: [AppController],
 })
 export class AppModule implements NestModule {
-  /**
-   * Registers application-wide middleware.
-   * @param consumer Middleware consumer used to apply middleware to routes.
-   */
-  configure(consumer: MiddlewareConsumer) {
-    consumer.apply(ResponseTimeMiddleware).forRoutes('*');
-  }
+    /**
+     * Registers application-wide middleware.
+     * @param consumer Middleware consumer used to apply middleware to routes.
+     */
+    configure(consumer: MiddlewareConsumer) {
+        consumer.apply(ResponseTimeMiddleware).forRoutes('*');
+    }
 }
