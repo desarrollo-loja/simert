@@ -28,6 +28,7 @@ import { IncidentStatus } from 'src/common/glob/type/type_incident';
 import { TypeMaritalStatus } from 'src/common/glob/type/type_maritalStatus';
 import { TypeSizeVehicle } from 'src/common/glob/type/type_size_vehicle';
 import { KeycloakTokenResponse } from 'src/common/intefaces/gim-responses.interfaces';
+import { LoggerService } from 'src/common/logger.service.ts';
 
 import { DinardapAntService } from '../dinardap-ant/dinardap-ant.service';
 // import { CreateClientDto } from './dto/create-client.dto';
@@ -71,6 +72,7 @@ export class GimService {
    * @param incidentTypeService Incident-type service used to resolve incident-type codes.
    * @param commonGimService Shared GIM service that supplies fresh GIM access tokens.
    * @param dinardapAntService DINARDAP/ANT service used to fetch vehicle owner data.
+   * @param loggerService Audit logger used to record GIM integration failures.
    */
   constructor(
     private readonly commonAuthService: CommonAuthService,
@@ -79,6 +81,7 @@ export class GimService {
     private readonly incidentTypeService: IncidentTypeService,
     private readonly commonGimService: CommonGimService,
     private readonly dinardapAntService: DinardapAntService,
+    private readonly loggerService: LoggerService,
   ) {
     this.gimBaseUrl = this.configService.get<string>('GIM_BASE_URL'); // Default or Env
     this.gimBaseUrlLogin =
@@ -154,10 +157,15 @@ export class GimService {
     body: unknown,
   ): Promise<T> {
     const url = `${this.gimBaseUrl}/api/external/${endpointPath}`;
-    const { data } = await axios.post<T>(url, body, {
-      headers: this._authJsonHeaders(),
-    });
-    return data;
+    try {
+      const { data } = await axios.post<T>(url, body, {
+        headers: this._authJsonHeaders(),
+      });
+      return data;
+    } catch (error) {
+      this._logGimServerError(endpointPath, url, error);
+      throw error;
+    }
   }
 
   /**
@@ -191,6 +199,39 @@ export class GimService {
     }
 
     return null;
+  }
+
+  /**
+   * Records a real GIM integration failure (transport error, timeout or 5xx) in
+   * the `logsgim` collection. Uses {@link _gimServerErrorOrNull} as the
+   * classifier, so logical 4xx business responses are ignored. Fire-and-forget:
+   * never alters the caller flow.
+   *
+   * @param method Operation or GIM endpoint path that failed.
+   * @param endpoint GIM endpoint URL invoked.
+   * @param error Error thrown by the outbound GIM call.
+   */
+  private _logGimServerError(
+    method: string,
+    endpoint: string,
+    error: any,
+  ): void {
+    const serverError = this._gimServerErrorOrNull(error);
+    if (!serverError) return;
+
+    this.loggerService.saveLogsGimLogger({
+      resource: 'GIM',
+      service: 'GimService',
+      method,
+      endpoint,
+      httpStatus: error?.response?.status,
+      errorCode: serverError.errorCode,
+      message: serverError.message,
+      response: error?.response?.data,
+      exception: error?.name
+        ? `${error.name}: ${error.message}`
+        : String(error),
+    });
   }
 
   /**
@@ -782,6 +823,11 @@ export class GimService {
       };
     } catch (error: any) {
       this.logger.error(`Error verifateIncidentGim: ${error.message}`);
+      this._logGimServerError(
+        'verifateIncidentGim',
+        `${this.gimBaseUrl}/api/external/verifateIncidentSimert`,
+        error,
+      );
 
       return {
         errorCode: ErrorCode.HTTP_ERROR_REINTENT,
@@ -960,6 +1006,11 @@ export class GimService {
       }
     } catch (error) {
       this.logger.error(`Error findBondByNumber: ${error.message}`);
+      this._logGimServerError(
+        'findBondByNumber',
+        `${this.gimBaseUrl}/api/external/findBondByNumber`,
+        error,
+      );
       return {
         errorCode: ErrorCode.NOT_FOUND,
         message: error.message,
@@ -1405,6 +1456,11 @@ export class GimService {
         'Error desconocido';
 
       this.logger.error(`Error loginGim: ${msg}`);
+      this._logGimServerError(
+        'loginGim',
+        `${this.gimBaseUrlLogin}/realms/${this.gim2RealmMunicipio}/protocol/openid-connect/token`,
+        error,
+      );
       return { errorCode: ErrorCode.NOT_FOUND, message: msg, data: null };
     }
   }

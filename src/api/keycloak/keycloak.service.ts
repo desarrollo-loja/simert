@@ -6,6 +6,7 @@ import { CreateKeycloakUserDto } from 'src/common/dto/create-keycloak-user.dto';
 import { LoginKeycloakClientDto } from 'src/common/dto/login-keycloak-client.dto';
 import { UpdateKeycloakUserDto } from 'src/common/dto/update-keycloak-user.dto';
 import { ErrorCode } from 'src/common/glob/error';
+import { LoggerService } from 'src/common/logger.service.ts';
 
 // Safety margin: refresh the token 30 seconds before it expires
 const TOKEN_REFRESH_MARGIN_MS = 30_000;
@@ -36,10 +37,12 @@ export class KeycloakService {
      *
      * @param commonGimService Shared GIM service used to obtain access tokens.
      * @param configService Configuration provider for environment variables.
+     * @param loggerService Audit logger used to record Keycloak integration failures.
      */
     constructor(
         private readonly commonGimService: CommonGimService,
         private readonly configService: ConfigService,
+        private readonly loggerService: LoggerService,
     ) {
         this.gimBaseUrlLogin =
             this.configService.get<string>('GIM_BASE_URL_LOGIN'); // Default or Env
@@ -138,7 +141,48 @@ export class KeycloakService {
     }
 
     /**
-     * Builds a normalized error envelope for a failed Keycloak / GIM request.
+     * Returns the mapped error envelope for a failed Keycloak / GIM request and
+     * records real integration failures in the `logskeycloak` collection.
+     *
+     * Mapping is delegated to {@link _mapKeycloakError} (behavior unchanged). An
+     * audit entry is written for every failure except an expected 401 (bad
+     * credentials / unauthorized), which is a client-side error. The audit write
+     * is fire-and-forget and never alters the returned envelope.
+     *
+     * @param context Name of the calling operation, used for logging and audit.
+     * @param error Error raised by axios: a connection error (`error.code`) or an
+     *        HTTP response error (`error.response.status`).
+     * @returns An `{ errorCode, message }` envelope describing the failure.
+     */
+    private _buildKeycloakError(
+        context: string,
+        error: any,
+    ): { errorCode: ErrorCode; message: string } {
+        const result = this._mapKeycloakError(context, error);
+
+        // Skip expected 401s (bad credentials / unauthorized); record only real
+        // integration failures (connection errors, 5xx, 409, unexpected).
+        if (error?.response?.status !== 401) {
+            this.loggerService.saveLogsKeycloakLogger({
+                resource: 'KEYCLOAK',
+                service: 'KeycloakService',
+                method: context,
+                endpoint: error?.config?.url,
+                httpStatus: error?.response?.status,
+                errorCode: result.errorCode,
+                message: result.message,
+                response: error?.response?.data,
+                exception: error?.name
+                    ? `${error.name}: ${error.message}`
+                    : String(error),
+            });
+        }
+
+        return result;
+    }
+
+    /**
+     * Maps a failed Keycloak / GIM request into a normalized error envelope.
      *
      * This used to throw an {@link HttpException}, which surfaced on the client as
      * an HTTP error (e.g. the red `401 (Unauthorized)` logged in the browser
@@ -154,7 +198,7 @@ export class KeycloakService {
      *        HTTP response error (`error.response.status`).
      * @returns An `{ errorCode, message }` envelope describing the failure.
      */
-    private _buildKeycloakError(
+    private _mapKeycloakError(
         context: string,
         error: any,
     ): { errorCode: ErrorCode; message: string } {
