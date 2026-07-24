@@ -235,6 +235,42 @@ export class GimService {
   }
 
   /**
+   * Records a GIM natural-person creation failure in the `logsgim` collection,
+   * capturing GIM's raw response so the rejection reason (code / message /
+   * validationErrors) is available for diagnosis.
+   *
+   * Complements {@link _logGimServerError}: this covers business rejections
+   * (HTTP 200 with a negative payload) and non-server (4xx) errors, while real
+   * 5xx/transport failures are logged at the {@link _postToExternalApi} layer.
+   *
+   * @param method Calling method name recorded in the log.
+   * @param fields Failure details captured from the GIM response.
+   * @param fields.httpStatus HTTP status of the GIM response (200 for business rejections).
+   * @param fields.errorCode Mapped application error code.
+   * @param fields.message Human-readable rejection reason, when available.
+   * @param fields.response Raw GIM response body (holds the rejection reason).
+   * @param fields.exception Exception summary, for error (4xx) cases.
+   */
+  private _logGimCreateFailure(
+    method: string,
+    fields: {
+      httpStatus?: number;
+      errorCode?: number;
+      message?: string;
+      response?: any;
+      exception?: string;
+    },
+  ): void {
+    this.loggerService.saveLogsGimLogger({
+      resource: 'GIM',
+      service: 'GimService',
+      method,
+      endpoint: `${this.gimBaseUrl}/api/external/createNewNaturalPerson`,
+      ...fields,
+    });
+  }
+
+  /**
    * Issues an incident debt in GIM end to end: completes missing client data
    * from the ANT, resolves or creates the GIM resident, checks whether the
    * debt was already issued, emits the infraction when needed, and updates the
@@ -682,6 +718,12 @@ export class GimService {
       this.logger.warn(
         `createNewNaturalPersonGim: GIM sin residentDTO -> ${JSON.stringify(data)}`,
       );
+      this._logGimCreateFailure('createNewNaturalPersonGim', {
+        httpStatus: 200,
+        errorCode: ErrorCode.NOT_FOUND,
+        message: (data as any)?.message,
+        response: data,
+      });
       return {
         errorCode: ErrorCode.NOT_FOUND,
         residentDTO: null,
@@ -694,6 +736,19 @@ export class GimService {
       this.logger.error(
         `createNewNaturalPersonGim: GIM HTTP ${error?.response?.status} body -> ${JSON.stringify(error?.response?.data)}`,
       );
+      // Persist 4xx / non-server GIM failures in logsgim (5xx/transport are
+      // already captured by _postToExternalApi) so the reason is queryable.
+      if (!this._gimServerErrorOrNull(error)) {
+        this._logGimCreateFailure('createNewNaturalPersonGim', {
+          httpStatus: error?.response?.status,
+          errorCode: ErrorCode.HTTP_ERROR_REINTENT,
+          message: error?.message,
+          response: error?.response?.data,
+          exception: error?.name
+            ? `${error.name}: ${error.message}`
+            : String(error),
+        });
+      }
 
       return {
         errorCode: ErrorCode.HTTP_ERROR_REINTENT,
@@ -776,6 +831,15 @@ export class GimService {
         }
       }
 
+      // Capture GIM's rejection reason (code/message/validationErrors) so we
+      // can diagnose why the resident was not created (200 "not created").
+      this._logGimCreateFailure('createNewNaturalPersonGimNoExist', {
+        httpStatus: 200,
+        errorCode: ErrorCode.NOT_FOUND,
+        message: (data as any)?.message,
+        response: data,
+      });
+
       return {
         errorCode: ErrorCode.NOT_FOUND,
         residentDTO: null,
@@ -783,6 +847,19 @@ export class GimService {
     } catch (error: any) {
       this.logger.error(` ${error}`);
       this.logger.error(`Error createClientGim: ${error.message}`);
+      // Persist 4xx / non-server GIM failures in logsgim (5xx/transport are
+      // already captured by _postToExternalApi) so the reason is queryable.
+      if (!this._gimServerErrorOrNull(error)) {
+        this._logGimCreateFailure('createNewNaturalPersonGimNoExist', {
+          httpStatus: error?.response?.status,
+          errorCode: ErrorCode.HTTP_ERROR_REINTENT,
+          message: error?.message,
+          response: error?.response?.data,
+          exception: error?.name
+            ? `${error.name}: ${error.message}`
+            : String(error),
+        });
+      }
 
       return {
         errorCode: ErrorCode.HTTP_ERROR_REINTENT,
