@@ -1565,7 +1565,7 @@ export class GimService {
         errorCode: ErrorCode.NOT_FOUND,
         message:
           error.response?.data?.message ||
-          'error de catch de emitSimertCard',
+          'No se logró emitir la tarjeta en el GIM, por favor intente más tarde',
         data: error.response?.data || null,
       };
     }
@@ -1612,7 +1612,7 @@ export class GimService {
         errorCode: ErrorCode.NOT_FOUND,
         message:
           error.response?.data?.message ||
-          'error de catch de registerDeposit',
+          'No se logró registrar el depósito en el GIM, por favor intente más tarde',
         data: error.response?.data || null,
       };
     }
@@ -1662,7 +1662,7 @@ export class GimService {
         errorCode: ErrorCode.NOT_FOUND,
         message:
           error.response?.data?.message ||
-          'error de catch de findObligations',
+          'No se lograron obtener las obligaciones del GIM, por favor intente más tarde',
         data: error.response?.data || null,
       };
     }
@@ -1714,7 +1714,7 @@ export class GimService {
         errorCode: ErrorCode.NOT_FOUND,
         message:
           error.response?.data?.message ||
-          'error de catch de emitSanction',
+          'No se logró emitir la sanción en el GIM, por favor intente más tarde',
         data: error.response?.data || null,
       };
     }

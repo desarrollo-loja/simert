@@ -671,7 +671,11 @@ export class IncidentService {
                 where: { id },
             });
             if (!exists) {
-                return { incident: null, errorCode: ErrorCode.NOT_FOUND };
+                return {
+                    incident: null,
+                    errorCode: ErrorCode.NOT_FOUND,
+                    message: 'No se encontró la multa que se desea actualizar',
+                };
             }
 
             const {
@@ -691,7 +695,11 @@ export class IncidentService {
                 incident,
             });
 
-            return { incident, errorCode: ErrorCode.NONE };
+            return {
+                incident,
+                errorCode: ErrorCode.NONE,
+                message: 'Se actualizó el estado de la multa correctamente',
+            };
         } catch (error) {
             handleDbExceptions(error, this.logger);
         }
