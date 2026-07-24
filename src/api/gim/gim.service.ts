@@ -157,6 +157,9 @@ export class GimService {
     body: unknown,
   ): Promise<T> {
     const url = `${this.gimBaseUrl}/api/external/${endpointPath}`;
+    console.log("------> URL", url);
+    console.log("------> BODY", body);
+    console.log("------> HEADERS", this._authJsonHeaders());
     try {
       const { data } = await axios.post<T>(url, body, {
         headers: this._authJsonHeaders(),
