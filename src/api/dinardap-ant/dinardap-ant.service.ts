@@ -7,7 +7,7 @@ import { AntResponse } from 'src/common/intefaces/ant_response.interface';
 import { LoggerService } from 'src/common/logger.service.ts';
 
 type AntLookupResult =
-    | { errorCode: ErrorCode.NONE; data: AntResponse }
+    | { errorCode: ErrorCode.NONE; data: AntResponse; message: string }
     | {
           errorCode: Exclude<ErrorCode, ErrorCode.NONE>;
           data: null;
@@ -72,7 +72,11 @@ export class DinardapAntService {
             };
         }
 
-        return { errorCode: ErrorCode.NONE, data };
+        return {
+            errorCode: ErrorCode.NONE,
+            data,
+            message: 'Información del vehículo obtenida correctamente',
+        };
     }
 
     /**

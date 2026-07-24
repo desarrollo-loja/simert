@@ -16,7 +16,7 @@ export interface AntDataResponse {
 }
 
 type AntLookupResult =
-    | { errorCode: ErrorCode.NONE; data: AntDataResponse }
+    | { errorCode: ErrorCode.NONE; data: AntDataResponse; message: string }
     | {
           errorCode: Exclude<ErrorCode, ErrorCode.NONE>;
           data: null;
@@ -91,7 +91,11 @@ export class AntService {
             };
         }
 
-        return { errorCode: ErrorCode.NONE, data: antData };
+        return {
+            errorCode: ErrorCode.NONE,
+            data: antData,
+            message: 'Información del vehículo obtenida correctamente',
+        };
     }
 
     // SOAP protocol resource named consultarVehiculo
