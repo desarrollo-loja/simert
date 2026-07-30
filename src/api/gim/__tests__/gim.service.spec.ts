@@ -4,11 +4,16 @@ import { IncidentStatus } from 'src/common/glob/type/type_incident';
 
 jest.mock('axios', () => ({
   __esModule: true,
-  default: { post: jest.fn() },
+  default: {
+    post: jest.fn(),
+    get: jest.fn(),
+    isAxiosError: jest.fn(() => false),
+  },
 }));
 import axios from 'axios';
 
 import { GimService } from '../gim.service';
+import { ConceptPaidObligation } from '../interfaces/gim-responses.interfaces';
 
 const buildConfigMock = () => ({
   get: jest.fn((key: string) => {
@@ -29,6 +34,7 @@ const buildCommonAuthMock = () => ({
   updateResidentId: jest.fn(),
 });
 const buildDinardapMock = () => ({ getUserDataByPlateAnt: jest.fn() });
+const buildLoggerServiceMock = () => ({ saveLogsGimLogger: jest.fn() });
 
 describe('GimService', () => {
   let service: GimService;
@@ -37,14 +43,17 @@ describe('GimService', () => {
   let commonGim: ReturnType<typeof buildCommonGimMock>;
   let commonAuth: ReturnType<typeof buildCommonAuthMock>;
   let dinardap: ReturnType<typeof buildDinardapMock>;
+  let loggerService: ReturnType<typeof buildLoggerServiceMock>;
 
   beforeEach(() => {
     (axios.post as jest.Mock).mockReset();
+    (axios.get as jest.Mock).mockReset();
     incidentService = buildIncidentService();
     incidentTypeService = buildIncidentTypeService();
     commonGim = buildCommonGimMock();
     commonAuth = buildCommonAuthMock();
     dinardap = buildDinardapMock();
+    loggerService = buildLoggerServiceMock();
 
     service = new GimService(
       commonAuth as any,
@@ -53,6 +62,7 @@ describe('GimService', () => {
       incidentTypeService as any,
       commonGim as any,
       dinardap as any,
+      loggerService as any,
     );
     (service as any).logger = { error: jest.fn(), warn: jest.fn(), log: jest.fn(), debug: jest.fn() };
   });
@@ -62,6 +72,219 @@ describe('GimService', () => {
     it('proxies to CommonGimService.getTokenGim2', () => {
       expect(service.getToken()).toBe('tok-gim');
       expect(commonGim.getTokenGim2).toHaveBeenCalled();
+    });
+  });
+
+  // ─── findPaidObligations ─────────────────────────────────────────────────
+  describe('findPaidObligations', () => {
+    const range = { startDate: '2026-07-01', endDate: '2026-07-15' };
+
+    it('gets the resource with the filter as query params and a Bearer token', async () => {
+      (axios.get as jest.Mock).mockResolvedValue({
+        data: { ok: true, code: '200', obligations: [] },
+      });
+
+      await service.findPaidObligations({
+        ...range,
+        concept: ConceptPaidObligation.FINE,
+        page: 0,
+        size: 50,
+      });
+
+      expect(axios.get).toHaveBeenCalledWith(
+        'http://gim.test/api/external/simert/paid-obligations',
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: 'Bearer tok-gim',
+          },
+          params: {
+            startDate: '2026-07-01',
+            endDate: '2026-07-15',
+            concept: 'MULTA',
+            page: 0,
+            size: 50,
+          },
+        },
+      );
+    });
+
+    it('coerces the page/size query strings and defaults them when absent', async () => {
+      (axios.get as jest.Mock).mockResolvedValue({
+        data: { ok: true, code: '200', obligations: [] },
+      });
+
+      await service.findPaidObligations({ ...range, page: '2' as any });
+
+      expect(axios.get).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ params: expect.objectContaining({ page: 2, size: 50 }) }),
+      );
+    });
+
+    it('normalizes the GIM envelope and totals the collected amount', async () => {
+      (axios.get as jest.Mock).mockResolvedValue({
+        data: {
+          ok: true,
+          code: '200',
+          obligations: [
+            { obligationNumber: '1001', total: 25.5 },
+            { obligationNumber: '1002', total: 10 },
+          ],
+        },
+      });
+
+      const result = await service.findPaidObligations({ ...range, size: 50 });
+
+      expect(result.errorCode).toBe(ErrorCode.NONE);
+      expect(result.data.items).toHaveLength(2);
+      expect(result.data.total).toBe(2);
+      expect(result.data.totalAmount).toBe(35.5);
+      expect(result.data.totalPages).toBe(1);
+    });
+
+    it('normalizes a Spring page envelope, keeping its own totals', async () => {
+      (axios.get as jest.Mock).mockResolvedValue({
+        data: {
+          content: [{ obligationNumber: '2001', total: 8 }],
+          totalElements: 120,
+          totalPages: 3,
+          number: 1,
+          size: 50,
+        },
+      });
+
+      const result = await service.findPaidObligations({ ...range, page: 1, size: 50 });
+
+      expect(result.errorCode).toBe(ErrorCode.NONE);
+      expect(result.data.items).toHaveLength(1);
+      expect(result.data.total).toBe(120);
+      expect(result.data.totalPages).toBe(3);
+      expect(result.data.page).toBe(1);
+    });
+
+    it('rejects an inverted range without calling GIM', async () => {
+      const result = await service.findPaidObligations({
+        startDate: '2026-07-15',
+        endDate: '2026-07-01',
+      });
+
+      expect(axios.get).not.toHaveBeenCalled();
+      expect(result.errorCode).toBe(ErrorCode.NOT_VALID);
+      expect(result.data).toBeNull();
+    });
+
+    it('rejects unparseable dates without calling GIM', async () => {
+      const result = await service.findPaidObligations({
+        startDate: 'ayer',
+        endDate: 'hoy',
+      });
+
+      expect(axios.get).not.toHaveBeenCalled();
+      expect(result.errorCode).toBe(ErrorCode.NOT_VALID);
+    });
+
+    it('accepts a range of any span', async () => {
+      (axios.get as jest.Mock).mockResolvedValue({
+        data: { ok: true, code: '200', obligations: [] },
+      });
+
+      const result = await service.findPaidObligations({
+        startDate: '2025-01-01',
+        endDate: '2026-12-31',
+      });
+
+      expect(result.errorCode).toBe(ErrorCode.NONE);
+      expect(axios.get).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          params: expect.objectContaining({
+            startDate: '2025-01-01',
+            endDate: '2026-12-31',
+          }),
+        }),
+      );
+    });
+
+    it('returns NOT_FOUND with the GIM message on a logical failure', async () => {
+      (axios.get as jest.Mock).mockResolvedValue({
+        data: { ok: false, code: '400', message: 'Concepto inválido' },
+      });
+
+      const result = await service.findPaidObligations(range);
+
+      expect(result.errorCode).toBe(ErrorCode.NOT_FOUND);
+      expect(result.message).toBe('Concepto inválido');
+      expect(result.data).toBeNull();
+    });
+
+    it('audits a logical failure in logsgim with the reason GIM gave', async () => {
+      const response = { ok: false, code: '400', message: 'Concepto inválido' };
+      (axios.get as jest.Mock).mockResolvedValue({ data: response });
+
+      await service.findPaidObligations(range);
+
+      expect(loggerService.saveLogsGimLogger).toHaveBeenCalledWith(
+        expect.objectContaining({
+          resource: 'GIM',
+          service: 'GimService',
+          method: 'findPaidObligations',
+          endpoint: 'http://gim.test/api/external/simert/paid-obligations',
+          httpStatus: 200,
+          errorCode: ErrorCode.NOT_FOUND,
+          message: 'Concepto inválido',
+          response,
+        }),
+      );
+    });
+
+    it('audits a 4xx failure in logsgim, keeping the GIM response body', async () => {
+      (axios.get as jest.Mock).mockRejectedValue({
+        name: 'AxiosError',
+        message: 'Request failed with status code 401',
+        response: { status: 401, data: { error: 'invalid_token' } },
+      });
+
+      const result = await service.findPaidObligations(range);
+
+      expect(result.errorCode).toBe(ErrorCode.NOT_FOUND);
+      expect(loggerService.saveLogsGimLogger).toHaveBeenCalledWith(
+        expect.objectContaining({
+          method: 'findPaidObligations',
+          httpStatus: 401,
+          response: { error: 'invalid_token' },
+          exception: 'AxiosError: Request failed with status code 401',
+        }),
+      );
+    });
+
+    it('does not audit twice when the municipality server fails', async () => {
+      (axios.isAxiosError as unknown as jest.Mock).mockReturnValue(true);
+      (axios.get as jest.Mock).mockRejectedValue({
+        name: 'AxiosError',
+        message: 'socket hang up',
+      });
+
+      await service.findPaidObligations(range);
+
+      // Only the _getFromExternalApi layer logs 5xx/transport failures.
+      expect(loggerService.saveLogsGimLogger).toHaveBeenCalledTimes(1);
+      (axios.isAxiosError as unknown as jest.Mock).mockReturnValue(false);
+    });
+
+    it('reports HTTP_ERROR_REINTENT when the municipality server fails', async () => {
+      (axios.isAxiosError as unknown as jest.Mock).mockReturnValue(true);
+      (axios.get as jest.Mock).mockRejectedValue({
+        name: 'AxiosError',
+        message: 'socket hang up',
+      });
+
+      const result = await service.findPaidObligations(range);
+
+      expect(result.errorCode).toBe(ErrorCode.HTTP_ERROR_REINTENT);
+      expect(result.data).toBeNull();
+      expect(loggerService.saveLogsGimLogger).toHaveBeenCalled();
+      (axios.isAxiosError as unknown as jest.Mock).mockReturnValue(false);
     });
   });
 

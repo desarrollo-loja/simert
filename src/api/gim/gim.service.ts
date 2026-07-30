@@ -35,6 +35,7 @@ import { DinardapAntService } from '../dinardap-ant/dinardap-ant.service';
 import { CreateGimDto } from './dto/create-gim.dto';
 import FindBondNumberDto from './dto/find-bond-number';
 import { GetClientGimDto } from './dto/get-client-gim.dto';
+import { PaidObligationsDto } from './dto/paid-obligations.dto';
 import { Consts } from './helpers/consts.enum';
 import {
   CreateNaturalPersonResponse,
@@ -45,8 +46,14 @@ import {
   Obligation,
   ObligationsClientResponse,
   ObligationsResponse,
+  PaidObligationGim,
+  PaidObligationsGimResponse,
+  PaidObligationsPage,
   VehicleTypesGimResponse,
 } from './interfaces/gim-responses.interfaces';
+
+/** Page size used when the `paid-obligations` caller does not send one. */
+const DEFAULT_SIZE_PAID_OBLIGATIONS = 50;
 
 /**
  * Service that integrates Simert with the GIM municipal platform: issues
@@ -60,6 +67,10 @@ export class GimService {
   private readonly logger = new Logger('GimService');
   private readonly gimBaseUrl: string;
   private readonly gimBaseUrlLogin: string;
+  // The `simert/paid-obligations` resource was enabled on the municipality's
+  // test server (memorando ML-DT-2026-0819-M), which is not necessarily the
+  // host serving the rest of the external API; falls back to `GIM_BASE_URL`.
+  private readonly gimBaseUrlPaidObligations: string;
   private readonly gim2RealmMunicipio: string;
   private token: string;
 
@@ -86,6 +97,9 @@ export class GimService {
     this.gimBaseUrl = this.configService.get<string>('GIM_BASE_URL'); // Default or Env
     this.gimBaseUrlLogin =
       this.configService.get<string>('GIM_BASE_URL_LOGIN'); // Default or Env
+    this.gimBaseUrlPaidObligations =
+      this.configService.get<string>('GIM_BASE_URL_PAID_OBLIGATIONS') ||
+      this.gimBaseUrl; // Default or Env
     this.gim2RealmMunicipio = this.configService.get<string>(
       'GIM2_REALM_MUNICIPIO',
     ); // Default or Env
@@ -163,6 +177,35 @@ export class GimService {
     try {
       const { data } = await axios.post<T>(url, body, {
         headers: this._authJsonHeaders(),
+      });
+      return data;
+    } catch (error) {
+      this._logGimServerError(endpointPath, url, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Performs an authenticated GET against a GIM "external" API endpoint, the
+   * read-only counterpart of {@link _postToExternalApi}: same base-URL
+   * composition and Bearer-token header, with the filter sent as query params.
+   *
+   * @typeParam T Expected response payload shape.
+   * @param endpointPath Path under `/api/external/` (e.g. `simert/paid-obligations`).
+   * @param params Query parameters appended to the URL.
+   * @param baseUrl Host serving the resource; defaults to `GIM_BASE_URL`.
+   * @returns The parsed response body returned by GIM.
+   */
+  private async _getFromExternalApi<T>(
+    endpointPath: string,
+    params: Record<string, unknown>,
+    baseUrl: string = this.gimBaseUrl,
+  ): Promise<T> {
+    const url = `${baseUrl}/api/external/${endpointPath}`;
+    try {
+      const { data } = await axios.get<T>(url, {
+        headers: this._authJsonHeaders(),
+        params,
       });
       return data;
     } catch (error) {
@@ -1156,6 +1199,227 @@ export class GimService {
       this.logger.error(
         `Error findObligationsByCitation: ${error.message}`,
       );
+      return {
+        errorCode: ErrorCode.NOT_FOUND,
+        message: error.message,
+        data: null,
+      };
+    }
+  }
+
+  /**
+   * Rejects a `paid-obligations` date range that cannot be queried: a missing or
+   * unparseable bound, or an inverted range. Any span is accepted, since the
+   * resource answers for whatever range is asked of it.
+   *
+   * @param startDate Range start as `YYYY-MM-DD`.
+   * @param endDate Range end as `YYYY-MM-DD`.
+   * @returns The rejection message, or `null` when the range is valid.
+   */
+  private _validatePaidObligationsRange(
+    startDate: string,
+    endDate: string,
+  ): string | null {
+    const start = new Date(`${startDate}T00:00:00`);
+    const end = new Date(`${endDate}T00:00:00`);
+
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      return 'Las fechas de consulta no son válidas, use el formato YYYY-MM-DD';
+    }
+    if (start.getTime() > end.getTime()) {
+      return 'La fecha inicial no puede ser mayor que la fecha final';
+    }
+
+    return null;
+  }
+
+  /**
+   * Normalizes whichever envelope GIM answered the `paid-obligations` resource
+   * with — its usual `{ ok, code, obligations }` wrapper or a Spring `Page`
+   * (`{ content, totalElements, totalPages }`) — into a single page shape, and
+   * totals the amount of the returned credit titles.
+   *
+   * @param data Raw response body returned by GIM.
+   * @param page 0-based page that was requested.
+   * @param size Page size that was requested.
+   * @returns The normalized page of paid credit titles.
+   */
+  private _normalizePaidObligationsPage(
+    data: PaidObligationsGimResponse,
+    page: number,
+    size: number,
+  ): PaidObligationsPage {
+    const candidates = [
+      data?.obligations,
+      data?.content,
+      data?.items,
+      data?.data,
+    ];
+    const items = (candidates.find((candidate) => Array.isArray(candidate)) ??
+      []) as PaidObligationGim[];
+
+    const total = Number(data?.totalElements ?? data?.total ?? items.length);
+    const appliedSize = Number(data?.size ?? size) || size;
+    const totalPages = Number(
+      data?.totalPages ?? (appliedSize > 0 ? Math.ceil(total / appliedSize) : 0),
+    );
+    const totalAmount = items.reduce(
+      (sum, item) => sum + this._paidObligationAmount(item),
+      0,
+    );
+
+    return {
+      items,
+      total,
+      page: Number(data?.number ?? data?.page ?? page),
+      size: appliedSize,
+      totalPages,
+      totalAmount,
+    };
+  }
+
+  /**
+   * Reads the paid amount of a credit title, tolerating the amount field names
+   * GIM uses across its resources (`total`, `amount`, `value`).
+   *
+   * @param paidObligation Credit title returned by GIM.
+   * @returns The amount as a number; `0` when none of the fields is numeric.
+   */
+  private _paidObligationAmount(paidObligation: PaidObligationGim): number {
+    const raw =
+      paidObligation?.total ?? paidObligation?.amount ?? paidObligation?.value;
+    const amount = Number(raw);
+    return isNaN(amount) ? 0 : amount;
+  }
+
+  /**
+   * Records a `simert/paid-obligations` (reconciliation) failure in the
+   * `logsgim` collection, so a failed reconciliation is auditable in
+   * "Auditoría de integraciones" with the reason GIM gave.
+   *
+   * Complements {@link _logGimServerError}: this covers business rejections
+   * (HTTP 200 with `ok: false` / a non-200 code) and non-server (4xx) errors,
+   * while real 5xx/transport failures are logged at the
+   * {@link _getFromExternalApi} layer, which is why the callers only reach for
+   * this helper when {@link _gimServerErrorOrNull} does not classify the error.
+   *
+   * @param fields Failure details captured from the GIM response.
+   * @param fields.httpStatus HTTP status of the GIM response (200 for business rejections).
+   * @param fields.errorCode Mapped application error code.
+   * @param fields.message Human-readable rejection reason, when available.
+   * @param fields.response Raw GIM response body (holds the rejection reason).
+   * @param fields.exception Exception summary, for error (4xx) cases.
+   */
+  private _logPaidObligationsFailure(fields: {
+    httpStatus?: number;
+    errorCode?: number;
+    message?: string;
+    response?: any;
+    exception?: string;
+  }): void {
+    this.loggerService.saveLogsGimLogger({
+      resource: 'GIM',
+      service: 'GimService',
+      method: 'findPaidObligations',
+      endpoint: `${this.gimBaseUrlPaidObligations}/api/external/simert/paid-obligations`,
+      ...fields,
+    });
+  }
+
+  // Look up the paid credit titles (obligations already collected) for SIMERT
+  /**
+   * Lists the GIM credit titles already paid (status `PAGADA`) for a SIMERT
+   * concept (`MULTA` or `TARJETA`) inside a date range, via the
+   * `simert/paid-obligations` resource enabled by the municipality
+   * (memorando ML-DT-2026-0819-M). Feeds the Recaudación report, which
+   * reconciles what SIMERT registered against what GIM actually collected.
+   *
+   * @param paidObligationsDto Date range, SIMERT concept and 0-based pagination.
+   * @returns Object with the error code, optional message and the normalized page.
+   */
+  async findPaidObligations(paidObligationsDto: PaidObligationsDto): Promise<{
+    errorCode: number;
+    data: PaidObligationsPage;
+    message?: string;
+  }> {
+    const { startDate, endDate, concept } = paidObligationsDto;
+    const page = Number(paidObligationsDto.page ?? 0) || 0;
+    const size =
+      Number(paidObligationsDto.size ?? DEFAULT_SIZE_PAID_OBLIGATIONS) ||
+      DEFAULT_SIZE_PAID_OBLIGATIONS;
+
+    const rangeError = this._validatePaidObligationsRange(startDate, endDate);
+    if (rangeError) {
+      return {
+        errorCode: ErrorCode.NOT_VALID,
+        message: rangeError,
+        data: null,
+      };
+    }
+
+    try {
+      const data = await this._getFromExternalApi<PaidObligationsGimResponse>(
+        'simert/paid-obligations',
+        {
+          startDate,
+          endDate,
+          ...(concept ? { concept } : {}),
+          page,
+          size,
+        },
+        this.gimBaseUrlPaidObligations,
+      );
+
+      // The resource may answer with the GIM envelope (`ok`/`code`) or with a
+      // plain Spring page; only the former can report a logical failure, so the
+      // guard just rejects an explicit `ok: false` / non-200 code.
+      const hasEnvelope = data?.ok !== undefined || data?.code !== undefined;
+      const isEnvelopeSuccess =
+        data?.ok !== false &&
+        (data?.code === undefined || +data.code === ResponseCodeGim.SUCCESS);
+
+      if (data && (!hasEnvelope || isEnvelopeSuccess)) {
+        return {
+          errorCode: ErrorCode.NONE,
+          data: this._normalizePaidObligationsPage(data, page, size),
+        };
+      }
+
+      // GIM answered but rejected the query: keep its raw response so the
+      // reconciliation failure is auditable with the reason it gave.
+      const message =
+        data?.message ??
+        'No se encontraron títulos de crédito pagados en el municipio (GIM)';
+      this._logPaidObligationsFailure({
+        httpStatus: 200,
+        errorCode: ErrorCode.NOT_FOUND,
+        message,
+        response: data,
+      });
+
+      return {
+        errorCode: ErrorCode.NOT_FOUND,
+        message,
+        data: null,
+      };
+    } catch (error) {
+      this.logger.error(`Error findPaidObligations: ${error.message}`);
+      const serverError = this._gimServerErrorOrNull(error);
+      if (serverError) {
+        return serverError;
+      }
+      // 4xx / non-server failures (rejected token, resource not enabled…) are
+      // not captured by _getFromExternalApi, so they are recorded here.
+      this._logPaidObligationsFailure({
+        httpStatus: error?.response?.status,
+        errorCode: ErrorCode.NOT_FOUND,
+        message: error?.message,
+        response: error?.response?.data,
+        exception: error?.name
+          ? `${error.name}: ${error.message}`
+          : String(error),
+      });
+
       return {
         errorCode: ErrorCode.NOT_FOUND,
         message: error.message,

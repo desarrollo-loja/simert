@@ -1,8 +1,9 @@
-import { ValidationPipe } from '@nestjs/common';
+import { RequestMethod, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 
+import { PAID_OBLIGATIONS_ROUTE } from './api/gim/external-simert.controller';
 import { AppModule } from './app.module';
 import { TypePrefix } from './common/glob/type/type_prefix';
 import { PublicModule } from './public/public.module';
@@ -36,7 +37,13 @@ async function bootstrap() {
 
     app.enableShutdownHooks();
 
-    app.setGlobalPrefix(TypePrefix.API_SIMERT);
+    // The paid-obligations resource is published under the municipality's own
+    // external path (`/api/external/simert/...`, memorando ML-DT-2026-0819-M),
+    // so the `api/simert/` service prefix must not be prepended to it. Every
+    // other route keeps the prefix.
+    app.setGlobalPrefix(TypePrefix.API_SIMERT, {
+        exclude: [{ path: PAID_OBLIGATIONS_ROUTE, method: RequestMethod.GET }],
+    });
     app.use(expressip().getIpInfoMiddleware);
     app.use(
         helmet({

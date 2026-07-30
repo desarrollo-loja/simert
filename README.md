@@ -104,8 +104,9 @@ Este backend centraliza el **registro de parqueos**, **cálculo de tarifas**, **
 | JWT | `@nestjs/jwt` | `^11.0.0` |
 | Passport | `passport-jwt` | `^4.0.1` |
 | Hardening | Helmet | `^8.1.0` |
-| Hashing | bcrypt | `^5.1.1` |
-| Crypto | crypto-js | `^4.2.0` |
+| Hash de claves de caché / ETag | `crypto` (MD5, vía `common.hash.service.ts`) | Node.js built-in |
+
+> `package.json` también declara `bcrypt` y `crypto-js`, sin ninguna referencia en `src/`: este servicio no gestiona credenciales de usuario (eso lo hace `simert-auth`).
 
 ### 🧰 Calidad y Tooling
 
@@ -2334,6 +2335,9 @@ Servidor disponible en `http://localhost:5002/api/simert` y Swagger en `http://l
 | `DEVELOPMENT_ALLOWED_DOMAIN` | CORS whitelist dev | `"https://dev.ejemplo.com"` |
 | `PRODUCTION_ALLOWED_DOMAIN` | CORS whitelist prod | `"https://ejemplo.com"` |
 | `TIME_THRESHOLD_LOG_MS` | Umbral para log de peticiones lentas | `1000` |
+| `CPU` | Umbral de uso de CPU para `CPUInterceptor` | `80` |
+| `DOMINIO_AUTH` · `DOMINIO_PAY` · `DOMINIO_SIMERT` · `DOMINIO_SOCKET` | URLs base de los servicios hermanos | — |
+| `MONGODB_URI` | Conexión de MongoDB (auditoría) | — |
 
 **🗄️ Base de Datos Principal (PostgreSQL · conexión default)**
 
@@ -2365,6 +2369,8 @@ Servidor disponible en `http://localhost:5002/api/simert` y Swagger en `http://l
 | `GIM_CLIENT_ID_K` | Client ID municipal |
 | `GIM_CLIENT_SECRET_K` | Client Secret municipal |
 | `GIM_BASE_URL_LOGIN` | URL base Keycloak |
+| `GIM_BASE_URL` · `GIM_API_KEY` | API directa de GIM (distinta de los realms Keycloak), usada por `incident.service.ts` para conciliar depósitos |
+| `GIM_BASE_URL_PAID_OBLIGATIONS` | Opcional. Host del recurso `api/external/simert/paid-obligations` (títulos de crédito pagados, memorando ML-DT-2026-0819-M). Si no se define se usa `GIM_BASE_URL` |
 | `JWT_SECREAT` | Secreto JWT (typo intencional) |
 | `AUTORIZATION` | Bearer compartido entre servicios (typo intencional) |
 
@@ -2398,6 +2404,8 @@ Servidor disponible en `http://localhost:5002/api/simert` y Swagger en `http://l
 | `INTERVAL_VALIDATE_INCIDENT_MS` | Intervalo de conciliación de depósitos de incidentes |
 | `TIME_CACHE_BLOCK_OPERATOR` | Minutos de caché para `BlockOperator` |
 | `CODE_ENTRY_EMISION_CARD` · `CODE_ENTRY_EMISION_CARD_DESCRIPTION` | Rubro GIM por defecto para emisión de tarjetas |
+| `TIMER_MINUTE_DEUNA` · `TIMER_MINUTE_PLACE_TO_PAY` | Ventana (minutos) para expirar una compra de checkboxes pendiente de pago, por pasarela |
+| `SALARY_BASIC` | Salario básico para el cálculo de multas (cacheado en Redis, TTL 2 años) |
 
 > 📎 Detalle completo de cada job en [Trabajos en Segundo Plano (Jobs)](#trabajos-en-segundo-plano-jobs).
 
