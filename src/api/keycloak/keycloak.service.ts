@@ -78,6 +78,18 @@ export class KeycloakService {
         const result = await this.commonGimService.loginGimServiceHub();
 
         if (result.errorCode !== ErrorCode.NONE || !result.data) {
+            // CommonGimService lives in the shared library and has no audit
+            // logger of its own, so the login failure is recorded here — the
+            // first point that can see it and reach LoggerService. Without this
+            // the caller only reports "no token", losing the actual cause.
+            this._logKeycloakFailure({
+                method: 'getToken',
+                endpoint: `${process.env.GIM_BASE_URL_LOGIN}/realms/${this.gim2RealmServiceHub}/protocol/openid-connect/token`,
+                errorCode: result.errorCode ?? ErrorCode.UNAUTHORIZED,
+                message:
+                    result.message ??
+                    'No se pudo obtener el token de Keycloak ServiceHub',
+            });
             return null;
         }
 
@@ -99,6 +111,14 @@ export class KeycloakService {
         const result = await this.commonGimService.loginGimMunicipalityK();
 
         if (result.errorCode !== ErrorCode.NONE || !result.data) {
+            this._logKeycloakFailure({
+                method: 'getTokenMunicipalityK',
+                endpoint: `${process.env.GIM_BASE_URL_LOGIN}/realms/${this.gim2RealmMunicipality}/protocol/openid-connect/token`,
+                errorCode: result.errorCode ?? ErrorCode.UNAUTHORIZED,
+                message:
+                    result.message ??
+                    'No se pudo obtener el token de Keycloak Municipal',
+            });
             return null;
         }
 
@@ -142,12 +162,14 @@ export class KeycloakService {
 
     /**
      * Returns the mapped error envelope for a failed Keycloak / GIM request and
-     * records real integration failures in the `logskeycloak` collection.
+     * records the failure in the `logskeycloak` collection.
      *
-     * Mapping is delegated to {@link _mapKeycloakError} (behavior unchanged). An
-     * audit entry is written for every failure except an expected 401 (bad
-     * credentials / unauthorized), which is a client-side error. The audit write
-     * is fire-and-forget and never alters the returned envelope.
+     * Mapping is delegated to {@link _mapKeycloakError} (behavior unchanged).
+     * Every failure is audited, 401s included: a rejected credential is still a
+     * Keycloak outcome worth having on record, and telling apart "the password
+     * was wrong" from "the realm rejected our client" is only possible if both
+     * are stored. The audit write is fire-and-forget and never alters the
+     * returned envelope.
      *
      * @param context Name of the calling operation, used for logging and audit.
      * @param error Error raised by axios: a connection error (`error.code`) or an
@@ -160,25 +182,51 @@ export class KeycloakService {
     ): { errorCode: ErrorCode; message: string } {
         const result = this._mapKeycloakError(context, error);
 
-        // Skip expected 401s (bad credentials / unauthorized); record only real
-        // integration failures (connection errors, 5xx, 409, unexpected).
-        if (error?.response?.status !== 401) {
-            this.loggerService.saveLogsKeycloakLogger({
-                resource: 'KEYCLOAK',
-                service: 'KeycloakService',
-                method: context,
-                endpoint: error?.config?.url,
-                httpStatus: error?.response?.status,
-                errorCode: result.errorCode,
-                message: result.message,
-                response: error?.response?.data,
-                exception: error?.name
-                    ? `${error.name}: ${error.message}`
-                    : String(error),
-            });
-        }
+        this._logKeycloakFailure({
+            method: context,
+            endpoint: error?.config?.url,
+            httpStatus: error?.response?.status,
+            errorCode: result.errorCode,
+            message: result.message,
+            response: error?.response?.data,
+            exception: error?.name
+                ? `${error.name}: ${error.message}`
+                : String(error),
+        });
 
         return result;
+    }
+
+    /**
+     * Writes a Keycloak failure to the `logskeycloak` collection. Single entry
+     * point for every audit write in this service; fire-and-forget, so it never
+     * alters the caller flow.
+     *
+     * @param fields Failure details recorded in the audit document.
+     * @param fields.resource Failing resource; defaults to `KEYCLOAK`.
+     * @param fields.method Operation that failed.
+     * @param fields.endpoint Keycloak endpoint URL invoked.
+     * @param fields.httpStatus HTTP status returned, when there is one.
+     * @param fields.errorCode Mapped application error code.
+     * @param fields.message Human-readable failure reason.
+     * @param fields.response Raw response body received.
+     * @param fields.exception Exception summary, for thrown errors.
+     */
+    private _logKeycloakFailure(fields: {
+        resource?: string;
+        method: string;
+        endpoint?: string;
+        httpStatus?: number;
+        errorCode?: ErrorCode;
+        message?: string;
+        response?: any;
+        exception?: string;
+    }): void {
+        this.loggerService.saveLogsKeycloakLogger({
+            resource: 'KEYCLOAK',
+            service: 'KeycloakService',
+            ...fields,
+        });
     }
 
     /**
@@ -944,21 +992,30 @@ export class KeycloakService {
         password: string,
         phone?: string,
     ): Promise<boolean> {
+        const endpoint = `${this.dominioAuth}api/auth/auth/mail/send-password`;
+
         if (!this.dominioAuth) {
             this.logger.warn(
                 'DOMINIO_AUTH not configured, password recovery email cannot be dispatched',
             );
+            this._logKeycloakFailure({
+                resource: 'AUTH_MAIL',
+                method: '_sendPasswordEmail',
+                endpoint,
+                errorCode: ErrorCode.SYSTEM_INACTIVE,
+                message:
+                    'DOMINIO_AUTH no configurado, no se pudo enviar el correo de recuperación',
+            });
             return false;
         }
 
-        const url = `${this.dominioAuth}api/auth/auth/mail/send-password`;
         this.logger.log(
-            `POST ${url} | body: ${JSON.stringify({ fullName, email, phone })}`,
+            `POST ${endpoint} | body: ${JSON.stringify({ fullName, email, phone })}`,
         );
 
         try {
             const response = await axios.post(
-                url,
+                endpoint,
                 { fullName, email, password, phone },
                 {
                     headers: { 'Content-Type': 'application/json' },
@@ -968,15 +1025,47 @@ export class KeycloakService {
             this.logger.log(
                 `send-password response | status: ${response.status} | body: ${JSON.stringify(response.data)}`,
             );
-            return (
+
+            const sent =
                 response.status >= 200 &&
                 response.status < 300 &&
-                Boolean(response.data?.ok)
-            );
+                Boolean(response.data?.ok);
+
+            // `validateStatus` accepts every status, so a rejected send never
+            // throws; audit it here or it would leave no trace at all.
+            if (!sent) {
+                this._logKeycloakFailure({
+                    resource: 'AUTH_MAIL',
+                    method: '_sendPasswordEmail',
+                    endpoint,
+                    httpStatus: response.status,
+                    errorCode: ErrorCode.RESPONSE,
+                    message:
+                        response.data?.message ??
+                        'No se pudo enviar el correo de recuperación de contraseña',
+                    response: response.data,
+                });
+            }
+
+            return sent;
         } catch (error: any) {
             this.logger.error(
                 `Error sending email to ${email} | code: ${error?.code} | status: ${error?.response?.status} | data: ${JSON.stringify(error?.response?.data)} | msg: ${error?.message}`,
             );
+            this._logKeycloakFailure({
+                resource: 'AUTH_MAIL',
+                method: '_sendPasswordEmail',
+                endpoint,
+                httpStatus: error?.response?.status,
+                errorCode: ErrorCode.RESPONSE,
+                message:
+                    error?.message ??
+                    'No se pudo enviar el correo de recuperación de contraseña',
+                response: error?.response?.data,
+                exception: error?.name
+                    ? `${error.name}: ${error.message}`
+                    : String(error),
+            });
             return false;
         }
     }

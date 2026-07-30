@@ -7,8 +7,10 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import axios from 'axios';
+import { ErrorCode } from 'src/common/glob/error';
 import { IdTypeUser } from 'src/common/glob/id/id_type_user';
 import { TypeRol } from 'src/common/glob/type/type_rol';
+import { LoggerService } from 'src/common/logger.service.ts';
 
 const MUNICIPALITY_ROLES = [
     TypeRol.ADMIN,
@@ -29,8 +31,44 @@ export class KeycloakTokenGuard implements CanActivate {
     /**
      * Creates the guard instance.
      * @param jwtService Service used to sign refreshed JWTs returned to the client.
+     * @param loggerService Audit logger used to record Keycloak session failures.
      */
-    constructor(private readonly jwtService: JwtService) {}
+    constructor(
+        private readonly jwtService: JwtService,
+        private readonly loggerService: LoggerService,
+    ) {}
+
+    /**
+     * Records a Keycloak session failure in the `logskeycloak` collection.
+     * Fire-and-forget: never alters the guard outcome.
+     *
+     * @param method Guard operation that failed (`introspect` or `refresh`).
+     * @param endpoint Keycloak endpoint URL invoked.
+     * @param error Error raised by the outbound Keycloak call.
+     */
+    private logKeycloakFailure(
+        method: string,
+        endpoint: string,
+        error: any,
+    ): void {
+        this.loggerService.saveLogsKeycloakLogger({
+            resource: 'KEYCLOAK',
+            service: 'KeycloakTokenGuard',
+            method,
+            endpoint,
+            httpStatus: error?.response?.status,
+            errorCode: ErrorCode.UNAUTHORIZED,
+            message:
+                error?.response?.data?.error_description ??
+                error?.response?.data?.error ??
+                error?.message ??
+                'No se pudo validar la sesión de Keycloak',
+            response: error?.response?.data,
+            exception: error?.name
+                ? `${error.name}: ${error.message}`
+                : String(error),
+        });
+    }
 
     /**
      * Builds the OpenID Connect base URL for the Service Hub realm.
@@ -203,6 +241,11 @@ export class KeycloakTokenGuard implements CanActivate {
             return { active: data?.active === true, exp: data?.exp };
         } catch (error) {
             this.logger.error(`Keycloak introspect error: ${error?.message}`);
+            this.logKeycloakFailure(
+                'introspect',
+                `${kcBaseUrl}/token/introspect`,
+                error,
+            );
             return { active: false };
         }
     }
@@ -241,6 +284,7 @@ export class KeycloakTokenGuard implements CanActivate {
                 error?.response?.data ?? error?.message,
             );
             this.logger.error(`Keycloak refresh error [${status}]: ${detail}`);
+            this.logKeycloakFailure('refresh', `${kcBaseUrl}/token`, error);
             return null;
         }
     }

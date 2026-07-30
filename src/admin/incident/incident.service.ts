@@ -729,10 +729,81 @@ export class IncidentService {
             this.logger.error(
                 'Alfresco configuration is missing in environment variables',
             );
+            this._logAlfrescoFailure({
+                method: '_getAlfrescoCredentials',
+                endpoint: alfrescoBaseUrl ?? 'ALFRESCO_BASE_URL',
+                errorCode: ErrorCode.SYSTEM_INACTIVE,
+                message:
+                    'Configuración de Alfresco incompleta (ALFRESCO_BASE_URL / ALFRESCO_USER / ALFRESCO_PASS)',
+            });
             return null;
         }
 
         return { alfrescoBaseUrl, username, password, directory };
+    }
+
+    /**
+     * Writes an Alfresco failure to the `logsalfresco` collection. Single entry
+     * point for every Alfresco audit write in this service; fire-and-forget, so
+     * it never alters the caller flow.
+     *
+     * @param fields Failure details recorded in the audit document.
+     * @param fields.method Operation that failed.
+     * @param fields.endpoint Alfresco endpoint URL invoked.
+     * @param fields.params Non-sensitive parameters (file name, node id, shared id).
+     * @param fields.httpStatus HTTP status returned by Alfresco, when there is one.
+     * @param fields.errorCode Mapped application error code.
+     * @param fields.message Human-readable failure reason.
+     * @param fields.response Raw Alfresco response body.
+     * @param fields.exception Exception summary, for thrown errors.
+     */
+    private _logAlfrescoFailure(fields: {
+        method: string;
+        endpoint: string;
+        params?: object;
+        httpStatus?: number;
+        errorCode?: number;
+        message?: string;
+        response?: any;
+        exception?: string;
+    }): void {
+        this.loggerService.saveLogsAlfrescoLogger({
+            resource: 'ALFRESCO',
+            service: 'IncidentService',
+            ...fields,
+        });
+    }
+
+    /**
+     * Records an Alfresco call that threw, capturing the raw error response so
+     * the repository-side reason stays queryable.
+     *
+     * @param method Operation that failed.
+     * @param endpoint Alfresco endpoint URL invoked.
+     * @param params Non-sensitive parameters sent with the request.
+     * @param error Error thrown by the outbound Alfresco call.
+     */
+    private _logAlfrescoError(
+        method: string,
+        endpoint: string,
+        params: object,
+        error: any,
+    ): void {
+        this._logAlfrescoFailure({
+            method,
+            endpoint,
+            params,
+            httpStatus: error?.response?.status,
+            errorCode: ErrorCode.HTTP_ERROR_REINTENT,
+            message:
+                error?.response?.data?.error?.briefSummary ??
+                error?.message ??
+                'Error al consumir el recurso de Alfresco',
+            response: error?.response?.data,
+            exception: error?.name
+                ? `${error.name}: ${error.message}`
+                : String(error),
+        });
     }
 
     /**
@@ -793,6 +864,16 @@ export class IncidentService {
             const { data } = response;
 
             if (!data || !('entry' in data)) {
+                this._logAlfrescoFailure({
+                    method: 'uploadToAlfresco',
+                    endpoint: config.url,
+                    params: { fileName, relativePath, directory },
+                    httpStatus: response.status,
+                    errorCode: ErrorCode.HTTP_ERROR_REINTENT,
+                    message:
+                        'Alfresco respondió sin el nodo creado (falta `entry`)',
+                    response: data,
+                });
                 return { errorCode: ErrorCode.HTTP_ERROR_REINTENT };
             }
 
@@ -800,6 +881,12 @@ export class IncidentService {
         } catch (error) {
             this.logger.error(
                 `call uploadToAlfresco error.response?.data: ${JSON.stringify(error.response?.data)}`,
+            );
+            this._logAlfrescoError(
+                'uploadToAlfresco',
+                `${process.env.ALFRESCO_BASE_URL}/alfresco/api/-default-/public/alfresco/versions/1/nodes/${process.env.ALFRESCO_DIR}/children`,
+                { fileName, relativePath },
+                error,
             );
         }
 
@@ -827,6 +914,13 @@ export class IncidentService {
             const { alfrescoBaseUrl, username, password } = credentials;
 
             if (!alfrescoId) {
+                this._logAlfrescoFailure({
+                    method: 'getFileUrlAlfresco',
+                    endpoint: `${alfrescoBaseUrl}/alfresco/api/-default-/public/alfresco/versions/1/shared-links`,
+                    errorCode: ErrorCode.HTTP_ERROR_REINTENT,
+                    message:
+                        'No se recibió el identificador del nodo de Alfresco a compartir',
+                });
                 return { errorCode: ErrorCode.HTTP_ERROR_REINTENT };
             }
 
@@ -852,6 +946,16 @@ export class IncidentService {
             const { data } = response;
 
             if (!data || !data.entry?.id) {
+                this._logAlfrescoFailure({
+                    method: 'getFileUrlAlfresco',
+                    endpoint: config.url,
+                    params: { alfrescoId },
+                    httpStatus: response.status,
+                    errorCode: ErrorCode.HTTP_ERROR_REINTENT,
+                    message:
+                        'Alfresco respondió sin el enlace compartido (falta `entry.id`)',
+                    response: data,
+                });
                 return { errorCode: ErrorCode.HTTP_ERROR_REINTENT };
             }
 
@@ -869,6 +973,12 @@ export class IncidentService {
         } catch (error) {
             this.logger.error(
                 `call getFileUrlAlfresco error.response?.data: ${JSON.stringify(error.response?.data)}`,
+            );
+            this._logAlfrescoError(
+                'getFileUrlAlfresco',
+                `${process.env.ALFRESCO_BASE_URL}/alfresco/api/-default-/public/alfresco/versions/1/shared-links`,
+                { alfrescoId },
+                error,
             );
             return { errorCode: ErrorCode.HTTP_ERROR_REINTENT };
         }
@@ -895,6 +1005,14 @@ export class IncidentService {
 
             const sharedId = this.extractSharedId(sharedUrlOrId);
             if (!sharedId) {
+                this._logAlfrescoFailure({
+                    method: 'getAlfrescoIdBySharedUrl',
+                    endpoint: `${alfrescoBaseUrl}/alfresco/api/-default-/public/alfresco/versions/1/shared-links`,
+                    params: { sharedUrlOrId },
+                    errorCode: ErrorCode.HTTP_ERROR_REINTENT,
+                    message:
+                        'No se pudo extraer el identificador del enlace compartido de Alfresco',
+                });
                 return { errorCode: ErrorCode.HTTP_ERROR_REINTENT };
             }
 
@@ -911,6 +1029,16 @@ export class IncidentService {
             const { data } = response;
 
             if (!data?.entry?.nodeId) {
+                this._logAlfrescoFailure({
+                    method: 'getAlfrescoIdBySharedUrl',
+                    endpoint: config.url,
+                    params: { sharedId },
+                    httpStatus: response.status,
+                    errorCode: ErrorCode.HTTP_ERROR_REINTENT,
+                    message:
+                        'Alfresco respondió sin el nodo del enlace compartido (falta `entry.nodeId`)',
+                    response: data,
+                });
                 return { errorCode: ErrorCode.HTTP_ERROR_REINTENT };
             }
 
@@ -923,6 +1051,12 @@ export class IncidentService {
         } catch (error) {
             this.logger.error(
                 `call getAlfrescoIdBySharedUrl error.response?.data: ${JSON.stringify(error.response?.data)}`,
+            );
+            this._logAlfrescoError(
+                'getAlfrescoIdBySharedUrl',
+                `${process.env.ALFRESCO_BASE_URL}/alfresco/api/-default-/public/alfresco/versions/1/shared-links`,
+                { sharedUrlOrId },
+                error,
             );
             return { errorCode: ErrorCode.HTTP_ERROR_REINTENT };
         }

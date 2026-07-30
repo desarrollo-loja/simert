@@ -70,7 +70,7 @@ describe('IncidentService', () => {
 
   beforeEach(() => {
     repo = buildRepoMock();
-    logger = { error: jest.fn(), log: jest.fn(), warn: jest.fn(), debug: jest.fn(), saveIncidentLogger: jest.fn() };
+    logger = { error: jest.fn(), log: jest.fn(), warn: jest.fn(), debug: jest.fn(), saveIncidentLogger: jest.fn(), saveLogsAlfrescoLogger: jest.fn() };
     gim = buildGimMock();
     service = new IncidentService(repo as any, logger as any, gim as any);
     // Silence the internal Logger so test output stays clean.
