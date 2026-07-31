@@ -39,9 +39,12 @@ const buildCommonGimMock = (overrides: any = {}) => ({
   ...overrides,
 });
 
+const buildLoggerServiceMock = () => ({ saveLogsKeycloakLogger: jest.fn() });
+
 describe('KeycloakService', () => {
   let service: KeycloakService;
   let commonGim: ReturnType<typeof buildCommonGimMock>;
+  let loggerService: ReturnType<typeof buildLoggerServiceMock>;
 
   const resetAxios = () => {
     (axios.post as jest.Mock).mockReset();
@@ -52,7 +55,12 @@ describe('KeycloakService', () => {
   beforeEach(() => {
     resetAxios();
     commonGim = buildCommonGimMock();
-    service = new KeycloakService(commonGim as any, buildConfigMock());
+    loggerService = buildLoggerServiceMock();
+    service = new KeycloakService(
+      commonGim as any,
+      buildConfigMock(),
+      loggerService as any,
+    );
     (service as any).logger = { error: jest.fn(), warn: jest.fn(), log: jest.fn() };
   });
 
@@ -317,7 +325,9 @@ describe('KeycloakService', () => {
       (axios.get as jest.Mock).mockResolvedValueOnce({ data: [{ id: '1' }] });
       const result = await service.findByUsername('u');
       expect(result.errorCode).toBe(ErrorCode.NONE);
-      expect(result.data).toEqual([{ id: '1' }]);
+      // findByUsername returns a union; the NOT_FOUND-without-token branch has
+      // no `data`, so narrow with a cast to read it on the success branch.
+      expect((result as { data?: unknown }).data).toEqual([{ id: '1' }]);
     });
 
     it('returns NOT_FOUND when results are empty', async () => {
@@ -508,7 +518,11 @@ describe('KeycloakService', () => {
     });
 
     it('returns RESPONSE when DOMINIO_AUTH is missing', async () => {
-      service = new KeycloakService(commonGim as any, buildConfigMock({ DOMINIO_AUTH: undefined }));
+      service = new KeycloakService(
+        commonGim as any,
+        buildConfigMock({ DOMINIO_AUTH: undefined }),
+        loggerService as any,
+      );
       (service as any).logger = { error: jest.fn(), warn: jest.fn(), log: jest.fn() };
       (axios.get as jest.Mock).mockResolvedValueOnce({ data: [{ id: 'u' }] });
       (axios.put as jest.Mock).mockResolvedValueOnce({});

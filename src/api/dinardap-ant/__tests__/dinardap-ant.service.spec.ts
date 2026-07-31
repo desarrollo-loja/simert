@@ -39,13 +39,21 @@ const buildEntidad = (cols: Record<string, string>) => ({
   },
 });
 
+const buildLoggerServiceMock = () => ({ saveLogsAntLogger: jest.fn() });
+
 describe('DinardapAntService', () => {
   let service: DinardapAntService;
   let gim: ReturnType<typeof buildGimMock>;
+  let loggerService: ReturnType<typeof buildLoggerServiceMock>;
 
   beforeEach(() => {
     gim = buildGimMock();
-    service = new DinardapAntService(buildConfigMock('http://dinardap.test') as any, gim as any);
+    loggerService = buildLoggerServiceMock();
+    service = new DinardapAntService(
+      buildConfigMock('http://dinardap.test') as any,
+      gim as any,
+      loggerService as any,
+    );
     (service as any).logger = { error: jest.fn(), warn: jest.fn() };
     (axios.request as jest.Mock).mockReset();
   });
@@ -68,7 +76,11 @@ describe('DinardapAntService', () => {
     });
 
     it('returns SYSTEM_INACTIVE when base URL is missing', async () => {
-      service = new DinardapAntService(buildConfigMock(undefined) as any, gim as any);
+      service = new DinardapAntService(
+        buildConfigMock(undefined) as any,
+        gim as any,
+        loggerService as any,
+      );
       (service as any).logger = { error: jest.fn(), warn: jest.fn() };
 
       const result = await service.getUserDataByPlateAnt('ABC12');
@@ -80,7 +92,11 @@ describe('DinardapAntService', () => {
 
     it('returns UNAUTHORIZED when token is unavailable', async () => {
       gim = buildGimMock(null);
-      service = new DinardapAntService(buildConfigMock('http://dinardap.test') as any, gim as any);
+      service = new DinardapAntService(
+        buildConfigMock('http://dinardap.test') as any,
+        gim as any,
+        loggerService as any,
+      );
       (service as any).logger = { error: jest.fn(), warn: jest.fn() };
 
       const result = await service.getUserDataByPlateAnt('ABC12');

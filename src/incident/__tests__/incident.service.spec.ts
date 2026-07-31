@@ -4,11 +4,13 @@ describe('IncidentService (root worker)', () => {
   let service: IncidentService;
   let repo: any;
   let gim: any;
+  let common: any;
 
   beforeEach(() => {
     repo = { find: jest.fn(), save: jest.fn() };
     gim = { validateOpenTill: jest.fn(), registerDeposit: jest.fn() };
-    service = new IncidentService(repo, gim);
+    common = { syncOnResponseExternal: jest.fn() };
+    service = new IncidentService(repo, gim, common);
     (service as any).logger = { verbose: jest.fn(), error: jest.fn(), warn: jest.fn() };
     jest.useFakeTimers();
   });

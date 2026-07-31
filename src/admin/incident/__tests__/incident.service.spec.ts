@@ -248,7 +248,12 @@ describe('IncidentService', () => {
     });
 
     it('appends date range condition when dateFrom and dateTo are provided', async () => {
-      repo.query.mockResolvedValueOnce([]);
+      // A date range routes the FROM through the monthly-archive union, so the
+      // first query is the information_schema probe for
+      // history."2026_01_incident" and the second one is the incident lookup.
+      repo.query
+        .mockResolvedValueOnce([{ exists: true }])
+        .mockResolvedValueOnce([]);
 
       await service.findAllByTransactionId({
         transactionIds: ['a'],
@@ -256,7 +261,9 @@ describe('IncidentService', () => {
         dateTo: '2026-01-31',
       } as any);
 
-      const [sql, params] = repo.query.mock.calls[0];
+      const [sql, params] = repo.query.mock.calls[1];
+      expect(sql).toContain('history."2026_01_incident"');
+      expect(sql).toContain('i."transactionId" IN ($1)');
       expect(sql).toContain('DATE(i.register) BETWEEN $2 AND $3');
       expect(params).toEqual(['a', '2026-01-01', '2026-01-31']);
     });
@@ -424,13 +431,22 @@ describe('IncidentService', () => {
       const result = await service.updateStatusGim(1, {} as any);
 
       expect(repo.update).toHaveBeenCalledWith(1, {});
-      expect(result).toEqual({ incident: saved, errorCode: ErrorCode.NONE });
+      expect(result).toEqual({
+        incident: saved,
+        errorCode: ErrorCode.NONE,
+        message: 'Se actualizó el estado de la multa correctamente',
+      });
     });
 
     it('returns NOT_FOUND when row missing', async () => {
       repo.findOne.mockResolvedValueOnce(null);
       const result = await service.updateStatusGim(1, {} as any);
-      expect(result).toEqual({ incident: null, errorCode: ErrorCode.NOT_FOUND });
+      expect(result).toEqual({
+        incident: null,
+        errorCode: ErrorCode.NOT_FOUND,
+        message: 'No se encontró la multa que se desea actualizar',
+      });
+      expect(repo.update).not.toHaveBeenCalled();
     });
 
     it('handles errors', async () => {

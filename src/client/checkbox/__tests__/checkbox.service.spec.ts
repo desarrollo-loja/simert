@@ -77,6 +77,13 @@ describe('CheckboxService', () => {
       payAhorita: jest.fn(),
       payPlaceToPay: jest.fn(),
       notify: jest.fn(),
+      // Pushed to simert-pay after a settlement; called inside the
+      // `_saveResponsePay` try block, so it must exist or the whole PAID branch
+      // falls into the catch.
+      syncOnResponseExternal: jest.fn().mockResolvedValue(undefined),
+      // Awaited by `_scheduleUnconfirmedCheckboxReversal` when the payment is
+      // not confirmed before the timer fires.
+      registerErrorTransaction: jest.fn().mockResolvedValue(undefined),
     };
     commonAuthService = {};
     commonGimService = {};
@@ -288,7 +295,15 @@ describe('CheckboxService', () => {
 
       const result = await service.buyCheckboxs('dev', baseDto);
 
-      expect(result).toEqual({ errorCode: ErrorCode.UNAUTHORIZED });
+      // Whatever validateOpenTill reports, the purchase is refused with the
+      // GIM_CLOSE code plus the user-facing reason, and no payment pre-check
+      // nor persistence is attempted.
+      expect(result).toEqual({
+        errorCode: ErrorCode.GIM_CLOSE,
+        message: 'La jornada no se encuentra aperturada.',
+      });
+      expect(commonService.checkDeUnaByIdentityCard).not.toHaveBeenCalled();
+      expect(checkboxRepo.findOne).not.toHaveBeenCalled();
     });
 
     it('rejects DEUNA with short identityCard', async () => {

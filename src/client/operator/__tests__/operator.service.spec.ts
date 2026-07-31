@@ -260,10 +260,14 @@ describe('OperatorService', () => {
 
   // ---------------------- findAllPhysic ----------------------
   describe('findAllPhysic', () => {
-    it('returns NOT_FOUND when no range matches', async () => {
+    // No matching tiraje is not an error: the endpoint answers NONE and flags
+    // `range: false` so the client can tell the card is outside every active
+    // range (this is the contract since the first commit of the service).
+    it('returns range:false with an empty physic list when no range matches', async () => {
       rangeRepo.__qb.getOne.mockResolvedValueOnce(null);
       const result = await service.findAllPhysic('1234');
-      expect(result).toEqual({ errorCode: ErrorCode.NOT_FOUND, physic: [], range: false });
+      expect(result).toEqual({ errorCode: ErrorCode.NONE, physic: [], range: false });
+      expect(physicRepo.__qb.getRawAndEntities).not.toHaveBeenCalled();
     });
 
     it('returns physic entries when range matches', async () => {

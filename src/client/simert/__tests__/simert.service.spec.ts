@@ -309,7 +309,12 @@ describe('SimertService', () => {
 
     it('returns TRANSACTION_REPIT when a fraction already exists for user+transaction', async () => {
       slotRepo.__qb.getOne.mockResolvedValueOnce(slotRow);
-      fractionRepo.findOne.mockResolvedValueOnce({ id: 1 });
+      // parking() issues two findOne calls: first the plate guard (must find
+      // nothing so the flow reaches the transaction guard), then the
+      // user+transaction duplicate guard (must find a row).
+      fractionRepo.findOne
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ id: 1 });
       const result = await service.parking('dev', dto);
       expect(result).toEqual({ errorCode: ErrorCode.TRANSACTION_REPIT });
     });

@@ -12,11 +12,15 @@ const buildConfigMock = (baseUrl: string | undefined = 'http://ant.test') => ({
   get: jest.fn().mockReturnValue(baseUrl),
 });
 
+const buildLoggerServiceMock = () => ({ saveLogsAntLogger: jest.fn() });
+
 describe('AntService', () => {
   let service: AntService;
+  let loggerService: ReturnType<typeof buildLoggerServiceMock>;
 
   beforeEach(() => {
-    service = new AntService(buildConfigMock() as any);
+    loggerService = buildLoggerServiceMock();
+    service = new AntService(buildConfigMock() as any, loggerService as any);
     (service as any).logger = { error: jest.fn(), warn: jest.fn() };
     (axios.request as jest.Mock).mockReset();
   });
@@ -32,7 +36,10 @@ describe('AntService', () => {
 
   describe('getUserDataByPlateAnt', () => {
     it('returns NOT_FOUND when ANT_BASE_URL is missing', async () => {
-      service = new AntService(buildConfigMock(undefined) as any);
+      service = new AntService(
+        buildConfigMock(undefined) as any,
+        loggerService as any,
+      );
       (service as any).logger = { error: jest.fn() };
 
       const result = await service.getUserDataByPlateAnt('ABC');
