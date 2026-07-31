@@ -110,6 +110,37 @@ describe('KeycloakService', () => {
       const result = await service.findByUsername('a');
       expect(result.errorCode).toBe(ErrorCode.NOT_FOUND);
     });
+
+    // Without the status the audit screen can only show a dash, and a rejected
+    // client is indistinguishable from an unreachable realm.
+    it('audits the HTTP status Keycloak rejected the login with', async () => {
+      commonGim.loginGimServiceHub.mockResolvedValueOnce({
+        errorCode: ErrorCode.NOT_FOUND,
+        message: 'invalid_client',
+        data: null,
+        httpStatus: 401,
+      });
+
+      await service.findByUsername('a');
+
+      expect(loggerService.saveLogsKeycloakLogger).toHaveBeenCalledWith(
+        expect.objectContaining({ method: 'getToken', httpStatus: 401 }),
+      );
+    });
+
+    it('audits a connection failure without inventing a status', async () => {
+      commonGim.loginGimServiceHub.mockResolvedValueOnce({
+        errorCode: ErrorCode.NOT_FOUND,
+        message: 'connect ECONNREFUSED',
+        data: null,
+      });
+
+      await service.findByUsername('a');
+
+      expect(loggerService.saveLogsKeycloakLogger).toHaveBeenCalledWith(
+        expect.objectContaining({ method: 'getToken', httpStatus: undefined }),
+      );
+    });
   });
 
   describe('getTokenMunicipalityK (always fresh)', () => {

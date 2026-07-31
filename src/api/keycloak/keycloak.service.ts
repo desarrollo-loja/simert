@@ -91,6 +91,7 @@ export class KeycloakService {
             this._logKeycloakFailure({
                 method: 'getToken',
                 endpoint: `${process.env.GIM_BASE_URL_LOGIN}/realms/${this.gim2RealmServiceHub}/protocol/openid-connect/token`,
+                httpStatus: result.httpStatus,
                 errorCode: result.errorCode ?? ErrorCode.UNAUTHORIZED,
                 message:
                     result.message ??
@@ -120,6 +121,7 @@ export class KeycloakService {
             this._logKeycloakFailure({
                 method: 'getTokenMunicipalityK',
                 endpoint: `${process.env.GIM_BASE_URL_LOGIN}/realms/${this.gim2RealmMunicipality}/protocol/openid-connect/token`,
+                httpStatus: result.httpStatus,
                 errorCode: result.errorCode ?? ErrorCode.UNAUTHORIZED,
                 message:
                     result.message ??
@@ -1253,6 +1255,32 @@ export class KeycloakService {
     }
 
     /**
+     * Runs one exact-match user query against a realm with an already-obtained
+     * token.
+     *
+     * Deliberately does not go through the `findBy*` methods: each of those
+     * resolves its own token and audits its own failure, which for a batch of
+     * 20 rows would mean 20 token requests and, during an outage, 20 identical
+     * entries in `logskeycloak` for a single incident.
+     *
+     * @param url Realm users URL to query.
+     * @param token Bearer token already obtained for that realm.
+     * @param params Exact-match query (`{ username }` or `{ email }`).
+     * @returns The first matching account, or `null`.
+     */
+    private async _queryAccount(
+        url: string,
+        token: string,
+        params: Record<string, string>,
+    ): Promise<any | null> {
+        const { data } = await axios.get(url, {
+            headers: this.authHeaders(token),
+            params: { ...params, exact: true },
+        });
+        return Array.isArray(data) && data.length > 0 ? data[0] : null;
+    }
+
+    /**
      * Resolves one account, trying the username first and the email second.
      *
      * The order matters for the caller: both lookups are exact, so resolving by
@@ -1261,39 +1289,26 @@ export class KeycloakService {
      * from the username lets a changed email surface as a real difference.
      *
      * @param user Reference holding the correlation id and the search keys.
-     * @param isMunicipality Whether to search the Municipality realm.
+     * @param url Realm users URL to query.
+     * @param token Bearer token already obtained for that realm.
      * @returns The correlation id, the matched account and which key found it.
      */
     private async _resolveAccount(
         user: FindAccountRefDto,
-        isMunicipality: boolean,
+        url: string,
+        token: string,
     ): Promise<{ ref: string; account: any | null; matchedBy: string | null }> {
         const username = (user.username ?? '').trim();
         const email = (user.email ?? '').trim();
 
-        // The find-by-* envelopes omit `data` on their early returns (no token),
-        // so the list is read defensively rather than destructured.
-        const firstAccount = (response: unknown): any | null => {
-            const data = (response as { data?: unknown })?.data;
-            return Array.isArray(data) && data.length > 0 ? data[0] : null;
-        };
-
         if (username) {
-            const account = firstAccount(
-                isMunicipality
-                    ? await this.findByUsernameMunicipality(username)
-                    : await this.findByUsername(username),
-            );
+            const account = await this._queryAccount(url, token, { username });
             if (account)
                 return { ref: user.ref, account, matchedBy: 'usuario' };
         }
 
         if (email) {
-            const account = firstAccount(
-                isMunicipality
-                    ? await this.findByEmailMunicipality(email)
-                    : await this.findByEmail(email),
-            );
+            const account = await this._queryAccount(url, token, { email });
             if (account) return { ref: user.ref, account, matchedBy: 'correo' };
         }
 
@@ -1305,10 +1320,11 @@ export class KeycloakService {
      *
      * Exists so an admin table can show, at a glance, which of its rows drifted
      * from the identity provider: the browser makes a single request instead of
-     * one per row. Lookups run with bounded concurrency
-     * ({@link BATCH_LOOKUP_CONCURRENCY}), and a single failing account resolves
-     * to `null` rather than sinking the whole batch — a partial answer is far
-     * more useful here than an error.
+     * one per row. The realm token is obtained once for the whole batch, and
+     * lookups run with bounded concurrency
+     * ({@link BATCH_LOOKUP_CONCURRENCY}). A single failing account resolves to
+     * `null` rather than sinking the batch — a partial answer is far more
+     * useful here than an error.
      *
      * @param dto Accounts to resolve, each with its correlation id.
      * @param isMunicipality Whether to search the Municipality realm.
@@ -1316,6 +1332,25 @@ export class KeycloakService {
      */
     async findAccounts(dto: FindAccountsDto, isMunicipality = false) {
         const users = dto?.users ?? [];
+
+        // One token per batch. Resolving it inside each lookup would re-request
+        // it per row for the Municipality realm (that one is never cached), and
+        // on failure would audit the same outage once per row.
+        const token = isMunicipality
+            ? await this.getTokenMunicipalityK()
+            : await this.getToken();
+        if (!token)
+            return {
+                errorCode: ErrorCode.NOT_FOUND,
+                message: isMunicipality
+                    ? 'No se pudo obtener el token de Keycloak Municipal'
+                    : 'No se pudo obtener el token de Keycloak ServiceHub',
+                data: [],
+            };
+
+        const url = isMunicipality
+            ? this.usersUrlMunicipality()
+            : this.usersUrl();
         const results: Array<{
             ref: string;
             account: any | null;
@@ -1327,8 +1362,11 @@ export class KeycloakService {
             const resolved = await Promise.all(
                 slice.map(async (user) => {
                     try {
-                        return await this._resolveAccount(user, isMunicipality);
+                        return await this._resolveAccount(user, url, token);
                     } catch (error) {
+                        // Logged to the application log, not audited: this is a
+                        // read-only check, and one entry per unresolved row
+                        // would bury the real integration failures.
                         this.logger.error(
                             `findAccounts: no se pudo resolver ${user.ref}: ${error}`,
                         );
