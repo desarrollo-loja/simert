@@ -35,7 +35,9 @@ import {
     IncidentStatus,
 } from 'src/common/glob/type/type_incident';
 import { TypeNotification } from 'src/common/glob/type/type_notification';
+import { TypeOperation } from 'src/common/glob/type/type_operation';
 import { OptionalDataInterface } from 'src/common/intefaces/optional-data.interface';
+import { LoggerService } from 'src/common/logger.service.ts';
 import { DataSource, Repository } from 'typeorm';
 
 import { CreateIncidentDto } from '../incident/dto/create-incident.dto';
@@ -143,7 +145,44 @@ export class OperatorService {
         private readonly dataSource: DataSource,
 
         private readonly gimService: GimService,
+
+        @Inject(LoggerService)
+        private readonly loggerService: LoggerService,
     ) {}
+
+    /**
+     * Records an incident audit entry for a change made from the supervisor
+     * app, so the trail names who performed it.
+     *
+     * The row is re-read to store the full snapshot, which is the convention
+     * the rest of the audit trail follows (the web diffs consecutive
+     * snapshots). Failing to audit never breaks the caller's flow.
+     *
+     * @param id Identifier of the affected incident.
+     * @param userId Identifier of the user who performed the change.
+     * @param typeOperation Operation being recorded.
+     */
+    private async _auditIncident(
+        id: number,
+        userId: number,
+        typeOperation: TypeOperation,
+    ): Promise<void> {
+        try {
+            const incident = await this.incidentRepository.findOne({
+                where: { id },
+            });
+            if (!incident) return;
+
+            this.loggerService.saveIncidentLogger({
+                id,
+                userId,
+                typeOperation,
+                incident,
+            });
+        } catch (error) {
+            this.logger.error('call _auditIncident: ', error);
+        }
+    }
 
     /**
      * Creates an incident (fine or notification), enriching it with ANT owner
@@ -229,6 +268,13 @@ export class OperatorService {
             });
 
             const savedIncident = await this.incidentRepository.save(incident);
+
+            this.loggerService.saveIncidentLogger({
+                id: savedIncident.id,
+                userId,
+                typeOperation: TypeOperation.CREATE,
+                incident: savedIncident,
+            });
 
             if (fractionId) {
                 const queryFraction = await this.fractionRepository
@@ -1295,6 +1341,12 @@ export class OperatorService {
                             amount: findObligation.data.obligations[0].total,
                             onResponseExternal,
                         });
+
+                        await this._auditIncident(
+                            incident.id,
+                            userId,
+                            TypeOperation.UPDATE,
+                        );
                     }
                     continue;
                 }

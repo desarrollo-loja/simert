@@ -42,6 +42,23 @@ export class GimController {
     constructor(private readonly gimService: GimService) {}
 
     /**
+     * Normalizes the `:userId` path segment into the acting user id recorded in
+     * the audit trail.
+     *
+     * These routes are unguarded, so the path segment is the only source for
+     * the actor. Anything that is not a positive number (missing, `'null'`,
+     * `'0'`) yields `undefined`, which the audit trail reads as "no user"
+     * instead of storing a bogus id.
+     *
+     * @param userId Raw `:userId` path segment.
+     * @returns The acting user id, or `undefined` when there is none.
+     */
+    private _actingUserId(userId: string): number | undefined {
+        const parsed = Number(userId);
+        return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+    }
+
+    /**
      * Issues an incident in GIM, generating a debt for the user.
      *
      * @param createGimDto Payload describing the incident to issue.
@@ -66,6 +83,7 @@ export class GimController {
             createGimDto,
             +id,
             isTransacional,
+            this._actingUserId(userId),
         );
     }
 
@@ -95,6 +113,7 @@ export class GimController {
             createGimDto,
             +id,
             isTransacional,
+            this._actingUserId(userId),
         );
     }
 
@@ -368,6 +387,7 @@ export class GimController {
             incidentId,
             createGimDto as CreateGimDto,
             isTransacional,
+            this._actingUserId(userId),
         );
     }
 

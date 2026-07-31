@@ -113,6 +113,9 @@ const buildService = (overrides: any = {}) => {
     filterByIdentityCard: jest.fn(),
     updateResidentId: jest.fn(),
   };
+  const loggerService: any = {
+    saveIncidentLogger: jest.fn(),
+  };
 
   const service = new IncidentService(
     incidentRepository as any,
@@ -129,6 +132,7 @@ const buildService = (overrides: any = {}) => {
     gimService,
     dataSource,
     commonAuthService,
+    loggerService,
   );
   // Silence internal logger.
   (service as any).logger = { error: jest.fn(), log: jest.fn(), warn: jest.fn(), debug: jest.fn() };

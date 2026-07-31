@@ -411,12 +411,15 @@ export class GimService {
      * @param createGimDto Incident data used to issue the debt in GIM.
      * @param incidentId Identifier of the local incident to update.
      * @param isTransacional Flag indicating whether the update runs within a transaction.
+     * @param userId Identifier of the user performing the operation, recorded in
+     *               the incident audit trail. Omitted when there is no actor.
      * @returns Object with the error code, optional message and the resulting data.
      */
     async issueIncidentGim(
         createGimDto: CreateGimDto,
         incidentId: number,
         isTransacional: number,
+        userId?: number,
     ): Promise<{
         errorCode: number;
         data: CreateGimDto | null | any;
@@ -526,6 +529,7 @@ export class GimService {
                         incidentId,
                         updateDto,
                         isTransacional,
+                        userId,
                     );
                 }
                 return validateStatus;
@@ -566,6 +570,7 @@ export class GimService {
                 incidentId,
                 updateDto,
                 isTransacional,
+                userId,
             );
 
             return {
@@ -1579,6 +1584,8 @@ export class GimService {
      * @param incidentId Identifier of the local incident to update.
      * @param createGimDto Incident DTO whose status is updated from the validation.
      * @param isTransacional Flag indicating whether the update runs within a transaction.
+     * @param userId Identifier of the user performing the operation, recorded in
+     *               the incident audit trail. Omitted when there is no actor.
      * @returns The validation result, including the error code and mapped status.
      */
     public async validateStatusSistemWithGim(
@@ -1586,6 +1593,7 @@ export class GimService {
         incidentId: number,
         createGimDto: CreateGimDto,
         isTransacional: number,
+        userId?: number,
     ) {
         try {
             const validateStatus =
@@ -1600,6 +1608,7 @@ export class GimService {
                     incidentId,
                     updateDto,
                     isTransacional,
+                    userId,
                 );
             }
             return validateStatus;
@@ -2216,12 +2225,15 @@ export class GimService {
      * @param createGimDto Incident data used to emit the infraction.
      * @param id Identifier of the local incident to update.
      * @param isTransacional Flag indicating whether the update runs within a transaction.
+     * @param userId Identifier of the user performing the operation, recorded in
+     *               the incident audit trail. Omitted when there is no actor.
      * @returns Object with the error code, message and the resulting update DTO or error data.
      */
     async emitInfractionSimert(
         createGimDto: CreateGimDto,
         id: number,
         isTransacional: number,
+        userId?: number,
     ) {
         try {
             // Issue the debt in GIM
@@ -2243,7 +2255,12 @@ export class GimService {
                 obligation,
                 IncidentStatus.SUPPLIED,
             );
-            await this.incidentService.update(id, updateDto, isTransacional);
+            await this.incidentService.update(
+                id,
+                updateDto,
+                isTransacional,
+                userId,
+            );
 
             return {
                 errorCode: ErrorCode.NONE,

@@ -87,6 +87,7 @@ describe('OperatorService', () => {
   let dinardapAntService: any;
   let dataSource: ReturnType<typeof buildDataSource>;
   let gimService: any;
+  let loggerService: any;
 
   beforeEach(() => {
     fractionRepo = buildRepo();
@@ -114,6 +115,9 @@ describe('OperatorService', () => {
       findObligationsByCitation: jest.fn(),
       _validateStatusSistemWithGim: jest.fn(),
     };
+    loggerService = {
+      saveIncidentLogger: jest.fn(),
+    };
 
     service = new OperatorService(
       fractionRepo as any,
@@ -131,6 +135,7 @@ describe('OperatorService', () => {
       dinardapAntService,
       dataSource as any,
       gimService,
+      loggerService,
     );
     (service as any).logger = { error: jest.fn(), log: jest.fn(), warn: jest.fn() };
     (handleDbExceptions as unknown as jest.Mock).mockClear();

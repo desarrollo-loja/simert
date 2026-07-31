@@ -44,11 +44,13 @@ import {
     IncidentStatus,
 } from 'src/common/glob/type/type_incident';
 import { TypeNotification } from 'src/common/glob/type/type_notification';
+import { TypeOperation } from 'src/common/glob/type/type_operation';
 import { TypePaymentMethod } from 'src/common/glob/type/type_payment_method';
 import { TypePaymentResponsibility } from 'src/common/glob/type/type_payment_responsibility';
 import { TypeService } from 'src/common/glob/type/type_service';
 import { Fine, FinesResponse } from 'src/common/intefaces/fine.interface';
 import { OptionalDataInterface } from 'src/common/intefaces/optional-data.interface';
+import { LoggerService } from 'src/common/logger.service.ts';
 import { DataSource, In, Repository } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -133,7 +135,44 @@ export class IncidentService {
         private readonly dataSource: DataSource,
 
         private readonly commonAuthService: CommonAuthService,
+
+        @Inject(LoggerService)
+        private readonly loggerService: LoggerService,
     ) {}
+
+    /**
+     * Records an incident audit entry for a change made from the client apps
+     * (app usuario / punto de venta), so the trail names who performed it.
+     *
+     * The row is re-read to store the full snapshot, which is the convention
+     * the rest of the audit trail follows (the web diffs consecutive
+     * snapshots). Failing to audit never breaks the caller's flow.
+     *
+     * @param id Identifier of the affected incident.
+     * @param userId Identifier of the user who performed the change.
+     * @param typeOperation Operation being recorded.
+     */
+    private async _auditIncident(
+        id: number,
+        userId: number,
+        typeOperation: TypeOperation,
+    ): Promise<void> {
+        try {
+            const incident = await this.incidentRepository.findOne({
+                where: { id },
+            });
+            if (!incident) return;
+
+            this.loggerService.saveIncidentLogger({
+                id,
+                userId,
+                typeOperation,
+                incident,
+            });
+        } catch (error) {
+            this.logger.error('call _auditIncident: ', error);
+        }
+    }
 
     /**
      * Creates a new incident record, enriching it with ANT vehicle data when a plate
@@ -546,6 +585,12 @@ export class IncidentService {
                             amount: findObligation.data.obligations[0].total,
                             onResponseExternal,
                         });
+
+                        await this._auditIncident(
+                            incident.id,
+                            userId,
+                            TypeOperation.UPDATE,
+                        );
                     }
                     continue;
                 }
@@ -589,6 +634,12 @@ export class IncidentService {
                         optionalData,
                         onResponseExternal,
                     });
+
+                    await this._auditIncident(
+                        incident.id,
+                        userId,
+                        TypeOperation.UPDATE,
+                    );
                     incident.onResponseExternal = onResponseExternal;
                 } else return emitResult;
             }
@@ -618,6 +669,12 @@ export class IncidentService {
                                 incident.amount,
                             onResponseExternal,
                         });
+
+                        await this._auditIncident(
+                            issue.incidenId,
+                            userId,
+                            TypeOperation.UPDATE,
+                        );
                         incident.onResponseExternal = onResponseExternal;
                     } else return;
                 }),

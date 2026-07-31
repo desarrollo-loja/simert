@@ -15,6 +15,7 @@ import { GimModule } from 'src/api/gim/gim.module';
 import { AuthModule } from 'src/auth/auth.module';
 import { CommonCacheModule } from 'src/common/common.cache.module';
 import { CommonModule } from 'src/common/common.module';
+import { LoggerModule } from 'src/common/logger.module';
 
 import { OperatorController } from './operator.controller';
 import { OperatorService } from './operator.service';
@@ -43,6 +44,7 @@ import { OperatorService } from './operator.service';
         CommonCacheModule,
         DinardapAntModule,
         GimModule,
+        LoggerModule,
     ],
 })
 export class OperatorModule {}

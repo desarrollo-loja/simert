@@ -48,16 +48,35 @@ describe('GimController', () => {
     service.issueIncidentGim.mockResolvedValue(fakeResult);
     const dto = {} as CreateGimDto;
     const result = await controller.issueIncidentGim(dto, 'u', 'd', '42', 1);
-    expect(service.issueIncidentGim).toHaveBeenCalledWith(dto, 42, 1);
+    expect(service.issueIncidentGim).toHaveBeenCalledWith(dto, 42, 1, undefined);
     expect(result).toBe(fakeResult);
+  });
+
+  it('issueIncidentGim forwards the acting user so the audit trail records it', async () => {
+    service.issueIncidentGim.mockResolvedValue(fakeResult);
+    const dto = {} as CreateGimDto;
+    await controller.issueIncidentGim(dto, '17', 'd', '42', 1);
+    expect(service.issueIncidentGim).toHaveBeenCalledWith(dto, 42, 1, 17);
   });
 
   it('emitInfractionSimert delegates and parses id', async () => {
     service.emitInfractionSimert.mockResolvedValue(fakeResult);
     const dto = {} as CreateGimDto;
     const result = await controller.emitInfractionSimert(dto, 'u', 'd', '99', 0);
-    expect(service.emitInfractionSimert).toHaveBeenCalledWith(dto, 99, 0);
+    expect(service.emitInfractionSimert).toHaveBeenCalledWith(
+      dto,
+      99,
+      0,
+      undefined,
+    );
     expect(result).toBe(fakeResult);
+  });
+
+  it('emitInfractionSimert forwards the acting user so the audit trail records it', async () => {
+    service.emitInfractionSimert.mockResolvedValue(fakeResult);
+    const dto = {} as CreateGimDto;
+    await controller.emitInfractionSimert(dto, '17', 'd', '99', 0);
+    expect(service.emitInfractionSimert).toHaveBeenCalledWith(dto, 99, 0, 17);
   });
 
   it('createClientGim delegates', async () => {
@@ -159,8 +178,27 @@ describe('GimController', () => {
       5,
       dto.createGimDto,
       1,
+      undefined,
     );
     expect(result).toBe(fakeResult);
+  });
+
+  it('validateStatusWithGim forwards the acting user so the audit trail records it', async () => {
+    service.validateStatusSistemWithGim.mockResolvedValue(fakeResult);
+    const dto = {
+      debtDataObligations: [{ status: 1 } as any],
+      incidentId: 5,
+      createGimDto: { plate: 'P' } as any,
+      isTransacional: 1,
+    } as ValidateStatusGimDto;
+    await controller.validateStatusWithGim('17', 'd', dto);
+    expect(service.validateStatusSistemWithGim).toHaveBeenCalledWith(
+      dto.debtDataObligations,
+      5,
+      dto.createGimDto,
+      1,
+      17,
+    );
   });
 
   it('emitSanction delegates', async () => {
