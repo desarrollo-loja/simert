@@ -9,6 +9,7 @@ import {
     Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { AuthWithKeycloak } from 'src/auth/decorators';
 import { Auth } from 'src/auth/decorators/auth.decorator';
 import { GetUser } from 'src/auth/decorators/get-user.decorator';
 import { JwtPayload } from 'src/auth/interfaces/jwt-payload.interface';
@@ -19,6 +20,7 @@ import { UpdateKeycloakUserDto } from 'src/common/dto/update-keycloak-user.dto';
 import { ErrorCode } from 'src/common/glob/error';
 
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { FindAccountsDto } from './dto/find-accounts.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { SetUserStatusDto } from './dto/set-user-status.dto';
 import { KeycloakService } from './keycloak.service';
@@ -274,6 +276,74 @@ export class KeycloakController {
     @Get('find-by-email')
     findByEmail(@Query('email') email: string) {
         return this.keycloakService.findByEmail(email);
+    }
+
+    /**
+     * Resolves several ServiceHub accounts in a single call.
+     *
+     * Serves the admin tables, which need to tell at a glance which of the rows
+     * on screen drifted from the identity provider: one request per page
+     * instead of one per row.
+     *
+     * @param dto Accounts to resolve, each carrying a caller-owned `ref`.
+     * @returns Promise resolving to one entry per requested account.
+     */
+    @ApiOperation({
+        summary:
+            'Resolve several ServiceHub accounts in one call (by username, then email)',
+    })
+    @ApiStandardResponse({
+        description:
+            'One entry per requested account; `account` is null when not found',
+        errorCodes: [ErrorCode.NONE],
+        data: {
+            message: { type: 'string', example: 'Consulta realizada' },
+            data: {
+                isArray: true,
+                type: 'object',
+                example: [
+                    {
+                        ref: '7',
+                        matchedBy: 'usuario',
+                        account: {
+                            id: 'uuid',
+                            username: 'johndoe',
+                            enabled: true,
+                        },
+                    },
+                ],
+            },
+        },
+    })
+    @AuthWithKeycloak()
+    @Post('find-accounts')
+    findAccounts(@Body() dto: FindAccountsDto) {
+        return this.keycloakService.findAccounts(dto);
+    }
+
+    /**
+     * Resolves several municipal accounts in a single call.
+     *
+     * @param dto Accounts to resolve, each carrying a caller-owned `ref`.
+     * @returns Promise resolving to one entry per requested account.
+     */
+    @ApiOperation({
+        summary:
+            'Resolve several municipal accounts in one call (by username, then email)',
+    })
+    @ApiStandardResponse({
+        description:
+            'One entry per requested account; `account` is null when not found',
+        errorCodes: [ErrorCode.NONE],
+        data: {
+            message: { type: 'string', example: 'Consulta realizada' },
+            data: { isArray: true, type: 'object', example: [] },
+        },
+    })
+    @AuthWithKeycloak()
+    @Post('find-accounts-municipality')
+    findAccountsMunicipality(@Body() dto: FindAccountsDto) {
+        return this.keycloakService.findAccounts(dto, true);
     }
 
     /**

@@ -8,8 +8,14 @@ import { UpdateKeycloakUserDto } from 'src/common/dto/update-keycloak-user.dto';
 import { ErrorCode } from 'src/common/glob/error';
 import { LoggerService } from 'src/common/logger.service.ts';
 
+import { FindAccountRefDto, FindAccountsDto } from './dto/find-accounts.dto';
+
 // Safety margin: refresh the token 30 seconds before it expires
 const TOKEN_REFRESH_MARGIN_MS = 30_000;
+
+// How many account lookups run at once in the batch resolver. Bounded so
+// verifying a table page never turns into a burst against Keycloak.
+const BATCH_LOOKUP_CONCURRENCY = 6;
 
 /**
  * Service that wraps all Keycloak / GIM identity-provider operations:
@@ -1244,6 +1250,104 @@ export class KeycloakService {
         } catch (error: any) {
             return this._buildKeycloakError('findByEmail', error);
         }
+    }
+
+    /**
+     * Resolves one account, trying the username first and the email second.
+     *
+     * The order matters for the caller: both lookups are exact, so resolving by
+     * email alone would make an email comparison meaningless — the account
+     * found that way always carries the email it was searched with. Starting
+     * from the username lets a changed email surface as a real difference.
+     *
+     * @param user Reference holding the correlation id and the search keys.
+     * @param isMunicipality Whether to search the Municipality realm.
+     * @returns The correlation id, the matched account and which key found it.
+     */
+    private async _resolveAccount(
+        user: FindAccountRefDto,
+        isMunicipality: boolean,
+    ): Promise<{ ref: string; account: any | null; matchedBy: string | null }> {
+        const username = (user.username ?? '').trim();
+        const email = (user.email ?? '').trim();
+
+        // The find-by-* envelopes omit `data` on their early returns (no token),
+        // so the list is read defensively rather than destructured.
+        const firstAccount = (response: unknown): any | null => {
+            const data = (response as { data?: unknown })?.data;
+            return Array.isArray(data) && data.length > 0 ? data[0] : null;
+        };
+
+        if (username) {
+            const account = firstAccount(
+                isMunicipality
+                    ? await this.findByUsernameMunicipality(username)
+                    : await this.findByUsername(username),
+            );
+            if (account)
+                return { ref: user.ref, account, matchedBy: 'usuario' };
+        }
+
+        if (email) {
+            const account = firstAccount(
+                isMunicipality
+                    ? await this.findByEmailMunicipality(email)
+                    : await this.findByEmail(email),
+            );
+            if (account) return { ref: user.ref, account, matchedBy: 'correo' };
+        }
+
+        return { ref: user.ref, account: null, matchedBy: null };
+    }
+
+    /**
+     * Resolves a page's worth of accounts in one call.
+     *
+     * Exists so an admin table can show, at a glance, which of its rows drifted
+     * from the identity provider: the browser makes a single request instead of
+     * one per row. Lookups run with bounded concurrency
+     * ({@link BATCH_LOOKUP_CONCURRENCY}), and a single failing account resolves
+     * to `null` rather than sinking the whole batch — a partial answer is far
+     * more useful here than an error.
+     *
+     * @param dto Accounts to resolve, each with its correlation id.
+     * @param isMunicipality Whether to search the Municipality realm.
+     * @returns Envelope whose `data` holds one entry per requested account.
+     */
+    async findAccounts(dto: FindAccountsDto, isMunicipality = false) {
+        const users = dto?.users ?? [];
+        const results: Array<{
+            ref: string;
+            account: any | null;
+            matchedBy: string | null;
+        }> = [];
+
+        for (let i = 0; i < users.length; i += BATCH_LOOKUP_CONCURRENCY) {
+            const slice = users.slice(i, i + BATCH_LOOKUP_CONCURRENCY);
+            const resolved = await Promise.all(
+                slice.map(async (user) => {
+                    try {
+                        return await this._resolveAccount(user, isMunicipality);
+                    } catch (error) {
+                        this.logger.error(
+                            `findAccounts: no se pudo resolver ${user.ref}: ${error}`,
+                        );
+                        return {
+                            ref: user.ref,
+                            account: null,
+                            matchedBy: null,
+                        };
+                    }
+                }),
+            );
+            results.push(...resolved);
+        }
+
+        return {
+            errorCode: ErrorCode.NONE,
+            message: 'Consulta realizada',
+            data: results,
+        };
     }
 
     /**
