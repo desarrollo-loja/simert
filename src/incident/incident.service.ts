@@ -131,7 +131,17 @@ export class IncidentService {
 
                         await this.incidentRepository.save(incident);
 
-                        if (incident.statusIncident === IncidentStatus.PAYED) {
+                        // Mirror the response chain to the transaction whenever
+                        // it changed, not only once the cycle closes: every
+                        // incident here is already SUPPLIED, so gating on PAYED
+                        // kept the deposit rejection out of the transaction and
+                        // left Recaudaciones showing the payment as if GIM had
+                        // never answered. Skipped when GIM returned no body,
+                        // since then there is nothing new to mirror.
+                        if (
+                            incident.statusIncident === IncidentStatus.PAYED ||
+                            deposit.dataDeposit
+                        ) {
                             await this.commonService.syncOnResponseExternal(
                                 incident.transactionId,
                                 incident.onResponseExternal,

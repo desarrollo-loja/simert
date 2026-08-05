@@ -898,6 +898,49 @@ describe('GimService', () => {
       (axios.post as jest.Mock).mockRejectedValueOnce({});
       expect((await service.registerDeposit({ amount: '5' } as any)).errorCode).toBe(ErrorCode.NOT_FOUND);
     });
+
+    it('audits the reason reported by GIM, prefixed with its code', async () => {
+      (axios.post as jest.Mock).mockResolvedValueOnce({
+        data: { ok: false, code: 'ML.RD.7009', message: 'La obligación ya se encuentra pagada' },
+      });
+
+      const result = await service.registerDeposit({ amount: '5' } as any);
+
+      // The client keeps the generic summary; only the audit entry is enriched.
+      expect(result.message).toBe('No se logró realizar el depósito');
+      expect(loggerService.saveLogsGimLogger).toHaveBeenCalledWith(
+        expect.objectContaining({
+          method: 'registerDeposit',
+          httpStatus: 200,
+          message:
+            'No se logró realizar el depósito: [ML.RD.7009] La obligación ya se encuentra pagada',
+        }),
+      );
+    });
+
+    it('audits the bare summary when GIM reports no message', async () => {
+      (axios.post as jest.Mock).mockResolvedValueOnce({ data: { ok: false, code: '500' } });
+
+      await service.registerDeposit({ amount: '5' } as any);
+
+      expect(loggerService.saveLogsGimLogger).toHaveBeenCalledWith(
+        expect.objectContaining({ message: 'No se logró realizar el depósito' }),
+      );
+    });
+
+    it('audits the reason without a code prefix when GIM omits the code', async () => {
+      (axios.post as jest.Mock).mockResolvedValueOnce({
+        data: { ok: false, message: 'Caja cerrada' },
+      });
+
+      await service.registerDeposit({ amount: '5' } as any);
+
+      expect(loggerService.saveLogsGimLogger).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'No se logró realizar el depósito: Caja cerrada',
+        }),
+      );
+    });
   });
 
   // ─── findObligations ─────────────────────────────────────────────────────

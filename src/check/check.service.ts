@@ -428,7 +428,18 @@ export class CheckService {
 
                     await this.checkboxRepository.save(checkbox);
 
-                    if (checkbox.statusIncident === IncidentStatus.PAYED) {
+                    // The transaction mirrors `onResponseExternal` as soon as the
+                    // credit title exists (SUPPLIED), not only when the cycle
+                    // closes (PAYED). The "Emitido / No emitido" column of
+                    // Recaudaciones is derived from the bondId stored on the
+                    // transaction, so gating the sync on PAYED made a failed
+                    // deposit hide an emission that did happen — and left the
+                    // deposit rejection out of the transaction's response chain.
+                    // Mirrors what the payment webhook already does.
+                    if (
+                        checkbox.statusIncident === IncidentStatus.SUPPLIED ||
+                        checkbox.statusIncident === IncidentStatus.PAYED
+                    ) {
                         await this.commonService.syncOnResponseExternal(
                             checkbox.transactionId,
                             checkbox.onResponseExternal,

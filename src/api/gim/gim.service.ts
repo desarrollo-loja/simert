@@ -372,6 +372,30 @@ export class GimService {
     }
 
     /**
+     * Builds the message audited for a business rejection: the caller's summary
+     * followed by the reason GIM actually reported (its `code` and `message`).
+     *
+     * The summary alone ("No se logró realizar el depósito") repeats what the
+     * operation column already says and hides the cause, which then lives only
+     * in the raw body — visible after opening the entry. Prefixing the reason
+     * makes the "Mensaje" column of the integration-audit module diagnostic on
+     * its own, while `response` keeps the untouched body.
+     *
+     * @param summary Operator-facing summary the caller surfaces to the client.
+     * @param response Raw GIM response body carrying `code` and `message`.
+     * @returns The summary, suffixed with GIM's reason when it reported one.
+     */
+    private _rejectionAuditMessage(summary: string, response: any): string {
+        const reason = `${response?.message ?? ''}`.trim();
+        if (!reason) return summary;
+
+        const code = `${response?.code ?? ''}`.trim();
+        return code
+            ? `${summary}: [${code}] ${reason}`
+            : `${summary}: ${reason}`;
+    }
+
+    /**
      * Records a GIM natural-person creation failure in the `logsgim` collection.
      *
      * Thin wrapper over {@link _logGimFailure} that pins the endpoint to
@@ -2020,7 +2044,7 @@ export class GimService {
                     'emissionTitleCreditCard',
                     this._externalApiUrl('emitSimertCard'),
                     data,
-                    message,
+                    this._rejectionAuditMessage(message, data),
                 );
                 return {
                     errorCode: ErrorCode.NOT_FOUND,
@@ -2075,7 +2099,7 @@ export class GimService {
                     'registerDeposit',
                     this._externalApiUrl('registerDeposit'),
                     data,
-                    message,
+                    this._rejectionAuditMessage(message, data),
                 );
                 return {
                     errorCode: ErrorCode.NOT_FOUND,
@@ -2197,7 +2221,7 @@ export class GimService {
                     'emitSanction',
                     this._externalApiUrl('emitSanction'),
                     data,
-                    message,
+                    this._rejectionAuditMessage(message, data),
                 );
                 return {
                     errorCode: ErrorCode.NOT_FOUND,
