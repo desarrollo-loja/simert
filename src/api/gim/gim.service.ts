@@ -158,6 +158,7 @@ export class GimService {
         endpointPath: string,
         baseUrl: string = this.gimBaseUrl,
     ): string {
+        console.log(`${baseUrl}/api/external/${endpointPath}`);
         return `${baseUrl}/api/external/${endpointPath}`;
     }
 
@@ -943,8 +944,8 @@ export class GimService {
                 ),
                 lastName: this._removeAccents(
                     createClientGimNotExistDto.lastName ||
-                        createClientGimNotExistDto.firstName ||
-                        'Usuario',
+                    createClientGimNotExistDto.firstName ||
+                    'Usuario',
                 ),
                 country: Consts.COUNTRY_GIM,
                 city: Consts.CITY_GIM,
@@ -1373,7 +1374,7 @@ export class GimService {
         const appliedSize = Number(data?.size ?? size) || size;
         const totalPages = Number(
             data?.totalPages ??
-                (appliedSize > 0 ? Math.ceil(total / appliedSize) : 0),
+            (appliedSize > 0 ? Math.ceil(total / appliedSize) : 0),
         );
         const totalAmount = items.reduce(
             (sum, item) => sum + this._paidObligationAmount(item),
