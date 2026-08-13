@@ -158,7 +158,6 @@ export class GimService {
         endpointPath: string,
         baseUrl: string = this.gimBaseUrl,
     ): string {
-        console.log(`${baseUrl}/api/external/${endpointPath}`);
         return `${baseUrl}/api/external/${endpointPath}`;
     }
 
