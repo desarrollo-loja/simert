@@ -2370,7 +2370,8 @@ Servidor disponible en `http://localhost:5002/api/simert` y Swagger en `http://l
 | `GIM_CLIENT_SECRET_K` | Client Secret municipal |
 | `GIM_BASE_URL_LOGIN` | URL base Keycloak |
 | `GIM_BASE_URL` · `GIM_API_KEY` | API directa de GIM (distinta de los realms Keycloak), usada por `incident.service.ts` para conciliar depósitos |
-| `GIM_BASE_URL_PAID_OBLIGATIONS` | Opcional. Host del recurso `api/external/simert/paid-obligations` (títulos de crédito pagados, memorando ML-DT-2026-0819-M). Si no se define se usa `GIM_BASE_URL` |
+| `GIM_BASE_URL_LOCAL` | Opcional. Host de los recursos que el municipio atiende desde su servidor de red local: `api/external/validateOpenTill` y `api/external/findStatement` (este último detrás de `find-obligations`). Si no se define se usa `GIM_BASE_URL` |
+| `GIM_BASE_URL_PAID_OBLIGATIONS` | Opcional. Host del recurso `api/external/simert/paid-obligations` (títulos de crédito pagados, memorando ML-DT-2026-0819-M). Si no se define se usa `GIM_BASE_URL_LOCAL` y, a su vez, `GIM_BASE_URL` |
 | `JWT_SECREAT` | Secreto JWT (typo intencional) |
 | `AUTORIZATION` | Bearer compartido entre servicios (typo intencional) |
 

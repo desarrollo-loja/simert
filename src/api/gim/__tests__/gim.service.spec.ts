@@ -79,8 +79,8 @@ describe('GimService', () => {
   describe('findPaidObligations', () => {
     const range = { startDate: '2026-07-01', endDate: '2026-07-15' };
 
-    it('gets the resource with the filter as query params and a Bearer token', async () => {
-      (axios.get as jest.Mock).mockResolvedValue({
+    it('posts the resource with the filter in the body and a Bearer token', async () => {
+      (axios.post as jest.Mock).mockResolvedValue({
         data: { ok: true, code: '200', obligations: [] },
       });
 
@@ -91,39 +91,40 @@ describe('GimService', () => {
         size: 50,
       });
 
-      expect(axios.get).toHaveBeenCalledWith(
+      expect(axios.post).toHaveBeenCalledWith(
         'http://gim.test/api/external/simert/paid-obligations',
+        {
+          startDate: '2026-07-01',
+          endDate: '2026-07-15',
+          concept: 'MULTA',
+          page: 0,
+          size: 50,
+        },
         {
           headers: {
             'Content-Type': 'application/json',
             Authorization: 'Bearer tok-gim',
           },
-          params: {
-            startDate: '2026-07-01',
-            endDate: '2026-07-15',
-            concept: 'MULTA',
-            page: 0,
-            size: 50,
-          },
         },
       );
     });
 
-    it('coerces the page/size query strings and defaults them when absent', async () => {
-      (axios.get as jest.Mock).mockResolvedValue({
+    it('coerces the page/size values and defaults them when absent', async () => {
+      (axios.post as jest.Mock).mockResolvedValue({
         data: { ok: true, code: '200', obligations: [] },
       });
 
       await service.findPaidObligations({ ...range, page: '2' as any });
 
-      expect(axios.get).toHaveBeenCalledWith(
+      expect(axios.post).toHaveBeenCalledWith(
         expect.any(String),
-        expect.objectContaining({ params: expect.objectContaining({ page: 2, size: 50 }) }),
+        expect.objectContaining({ page: 2, size: 50 }),
+        expect.any(Object),
       );
     });
 
     it('normalizes the GIM envelope and totals the collected amount', async () => {
-      (axios.get as jest.Mock).mockResolvedValue({
+      (axios.post as jest.Mock).mockResolvedValue({
         data: {
           ok: true,
           code: '200',
@@ -144,7 +145,7 @@ describe('GimService', () => {
     });
 
     it('normalizes a Spring page envelope, keeping its own totals', async () => {
-      (axios.get as jest.Mock).mockResolvedValue({
+      (axios.post as jest.Mock).mockResolvedValue({
         data: {
           content: [{ obligationNumber: '2001', total: 8 }],
           totalElements: 120,
@@ -169,7 +170,7 @@ describe('GimService', () => {
         endDate: '2026-07-01',
       });
 
-      expect(axios.get).not.toHaveBeenCalled();
+      expect(axios.post).not.toHaveBeenCalled();
       expect(result.errorCode).toBe(ErrorCode.NOT_VALID);
       expect(result.data).toBeNull();
     });
@@ -180,12 +181,12 @@ describe('GimService', () => {
         endDate: 'hoy',
       });
 
-      expect(axios.get).not.toHaveBeenCalled();
+      expect(axios.post).not.toHaveBeenCalled();
       expect(result.errorCode).toBe(ErrorCode.NOT_VALID);
     });
 
     it('accepts a range of any span', async () => {
-      (axios.get as jest.Mock).mockResolvedValue({
+      (axios.post as jest.Mock).mockResolvedValue({
         data: { ok: true, code: '200', obligations: [] },
       });
 
@@ -195,19 +196,18 @@ describe('GimService', () => {
       });
 
       expect(result.errorCode).toBe(ErrorCode.NONE);
-      expect(axios.get).toHaveBeenCalledWith(
+      expect(axios.post).toHaveBeenCalledWith(
         expect.any(String),
         expect.objectContaining({
-          params: expect.objectContaining({
-            startDate: '2025-01-01',
-            endDate: '2026-12-31',
-          }),
+          startDate: '2025-01-01',
+          endDate: '2026-12-31',
         }),
+        expect.any(Object),
       );
     });
 
     it('returns NOT_FOUND with the GIM message on a logical failure', async () => {
-      (axios.get as jest.Mock).mockResolvedValue({
+      (axios.post as jest.Mock).mockResolvedValue({
         data: { ok: false, code: '400', message: 'Concepto inválido' },
       });
 
@@ -220,7 +220,7 @@ describe('GimService', () => {
 
     it('audits a logical failure in logsgim with the reason GIM gave', async () => {
       const response = { ok: false, code: '400', message: 'Concepto inválido' };
-      (axios.get as jest.Mock).mockResolvedValue({ data: response });
+      (axios.post as jest.Mock).mockResolvedValue({ data: response });
 
       await service.findPaidObligations(range);
 
@@ -239,7 +239,7 @@ describe('GimService', () => {
     });
 
     it('audits a 4xx failure in logsgim, keeping the GIM response body', async () => {
-      (axios.get as jest.Mock).mockRejectedValue({
+      (axios.post as jest.Mock).mockRejectedValue({
         name: 'AxiosError',
         message: 'Request failed with status code 401',
         response: { status: 401, data: { error: 'invalid_token' } },
@@ -260,21 +260,21 @@ describe('GimService', () => {
 
     it('does not audit twice when the municipality server fails', async () => {
       (axios.isAxiosError as unknown as jest.Mock).mockReturnValue(true);
-      (axios.get as jest.Mock).mockRejectedValue({
+      (axios.post as jest.Mock).mockRejectedValue({
         name: 'AxiosError',
         message: 'socket hang up',
       });
 
       await service.findPaidObligations(range);
 
-      // Only the _getFromExternalApi layer logs 5xx/transport failures.
+      // Only the _postToExternalApi layer logs 5xx/transport failures.
       expect(loggerService.saveLogsGimLogger).toHaveBeenCalledTimes(1);
       (axios.isAxiosError as unknown as jest.Mock).mockReturnValue(false);
     });
 
     it('reports HTTP_ERROR_REINTENT when the municipality server fails', async () => {
       (axios.isAxiosError as unknown as jest.Mock).mockReturnValue(true);
-      (axios.get as jest.Mock).mockRejectedValue({
+      (axios.post as jest.Mock).mockRejectedValue({
         name: 'AxiosError',
         message: 'socket hang up',
       });

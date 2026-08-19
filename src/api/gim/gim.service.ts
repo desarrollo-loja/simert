@@ -67,9 +67,15 @@ export class GimService {
     private readonly logger = new Logger('GimService');
     private readonly gimBaseUrl: string;
     private readonly gimBaseUrlLogin: string;
+    // Host of the resources the municipality serves from its local-network
+    // server instead of the one publishing the rest of the external API. Shared
+    // by every resource migrated there, so moving them takes one env change;
+    // falls back to `GIM_BASE_URL` while `GIM_BASE_URL_LOCAL` is unset.
+    private readonly gimBaseUrlLocal: string;
     // The `simert/paid-obligations` resource was enabled on the municipality's
     // test server (memorando ML-DT-2026-0819-M), which is not necessarily the
-    // host serving the rest of the external API; falls back to `GIM_BASE_URL`.
+    // host serving the rest of the external API; falls back to
+    // `GIM_BASE_URL_LOCAL` and, in turn, to `GIM_BASE_URL`.
     private readonly gimBaseUrlPaidObligations: string;
     private readonly gim2RealmMunicipio: string;
     private token: string;
@@ -97,9 +103,12 @@ export class GimService {
         this.gimBaseUrl = this.configService.get<string>('GIM_BASE_URL'); // Default or Env
         this.gimBaseUrlLogin =
             this.configService.get<string>('GIM_BASE_URL_LOGIN'); // Default or Env
+        this.gimBaseUrlLocal =
+            this.configService.get<string>('GIM_BASE_URL_LOCAL') ||
+            this.gimBaseUrl; // Default or Env
         this.gimBaseUrlPaidObligations =
             this.configService.get<string>('GIM_BASE_URL_PAID_OBLIGATIONS') ||
-            this.gimBaseUrl; // Default or Env
+            this.gimBaseUrlLocal; // Default or Env
         this.gim2RealmMunicipio = this.configService.get<string>(
             'GIM2_REALM_MUNICIPIO',
         ); // Default or Env
@@ -194,15 +203,17 @@ export class GimService {
      * @param endpointPath Path under `/api/external/` (e.g. `findTaxPayer`).
      * @param body Request payload serialized as JSON.
      * @param method Operation recorded in the audit log; defaults to `endpointPath`.
+     * @param baseUrl Host serving the resource; defaults to `GIM_BASE_URL`. Kept
+     * last so the existing callers that pass only `method` keep working.
      * @returns The parsed response body returned by GIM.
      */
     private async _postToExternalApi<T>(
         endpointPath: string,
         body: unknown,
         method: string = endpointPath,
+        baseUrl: string = this.gimBaseUrl,
     ): Promise<T> {
-        const url = this._externalApiUrl(endpointPath);
-        console.log('url ---------->>>>>>>>>>>>>>>>>>>>><<', url);
+        const url = this._externalApiUrl(endpointPath, baseUrl);
         try {
             const { data } = await axios.post<T>(url, body, {
                 headers: this._authJsonHeaders(),
@@ -1449,6 +1460,10 @@ export class GimService {
      * (memorando ML-DT-2026-0819-M). Feeds the Recaudación report, which
      * reconciles what SIMERT registered against what GIM actually collected.
      *
+     * GIM expects the filter as a POST body here, while this service exposes the
+     * resource to its own clients as a GET with query params
+     * ({@link ExternalSimertController}); the verbs are deliberately asymmetric.
+     *
      * @param paidObligationsDto Date range, SIMERT concept and 0-based pagination.
      * @returns Object with the error code, optional message and the normalized page.
      */
@@ -1477,7 +1492,7 @@ export class GimService {
 
         try {
             const data =
-                await this._getFromExternalApi<PaidObligationsGimResponse>(
+                await this._postToExternalApi<PaidObligationsGimResponse>(
                     'simert/paid-obligations',
                     {
                         startDate,
@@ -1486,8 +1501,8 @@ export class GimService {
                         page,
                         size,
                     },
-                    this.gimBaseUrlPaidObligations,
                     'findPaidObligations',
+                    this.gimBaseUrlPaidObligations,
                 );
 
             // The resource may answer with the GIM envelope (`ok`/`code`) or with a
@@ -1531,7 +1546,7 @@ export class GimService {
                 return serverError;
             }
             // The thrown failure (rejected token, resource not enabled…) is already
-            // persisted in logsgim by _getFromExternalApi.
+            // persisted in logsgim by _postToExternalApi.
 
             return {
                 errorCode: ErrorCode.NOT_FOUND,
@@ -1786,6 +1801,8 @@ export class GimService {
             const data = await this._postToExternalApi<any>(
                 'validateOpenTill',
                 {},
+                'validateOpenTill',
+                this.gimBaseUrlLocal,
             );
 
             if (
@@ -1819,7 +1836,7 @@ export class GimService {
                 'No se logró verificar el horario laboral, por favor intente más tarde';
             this._logGimRejection(
                 'validateOpenTill',
-                this._externalApiUrl('validateOpenTill'),
+                this._externalApiUrl('validateOpenTill', this.gimBaseUrlLocal),
                 data,
                 message,
             );
@@ -2142,6 +2159,7 @@ export class GimService {
                     'findStatement',
                     body,
                     'findObligations',
+                    this.gimBaseUrlLocal,
                 );
 
             if (data && data.ok && data.bonds?.length > 0) {
@@ -2156,7 +2174,10 @@ export class GimService {
                 if (data && data.ok === false) {
                     this._logGimRejection(
                         'findObligations',
-                        this._externalApiUrl('findStatement'),
+                        this._externalApiUrl(
+                            'findStatement',
+                            this.gimBaseUrlLocal,
+                        ),
                         data,
                         message,
                     );
