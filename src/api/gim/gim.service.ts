@@ -1462,7 +1462,7 @@ export class GimService {
      *
      * GIM expects the filter as a POST body here, while this service exposes the
      * resource to its own clients as a GET with query params
-     * ({@link ExternalSimertController}); the verbs are deliberately asymmetric.
+     * ({@link GimController}); the verbs are deliberately asymmetric.
      *
      * @param paidObligationsDto Date range, SIMERT concept and 0-based pagination.
      * @returns Object with the error code, optional message and the normalized page.

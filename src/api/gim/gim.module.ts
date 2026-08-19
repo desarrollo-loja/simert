@@ -8,16 +8,13 @@ import { CommonGimModule } from 'src/common/common.gim.module';
 import { LoggerModule } from 'src/common/logger.module';
 
 import { DinardapAntModule } from '../dinardap-ant/dinardap-ant.module';
-import { ExternalSimertController } from './external-simert.controller';
 import { GimController } from './gim.controller';
 import { GimService } from './gim.service';
 
 /**
- * Wires the GIM municipal-integration resource: exposes {@link GimController},
- * plus {@link ExternalSimertController} for the resources published under the
- * municipality's own `api/external/simert` path, and provides
- * {@link GimService}. Imports {@link LoggerModule} so GIM integration failures
- * can be audited in the `logsgim` collection.
+ * Wires the GIM municipal-integration resource: exposes {@link GimController}
+ * and provides {@link GimService}. Imports {@link LoggerModule} so GIM
+ * integration failures can be audited in the `logsgim` collection.
  */
 @Module({
     imports: [
@@ -30,7 +27,7 @@ import { GimService } from './gim.service';
         AuthModule,
         LoggerModule,
     ],
-    controllers: [GimController, ExternalSimertController],
+    controllers: [GimController],
     providers: [GimService],
     exports: [GimService],
 })

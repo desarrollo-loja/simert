@@ -1964,6 +1964,7 @@ Todas las rutas cuelgan de `/api/simert/` (ver `TypePrefix.API_SIMERT`).
 | POST | `/api/gim/emission-title-credit-card/:userId/:idDevice` | Emisión título por tarjeta |
 | POST | `/api/gim/register-deposit/:userId/:idDevice` | Registrar depósito |
 | POST | `/api/gim/find-obligations/:userId/:idDevice` | Buscar obligaciones |
+| GET | `/api/gim/paid-obligations/:userId/:idDevice` | Títulos de crédito pagados en GIM (conciliación de Recaudación) |
 | POST | `/api/gim/find-obligations-by-citation/:userId/:idDevice` | Obligaciones por citación |
 | POST | `/api/gim/validate-status-with-gim/:userId/:idDevice` | Validar estado con GIM |
 | POST | `/api/gim/emit-sanction/:userId/:idDevice` | Emitir sanción |
