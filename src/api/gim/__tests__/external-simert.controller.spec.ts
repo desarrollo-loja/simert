@@ -39,16 +39,17 @@ describe('ExternalSimertController', () => {
       concept: ConceptPaidObligation.FINE,
     } as PaidObligationsDto;
 
-    const result = await controller.findPaidObligations({} as any, dto, 'u', 'd');
+    const result = await controller.findPaidObligations({} as any, dto);
 
     expect(service.findPaidObligations).toHaveBeenCalledWith(dto);
     expect(result).toBe(fakeResult);
   });
 
+  // The URL must match GIM's exactly, with no `userId`/`idDevice` segments.
   it('keeps the municipality path the clients call', () => {
     expect(EXTERNAL_SIMERT_PATH).toBe('api/external/simert');
     expect(PAID_OBLIGATIONS_ROUTE).toBe(
-      'api/external/simert/paid-obligations/:userId/:idDevice',
+      'api/external/simert/paid-obligations',
     );
   });
 
@@ -62,7 +63,7 @@ describe('ExternalSimertController', () => {
       { path: PAID_OBLIGATIONS_ROUTE, method: RequestMethod.POST },
     ]);
     const declaredRoute = addLeadingSlash(
-      `${EXTERNAL_SIMERT_PATH}/paid-obligations/:userId/:idDevice`,
+      `${EXTERNAL_SIMERT_PATH}/paid-obligations`,
     );
 
     expect(

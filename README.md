@@ -1973,7 +1973,7 @@ misma URL que publica GIM:
 
 | Método | Ruta | Descripción |
 |---|---|---|
-| POST | `/api/external/simert/paid-obligations/:userId/:idDevice` | Títulos de crédito pagados en GIM (conciliación de Recaudación). Filtro en el body, igual que lo exige GIM |
+| POST | `/api/external/simert/paid-obligations` | Títulos de crédito pagados en GIM (conciliación de Recaudación). Filtro en el body, igual que lo exige GIM |
 
 > ⚠️ El despliegue debe proxear `/api/external/` a este servicio. Si ese prefijo
 > se sirve como estáticos de la SPA, nginx responde `405` al POST y el

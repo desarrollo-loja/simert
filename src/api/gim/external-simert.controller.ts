@@ -1,4 +1,4 @@
-import { Body, Controller, Param, Post } from '@nestjs/common';
+import { Body, Controller, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Auth, GetUser } from 'src/auth/decorators';
 import { JwtPayload } from 'src/auth/interfaces';
@@ -22,7 +22,7 @@ export const EXTERNAL_SIMERT_PATH = 'api/external/simert';
  * Full route of the paid-obligations resource. Shared with `main.ts`, which
  * excludes it from the global prefix, so both cannot drift apart.
  */
-export const PAID_OBLIGATIONS_ROUTE = `${EXTERNAL_SIMERT_PATH}/paid-obligations/:userId/:idDevice`;
+export const PAID_OBLIGATIONS_ROUTE = `${EXTERNAL_SIMERT_PATH}/paid-obligations`;
 
 /**
  * REST controller exposing the SIMERT resources published under the
@@ -48,13 +48,14 @@ export class ExternalSimertController {
      * date range, used by the Recaudación report to reconcile SIMERT's own
      * collection against the municipality's.
      *
-     * POST with the filter in the body, the same verb and payload GIM requires
-     * for this resource, so both hops of the proxy match.
+     * POST with the filter in the body, the same verb, URL and payload GIM
+     * requires for this resource, so both hops of the proxy match.
+     *
+     * Unlike the other GIM routes it takes no `userId`/`idDevice` path params:
+     * this resource never used them — the caller's identity comes from the JWT.
      *
      * @param _user Authenticated user payload extracted from the JWT.
      * @param paidObligationsDto Date range, SIMERT concept and 0-based pagination.
-     * @param _userId Identifier of the user performing the operation.
-     * @param _idDevice Identifier of the device performing the operation.
      * @returns The paid credit titles page for the requested filter.
      */
     @ApiOperation({
@@ -62,12 +63,10 @@ export class ExternalSimertController {
             'List GIM paid credit titles (obligations) for a SIMERT concept in a date range',
     })
     @Auth()
-    @Post('paid-obligations/:userId/:idDevice')
+    @Post('paid-obligations')
     findPaidObligations(
         @GetUser() _user: JwtPayload,
         @Body() paidObligationsDto: PaidObligationsDto,
-        @Param('userId') _userId: string,
-        @Param('idDevice') _idDevice: string,
     ) {
         return this.gimService.findPaidObligations(paidObligationsDto);
     }
