@@ -14,9 +14,10 @@ export class PaidObligationsDto {
     @IsString()
     endDate: string;
 
-    @IsOptional()
+    // Required: GIM rejects a request without a concept and reports a single one
+    // per call, so there is no "every concept" query to forward.
     @IsEnum(ConceptPaidObligation)
-    concept?: ConceptPaidObligation;
+    concept: ConceptPaidObligation;
 
     @IsOptional()
     @IsNumber()

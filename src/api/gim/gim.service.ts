@@ -1497,7 +1497,7 @@ export class GimService {
                     {
                         startDate,
                         endDate,
-                        ...(concept ? { concept } : {}),
+                        concept,
                         page,
                         size,
                     },

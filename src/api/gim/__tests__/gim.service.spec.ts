@@ -77,7 +77,12 @@ describe('GimService', () => {
 
   // ─── findPaidObligations ─────────────────────────────────────────────────
   describe('findPaidObligations', () => {
-    const range = { startDate: '2026-07-01', endDate: '2026-07-15' };
+    // GIM requires the concept, so every query carries one.
+    const range = {
+      startDate: '2026-07-01',
+      endDate: '2026-07-15',
+      concept: ConceptPaidObligation.FINE,
+    };
 
     it('posts the resource with the filter in the body and a Bearer token', async () => {
       (axios.post as jest.Mock).mockResolvedValue({
@@ -166,6 +171,7 @@ describe('GimService', () => {
 
     it('rejects an inverted range without calling GIM', async () => {
       const result = await service.findPaidObligations({
+        ...range,
         startDate: '2026-07-15',
         endDate: '2026-07-01',
       });
@@ -177,6 +183,7 @@ describe('GimService', () => {
 
     it('rejects unparseable dates without calling GIM', async () => {
       const result = await service.findPaidObligations({
+        ...range,
         startDate: 'ayer',
         endDate: 'hoy',
       });
@@ -191,6 +198,7 @@ describe('GimService', () => {
       });
 
       const result = await service.findPaidObligations({
+        ...range,
         startDate: '2025-01-01',
         endDate: '2026-12-31',
       });
