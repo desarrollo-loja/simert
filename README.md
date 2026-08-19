@@ -1964,10 +1964,20 @@ Todas las rutas cuelgan de `/api/simert/` (ver `TypePrefix.API_SIMERT`).
 | POST | `/api/gim/emission-title-credit-card/:userId/:idDevice` | Emisión título por tarjeta |
 | POST | `/api/gim/register-deposit/:userId/:idDevice` | Registrar depósito |
 | POST | `/api/gim/find-obligations/:userId/:idDevice` | Buscar obligaciones |
-| GET | `/api/gim/paid-obligations/:userId/:idDevice` | Títulos de crédito pagados en GIM (conciliación de Recaudación) |
 | POST | `/api/gim/find-obligations-by-citation/:userId/:idDevice` | Obligaciones por citación |
 | POST | `/api/gim/validate-status-with-gim/:userId/:idDevice` | Validar estado con GIM |
 | POST | `/api/gim/emit-sanction/:userId/:idDevice` | Emitir sanción |
+
+Además, fuera del prefijo `api/simert/` (excluido en `main.ts`), para conservar la
+misma URL que publica GIM:
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| POST | `/api/external/simert/paid-obligations/:userId/:idDevice` | Títulos de crédito pagados en GIM (conciliación de Recaudación). Filtro en el body, igual que lo exige GIM |
+
+> ⚠️ El despliegue debe proxear `/api/external/` a este servicio. Si ese prefijo
+> se sirve como estáticos de la SPA, nginx responde `405` al POST y el
+> `index.html` al GET, y el recurso parece roto aunque la ruta exista aquí.
 
 **🚗 Integración ANT / Dinardap**
 

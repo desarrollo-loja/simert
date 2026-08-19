@@ -7,9 +7,7 @@ import { RegisterDepositGimDto } from 'src/common/dto/register-deposit-gim.dto';
 import { CreateGimDto } from '../dto/create-gim.dto';
 import FindBondNumberDto from '../dto/find-bond-number';
 import { GetClientGimByCitationDto, GetClientGimDto } from '../dto/get-client-gim.dto';
-import { PaidObligationsDto } from '../dto/paid-obligations.dto';
 import { ValidateStatusGimDto } from '../dto/validate-status-gim.dto';
-import { ConceptPaidObligation } from '../interfaces/gim-responses.interfaces';
 import { GimController } from '../gim.controller';
 import { GimService } from '../gim.service';
 
@@ -27,7 +25,6 @@ const buildServiceMock = () => ({
   emissionTitleCreditCard: jest.fn(),
   registerDeposit: jest.fn(),
   findObligations: jest.fn(),
-  findPaidObligations: jest.fn(),
   findObligationsByCitation: jest.fn(),
   validateStatusSistemWithGim: jest.fn(),
   emitSanction: jest.fn(),
@@ -156,22 +153,6 @@ describe('GimController', () => {
     const dto = {} as GetClientGimDto;
     const result = await controller.findObligations('u', 'd', dto);
     expect(service.findObligations).toHaveBeenCalledWith(dto);
-    expect(result).toBe(fakeResult);
-  });
-
-  // Lives on GimController, under the `api/simert/` prefix: the deployment
-  // proxies only that prefix, so a route outside it is unreachable behind nginx.
-  it('findPaidObligations delegates the query to the service', async () => {
-    service.findPaidObligations.mockResolvedValue(fakeResult);
-    const dto = {
-      startDate: '2026-07-01',
-      endDate: '2026-07-15',
-      concept: ConceptPaidObligation.FINE,
-    } as PaidObligationsDto;
-
-    const result = await controller.findPaidObligations({} as any, dto, 'u', 'd');
-
-    expect(service.findPaidObligations).toHaveBeenCalledWith(dto);
     expect(result).toBe(fakeResult);
   });
 

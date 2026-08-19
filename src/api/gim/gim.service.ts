@@ -1460,9 +1460,8 @@ export class GimService {
      * (memorando ML-DT-2026-0819-M). Feeds the Recaudación report, which
      * reconciles what SIMERT registered against what GIM actually collected.
      *
-     * GIM expects the filter as a POST body here, while this service exposes the
-     * resource to its own clients as a GET with query params
-     * ({@link GimController}); the verbs are deliberately asymmetric.
+     * GIM expects the filter as a POST body, and {@link GimController} exposes
+     * the resource to SIMERT's own clients the same way, so both hops match.
      *
      * @param paidObligationsDto Date range, SIMERT concept and 0-based pagination.
      * @returns Object with the error code, optional message and the normalized page.

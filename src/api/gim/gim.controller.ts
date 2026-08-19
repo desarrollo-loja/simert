@@ -5,7 +5,6 @@ import {
     Param,
     ParseIntPipe,
     Post,
-    Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Auth, GetUser } from 'src/auth/decorators';
@@ -23,7 +22,6 @@ import {
     GetClientGimByLicensePlateDto,
     GetClientGimDto,
 } from './dto/get-client-gim.dto';
-import { PaidObligationsDto } from './dto/paid-obligations.dto';
 import { ValidateStatusGimDto } from './dto/validate-status-gim.dto';
 import { GimService } from './gim.service';
 /**
@@ -315,36 +313,6 @@ export class GimController {
         @Body() getClientGimDto: GetClientGimDto,
     ) {
         return this.gimService.findObligations(getClientGimDto);
-    }
-
-    /**
-     * Lists the GIM credit titles already paid for a SIMERT concept within a
-     * date range, used by the Recaudación report to reconcile SIMERT's own
-     * collection against the municipality's.
-     *
-     * Served under the `api/simert/` prefix like every other route: the
-     * deployment proxies only that prefix to this service, so mirroring GIM's
-     * own `api/external/...` path made the resource unreachable behind nginx.
-     *
-     * @param _user Authenticated user payload extracted from the JWT.
-     * @param paidObligationsDto Date range, SIMERT concept and 0-based pagination.
-     * @param _userId Identifier of the user performing the operation.
-     * @param _idDevice Identifier of the device performing the operation.
-     * @returns The paid credit titles page for the requested filter.
-     */
-    @ApiOperation({
-        summary:
-            'List GIM paid credit titles (obligations) for a SIMERT concept in a date range',
-    })
-    @Auth()
-    @Get('paid-obligations/:userId/:idDevice')
-    findPaidObligations(
-        @GetUser() _user: JwtPayload,
-        @Query() paidObligationsDto: PaidObligationsDto,
-        @Param('userId') _userId: string,
-        @Param('idDevice') _idDevice: string,
-    ) {
-        return this.gimService.findPaidObligations(paidObligationsDto);
     }
 
     /**
