@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { StatusPayment } from 'src/common/glob/status/status_payment';
 import { IncidentStatus } from 'src/common/glob/type/type_incident';
+import { isPrimaryInstance } from 'src/common/glob/utilities/cluster';
 import { DataSource } from 'typeorm';
 
 /**
@@ -26,7 +27,10 @@ export class DataService {
      * job to run every minute during the allowed time window.
      */
     async onModuleInit() {
-        if (process.env.MASTER_DATA_SERVICE === 'TRUE') {
+        // MASTER_DATA_SERVICE designates the node that archives; isPrimaryInstance
+        // designates the worker within that node, so enabling PM2 cluster does
+        // not start one archiving interval per worker.
+        if (process.env.MASTER_DATA_SERVICE === 'TRUE' && isPrimaryInstance()) {
             this.logger.verbose(
                 'MASTER >>> start call onModuleInit MASTER_DATA_SERVICE',
             );

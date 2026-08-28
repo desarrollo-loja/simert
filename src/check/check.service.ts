@@ -18,6 +18,7 @@ import { StatusPayment } from 'src/common/glob/status/status_payment';
 import { CatalogType } from 'src/common/glob/type/type_catalog';
 import { IncidentStatus } from 'src/common/glob/type/type_incident';
 import { TypeNotification } from 'src/common/glob/type/type_notification';
+import { isPrimaryInstance } from 'src/common/glob/utilities/cluster';
 import { DataSource, IsNull, Repository } from 'typeorm';
 
 /**
@@ -102,6 +103,14 @@ export class CheckService {
             this.logger.error(
                 `onModuleInit: error loading catalogs - ${(error as any).message}`,
             );
+        }
+
+        // The catalogs above are an in-memory read cache and must be loaded on
+        // every worker; only the recurring jobs below are restricted to the
+        // primary worker, so under PM2 cluster they do not fire once per worker.
+        if (!isPrimaryInstance()) {
+            this.logger.verbose('secondary worker: skipping recurring jobs');
+            return;
         }
 
         // Watch fractions that are about to expire and notify the user

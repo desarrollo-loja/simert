@@ -2416,7 +2416,8 @@ Servidor disponible en `http://localhost:5002/api/simert` y Swagger en `http://l
 | `INTERVAL_VALIDATE_INCIDENT_MS` | Intervalo de conciliación de depósitos de incidentes |
 | `TIME_CACHE_BLOCK_OPERATOR` | Minutos de caché para `BlockOperator` |
 | `CODE_ENTRY_EMISION_CARD` · `CODE_ENTRY_EMISION_CARD_DESCRIPTION` | Rubro GIM por defecto para emisión de tarjetas |
-| `TIMER_MINUTE_DEUNA` · `TIMER_MINUTE_PLACE_TO_PAY` | Ventana (minutos) para expirar una compra de checkboxes pendiente de pago, por pasarela |
+| `TIMER_MINUTE_AHORITA` · `TIMER_MINUTE_PLACE_TO_PAY` | Ventana (minutos) para expirar una compra de checkboxes pendiente de pago, por pasarela |
+| `TIMER_MINUTE_REVERSAL` | Ventana (minutos) para expirar un pago de incidente/multa pendiente, compartida por todas las pasarelas |
 | `SALARY_BASIC` | Salario básico para el cálculo de multas (cacheado en Redis, TTL 2 años) |
 
 > 📎 Detalle completo de cada job en [Trabajos en Segundo Plano (Jobs)](#trabajos-en-segundo-plano-jobs).

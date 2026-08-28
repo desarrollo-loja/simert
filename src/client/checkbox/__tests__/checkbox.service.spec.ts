@@ -70,10 +70,8 @@ describe('CheckboxService', () => {
     queryRunner = buildQueryRunner();
 
     commonService = {
-      checkDeUnaByIdentityCard: jest.fn(),
       checkPlaceToPayByIdentityCard: jest.fn(),
       getDate: jest.fn(() => '2025-01-01 10:00:00'),
-      payDeUnaV2: jest.fn(),
       payAhorita: jest.fn(),
       payPlaceToPay: jest.fn(),
       notify: jest.fn(),
@@ -274,7 +272,7 @@ describe('CheckboxService', () => {
     const baseDto: any = {
       userId: 1,
       transactionId: 'tx-1',
-      typePaymentMethod: TypePaymentMethod.DEUNAV2,
+      typePaymentMethod: TypePaymentMethod.AHORITA,
       identityCard: '1234567890',
       credentialId: 9,
       amount: '10.00',
@@ -285,8 +283,6 @@ describe('CheckboxService', () => {
 
     beforeEach(() => {
       gimService.validateOpenTill.mockResolvedValue({ errorCode: ErrorCode.NONE });
-      // DEUNAV2 triggers the DEUNA pre-check inside buyCheckboxs.
-      commonService.checkDeUnaByIdentityCard.mockResolvedValue({ errorCode: ErrorCode.NONE, url: 'deuna://x' });
       commonService.checkPlaceToPayByIdentityCard.mockResolvedValue({ errorCode: ErrorCode.NONE, url: 'pp://x' });
     });
 
@@ -302,40 +298,7 @@ describe('CheckboxService', () => {
         errorCode: ErrorCode.GIM_CLOSE,
         message: 'La jornada no se encuentra aperturada.',
       });
-      expect(commonService.checkDeUnaByIdentityCard).not.toHaveBeenCalled();
       expect(checkboxRepo.findOne).not.toHaveBeenCalled();
-    });
-
-    it('rejects DEUNA with short identityCard', async () => {
-      const result = await service.buyCheckboxs('dev', {
-        ...baseDto,
-        typePaymentMethod: TypePaymentMethod.DEUNA,
-        identityCard: '123',
-      });
-
-      expect(result).toEqual({ errorCode: ErrorCode.RESPONSE });
-    });
-
-    it('rejects DEUNA when checkDeUnaByIdentityCard fails', async () => {
-      commonService.checkDeUnaByIdentityCard.mockResolvedValue({ errorCode: ErrorCode.RESPONSE });
-
-      const result = await service.buyCheckboxs('dev', {
-        ...baseDto,
-        typePaymentMethod: TypePaymentMethod.DEUNA,
-      });
-
-      expect(result).toEqual({ errorCode: ErrorCode.WAIT_TRANSACTION_PREVIEWS });
-    });
-
-    it('rejects DEUNA when checkDeUnaByIdentityCard returns null', async () => {
-      commonService.checkDeUnaByIdentityCard.mockResolvedValue(null);
-
-      const result = await service.buyCheckboxs('dev', {
-        ...baseDto,
-        typePaymentMethod: TypePaymentMethod.DEUNA,
-      });
-
-      expect(result).toEqual({ errorCode: ErrorCode.WAIT_TRANSACTION_PREVIEWS });
     });
 
     it('rejects PLACE_TO_PAY with short identityCard', async () => {
@@ -367,12 +330,12 @@ describe('CheckboxService', () => {
       expect(result).toEqual({ errorCode: ErrorCode.TRANSACTION_REPIT });
     });
 
-    it('processes DEUNAV2 happy path (full flow including optionalData/concept)', async () => {
+    it('processes AHORITA happy path (full flow including optionalData/concept)', async () => {
       jest.useFakeTimers();
       checkboxRepo.findOne
         .mockResolvedValueOnce(undefined) // prior-check
         .mockResolvedValueOnce({ id: 99, transactionId: 'tx-1' }); // final fetch
-      commonService.payDeUnaV2.mockResolvedValue({ errorCode: ErrorCode.NONE, deeplink: 'deeplink://x' });
+      commonService.payAhorita.mockResolvedValue({ errorCode: ErrorCode.NONE, deeplink: 'deeplink://x' });
 
       const result = await service.buyCheckboxs('dev', {
         ...baseDto,
@@ -388,7 +351,7 @@ describe('CheckboxService', () => {
       jest.useRealTimers();
     });
 
-    it('processes AHORITA happy path', async () => {
+    it('processes AHORITA happy path (minimal)', async () => {
       jest.useFakeTimers();
       checkboxRepo.findOne
         .mockResolvedValueOnce(undefined)
@@ -421,26 +384,12 @@ describe('CheckboxService', () => {
       jest.useRealTimers();
     });
 
-    it('processes DEUNA pre-check happy path (URL captured but unmapped switch path returns UNAUTHORIZED)', async () => {
-      commonService.checkDeUnaByIdentityCard.mockResolvedValue({ errorCode: ErrorCode.NONE, url: 'deuna://x' });
-      checkboxRepo.findOne.mockResolvedValueOnce(undefined);
-
-      // TypePaymentMethod.DEUNA is not handled in the switch -> default throws -> rollback -> UNAUTHORIZED.
-      const result = await service.buyCheckboxs('dev', {
-        ...baseDto,
-        typePaymentMethod: TypePaymentMethod.DEUNA,
-      });
-
-      expect(result).toEqual({ errorCode: ErrorCode.UNAUTHORIZED });
-      expect(queryRunner.rollbackTransaction).toHaveBeenCalled();
-    });
-
     it('rolls back transaction on inner failure', async () => {
       checkboxRepo.findOne.mockResolvedValueOnce(undefined);
       // Provoke the default switch path (no typePaymentMethod match -> throws)
       const result = await service.buyCheckboxs('dev', {
         ...baseDto,
-        typePaymentMethod: TypePaymentMethod.COOPMEGO,
+        typePaymentMethod: 9999,
       } as any);
 
       expect(result).toEqual({ errorCode: ErrorCode.UNAUTHORIZED });
@@ -595,7 +544,7 @@ describe('CheckboxService', () => {
     };
     const dto: any = {
       userId: 1,
-      typePaymentMethod: TypePaymentMethod.DEUNAV2,
+      typePaymentMethod: TypePaymentMethod.AHORITA,
       credentialId: 1,
       amount: '5',
       commission: '0.5',
@@ -608,46 +557,6 @@ describe('CheckboxService', () => {
       commonCheckboxService.registerDepositGim.mockResolvedValue({ errorCode: ErrorCode.NONE });
     });
     afterEach(() => jest.useRealTimers());
-
-    it('_payDeunaV2: provider error path triggers immediate _saveResponsePay with ERROR', async () => {
-      commonService.payDeUnaV2.mockResolvedValue({ errorCode: ErrorCode.RESPONSE });
-
-      const result = await (service as any)._payDeunaV2('dev', baseCheckbox, debitAmounDto, dto, undefined);
-
-      expect(result).toEqual({ errorCode: ErrorCode.RESPONSE });
-      expect(commonService.notify).toHaveBeenCalled();
-    });
-
-    it('_payDeunaV2: timer fires - not paid -> ERROR path', async () => {
-      commonService.payDeUnaV2.mockResolvedValue({ errorCode: ErrorCode.NONE, deeplink: 'd' });
-      checkboxRepo.findOne.mockResolvedValue({ ...baseCheckbox, statusPayment: StatusPayment.WAITING });
-
-      const result = await (service as any)._payDeunaV2('dev', baseCheckbox, debitAmounDto, dto, undefined);
-      expect(result.errorCode).toBe(ErrorCode.NONE);
-
-      await jest.runAllTimersAsync();
-      // After timeout, _saveResponsePay should have been called.
-      expect(checkboxRepo.save).toHaveBeenCalled();
-    });
-
-    it('_payDeunaV2: timer fires - already paid -> early return', async () => {
-      commonService.payDeUnaV2.mockResolvedValue({ errorCode: ErrorCode.NONE, deeplink: 'd' });
-      checkboxRepo.findOne.mockResolvedValue({ ...baseCheckbox, statusPayment: StatusPayment.PAID });
-
-      await (service as any)._payDeunaV2('dev', baseCheckbox, debitAmounDto, dto, undefined);
-      await jest.runAllTimersAsync();
-      // Should not call notify after PAID short-circuit.
-      expect(commonService.notify).not.toHaveBeenCalled();
-    });
-
-    it('_payDeunaV2: timer fires - checkbox missing -> early return', async () => {
-      commonService.payDeUnaV2.mockResolvedValue({ errorCode: ErrorCode.NONE, deeplink: 'd' });
-      checkboxRepo.findOne.mockResolvedValue(undefined);
-
-      await (service as any)._payDeunaV2('dev', baseCheckbox, debitAmounDto, dto, 99 as any);
-      await jest.runAllTimersAsync();
-      expect(commonService.notify).not.toHaveBeenCalled();
-    });
 
     it('_payAhorita: provider error path', async () => {
       commonService.payAhorita.mockResolvedValue({ errorCode: ErrorCode.RESPONSE });

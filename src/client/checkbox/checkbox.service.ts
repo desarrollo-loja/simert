@@ -16,7 +16,6 @@ import { GetTransactionDto } from 'src/common/dto/get-transaction.dto';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
 import { PurchaseDataDto } from 'src/common/dto/purchase-data.dto';
 import { RegisterAhoritaDto } from 'src/common/dto/register-ahorita.dto';
-import { RegisterDeunaDto } from 'src/common/dto/register-deuna.dto';
 import { RegisterPlaceToPayDto } from 'src/common/dto/register-place-to-pay.dto';
 import handleDbExceptions from 'src/common/exceptions/error.db.exception';
 import { ErrorCode } from 'src/common/glob/error';
@@ -45,7 +44,7 @@ const ACCOUNTING_ACCOUNT_CARD_CATALOG = 'accountingAccountCard';
 
 /**
  * Service that handles the client-facing checkbox (prepaid balance) flow:
- * purchases, payment-provider dispatch (DeUna / Ahorita / PlaceToPay),
+ * purchases, payment-provider dispatch (Ahorita / PlaceToPay),
  * webhook responses, balance reservation/release timers and integration
  * with the user wallet tracked in `CheckboxUser`.
  *
@@ -55,8 +54,10 @@ const ACCOUNTING_ACCOUNT_CARD_CATALOG = 'accountingAccountCard';
 export class CheckboxService implements OnModuleInit {
     private readonly logger = new Logger(CheckboxService.name);
     private readonly domainSimert: string = process.env.DOMINIO_SIMERT;
-    private readonly timerMinuteDeuna: number =
-        1000 * 60 * Number(process.env.TIMER_MINUTE_DEUNA || 5);
+    // Reversal timer for the Ahorita flow (deferred check that reverses an
+    // unconfirmed checkbox purchase).
+    private readonly timerMinuteAhorita: number =
+        1000 * 60 * Number(process.env.TIMER_MINUTE_AHORITA || 5);
 
     private readonly timerMinutePlaceToPay: number =
         1000 * 60 * Number(process.env.TIMER_MINUTE_PLACE_TO_PAY || 6);
@@ -344,8 +345,8 @@ export class CheckboxService implements OnModuleInit {
     }
 
     /**
-     * Initiates a checkbox purchase via the configured payment provider (DeUna V2,
-     * Ahorita or PlaceToPay) and returns the provider deeplink.
+     * Initiates a checkbox purchase via the configured payment provider (Ahorita
+     * or PlaceToPay) and returns the provider deeplink.
      *
      * @param idDevice Device identifier originating the purchase.
      * @param createCheckboxDto Purchase payload including amount, payment method and billing data.
@@ -370,28 +371,8 @@ export class CheckboxService implements OnModuleInit {
             credentialId,
         } = createCheckboxDto;
 
-        let urlDeuna = '';
         let urlAhorita = '';
         let urlPlaceToPay = '';
-
-        if (
-            typePaymentMethod === TypePaymentMethod.DEUNA ||
-            typePaymentMethod === TypePaymentMethod.DEUNAV2
-        ) {
-            if (!identityCard || identityCard.length < 10) {
-                return { errorCode: ErrorCode.RESPONSE };
-            }
-            const response = await this.commonService.checkDeUnaByIdentityCard(
-                idDevice,
-                identityCard,
-                userId,
-                credentialId,
-            );
-            if (!response || response['errorCode'] !== ErrorCode.NONE) {
-                return { errorCode: ErrorCode.WAIT_TRANSACTION_PREVIEWS };
-            }
-            urlDeuna = response['url'];
-        }
 
         if (typePaymentMethod === TypePaymentMethod.PLACE_TO_PAY) {
             if (!identityCard || identityCard.length < 10) {
@@ -450,19 +431,6 @@ export class CheckboxService implements OnModuleInit {
                 checkbox = await queryRunner.manager.save(checkbox);
 
                 switch (typePaymentMethod) {
-                    case TypePaymentMethod.DEUNAV2: {
-                        const responseDeunaV2 = await this._payDeunaV2(
-                            idDevice,
-                            checkbox,
-                            debitAmounDto,
-                            createCheckboxDto,
-                            typePaymentResponsibility,
-                        );
-                        urlDeuna = responseDeunaV2['deeplink'];
-                        checkbox.url = urlDeuna;
-                        await queryRunner.manager.save(checkbox);
-                        break;
-                    }
                     case TypePaymentMethod.AHORITA: {
                         const responseAhorita = await this._payAhorita(
                             idDevice,
@@ -821,7 +789,7 @@ export class CheckboxService implements OnModuleInit {
      * it is flagged as ERROR and the buyer is notified.
      *
      * Shared by every payment-provider flow; the only differences are the
-     * success log message and the wait timer (DeUna/Ahorita vs PlaceToPay).
+     * success log message and the wait timer (Ahorita vs PlaceToPay).
      *
      * @param idDevice Device identifier propagated to `_saveResponsePay`.
      * @param checkbox Checkbox purchase being verified.
@@ -884,14 +852,10 @@ export class CheckboxService implements OnModuleInit {
         typePaymentMethod: TypePaymentMethod,
     ): IdTransactionFootbridge {
         switch (typePaymentMethod) {
-            case TypePaymentMethod.AHORITA:
-                return IdTransactionFootbridge.AHORITA;
             case TypePaymentMethod.PLACE_TO_PAY:
                 return IdTransactionFootbridge.PLACE_TO_PAY;
-            case TypePaymentMethod.COOPMEGO:
-                return IdTransactionFootbridge.COOPMEGO;
             default:
-                return IdTransactionFootbridge.DE_UNA;
+                return IdTransactionFootbridge.AHORITA;
         }
     }
 
@@ -921,7 +885,7 @@ export class CheckboxService implements OnModuleInit {
 
     /**
      * Builds the asynchronous payment-confirmation webhook URL invoked by every
-     * provider (DeUna, Ahorita, PlaceToPay) for a checkbox purchase. The path is
+     * provider (Ahorita, PlaceToPay) for a checkbox purchase. The path is
      * identical across providers, so centralizing it removes the repeated
      * template literal from each flow.
      *
@@ -942,84 +906,6 @@ export class CheckboxService implements OnModuleInit {
         typePaymentResponsibility: TypePaymentResponsibility,
     ): string {
         return `${this.domainSimert}api/simert/client/checkbox/on-response-pay/${idDevice}/${userId}/${checkboxId}/${typePaymentMethod}/${register}/${typePaymentResponsibility}`;
-    }
-
-    /**
-     * Initiates a SIMERT card purchase through the DeUna v2 payment provider and
-     * schedules the reversal verification when no confirmation arrives in time.
-     *
-     * @param idDevice Device identifier originating the purchase.
-     * @param checkbox Checkbox transaction being paid.
-     * @param debitAmounDto Debit details for the charge.
-     * @param createCheckboxDto Source DTO with amount, user and billing details.
-     * @param typePaymentResponsibility Party responsible for the payment.
-     * @returns Promise resolving to an error-code envelope, including the provider
-     *   `deeplink` on success.
-     */
-    private async _payDeunaV2(
-        idDevice: string,
-        checkbox: Checkbox,
-        debitAmounDto: DebitAmounDto,
-        createCheckboxDto: CreateCheckboxDto,
-        typePaymentResponsibility: TypePaymentResponsibility,
-    ) {
-        const { userId, typePaymentMethod, credentialId } = createCheckboxDto;
-        const { register } = debitAmounDto;
-
-        if (!typePaymentResponsibility)
-            typePaymentResponsibility = TypePaymentResponsibility.NONE;
-
-        const registerDeunaDto = new RegisterDeunaDto({
-            credentialId,
-            register: debitAmounDto.register,
-            amount: createCheckboxDto.amount,
-            commission: createCheckboxDto.commission,
-            identityCard: createCheckboxDto.identityCard,
-            idTransactionReason: IdTransactionReason.BUY_SIMERT,
-            concept: debitAmounDto.concept,
-            purchase_data: debitAmounDto.purchase_data,
-            billing_data: debitAmounDto.billing_data,
-            transactionId: debitAmounDto.transactionId,
-            userId,
-            webhook: this._buildCheckboxResponseWebhook(
-                idDevice,
-                userId,
-                checkbox.id,
-                typePaymentMethod,
-                register,
-                typePaymentResponsibility,
-            ),
-        });
-
-        const response = await this.commonService.payDeUnaV2(
-            idDevice,
-            registerDeunaDto,
-        );
-
-        // Provider acknowledged with the expected success status
-        if (response && response['errorCode'] === ErrorCode.NONE) {
-            // Wait 5 minutes to confirm the PAYMENT actually happened. If the webhook arrives
-            // first the client is already notified there; otherwise we verify the transaction
-            // before reversing it.
-            this._scheduleUnconfirmedCheckboxReversal(
-                idDevice,
-                checkbox,
-                userId,
-                'Se pago correctamente con deuna en menos de 5 minutos',
-                this.timerMinuteDeuna,
-                debitAmounDto,
-            );
-            return {
-                errorCode: ErrorCode.NONE,
-                deeplink: response['deeplink'],
-            };
-        } else {
-            return this._handleCheckboxPaymentFailure(
-                idDevice,
-                checkbox,
-                userId,
-            );
-        }
     }
 
     /**
@@ -1085,7 +971,7 @@ export class CheckboxService implements OnModuleInit {
                 checkbox,
                 userId,
                 'Se pago correctamente con ahorita en menos de 3 minutos',
-                this.timerMinuteDeuna,
+                this.timerMinuteAhorita,
                 debitAmounDto,
             );
             return {

@@ -7,6 +7,7 @@ import { RegisterDepositGimDto } from 'src/common/dto/register-deposit-gim.dto';
 import { ErrorCode } from 'src/common/glob/error';
 import { StatusPayment } from 'src/common/glob/status/status_payment';
 import { IncidentStatus } from 'src/common/glob/type/type_incident';
+import { isPrimaryInstance } from 'src/common/glob/utilities/cluster';
 import { Repository } from 'typeorm';
 
 /**
@@ -45,6 +46,15 @@ export class IncidentService {
      */
     async onModuleInit() {
         this.logger.verbose('start call onModuleInit');
+
+        // Under PM2 cluster only the primary worker schedules the job, so the
+        // GIM deposit registration is not sent once per worker.
+        if (!isPrimaryInstance()) {
+            this.logger.verbose(
+                'secondary worker: skipping incident validation job',
+            );
+            return;
+        }
 
         // Validates incidents that were issued in GIM but have not yet received a deposit
         setInterval(

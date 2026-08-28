@@ -14,6 +14,12 @@ export default tseslint.config(
       'coverage/**',
       'node_modules/**',
       'build/**',
+      // Submódulo git (se audita en su propio repositorio) y SQL generado por
+      // TypeORM (no aplica estilo de código). Coherente con simert-auth y
+      // simert-pay: sin esto, `--fix` alcanza el working tree del submódulo y
+      // deja cambios sin commitear en un repositorio ajeno.
+      'src/common/**',
+      '**/migrations/**',
       // Tests are not subject to the production lint rules (Anexo 2 policy):
       // they legitimately use `any` for mocks/spies and are excluded here.
       '**/*.spec.ts',

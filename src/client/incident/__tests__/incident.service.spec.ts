@@ -86,9 +86,7 @@ const buildService = (overrides: any = {}) => {
   const commonService: any = {
     getDate: jest.fn(() => '2026-05-15T10:00:00.000Z'),
     notify: jest.fn(),
-    checkDeUnaByIdentityCard: jest.fn(),
     checkPlaceToPayByIdentityCard: jest.fn(),
-    payDeUnaV2: jest.fn(),
     payAhorita: jest.fn(),
     payPlaceToPay: jest.fn(),
   };
@@ -627,27 +625,6 @@ describe('IncidentService (client)', () => {
       expect(result).toEqual({ errorCode: ErrorCode.NOT_FOUND });
     });
 
-    it('returns RESPONSE for DEUNA with invalid identityCard', async () => {
-      const ctx = buildService();
-      ctx.gimService.validateOpenTill.mockResolvedValueOnce({ errorCode: ErrorCode.NONE });
-      const result = await ctx.service.pay('dev', {
-        typePaymentMethod: TypePaymentMethod.DEUNA,
-        identityCard: '123',
-      } as any);
-      expect(result).toEqual({ errorCode: ErrorCode.RESPONSE });
-    });
-
-    it('returns WAIT_TRANSACTION_PREVIEWS when DEUNA check fails', async () => {
-      const ctx = buildService();
-      ctx.gimService.validateOpenTill.mockResolvedValueOnce({ errorCode: ErrorCode.NONE });
-      ctx.commonService.checkDeUnaByIdentityCard.mockResolvedValueOnce({ errorCode: ErrorCode.NOT_FOUND });
-      const result = await ctx.service.pay('dev', {
-        typePaymentMethod: TypePaymentMethod.DEUNA,
-        identityCard: '0102030405',
-      } as any);
-      expect(result).toEqual({ errorCode: ErrorCode.WAIT_TRANSACTION_PREVIEWS });
-    });
-
     it('returns RESPONSE for PLACE_TO_PAY with short identityCard', async () => {
       const ctx = buildService();
       ctx.gimService.validateOpenTill.mockResolvedValueOnce({ errorCode: ErrorCode.NONE });
@@ -667,29 +644,6 @@ describe('IncidentService (client)', () => {
         identityCard: '0102030405',
       } as any);
       expect(result).toEqual({ errorCode: ErrorCode.WAIT_TRANSACTION_PREVIEWS });
-    });
-
-    it.skip('happy path with DEUNAV2 returns AWAITS_RESPONSE', async () => {
-      const ctx = buildService();
-      ctx.gimService.validateOpenTill.mockResolvedValueOnce({ errorCode: ErrorCode.NONE });
-      ctx.commonService.payDeUnaV2.mockResolvedValueOnce({ errorCode: ErrorCode.NONE, deeplink: 'dlink' });
-      ctx.incidentPaymentRepository.findOne.mockResolvedValueOnce({ id: 1 });
-      ctx.incidentPaymentRepository.find.mockResolvedValue([]);
-
-      const result = await ctx.service.pay('dev', {
-        userId: 1,
-        transactionId: 'tx-1',
-        typePaymentMethod: TypePaymentMethod.DEUNAV2,
-        identityCard: '0102030405',
-        credentialId: 1,
-        incidents: [{ id: 1, amount: 10, register: '2026-05-15' }],
-        amount: 10,
-        billing_data: {},
-        optionalData: [{ key: 'concept', value: 'C' }],
-      } as any);
-
-      expect(result?.errorCode).toBe(ErrorCode.AWAITS_RESPONSE);
-      expect(ctx.queryRunner.commitTransaction).toHaveBeenCalled();
     });
 
     it('happy path with AHORITA returns AWAITS_RESPONSE', async () => {
@@ -735,25 +689,6 @@ describe('IncidentService (client)', () => {
       expect(result?.errorCode).toBe(ErrorCode.AWAITS_RESPONSE);
     });
 
-    it.skip('rolls back when provider fails (DeunaV2 throws)', async () => {
-      const ctx = buildService();
-      ctx.gimService.validateOpenTill.mockResolvedValueOnce({ errorCode: ErrorCode.NONE });
-      ctx.commonService.payDeUnaV2.mockResolvedValueOnce({ errorCode: ErrorCode.RESPONSE });
-      ctx.incidentPaymentRepository.find.mockResolvedValue([]);
-
-      const result = await ctx.service.pay('dev', {
-        userId: 1,
-        transactionId: 'tx-1',
-        typePaymentMethod: TypePaymentMethod.DEUNAV2,
-        incidents: [{ id: 1, amount: 5, register: 'r' }],
-        amount: 5,
-        billing_data: {},
-      } as any);
-
-      expect(result).toEqual({ errorCode: ErrorCode.UNAUTHORIZED });
-      expect(ctx.queryRunner.rollbackTransaction).toHaveBeenCalled();
-    });
-
     it('returns UNAUTHORIZED when payment method is unsupported', async () => {
       const ctx = buildService();
       ctx.gimService.validateOpenTill.mockResolvedValueOnce({ errorCode: ErrorCode.NONE });
@@ -770,27 +705,9 @@ describe('IncidentService (client)', () => {
       expect(result).toEqual({ errorCode: ErrorCode.UNAUTHORIZED });
     });
 
-    it('DEUNA flow with valid check returns AWAITS_RESPONSE via DEUNAV2 path? NO — DEUNA goes to default', async () => {
-      const ctx = buildService();
-      ctx.gimService.validateOpenTill.mockResolvedValueOnce({ errorCode: ErrorCode.NONE });
-      ctx.commonService.checkDeUnaByIdentityCard.mockResolvedValueOnce({ errorCode: ErrorCode.NONE, url: 'u' });
-
-      const result = await ctx.service.pay('dev', {
-        userId: 1,
-        transactionId: 'tx-1',
-        typePaymentMethod: TypePaymentMethod.DEUNA,
-        identityCard: '0102030405',
-        incidents: [{ id: 1, amount: 5, register: 'r' }],
-        amount: 5,
-        billing_data: {},
-      } as any);
-
-      // DEUNA isn't handled in switch -> default -> throws -> UNAUTHORIZED
-      expect(result).toEqual({ errorCode: ErrorCode.UNAUTHORIZED });
-    });
   });
 
-  describe('_payDeunaV2 / _payAhorita / _payPlaceToPay (setTimeout branches)', () => {
+  describe('_payAhorita / _payPlaceToPay (setTimeout branches)', () => {
     beforeEach(() => {
       jest.useFakeTimers();
     });
@@ -815,56 +732,6 @@ describe('IncidentService (client)', () => {
       billing_data: {},
       transactionId: 'tx',
     };
-
-    it('_payDeunaV2 returns NONE and schedules timer that logs success', async () => {
-      const ctx = buildService();
-      ctx.commonService.payDeUnaV2.mockResolvedValueOnce({ errorCode: ErrorCode.NONE, deeplink: 'd' });
-      ctx.incidentPaymentRepository.find.mockResolvedValueOnce([
-        { statusPayment: StatusPayment.PAID, referenceId: 'r' },
-      ]);
-
-      const result = await (ctx.service as any)._payDeunaV2('dev', baseDebit, baseDto(TypePaymentMethod.DEUNAV2), undefined, 'r');
-      expect(result.errorCode).toBe(ErrorCode.NONE);
-
-      jest.runAllTimers();
-      await Promise.resolve();
-    });
-
-    it('_payDeunaV2 timer triggers error branch when payments not all paid', async () => {
-      const ctx = buildService();
-      ctx.commonService.payDeUnaV2.mockResolvedValueOnce({ errorCode: ErrorCode.NONE, deeplink: 'd' });
-      ctx.incidentPaymentRepository.find
-        .mockResolvedValueOnce([{ statusPayment: StatusPayment.WAITING, referenceId: 'r', incidentId: 1, amount: 1 }])
-        .mockResolvedValueOnce([]);
-      ctx.incidentRepository.find.mockResolvedValue([]);
-
-      await (ctx.service as any)._payDeunaV2('dev', baseDebit, baseDto(TypePaymentMethod.DEUNAV2), undefined, 'r');
-      jest.runAllTimers();
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-
-    it('_payDeunaV2 timer no-op when find returns null', async () => {
-      const ctx = buildService();
-      ctx.commonService.payDeUnaV2.mockResolvedValueOnce({ errorCode: ErrorCode.NONE, deeplink: 'd' });
-      ctx.incidentPaymentRepository.find.mockResolvedValueOnce(null as any);
-
-      await (ctx.service as any)._payDeunaV2('dev', baseDebit, baseDto(TypePaymentMethod.DEUNAV2), undefined, 'r');
-      jest.runAllTimers();
-      await Promise.resolve();
-    });
-
-    it('_payDeunaV2 returns RESPONSE when provider fails', async () => {
-      const ctx = buildService();
-      ctx.commonService.payDeUnaV2.mockResolvedValueOnce({ errorCode: ErrorCode.RESPONSE });
-      ctx.incidentPaymentRepository.find.mockResolvedValueOnce([
-        { referenceId: 'r', incidentId: 1, amount: 1, transactionId: 't', typePaymentMethod: 1 },
-      ]);
-      ctx.incidentRepository.find.mockResolvedValue([]);
-
-      const result = await (ctx.service as any)._payDeunaV2('dev', baseDebit, baseDto(TypePaymentMethod.DEUNAV2), TypePaymentMethod.DEUNAV2 as any, 'r');
-      expect(result.errorCode).toBe(ErrorCode.RESPONSE);
-    });
 
     it('_payAhorita returns NONE and triggers success timer', async () => {
       const ctx = buildService();
@@ -1073,7 +940,7 @@ describe('IncidentService (client)', () => {
     it('returns NOT_FOUND when no payments match', async () => {
       const ctx = buildService();
       ctx.incidentPaymentRepository.find.mockResolvedValueOnce([]);
-      const result = await ctx.service.onResponsePay('dev', 1, 'r', TypePaymentMethod.DEUNA, 'reg', 0 as any);
+      const result = await ctx.service.onResponsePay('dev', 1, 'r', TypePaymentMethod.AHORITA, 'reg', 0 as any);
       expect(result).toEqual({ errorCode: ErrorCode.NOT_FOUND });
     });
 
@@ -1085,7 +952,7 @@ describe('IncidentService (client)', () => {
       ctx.incidentRepository.find.mockResolvedValueOnce([{ id: 1, bondId: 1, identityCard: 'ID' }]);
       ctx.gimService.registerDeposit.mockResolvedValueOnce({ errorCode: ErrorCode.NONE, data: {} });
 
-      const result = await ctx.service.onResponsePay('dev', 1, 'r', TypePaymentMethod.DEUNA, 'reg', 0 as any);
+      const result = await ctx.service.onResponsePay('dev', 1, 'r', TypePaymentMethod.AHORITA, 'reg', 0 as any);
       expect(result).toEqual({ errorCode: ErrorCode.NONE });
     });
 
@@ -1094,7 +961,7 @@ describe('IncidentService (client)', () => {
       ctx.incidentPaymentRepository.find.mockResolvedValueOnce([
         { statusPayment: StatusPayment.PAID, referenceId: 'r', amount: 1 },
       ]);
-      const result = await ctx.service.onResponsePay('dev', 1, 'r', TypePaymentMethod.DEUNA, 'reg', 0 as any);
+      const result = await ctx.service.onResponsePay('dev', 1, 'r', TypePaymentMethod.AHORITA, 'reg', 0 as any);
       expect(result).toEqual({ errorCode: ErrorCode.NOT_FOUND });
     });
   });
@@ -1103,7 +970,7 @@ describe('IncidentService (client)', () => {
     it('returns early when payments empty', async () => {
       const ctx = buildService();
       ctx.incidentPaymentRepository.find.mockResolvedValueOnce([]);
-      const result = await ctx.service.onResponsePayError('dev', 1, 'r', TypePaymentMethod.DEUNA, 'reg', 0);
+      const result = await ctx.service.onResponsePayError('dev', 1, 'r', TypePaymentMethod.AHORITA, 'reg', 0);
       expect(result).toBeUndefined();
     });
 
@@ -1112,7 +979,7 @@ describe('IncidentService (client)', () => {
       ctx.incidentPaymentRepository.find.mockResolvedValueOnce([
         { referenceId: 'r', incidentId: 1, amount: 1, transactionId: 't', typePaymentMethod: 1 },
       ]);
-      await ctx.service.onResponsePayError('dev', 1, 'r', TypePaymentMethod.DEUNA, 'reg', 0);
+      await ctx.service.onResponsePayError('dev', 1, 'r', TypePaymentMethod.AHORITA, 'reg', 0);
       expect(ctx.incidentPaymentRepository.update).toHaveBeenCalled();
     });
   });
@@ -1239,7 +1106,7 @@ describe('IncidentService (client)', () => {
   describe('_notifyChageStatus / _notifyChageStatusFraction (private)', () => {
     it('_notifyChageStatus calls commonService.notify', async () => {
       const ctx = buildService();
-      await (ctx.service as any)._notifyChageStatus(1, 100, 'r', '5', TypePaymentMethod.DEUNA);
+      await (ctx.service as any)._notifyChageStatus(1, 100, 'r', '5', TypePaymentMethod.AHORITA);
       expect(ctx.commonService.notify).toHaveBeenCalled();
     });
 

@@ -29,7 +29,6 @@ import { DebitAmounDto } from 'src/common/dto/debit-amoun.dto';
 import { PurchaseDataDto } from 'src/common/dto/purchase-data.dto';
 import { RegisterAhoritaDto } from 'src/common/dto/register-ahorita.dto';
 import { RegisterDepositGimDto } from 'src/common/dto/register-deposit-gim.dto';
-import { RegisterDeunaDto } from 'src/common/dto/register-deuna.dto';
 import { RegisterPlaceToPayDto } from 'src/common/dto/register-place-to-pay.dto';
 import handleDbExceptions from 'src/common/exceptions/error.db.exception';
 import { ErrorCode } from 'src/common/glob/error';
@@ -62,7 +61,7 @@ import { UpdateIncidentDto } from './dto/update-incident.dto';
 /**
  * Service that drives the client-facing incident (sanction) flow:
  * lookup by plate or identity card, fines payment dispatching to the
- * external providers (DeUna / Ahorita / PlaceToPay) and post-payment
+ * external providers (Ahorita / PlaceToPay) and post-payment
  * synchronization with GIM.
  *
  * Persists to `public.incident` and `public."incidentPayment"`.
@@ -76,8 +75,10 @@ export class IncidentService {
     private readonly gimBaseUrl = process.env.GIM_BASE_URL;
     private readonly gimApiKey = process.env.GIM_API_KEY;
     private readonly domainSimert: string = process.env.DOMINIO_SIMERT;
-    private readonly timerMinuteDeuna: number =
-        1000 * 60 * Number(process.env.TIMER_MINUTE_DEUNA);
+    // Reversal timer shared by every payment-provider flow (deferred check
+    // that reverses an unconfirmed incident payment).
+    private readonly timerMinuteReversal: number =
+        1000 * 60 * Number(process.env.TIMER_MINUTE_REVERSAL);
 
     /**
      * Wires repositories and integration services used to manage incidents,
@@ -859,31 +860,11 @@ export class IncidentService {
             billing_data: billingData,
         } = payIncidentDto;
 
-        let urlDeuna = '';
         let urlAhorita = '';
         let urlPlaceToPay = '';
 
         this.logger.debug('Entering pay function');
         this.logger.debug(payIncidentDto);
-
-        if (
-            typePaymentMethod === TypePaymentMethod.DEUNA ||
-            typePaymentMethod === TypePaymentMethod.DEUNAV2
-        ) {
-            if (!identityCard || identityCard.length < 10) {
-                return { errorCode: ErrorCode.RESPONSE };
-            }
-            const response = await this.commonService.checkDeUnaByIdentityCard(
-                idDevice,
-                identityCard,
-                userId,
-                credentialId,
-            );
-            if (!response || response['errorCode'] !== ErrorCode.NONE) {
-                return { errorCode: ErrorCode.WAIT_TRANSACTION_PREVIEWS };
-            }
-            urlDeuna = response['url'];
-        }
 
         if (typePaymentMethod === TypePaymentMethod.PLACE_TO_PAY) {
             if (!identityCard || identityCard.length < 10) {
@@ -971,33 +952,6 @@ export class IncidentService {
                 await queryRunner.manager.insert(IncidentPayment, payments);
 
                 switch (typePaymentMethod) {
-                    case TypePaymentMethod.DEUNAV2: {
-                        const responseDeunaV2 = await this._payDeunaV2(
-                            idDevice,
-                            debitAmounDto,
-                            payIncidentDto,
-                            typePaymentResponsibility,
-                            referenceId,
-                            codes,
-                            accountingAccountCodes,
-                            ownerName,
-                            onResponseExternal,
-                        );
-                        if (responseDeunaV2['errorCode'] === ErrorCode.NONE) {
-                            urlDeuna = responseDeunaV2['deeplink'];
-                            await queryRunner.manager.update(
-                                IncidentPayment,
-                                { referenceId },
-                                { url: urlDeuna },
-                            );
-                        } else {
-                            throw new Error(
-                                'call buy TypePaymentMethod DeunaV2 not found',
-                            );
-                        }
-                        break;
-                    }
-
                     case TypePaymentMethod.AHORITA: {
                         const responseAhorita = await this._payAhorita(
                             idDevice,
@@ -1109,7 +1063,7 @@ export class IncidentService {
      * the obligations being paid (e.g. "Pago de multa #18650477, #18650478").
      * The `onResponseExternal` array is the flat merge of all GIM responses
      * across every incident in the batch and is stored in the provider record
-     * (Deuna / Ahorita / PlaceToPay) for audit purposes.
+     * (Ahorita / PlaceToPay) for audit purposes.
      *
      * If the caller provides a `concept` entry in `optionalData`, it is
      * prepended so callers can override the prefix. Downstream truncation in
@@ -1221,11 +1175,11 @@ export class IncidentService {
 
     /**
      * Schedules the deferred verification that reverses a payment when the
-     * provider never confirms it. After `timerMinuteDeuna` it re-reads the
+     * provider never confirms it. After `timerMinuteReversal` it re-reads the
      * payments tied to `referenceId`: if all are already PAID nothing changes,
      * otherwise the payments are marked as ERROR and the client is notified.
      *
-     * Shared by every payment-provider flow (DeUna, Ahorita, PlaceToPay); the
+     * Shared by every payment-provider flow (Ahorita, PlaceToPay); the
      * only per-provider differences are the success log message and whether an
      * empty payments list short-circuits the check.
      *
@@ -1236,7 +1190,7 @@ export class IncidentService {
      * @param paidLogMessage Message logged when the payment was confirmed in time.
      * @param returnIfEmpty When true, an empty payments list aborts the check
      *   (PlaceToPay behavior); when false the empty list is treated as PAID
-     *   (DeUna/Ahorita behavior). Preserves each flow's original semantics.
+     *   (Ahorita behavior). Preserves each flow's original semantics.
      */
     private _scheduleUnconfirmedPaymentReversal(
         referenceId: string,
@@ -1275,7 +1229,7 @@ export class IncidentService {
                 amount,
                 typePaymentMethod,
             );
-        }, this.timerMinuteDeuna);
+        }, this.timerMinuteReversal);
     }
 
     /**
@@ -1315,7 +1269,7 @@ export class IncidentService {
 
     /**
      * Builds the asynchronous payment-confirmation webhook URL that every
-     * provider (DeUna, Ahorita, PlaceToPay) calls back. The path is identical
+     * provider (Ahorita, PlaceToPay) calls back. The path is identical
      * for all providers, so centralizing it removes the repeated, error-prone
      * template literal from each flow.
      *
@@ -1385,84 +1339,6 @@ export class IncidentService {
             userId,
             amount,
             typePaymentMethod,
-        );
-    }
-
-    /**
-     * Executes an incident payment through the DeUna (V2) provider and finalizes
-     * the resulting provider response.
-     *
-     * @param idDevice Device that originated the payment.
-     * @param debitAmounDto Debit DTO describing the charge.
-     * @param payIncidentDto Payment payload with user, method and credential data.
-     * @param typePaymentResponsibility Commission responsibility type (defaults to NONE when unset).
-     * @param referenceId Reference grouping the affected incident payments.
-     * @param codes Billing codes attached to the transaction.
-     * @param accountingAccountCodes Accounting account codes attached to the transaction.
-     * @param ownerName Owner name attached to the billing data.
-     * @param onResponseExternal Accumulated GIM responses to persist in the provider record.
-     * @returns Promise resolving to the finalized provider response envelope.
-     */
-    private async _payDeunaV2(
-        idDevice: string,
-        debitAmounDto: DebitAmounDto,
-        payIncidentDto: PayIncidentDto,
-        typePaymentResponsibility: TypePaymentResponsibility,
-        referenceId: string,
-        codes: string,
-        accountingAccountCodes: string,
-        ownerName: string,
-        onResponseExternal: any[],
-    ) {
-        const { userId, typePaymentMethod, credentialId, amount } =
-            payIncidentDto;
-        const { register } = debitAmounDto;
-
-        if (!typePaymentResponsibility) {
-            typePaymentResponsibility = TypePaymentResponsibility.NONE;
-        }
-
-        const registerDeunaDto = new RegisterDeunaDto({
-            credentialId,
-            register: debitAmounDto.register,
-            amount: amount,
-            commission: debitAmounDto.commission,
-            identityCard: payIncidentDto.identityCard,
-            idTransactionReason: IdTransactionReason.PAY_INCIDENT,
-            concept: debitAmounDto.concept,
-            purchase_data: debitAmounDto.purchase_data,
-            billing_data: {
-                ...debitAmounDto.billing_data,
-                code: codes,
-                accountingAccountCode: accountingAccountCodes,
-                ownerName,
-            } as BillingDataDto,
-            transactionId: debitAmounDto.transactionId,
-            userId,
-            webhook: this._buildPaymentResponseWebhook(
-                idDevice,
-                userId,
-                referenceId,
-                typePaymentMethod,
-                register,
-                typePaymentResponsibility,
-            ),
-        });
-        Object.assign(registerDeunaDto, { onResponseExternal });
-
-        const response = await this.commonService.payDeUnaV2(
-            idDevice,
-            registerDeunaDto,
-        );
-
-        return this._finalizeProviderResponse(
-            response,
-            referenceId,
-            userId,
-            amount,
-            typePaymentMethod,
-            'Se pago correctamente con de una en menos de 3 minutos',
-            false,
         );
     }
 
