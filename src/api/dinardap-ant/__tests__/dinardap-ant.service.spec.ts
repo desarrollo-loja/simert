@@ -14,6 +14,9 @@ const buildConfigMock = (baseUrl?: string) => ({
 
 const buildGimMock = (token: string | null = 'tok-123') => ({
   getTokenGim2: jest.fn().mockReturnValue(token),
+  // The 401 path re-logs in and replays the request; by default the re-login
+  // hands back the same token, so the retry is skipped and the 401 surfaces.
+  refreshToken: jest.fn().mockResolvedValue(undefined),
 });
 
 const buildEntidad = (cols: Record<string, string>) => ({
@@ -223,6 +226,27 @@ describe('DinardapAntService', () => {
       expect(result.errorCode).toBe(ErrorCode.UNAUTHORIZED);
       expect((result as any).message).toMatch(/401/);
       expect((result as any).message).toMatch(/No autorizado/i);
+    });
+
+    it('renews the GIM token and replays the request when the ANT answers 401', async () => {
+      gim.getTokenGim2
+        .mockReturnValueOnce('tok-viejo') // token used by the first attempt
+        .mockReturnValue('tok-nuevo'); // after the re-login
+
+      (axios.request as jest.Mock)
+        .mockRejectedValueOnce({ response: { status: 401 } })
+        .mockResolvedValueOnce({
+          data: buildEntidad({ propietario: 'JUAN PEREZ' }),
+        });
+
+      const result = await service.getUserDataByPlateAnt('ABC12');
+
+      expect(gim.refreshToken).toHaveBeenCalledTimes(1);
+      expect(axios.request).toHaveBeenCalledTimes(2);
+      expect(
+        (axios.request as jest.Mock).mock.calls[1][0].headers.Authorization,
+      ).toBe('Bearer tok-nuevo');
+      expect(result.errorCode).toBe(ErrorCode.NONE);
     });
 
     it('maps 404 from axios to NOT_FOUND with a specific message', async () => {

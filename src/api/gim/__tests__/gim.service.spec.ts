@@ -28,7 +28,12 @@ const buildConfigMock = () => ({
 
 const buildIncidentService = () => ({ update: jest.fn() });
 const buildIncidentTypeService = () => ({ getTypeIncidentById: jest.fn() });
-const buildCommonGimMock = () => ({ getTokenGim2: jest.fn().mockReturnValue('tok-gim') });
+const buildCommonGimMock = () => ({
+  getTokenGim2: jest.fn().mockReturnValue('tok-gim'),
+  // The 401 path re-logs in and replays the request; by default the re-login
+  // hands back the same token, so the retry is skipped and the 401 surfaces.
+  refreshToken: jest.fn().mockResolvedValue(undefined),
+});
 const buildCommonAuthMock = () => ({
   filterByIdentityCard: jest.fn(),
   updateResidentId: jest.fn(),
@@ -72,6 +77,109 @@ describe('GimService', () => {
     it('proxies to CommonGimService.getTokenGim2', () => {
       expect(service.getToken()).toBe('tok-gim');
       expect(commonGim.getTokenGim2).toHaveBeenCalled();
+    });
+  });
+
+  // ─── 401 retry ───────────────────────────────────────────────────────────
+  describe('expired-token retry', () => {
+    const unauthorized = () =>
+      Object.assign(new Error('Request failed with status code 401'), {
+        response: { status: 401, data: { error: 'invalid_token' } },
+      });
+
+    it('renews the token and replays the request when GIM answers 401', async () => {
+      commonGim.getTokenGim2
+        .mockReturnValueOnce('tok-viejo') // token captured before the call
+        .mockReturnValueOnce('tok-viejo') // header of the first attempt
+        .mockReturnValue('tok-nuevo'); // after the re-login
+      commonGim.refreshToken.mockResolvedValue(undefined);
+
+      (axios.post as jest.Mock)
+        .mockRejectedValueOnce(unauthorized())
+        .mockResolvedValueOnce({
+          data: { ok: true, code: '200', obligations: [] },
+        });
+
+      const result = await service.findPaidObligations({
+        startDate: '2026-07-01',
+        endDate: '2026-07-15',
+        concept: ConceptPaidObligation.FINE,
+        page: 0,
+        size: 50,
+      });
+
+      expect(commonGim.refreshToken).toHaveBeenCalledTimes(1);
+      expect(axios.post).toHaveBeenCalledTimes(2);
+      expect((axios.post as jest.Mock).mock.calls[1][2].headers).toEqual(
+        expect.objectContaining({ Authorization: 'Bearer tok-nuevo' }),
+      );
+      expect(result.errorCode).toBe(ErrorCode.NONE);
+      // A recovered 401 is not an integration failure: nothing is audited.
+      expect(loggerService.saveLogsGimLogger).not.toHaveBeenCalled();
+    });
+
+    it('does not replay when the re-login returns the same token', async () => {
+      // Same token back means the credentials are wrong, not the expiry:
+      // replaying would only produce a second 401.
+      commonGim.getTokenGim2.mockReturnValue('tok-gim');
+
+      (axios.post as jest.Mock).mockRejectedValue(unauthorized());
+
+      const result = await service.findPaidObligations({
+        startDate: '2026-07-01',
+        endDate: '2026-07-15',
+        concept: ConceptPaidObligation.FINE,
+        page: 0,
+        size: 50,
+      });
+
+      expect(axios.post).toHaveBeenCalledTimes(1);
+      expect(result.errorCode).toBe(ErrorCode.NOT_FOUND);
+    });
+
+    it('shares a single re-login across concurrent 401s', async () => {
+      commonGim.getTokenGim2
+        .mockReturnValueOnce('tok-viejo')
+        .mockReturnValueOnce('tok-viejo')
+        .mockReturnValueOnce('tok-viejo')
+        .mockReturnValueOnce('tok-viejo')
+        .mockReturnValue('tok-nuevo');
+
+      (axios.post as jest.Mock)
+        .mockRejectedValueOnce(unauthorized())
+        .mockRejectedValueOnce(unauthorized())
+        .mockResolvedValue({ data: { ok: true, code: '200', obligations: [] } });
+
+      const filter = {
+        startDate: '2026-07-01',
+        endDate: '2026-07-15',
+        concept: ConceptPaidObligation.FINE,
+        page: 0,
+        size: 50,
+      };
+      await Promise.all([
+        service.findPaidObligations(filter),
+        service.findPaidObligations(filter),
+      ]);
+
+      expect(commonGim.refreshToken).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not retry a non-401 error', async () => {
+      (axios.post as jest.Mock).mockRejectedValue(
+        Object.assign(new Error('boom'), { response: { status: 500 } }),
+      );
+
+      await service.findPaidObligations({
+        startDate: '2026-07-01',
+        endDate: '2026-07-15',
+        concept: ConceptPaidObligation.FINE,
+        page: 0,
+        size: 50,
+      });
+
+      expect(axios.post).toHaveBeenCalledTimes(1);
+      expect(commonGim.refreshToken).not.toHaveBeenCalled();
     });
   });
 

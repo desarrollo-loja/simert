@@ -18,6 +18,12 @@ const TOKEN_REFRESH_MARGIN_MS = 30_000;
 const BATCH_LOOKUP_CONCURRENCY = 6;
 
 /**
+ * Realm an admin token belongs to: the ServiceHub realm used for client
+ * accounts, or the Municipio K realm used for municipal employees.
+ */
+type TokenScope = 'serviceHub' | 'municipality';
+
+/**
  * Service that wraps all Keycloak / GIM identity-provider operations:
  * obtaining and caching the ServiceHub access token, creating/updating/
  * deleting Keycloak users, and client-credentials login for municipality
@@ -36,6 +42,13 @@ export class KeycloakService {
     // ServiceHub token cache
     private serviceHubToken: string | null = null;
     private serviceHubTokenExpiresAt = 0; // timestamp in ms
+
+    // In-flight re-login per realm, shared by every request that got a 401 at
+    // the same time so the burst produces one login instead of one per request.
+    private tokenRefresh: Record<TokenScope, Promise<string | null> | null> = {
+        serviceHub: null,
+        municipality: null,
+    };
 
     /**
      * Initializes the service and resolves GIM/Keycloak configuration (realm
@@ -144,6 +157,88 @@ export class KeycloakService {
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
         };
+    }
+
+    // ─── 401 recovery ───────────────────────────────────────────────────────────
+
+    /**
+     * Tells whether an outbound error is Keycloak rejecting the Bearer token,
+     * which in practice means the admin token expired between the moment it was
+     * read and the moment the request reached the realm.
+     *
+     * @param error Error raised by axios.
+     * @returns `true` when Keycloak answered 401.
+     */
+    private _isUnauthorized(error: any): boolean {
+        return error?.response?.status === 401;
+    }
+
+    /**
+     * Forces a new admin token for the given realm, bypassing the ServiceHub
+     * cache (whose expiry estimate is what just proved wrong). Concurrent
+     * callers share the same in-flight login per realm, so a burst of
+     * expired-token requests triggers one login instead of one per request.
+     *
+     * @param scope Realm whose token must be reissued.
+     * @returns The freshly issued token, or `null` when the login failed.
+     */
+    private async _forceToken(scope: TokenScope): Promise<string | null> {
+        if (!this.tokenRefresh[scope]) {
+            this.tokenRefresh[scope] = (async () => {
+                if (scope === 'serviceHub') {
+                    // Drop the cache first or `getToken` would hand back the
+                    // very token Keycloak just rejected.
+                    this.serviceHubToken = null;
+                    this.serviceHubTokenExpiresAt = 0;
+                    return this.getToken();
+                }
+                return this.getTokenMunicipalityK();
+            })()
+                .catch(() => null)
+                .finally(() => {
+                    this.tokenRefresh[scope] = null;
+                });
+        }
+
+        return this.tokenRefresh[scope];
+    }
+
+    /**
+     * Runs an authenticated Keycloak call and, when the realm answers 401
+     * because the token expired, reissues it and replays the very same request
+     * once with the new token.
+     *
+     * The retry is skipped when the login could not issue a *different* token:
+     * that means the credentials — not the expiry — are the problem, and
+     * replaying would only produce a second 401.
+     *
+     * @typeParam T Result type of the wrapped call.
+     * @param scope Realm the request authenticates against.
+     * @param token Token used by the first attempt.
+     * @param context Operation name, used in the retry log line.
+     * @param run Performs the request with the token it receives; invoked at most twice.
+     * @returns The result of the call, from the first attempt or the replay.
+     */
+    private async _retryOn401<T>(
+        scope: TokenScope,
+        token: string,
+        context: string,
+        run: (token: string) => Promise<T>,
+    ): Promise<T> {
+        try {
+            return await run(token);
+        } catch (error: any) {
+            if (!this._isUnauthorized(error)) throw error;
+
+            const freshToken = await this._forceToken(scope);
+            if (!freshToken || freshToken === token) throw error;
+
+            this.logger.warn(
+                `Token Keycloak ${scope} caducado (401) en ${context}: token renovado, reintentando la petición`,
+            );
+
+            return run(freshToken);
+        }
     }
 
     /**
@@ -351,9 +446,15 @@ export class KeycloakService {
             };
 
         try {
-            const response = await axios.post(this.usersUrl(), dto, {
-                headers: this.authHeaders(token),
-            });
+            const response = await this._retryOn401(
+                'serviceHub',
+                token,
+                'createUser',
+                (tk) =>
+                    axios.post(this.usersUrl(), dto, {
+                        headers: this.authHeaders(tk),
+                    }),
+            );
             // Keycloak returns 201 with no body; the ID comes back in the Location header
             const location = response.headers['location'] as string | undefined;
             const userId = location ? location.split('/').pop() : null;
@@ -391,12 +492,14 @@ export class KeycloakService {
             };
 
         try {
-            const response = await axios.post(
-                this.usersUrlMunicipality(),
-                dto,
-                {
-                    headers: this.authHeaders(token),
-                },
+            const response = await this._retryOn401(
+                'municipality',
+                token,
+                'createUserMunicipality',
+                (tk) =>
+                    axios.post(this.usersUrlMunicipality(), dto, {
+                        headers: this.authHeaders(tk),
+                    }),
             );
             // Keycloak returns 201 with no body; the ID comes back in the Location header
             const location = response.headers['location'] as string | undefined;
@@ -435,9 +538,11 @@ export class KeycloakService {
             };
 
         try {
-            await axios.put(this.usersUrl(id), dto, {
-                headers: this.authHeaders(token),
-            });
+            await this._retryOn401('serviceHub', token, 'updateUser', (tk) =>
+                axios.put(this.usersUrl(id), dto, {
+                    headers: this.authHeaders(tk),
+                }),
+            );
             return {
                 errorCode: ErrorCode.NONE,
                 message: 'Usuario actualizado exitosamente',
@@ -463,9 +568,15 @@ export class KeycloakService {
             };
 
         try {
-            await axios.put(this.usersUrlMunicipality(id), dto, {
-                headers: this.authHeaders(token),
-            });
+            await this._retryOn401(
+                'municipality',
+                token,
+                'updateUserMunicipality',
+                (tk) =>
+                    axios.put(this.usersUrlMunicipality(id), dto, {
+                        headers: this.authHeaders(tk),
+                    }),
+            );
             return {
                 errorCode: ErrorCode.NONE,
                 message: 'Usuario actualizado exitosamente',
@@ -493,12 +604,14 @@ export class KeycloakService {
             };
 
         try {
-            await axios.put(
-                this.usersUrl(id),
-                { enabled },
-                {
-                    headers: this.authHeaders(token),
-                },
+            await this._retryOn401('serviceHub', token, 'setUserStatus', (tk) =>
+                axios.put(
+                    this.usersUrl(id),
+                    { enabled },
+                    {
+                        headers: this.authHeaders(tk),
+                    },
+                ),
             );
             return {
                 errorCode: ErrorCode.NONE,
@@ -528,12 +641,18 @@ export class KeycloakService {
             };
 
         try {
-            await axios.put(
-                this.usersUrlMunicipality(id),
-                { enabled },
-                {
-                    headers: this.authHeaders(token),
-                },
+            await this._retryOn401(
+                'municipality',
+                token,
+                'setUserStatusMunicipality',
+                (tk) =>
+                    axios.put(
+                        this.usersUrlMunicipality(id),
+                        { enabled },
+                        {
+                            headers: this.authHeaders(tk),
+                        },
+                    ),
             );
             return {
                 errorCode: ErrorCode.NONE,
@@ -562,10 +681,16 @@ export class KeycloakService {
             };
 
         try {
-            const { data } = await axios.get(this.usersUrl(), {
-                headers: this.authHeaders(token),
-                params: { username, exact: true },
-            });
+            const { data } = await this._retryOn401(
+                'serviceHub',
+                token,
+                'findByUsername',
+                (tk) =>
+                    axios.get(this.usersUrl(), {
+                        headers: this.authHeaders(tk),
+                        params: { username, exact: true },
+                    }),
+            );
 
             if (data && data.length > 0)
                 return {
@@ -598,10 +723,16 @@ export class KeycloakService {
             };
 
         try {
-            const { data } = await axios.get(this.usersUrlMunicipality(), {
-                headers: this.authHeaders(token),
-                params: { username, exact: true },
-            });
+            const { data } = await this._retryOn401(
+                'municipality',
+                token,
+                'findByUsername',
+                (tk) =>
+                    axios.get(this.usersUrlMunicipality(), {
+                        headers: this.authHeaders(tk),
+                        params: { username, exact: true },
+                    }),
+            );
 
             if (data && data.length > 0)
                 return {
@@ -716,10 +847,16 @@ export class KeycloakService {
             };
 
         try {
-            const { data } = await axios.get(this.usersUrl(), {
-                headers: this.authHeaders(token),
-                params: { email, exact: true },
-            });
+            const { data } = await this._retryOn401(
+                'serviceHub',
+                token,
+                'findByEmail',
+                (tk) =>
+                    axios.get(this.usersUrl(), {
+                        headers: this.authHeaders(tk),
+                        params: { email, exact: true },
+                    }),
+            );
 
             if (data && data.length > 0)
                 return {
@@ -760,10 +897,16 @@ export class KeycloakService {
             };
 
         try {
-            const { data } = await axios.get(this.usersUrl(), {
-                headers: this.authHeaders(token),
-                params: { email, exact: true },
-            });
+            const { data } = await this._retryOn401(
+                'serviceHub',
+                token,
+                'setUserPassword',
+                (tk) =>
+                    axios.get(this.usersUrl(), {
+                        headers: this.authHeaders(tk),
+                        params: { email, exact: true },
+                    }),
+            );
 
             if (!data || data.length === 0)
                 return {
@@ -780,10 +923,20 @@ export class KeycloakService {
                 email;
             const newPassword = this._generateCode();
 
-            await axios.put(
-                `${this.usersUrl(userId)}/reset-password`,
-                { type: 'password', value: newPassword, temporary: false },
-                { headers: this.authHeaders(token) },
+            await this._retryOn401(
+                'serviceHub',
+                token,
+                'setUserPassword',
+                (tk) =>
+                    axios.put(
+                        `${this.usersUrl(userId)}/reset-password`,
+                        {
+                            type: 'password',
+                            value: newPassword,
+                            temporary: false,
+                        },
+                        { headers: this.authHeaders(tk) },
+                    ),
             );
 
             const emailSent = await this._sendPasswordEmail(
@@ -827,10 +980,16 @@ export class KeycloakService {
             };
 
         try {
-            const { data } = await axios.get(this.usersUrlMunicipality(), {
-                headers: this.authHeaders(token),
-                params: { email, exact: true },
-            });
+            const { data } = await this._retryOn401(
+                'municipality',
+                token,
+                'setUserPasswordMunicipality',
+                (tk) =>
+                    axios.get(this.usersUrlMunicipality(), {
+                        headers: this.authHeaders(tk),
+                        params: { email, exact: true },
+                    }),
+            );
 
             if (!data || data.length === 0)
                 return {
@@ -846,10 +1005,20 @@ export class KeycloakService {
                 user.username ||
                 email;
             const newPassword = this._generateCode();
-            await axios.put(
-                `${this.usersUrlMunicipality(userId)}/reset-password`,
-                { type: 'password', value: newPassword, temporary: false },
-                { headers: this.authHeaders(token) },
+            await this._retryOn401(
+                'municipality',
+                token,
+                'setUserPasswordMunicipality',
+                (tk) =>
+                    axios.put(
+                        `${this.usersUrlMunicipality(userId)}/reset-password`,
+                        {
+                            type: 'password',
+                            value: newPassword,
+                            temporary: false,
+                        },
+                        { headers: this.authHeaders(tk) },
+                    ),
             );
 
             const emailSent = await this._sendPasswordEmail(
@@ -898,10 +1067,16 @@ export class KeycloakService {
             };
 
         try {
-            const { data } = await axios.get(this.usersUrl(), {
-                headers: this.authHeaders(token),
-                params: { email, exact: true },
-            });
+            const { data } = await this._retryOn401(
+                'serviceHub',
+                token,
+                'changePassword',
+                (tk) =>
+                    axios.get(this.usersUrl(), {
+                        headers: this.authHeaders(tk),
+                        params: { email, exact: true },
+                    }),
+            );
 
             if (!data || data.length === 0)
                 return {
@@ -913,10 +1088,20 @@ export class KeycloakService {
 
             console.log('url', `${this.usersUrl(userId)}/reset-password`);
 
-            await axios.put(
-                `${this.usersUrl(userId)}/reset-password`,
-                { type: 'password', value: newPassword, temporary: false },
-                { headers: this.authHeaders(token) },
+            await this._retryOn401(
+                'serviceHub',
+                token,
+                'changePassword',
+                (tk) =>
+                    axios.put(
+                        `${this.usersUrl(userId)}/reset-password`,
+                        {
+                            type: 'password',
+                            value: newPassword,
+                            temporary: false,
+                        },
+                        { headers: this.authHeaders(tk) },
+                    ),
             );
 
             return {
@@ -953,10 +1138,16 @@ export class KeycloakService {
             };
 
         try {
-            const { data } = await axios.get(this.usersUrlMunicipality(), {
-                headers: this.authHeaders(token),
-                params: { email, exact: true },
-            });
+            const { data } = await this._retryOn401(
+                'municipality',
+                token,
+                'changePasswordMunicipality',
+                (tk) =>
+                    axios.get(this.usersUrlMunicipality(), {
+                        headers: this.authHeaders(tk),
+                        params: { email, exact: true },
+                    }),
+            );
 
             if (!data || data.length === 0)
                 return {
@@ -966,10 +1157,20 @@ export class KeycloakService {
 
             const userId = data[0].id;
 
-            await axios.put(
-                `${this.usersUrlMunicipality(userId)}/reset-password`,
-                { type: 'password', value: newPassword, temporary: false },
-                { headers: this.authHeaders(token) },
+            await this._retryOn401(
+                'municipality',
+                token,
+                'changePasswordMunicipality',
+                (tk) =>
+                    axios.put(
+                        `${this.usersUrlMunicipality(userId)}/reset-password`,
+                        {
+                            type: 'password',
+                            value: newPassword,
+                            temporary: false,
+                        },
+                        { headers: this.authHeaders(tk) },
+                    ),
             );
 
             return {
@@ -1093,10 +1294,16 @@ export class KeycloakService {
             };
 
         try {
-            const { data } = await axios.get(this.usersUrl(), {
-                headers: this.authHeaders(token),
-                params: { q: `identification:${identification}` },
-            });
+            const { data } = await this._retryOn401(
+                'serviceHub',
+                token,
+                'findByIdentification',
+                (tk) =>
+                    axios.get(this.usersUrl(), {
+                        headers: this.authHeaders(tk),
+                        params: { q: `identification:${identification}` },
+                    }),
+            );
 
             if (data && data.length > 0)
                 return {
@@ -1129,10 +1336,16 @@ export class KeycloakService {
             };
 
         try {
-            const { data } = await axios.get(this.usersUrlMunicipality(), {
-                headers: this.authHeaders(token),
-                params: { q: `identification:${identification}` },
-            });
+            const { data } = await this._retryOn401(
+                'municipality',
+                token,
+                'findByIdentificationMunicipality',
+                (tk) =>
+                    axios.get(this.usersUrlMunicipality(), {
+                        headers: this.authHeaders(tk),
+                        params: { q: `identification:${identification}` },
+                    }),
+            );
 
             if (data && data.length > 0)
                 return {
@@ -1169,12 +1382,18 @@ export class KeycloakService {
             };
 
         try {
-            await axios.put(
-                `${this.usersUrl(userId)}/execute-actions-email`,
-                ['UPDATE_PASSWORD'],
-                {
-                    headers: this.authHeaders(token),
-                },
+            await this._retryOn401(
+                'serviceHub',
+                token,
+                'executeActionsEmail',
+                (tk) =>
+                    axios.put(
+                        `${this.usersUrl(userId)}/execute-actions-email`,
+                        ['UPDATE_PASSWORD'],
+                        {
+                            headers: this.authHeaders(tk),
+                        },
+                    ),
             );
         } catch (error: any) {
             return this._buildKeycloakError('executeActionsEmail', error);
@@ -1199,12 +1418,18 @@ export class KeycloakService {
             };
 
         try {
-            await axios.put(
-                `${this.usersUrlMunicipality(userId)}/execute-actions-email`,
-                ['VERIFY_EMAIL'],
-                {
-                    headers: this.authHeaders(token),
-                },
+            await this._retryOn401(
+                'municipality',
+                token,
+                'executeActionsEmailMunicipality',
+                (tk) =>
+                    axios.put(
+                        `${this.usersUrlMunicipality(userId)}/execute-actions-email`,
+                        ['VERIFY_EMAIL'],
+                        {
+                            headers: this.authHeaders(tk),
+                        },
+                    ),
             );
             return {
                 errorCode: ErrorCode.NONE,
@@ -1233,10 +1458,16 @@ export class KeycloakService {
             };
 
         try {
-            const { data } = await axios.get(this.usersUrlMunicipality(), {
-                headers: this.authHeaders(token),
-                params: { email, exact: true },
-            });
+            const { data } = await this._retryOn401(
+                'municipality',
+                token,
+                'findByEmail',
+                (tk) =>
+                    axios.get(this.usersUrlMunicipality(), {
+                        headers: this.authHeaders(tk),
+                        params: { email, exact: true },
+                    }),
+            );
 
             if (data && data.length > 0)
                 return {
@@ -1263,20 +1494,33 @@ export class KeycloakService {
      * 20 rows would mean 20 token requests and, during an outage, 20 identical
      * entries in `logskeycloak` for a single incident.
      *
+     * The batch token is read once, so a long batch can outlive it; the lookup
+     * therefore goes through {@link _retryOn401} like every other call. Rows
+     * still holding the stale token each pay one 401 before retrying, but the
+     * re-login itself happens only once for the whole batch.
+     *
+     * @param scope Realm the batch token belongs to.
      * @param url Realm users URL to query.
      * @param token Bearer token already obtained for that realm.
      * @param params Exact-match query (`{ username }` or `{ email }`).
      * @returns The first matching account, or `null`.
      */
     private async _queryAccount(
+        scope: TokenScope,
         url: string,
         token: string,
         params: Record<string, string>,
     ): Promise<any | null> {
-        const { data } = await axios.get(url, {
-            headers: this.authHeaders(token),
-            params: { ...params, exact: true },
-        });
+        const { data } = await this._retryOn401(
+            scope,
+            token,
+            'findAccounts',
+            (tk) =>
+                axios.get(url, {
+                    headers: this.authHeaders(tk),
+                    params: { ...params, exact: true },
+                }),
+        );
         return Array.isArray(data) && data.length > 0 ? data[0] : null;
     }
 
@@ -1289,12 +1533,14 @@ export class KeycloakService {
      * from the username lets a changed email surface as a real difference.
      *
      * @param user Reference holding the correlation id and the search keys.
+     * @param scope Realm the batch token belongs to.
      * @param url Realm users URL to query.
      * @param token Bearer token already obtained for that realm.
      * @returns The correlation id, the matched account and which key found it.
      */
     private async _resolveAccount(
         user: FindAccountRefDto,
+        scope: TokenScope,
         url: string,
         token: string,
     ): Promise<{ ref: string; account: any | null; matchedBy: string | null }> {
@@ -1302,13 +1548,17 @@ export class KeycloakService {
         const email = (user.email ?? '').trim();
 
         if (username) {
-            const account = await this._queryAccount(url, token, { username });
+            const account = await this._queryAccount(scope, url, token, {
+                username,
+            });
             if (account)
                 return { ref: user.ref, account, matchedBy: 'usuario' };
         }
 
         if (email) {
-            const account = await this._queryAccount(url, token, { email });
+            const account = await this._queryAccount(scope, url, token, {
+                email,
+            });
             if (account) return { ref: user.ref, account, matchedBy: 'correo' };
         }
 
@@ -1348,6 +1598,9 @@ export class KeycloakService {
                 data: [],
             };
 
+        const scope: TokenScope = isMunicipality
+            ? 'municipality'
+            : 'serviceHub';
         const url = isMunicipality
             ? this.usersUrlMunicipality()
             : this.usersUrl();
@@ -1362,7 +1615,12 @@ export class KeycloakService {
             const resolved = await Promise.all(
                 slice.map(async (user) => {
                     try {
-                        return await this._resolveAccount(user, url, token);
+                        return await this._resolveAccount(
+                            user,
+                            scope,
+                            url,
+                            token,
+                        );
                     } catch (error) {
                         // Logged to the application log, not audited: this is a
                         // read-only check, and one entry per unresolved row

@@ -24,6 +24,10 @@ export class DinardapAntService {
     private readonly logger = new Logger('AntService');
     private readonly dinardapAntBaseUrl: string;
     private token: string;
+    // Single in-flight GIM 2 re-login shared by every request that got a 401 at
+    // the same time, so a burst of expired-token calls triggers one login
+    // instead of one per request.
+    private tokenRefresh: Promise<string | null> | null = null;
 
     /**
      * @param configService Provides access to environment configuration values.
@@ -38,6 +42,64 @@ export class DinardapAntService {
         this.dinardapAntBaseUrl = this.configService.get<string>(
             'DINARDAP_ANT_BASE_URL',
         );
+    }
+
+    /**
+     * Forces a GIM 2 re-login and returns the resulting token. Concurrent
+     * callers share the same in-flight login, so a burst of expired-token
+     * lookups does not hammer Keycloak with one login each.
+     *
+     * @returns The freshly issued token, or `null` when the re-login failed.
+     */
+    private async _refreshToken(): Promise<string | null> {
+        if (!this.tokenRefresh) {
+            this.tokenRefresh = this.commonGimService
+                .refreshToken()
+                .then(() => this.commonGimService.getTokenGim2() ?? null)
+                // `refreshToken` already logs its own failure and resolves, but
+                // a transport error must not leave the shared promise rejected
+                // for every waiter.
+                .catch(() => null)
+                .finally(() => {
+                    this.tokenRefresh = null;
+                });
+        }
+
+        return this.tokenRefresh;
+    }
+
+    /**
+     * Runs the ANT lookup and, when the gateway answers 401 because the GIM 2
+     * token expired, re-logs in and replays the very same request once with the
+     * new token.
+     *
+     * The retry is skipped when the re-login could not issue a *different*
+     * token: that means the credentials — not the expiry — are the problem, and
+     * replaying would only produce a second 401.
+     *
+     * @typeParam T Result type of the wrapped call.
+     * @param token Token used by the first attempt.
+     * @param run Performs the request with the token it receives; invoked at most twice.
+     * @returns The result of the call, from the first attempt or the replay.
+     */
+    private async _retryOn401<T>(
+        token: string,
+        run: (token: string) => Promise<T>,
+    ): Promise<T> {
+        try {
+            return await run(token);
+        } catch (error: any) {
+            if (error?.response?.status !== 401) throw error;
+
+            const freshToken = await this._refreshToken();
+            if (!freshToken || freshToken === token) throw error;
+
+            this.logger.warn(
+                'Token GIM 2 caducado (401) en getUserDataByPlateAnt: token renovado, reintentando la petición',
+            );
+
+            return run(freshToken);
+        }
     }
 
     /**
@@ -228,18 +290,20 @@ export class DinardapAntService {
         // encoding is a no-op for them.
         const url = `${this.dinardapAntBaseUrl}/api/dinardap/vehicles/${encodeURIComponent(plate)}/registration`;
 
-        const config: AxiosRequestConfig = {
+        const buildConfig = (token: string): AxiosRequestConfig => ({
             method: 'GET',
             url,
             timeout: 20000,
             headers: {
-                Authorization: `Bearer ${accessToken}`,
+                Authorization: `Bearer ${token}`,
                 Accept: 'application/json',
             },
-        };
+        });
 
         try {
-            const { data } = await axios.request<any>(config);
+            const { data } = await this._retryOn401(accessToken, (tk) =>
+                axios.request<any>(buildConfig(tk)),
+            );
 
             // Structure: paquete.entidades.entidad[0].filas.fila[0].columnas.columna[]
             const entidadRaw =

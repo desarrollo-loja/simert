@@ -64,6 +64,84 @@ describe('KeycloakService', () => {
     (service as any).logger = { error: jest.fn(), warn: jest.fn(), log: jest.fn() };
   });
 
+  // ─── 401 retry ────────────────────────────────────────────────────────────
+  describe('expired-token retry', () => {
+    const unauthorized = () =>
+      Object.assign(new Error('Request failed with status code 401'), {
+        response: { status: 401, data: { error: 'invalid_token' } },
+      });
+
+    it('renews the ServiceHub token and replays the request on 401', async () => {
+      commonGim.loginGimServiceHub
+        .mockResolvedValueOnce({
+          errorCode: ErrorCode.NONE,
+          data: { access_token: 'sh-viejo', expires_in: 60 },
+        })
+        .mockResolvedValueOnce({
+          errorCode: ErrorCode.NONE,
+          data: { access_token: 'sh-nuevo', expires_in: 60 },
+        });
+
+      (axios.get as jest.Mock)
+        .mockRejectedValueOnce(unauthorized())
+        .mockResolvedValueOnce({ data: [{ id: 'u1' }] });
+
+      const result = await service.findByUsername('a');
+
+      expect(axios.get).toHaveBeenCalledTimes(2);
+      // The cached token is dropped, so the replay carries the new one.
+      expect((axios.get as jest.Mock).mock.calls[1][1].headers).toEqual(
+        expect.objectContaining({ Authorization: 'Bearer sh-nuevo' }),
+      );
+      expect(result.errorCode).toBe(ErrorCode.NONE);
+    });
+
+    it('renews the Municipality token and replays the request on 401', async () => {
+      commonGim.loginGimMunicipalityK
+        .mockResolvedValueOnce({
+          errorCode: ErrorCode.NONE,
+          data: { access_token: 'mun-viejo', expires_in: 60 },
+        })
+        .mockResolvedValueOnce({
+          errorCode: ErrorCode.NONE,
+          data: { access_token: 'mun-nuevo', expires_in: 60 },
+        });
+
+      (axios.get as jest.Mock)
+        .mockRejectedValueOnce(unauthorized())
+        .mockResolvedValueOnce({ data: [{ id: 'u1' }] });
+
+      const result = await service.findByEmailMunicipality('a@b.c');
+
+      expect(axios.get).toHaveBeenCalledTimes(2);
+      expect((axios.get as jest.Mock).mock.calls[1][1].headers).toEqual(
+        expect.objectContaining({ Authorization: 'Bearer mun-nuevo' }),
+      );
+      expect(result.errorCode).toBe(ErrorCode.NONE);
+    });
+
+    it('does not replay when the re-login returns the same token', async () => {
+      // Same token back means the credentials are wrong, not the expiry.
+      (axios.get as jest.Mock).mockRejectedValue(unauthorized());
+
+      const result = await service.findByUsername('a');
+
+      expect(axios.get).toHaveBeenCalledTimes(1);
+      expect(result.errorCode).toBe(ErrorCode.UNAUTHORIZED);
+    });
+
+    it('does not retry a non-401 error', async () => {
+      (axios.get as jest.Mock).mockRejectedValue(
+        Object.assign(new Error('boom'), { response: { status: 500 } }),
+      );
+
+      await service.findByUsername('a');
+
+      expect(axios.get).toHaveBeenCalledTimes(1);
+      expect(commonGim.loginGimServiceHub).toHaveBeenCalledTimes(1);
+    });
+  });
+
   // ─── getToken caching ─────────────────────────────────────────────────────
   describe('getToken (ServiceHub) caching', () => {
     it('caches the access token across calls and only logs in once', async () => {

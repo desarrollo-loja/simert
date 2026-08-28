@@ -79,6 +79,10 @@ export class GimService {
     private readonly gimBaseUrlPaidObligations: string;
     private readonly gim2RealmMunicipio: string;
     private token: string;
+    // Single in-flight GIM 2 re-login shared by every request that got a 401 at
+    // the same time, so a burst of expired-token calls triggers one login
+    // instead of one per request.
+    private tokenRefresh: Promise<string | null> | null = null;
 
     /**
      * Creates the GIM service and resolves GIM base URLs and realm from config.
@@ -157,6 +161,82 @@ export class GimService {
     }
 
     /**
+     * Tells whether an outbound error is GIM rejecting the Bearer token, which
+     * in practice means the GIM 2 access token expired between the last refresh
+     * and this call.
+     *
+     * @param error Error raised by axios.
+     * @returns `true` when GIM answered 401.
+     */
+    private _isUnauthorized(error: any): boolean {
+        return error?.response?.status === 401;
+    }
+
+    /**
+     * Forces a GIM 2 re-login and returns the resulting token. Concurrent
+     * callers share the same in-flight login: the first 401 starts it and the
+     * rest await it, so a burst of expired-token requests does not hammer
+     * Keycloak with one login each.
+     *
+     * @returns The freshly issued token, or `null` when the re-login failed.
+     */
+    private async _refreshToken(): Promise<string | null> {
+        if (!this.tokenRefresh) {
+            this.tokenRefresh = this.commonGimService
+                .refreshToken()
+                .then(() => this.commonGimService.getTokenGim2() ?? null)
+                // `refreshToken` already logs its own failure and resolves, but
+                // a transport error must not leave the shared promise rejected
+                // for every waiter.
+                .catch(() => null)
+                .finally(() => {
+                    this.tokenRefresh = null;
+                });
+        }
+
+        return this.tokenRefresh;
+    }
+
+    /**
+     * Runs an authenticated GIM call and, when GIM answers 401 because the
+     * token expired, re-logs in and replays the very same request once with the
+     * new token. `run` rebuilds its headers on each invocation, so the replay
+     * picks up the refreshed token by itself.
+     *
+     * The retry is skipped when the re-login could not issue a *different*
+     * token: that means the credentials — not the expiry — are the problem, and
+     * replaying would only produce a second 401.
+     *
+     * @typeParam T Result type of the wrapped call.
+     * @param method Operation name, used in the retry log line.
+     * @param run Performs the request; invoked at most twice.
+     * @returns The result of the call, from the first attempt or the replay.
+     */
+    private async _retryOn401<T>(
+        method: string,
+        run: () => Promise<T>,
+    ): Promise<T> {
+        // Captured before the call so the refresh can tell a genuinely new
+        // token from the stale one another request already replaced.
+        const staleToken = this.getToken();
+
+        try {
+            return await run();
+        } catch (error: any) {
+            if (!this._isUnauthorized(error)) throw error;
+
+            const freshToken = await this._refreshToken();
+            if (!freshToken || freshToken === staleToken) throw error;
+
+            this.logger.warn(
+                `Token GIM 2 caducado (401) en ${method}: token renovado, reintentando la petición`,
+            );
+
+            return run();
+        }
+    }
+
+    /**
      * Composes the URL of a GIM "external" API endpoint.
      *
      * @param endpointPath Path under `/api/external/` (e.g. `findTaxPayer`).
@@ -215,9 +295,11 @@ export class GimService {
     ): Promise<T> {
         const url = this._externalApiUrl(endpointPath, baseUrl);
         try {
-            const { data } = await axios.post<T>(url, body, {
-                headers: this._authJsonHeaders(),
-            });
+            const { data } = await this._retryOn401(method, () =>
+                axios.post<T>(url, body, {
+                    headers: this._authJsonHeaders(),
+                }),
+            );
             return data;
         } catch (error: any) {
             this._logGimError(method, url, error);
@@ -245,10 +327,12 @@ export class GimService {
     ): Promise<T> {
         const url = this._externalApiUrl(endpointPath, baseUrl);
         try {
-            const { data } = await axios.get<T>(url, {
-                headers: this._authJsonHeaders(),
-                params,
-            });
+            const { data } = await this._retryOn401(method, () =>
+                axios.get<T>(url, {
+                    headers: this._authJsonHeaders(),
+                    params,
+                }),
+            );
             return data;
         } catch (error: any) {
             this._logGimError(method, url, error);
@@ -1868,6 +1952,9 @@ export class GimService {
                 };
             }
 
+            // Reaching this means the 401 survived the token refresh and the
+            // replay performed by `_retryOn401`, so it is not an expiry: the
+            // credentials or the realm are wrong.
             if (status === 401) {
                 this.logger.error(
                     `Error validateOpenTill: no autorizado (401)`,
