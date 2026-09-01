@@ -126,6 +126,36 @@ describe('IncidentService (root worker)', () => {
       );
     });
 
+    it('leaves out of the deposit the fine whose credit title was never issued', async () => {
+      // `bondId` is nullable, and it used to be mapped straight into `bondIds`,
+      // so a fine with no issued title sent `[88, null]` to the municipality.
+      // It must also not reach PAYED on the back of the rest of the group.
+      const withBond = buildIncident();
+      const withoutBond = { ...buildIncident(), id: 5, bondId: null };
+      repo.find.mockResolvedValue([withBond, withoutBond]);
+      gim.registerDeposit.mockResolvedValue({
+        errorCode: ErrorCode.NONE,
+        data: { ok: true },
+      });
+
+      await (service as any)._validateIncidentEmitAndPay();
+
+      expect(gim.registerDeposit).toHaveBeenCalledTimes(1);
+      expect(gim.registerDeposit.mock.calls[0][0].bondIds).toEqual([88]);
+      // The amount covers only what is actually being settled.
+      expect(gim.registerDeposit.mock.calls[0][0].amount).toBe('12.00');
+      expect(withBond.statusIncident).toBe(IncidentStatus.PAYED);
+      expect(withoutBond.statusIncident).toBe(IncidentStatus.SUPPLIED);
+    });
+
+    it('does not call GIM at all when no fine of the group has a title', async () => {
+      repo.find.mockResolvedValue([{ ...buildIncident(), bondId: null }]);
+
+      await (service as any)._validateIncidentEmitAndPay();
+
+      expect(gim.registerDeposit).not.toHaveBeenCalled();
+    });
+
     it('never doubles a slow cycle, so no deposit is registered twice', async () => {
       // `setInterval` does not wait for the previous callback. Without the guard
       // two cycles read the same backlog — the first has not saved anything yet

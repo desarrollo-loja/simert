@@ -432,8 +432,18 @@ export class CheckService {
                 {},
             );
 
-            for (const [key, group] of Object.entries(groups)) {
+            const orderedGroups = Object.entries(groups);
+            this.logger.log(
+                `[Job GIM] ${checkboxes.length} compras pendientes en ${orderedGroups.length} grupos; se envían del más antiguo al más reciente`,
+            );
+
+            for (const [position, [key, group]] of orderedGroups.entries()) {
                 try {
+                    this.logger.log(
+                        `[Job GIM] grupo ${position + 1}/${orderedGroups.length} ${key} register=${group[0].register} compras=[${group
+                            .map((checkbox) => checkbox.id)
+                            .join(',')}]`,
+                    );
                     // 1) Emitir los títulos que falten, del más antiguo al más
                     //    reciente dentro del grupo. Solo lo que tiene título
                     //    emitido puede entrar al depósito.
@@ -507,6 +517,11 @@ export class CheckService {
                     });
 
                     if (depositable.length > 0) {
+                        this.logger.log(
+                            `[Job GIM] grupo ${position + 1}/${orderedGroups.length} ${key} a depositar=[${depositable
+                                .map((checkbox) => checkbox.id)
+                                .join(',')}]`,
+                        );
                         const deposit =
                             await this._registerDeposit(depositable);
                         for (const checkbox of depositable) {
@@ -747,6 +762,10 @@ export class CheckService {
             }),
             transactionId,
         };
+
+        this.logger.log(
+            `[Job GIM] depósito tarjetas -> ${JSON.stringify(registerDepositGimDto)}`,
+        );
 
         const response = await this.gimService.registerDeposit(
             registerDepositGimDto,

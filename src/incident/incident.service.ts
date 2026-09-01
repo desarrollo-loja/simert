@@ -154,11 +154,40 @@ export class IncidentService {
                 {},
             );
 
-            for (const [key, group] of Object.entries(groups)) {
-                try {
-                    const deposit = await this._registerDeposit(group);
+            const orderedGroups = Object.entries(groups);
+            this.logger.log(
+                `[Job GIM] ${incidents.length} multas pendientes en ${orderedGroups.length} grupos; se envían del más antiguo al más reciente`,
+            );
 
-                    for (const incident of group) {
+            for (const [position, [key, group]] of orderedGroups.entries()) {
+                try {
+                    // Las multas sin bondId quedan fuera del depósito: no se
+                    // puede liquidar un título que nunca se emitió, y mandarlo
+                    // como `null` dentro de `bondIds` era enviar un dato
+                    // inválido al municipio. Tampoco pasan a PAYED de arrastre
+                    // con el resto del grupo; se reintentan en la pasada
+                    // siguiente.
+                    const depositable = group.filter((incident) => {
+                        if (incident.bondId != null) return true;
+                        this.logger.error(
+                            `[Job GIM] multa ${incident.id} sin bondId (transacción ${incident.transactionId}): queda fuera del depósito`,
+                        );
+                        return false;
+                    });
+
+                    this.logger.log(
+                        `[Job GIM] grupo ${position + 1}/${orderedGroups.length} ${key} register=${group[0].register} multas=[${group
+                            .map((incident) => incident.id)
+                            .join(',')}] a depositar=[${depositable
+                            .map((incident) => incident.id)
+                            .join(',')}]`,
+                    );
+
+                    if (!depositable.length) continue;
+
+                    const deposit = await this._registerDeposit(depositable);
+
+                    for (const incident of depositable) {
                         incident.onResponseExternal =
                             incident.onResponseExternal ?? [];
 
@@ -230,7 +259,23 @@ export class IncidentService {
                 return acc + Number(i.amount) * 100;
             }, 0) / 100;
 
-        const bondIds = group.map((i) => i.bondId);
+        // Resguardo: ningún `null` puede llegar al payload aunque el llamador
+        // no haya filtrado. El DTO se construye en memoria, así que sus
+        // decoradores de validación no lo intercepta ningún ValidationPipe.
+        const bondIds = group
+            .map((i) => i.bondId)
+            .filter((bondId): bondId is number => bondId != null);
+
+        if (!bondIds.length) {
+            this.logger.error(
+                `[_registerDepositIncident] grupo ${identityCard}|${transactionId} sin bondIds: no se registra el depósito`,
+            );
+            return {
+                errorCode: ErrorCode.NOT_VALID,
+                dataDeposit: null,
+                message: 'No se encontró bondId para registrar el depósito',
+            };
+        }
 
         const registerDepositGimDto: RegisterDepositGimDto = {
             amount: amount.toFixed(2),
@@ -241,6 +286,10 @@ export class IncidentService {
             }),
             transactionId,
         };
+
+        this.logger.log(
+            `[Job GIM] depósito multas -> ${JSON.stringify(registerDepositGimDto)}`,
+        );
 
         const response = await this.gimService.registerDeposit(
             registerDepositGimDto,
