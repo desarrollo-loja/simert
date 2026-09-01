@@ -365,7 +365,11 @@ export class CheckService {
                         statusIncident: IncidentStatus.SUPPLIED,
                     },
                 ],
-                order: { register: 'ASC' },
+                // Cola FIFO estricta: el primero en llegar es el primero en enviarse.
+                // `id` desempata, porque es autoincremental y `register` lo fija la
+                // aplicación: dos cobros con el mismo timestamp quedaban en orden
+                // indefinido y podían adelantarse entre sí.
+                order: { register: 'ASC', id: 'ASC' },
             });
 
             this.logger.log(
@@ -373,90 +377,137 @@ export class CheckService {
             );
             if (!checkboxes.length) return;
 
-            for (const checkbox of checkboxes) {
+            // Las compras del mismo contribuyente y transacción se agrupan para
+            // depositarlas de una sola vez, igual que hace el job de multas: el
+            // municipio acepta varios títulos en un depósito (`bondIds`), y una
+            // compra de tres tarjetas generaba antes tres depósitos separados por
+            // el mismo cobro.
+            //
+            // La agrupación no altera el orden de la cola: `reduce` conserva el
+            // orden de aparición sobre una lista ya ordenada por `register`/`id`,
+            // así que cada grupo queda posicionado por su registro más antiguo
+            // —el primero en llegar— y `Object.entries` respeta esa inserción.
+            //
+            // El agrupamiento es interno: no cambia nada de lo que se ve en la
+            // tabla de Recaudación, que sigue listando cada cobro por separado.
+            const groups = checkboxes.reduce(
+                (acc: Record<string, Checkbox[]>, checkbox) => {
+                    const key = `${checkbox.identityCard}|${checkbox.transactionId}`;
+                    if (!acc[key]) acc[key] = [];
+                    acc[key].push(checkbox);
+                    return acc;
+                },
+                {},
+            );
+
+            for (const [key, group] of Object.entries(groups)) {
                 try {
-                    checkbox.onResponseExternal =
-                        checkbox.onResponseExternal ?? [];
-                    const { statusIncident } = checkbox;
+                    // 1) Emitir los títulos que falten, del más antiguo al más
+                    //    reciente dentro del grupo. Solo lo que tiene título
+                    //    emitido puede entrar al depósito.
+                    const toDeposit: Checkbox[] = [];
 
-                    switch (statusIncident) {
-                        // Title not yet issued and deposit not yet registered
-                        case null:
-                        case IncidentStatus.ENTERED:
-                        case IncidentStatus.APPROVED: {
-                            // Issue the credit title
-                            const emision =
-                                await this._emitCreditCard(checkbox);
+                    for (const checkbox of group) {
+                        checkbox.onResponseExternal =
+                            checkbox.onResponseExternal ?? [];
+                        const { statusIncident } = checkbox;
 
-                            // Persist the issuance response
-                            this.addResponse(
-                                checkbox.onResponseExternal,
-                                emision.dataEmision,
-                            );
+                        switch (statusIncident) {
+                            // Title not yet issued and deposit not yet registered
+                            case null:
+                            case IncidentStatus.ENTERED:
+                            case IncidentStatus.APPROVED: {
+                                // Issue the credit title
+                                const emision =
+                                    await this._emitCreditCard(checkbox);
 
-                            if (emision.errorCode !== ErrorCode.NONE) {
-                                this.logger.warn(
-                                    `[Emisión fallida] checkbox ${JSON.stringify(checkbox)}`,
+                                // Persist the issuance response
+                                this.addResponse(
+                                    checkbox.onResponseExternal,
+                                    emision.dataEmision,
                                 );
 
-                                this.logger.warn(
-                                    `[Emisión fallida] checkbox ${checkbox.id}: ${emision.message}`,
-                                );
-                                await this.checkboxRepository.save(checkbox);
-                                continue;
+                                if (emision.errorCode !== ErrorCode.NONE) {
+                                    this.logger.warn(
+                                        `[Emisión fallida] checkbox ${JSON.stringify(checkbox)}`,
+                                    );
+
+                                    this.logger.warn(
+                                        `[Emisión fallida] checkbox ${checkbox.id}: ${emision.message}`,
+                                    );
+                                    // El resto del grupo sigue su curso: la
+                                    // emisión fallida de una tarjeta no debe
+                                    // dejar sin depositar a las demás.
+                                    break;
+                                }
+
+                                checkbox.statusIncident =
+                                    IncidentStatus.SUPPLIED;
+                                toDeposit.push(checkbox);
+                                break;
                             }
 
-                            checkbox.statusIncident = IncidentStatus.SUPPLIED;
+                            case IncidentStatus.SUPPLIED: {
+                                // Title already issued → only the deposit is missing
+                                toDeposit.push(checkbox);
+                                break;
+                            }
 
-                            // Register the deposit
-                            const deposit =
-                                await this._registerDeposit(checkbox);
-                            this._applyDepositOutcome(checkbox, deposit);
-                            break;
+                            default:
+                                // Unexpected state → flag as error
+                                this.logger.warn(
+                                    `[Estado inválido] checkbox ${checkbox.id} statusIncident=${statusIncident}`,
+                                );
+                                // checkbox.statusPayment = StatusPayment.ERROR;
+                                break;
                         }
-
-                        case IncidentStatus.SUPPLIED: {
-                            // Title already issued → only register the deposit
-                            const depositSupplied =
-                                await this._registerDeposit(checkbox);
-                            this._applyDepositOutcome(
-                                checkbox,
-                                depositSupplied,
-                            );
-                            break;
-                        }
-
-                        default:
-                            // Unexpected state → flag as error
-                            this.logger.warn(
-                                `[Estado inválido] checkbox ${checkbox.id} statusIncident=${statusIncident}`,
-                            );
-                            // checkbox.statusPayment = StatusPayment.ERROR;
-                            break;
                     }
 
-                    await this.checkboxRepository.save(checkbox);
-
-                    // The transaction mirrors `onResponseExternal` as soon as the
-                    // credit title exists (SUPPLIED), not only when the cycle
-                    // closes (PAYED). The "Emitido / No emitido" column of
-                    // Recaudaciones is derived from the bondId stored on the
-                    // transaction, so gating the sync on PAYED made a failed
-                    // deposit hide an emission that did happen — and left the
-                    // deposit rejection out of the transaction's response chain.
-                    // Mirrors what the payment webhook already does.
-                    if (
-                        checkbox.statusIncident === IncidentStatus.SUPPLIED ||
-                        checkbox.statusIncident === IncidentStatus.PAYED
-                    ) {
-                        await this.commonService.syncOnResponseExternal(
-                            checkbox.transactionId,
-                            checkbox.onResponseExternal,
+                    // 2) Un solo depósito por grupo, con todos los bondIds. Las
+                    //    compras sin bondId quedan fuera: no se depositaron, así
+                    //    que tampoco pueden pasar a PAYED.
+                    const depositable = toDeposit.filter((checkbox) => {
+                        if (this._bondIdOf(checkbox) != null) return true;
+                        this.logger.error(
+                            `No se encontró bondId en onResponseExternal para la transacción ${checkbox.transactionId}`,
                         );
+                        return false;
+                    });
+
+                    if (depositable.length > 0) {
+                        const deposit =
+                            await this._registerDeposit(depositable);
+                        for (const checkbox of depositable) {
+                            this._applyDepositOutcome(checkbox, deposit);
+                        }
+                    }
+
+                    // 3) Persistir y espejar todo el grupo.
+                    for (const checkbox of group) {
+                        await this.checkboxRepository.save(checkbox);
+
+                        // The transaction mirrors `onResponseExternal` as soon as the
+                        // credit title exists (SUPPLIED), not only when the cycle
+                        // closes (PAYED). The "Emitido / No emitido" column of
+                        // Recaudaciones is derived from the bondId stored on the
+                        // transaction, so gating the sync on PAYED made a failed
+                        // deposit hide an emission that did happen — and left the
+                        // deposit rejection out of the transaction's response chain.
+                        // Mirrors what the payment webhook already does.
+                        if (
+                            checkbox.statusIncident ===
+                                IncidentStatus.SUPPLIED ||
+                            checkbox.statusIncident === IncidentStatus.PAYED
+                        ) {
+                            await this.commonService.syncOnResponseExternal(
+                                checkbox.transactionId,
+                                checkbox.onResponseExternal,
+                            );
+                        }
                     }
                 } catch (err) {
                     this.logger.error(
-                        `[Job GIM] Error checkbox ${checkbox.id}: ${(err as any).message}`,
+                        `[Job GIM] Error grupo ${key}: ${(err as any).message}`,
                     );
                 }
             }
@@ -600,24 +651,43 @@ export class CheckService {
     // Register the deposit in GIM using the bondId from the previous issuance
     // ─────────────────────────────────────────────────────────────────────────
     /**
-     * Registers the deposit in GIM using the bondId obtained from the previous
-     * credit-title issuance stored in the checkbox response history.
+     * Credit-title id GIM assigned to a checkbox when it was issued, taken from
+     * its response history.
      *
-     * @param checkbox Checkbox whose deposit is registered.
-     * @returns An object with the error code, the GIM deposit payload and a
-     * descriptive message.
+     * @param checkbox Checkbox to read.
+     * @returns The bondId, or `null` when the title was never issued.
      */
-    private async _registerDeposit(checkbox: Checkbox) {
-        const { amount, identityCard, transactionId } = checkbox;
-
+    private _bondIdOf(checkbox: Checkbox): number | null {
         const onResponseExternal = Array.isArray(checkbox.onResponseExternal)
             ? checkbox.onResponseExternal
             : [];
         const bondEntry = onResponseExternal.find(
             (item: any) => item?.bondId != null,
         );
+        return bondEntry ? (bondEntry as any).bondId : null;
+    }
 
-        if (!bondEntry) {
+    /**
+     * Registers a single GIM deposit for a group of checkboxes sharing identity
+     * card and transaction, sending every credit-title id in one call.
+     *
+     * The group is what the municipality's contract allows to settle together:
+     * `RegisterDepositGimDto.transactionId` is one UUID, so a deposit can never
+     * span two transactions of the same taxpayer.
+     *
+     * @param group Checkboxes of the same identity card and transaction, each
+     * already carrying an issued bondId, oldest first.
+     * @returns An object with the error code, the GIM deposit payload and a
+     * descriptive message.
+     */
+    private async _registerDeposit(group: Checkbox[]) {
+        const { identityCard, transactionId } = group[0];
+
+        const bondIds = group
+            .map((checkbox) => this._bondIdOf(checkbox))
+            .filter((bondId): bondId is number => bondId != null);
+
+        if (!bondIds.length) {
             this.logger.error(
                 `No se encontró bondId en onResponseExternal para la transacción ${transactionId}`,
             );
@@ -628,10 +698,18 @@ export class CheckService {
             };
         }
 
+        // Se suma en centavos para que el total del grupo no arrastre el error
+        // de redondeo del punto flotante, igual que en el job de multas.
+        const amount =
+            group.reduce(
+                (acc, checkbox) => acc + Number(checkbox.amount) * 100,
+                0,
+            ) / 100;
+
         const registerDepositGimDto: RegisterDepositGimDto = {
-            amount,
+            amount: amount.toFixed(2),
             identificationNumber: identityCard,
-            bondIds: [bondEntry?.bondId],
+            bondIds,
             paymentDate: new Date().toLocaleDateString('en-CA', {
                 timeZone: 'America/Guayaquil',
             }),
@@ -644,7 +722,7 @@ export class CheckService {
 
         if (response.errorCode !== ErrorCode.NONE) {
             this.logger.error(
-                `[_registerDepositCheck] Error depósito checkbox ${checkbox.id}: ${response.data?.message}`,
+                `[_registerDepositCheck] Error depósito grupo ${identityCard}|${transactionId}: ${response.data?.message}`,
             );
             return {
                 errorCode: ErrorCode.NOT_VALID,

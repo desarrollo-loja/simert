@@ -95,7 +95,12 @@ export class IncidentService {
                     statusIncident: IncidentStatus.SUPPLIED,
                     statusPayment: StatusPayment.PAID,
                 },
-                order: { register: 'ASC' },
+                // Cola FIFO estricta: el primero en llegar es el primero en enviarse.
+                // `id` desempata, porque es autoincremental y `register` lo fija la
+                // aplicación: dos multas con el mismo timestamp quedaban en orden
+                // indefinido y podían adelantarse entre sí. El orden se conserva al
+                // agrupar más abajo, porque `Object.entries` respeta la inserción.
+                order: { register: 'ASC', id: 'ASC' },
             });
 
             this.logger.log(

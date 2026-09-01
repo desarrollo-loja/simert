@@ -103,6 +103,19 @@ describe('IncidentService (root worker)', () => {
       expect(common.syncOnResponseExternal).not.toHaveBeenCalled();
     });
 
+    it('reads the backlog oldest-first, with the id breaking ties', async () => {
+      // Same FIFO contract as the checkbox job: the first fine that arrived is
+      // the first one deposited, and the autoincremental id decides between two
+      // fines sharing a `register` timestamp.
+      repo.find.mockResolvedValue([]);
+
+      await (service as any)._validateIncidentEmitAndPay();
+
+      expect(repo.find).toHaveBeenCalledWith(
+        expect.objectContaining({ order: { register: 'ASC', id: 'ASC' } }),
+      );
+    });
+
     it('aborts without reading incidents when the till is closed', async () => {
       gim.validateOpenTill.mockResolvedValue({
         errorCode: ErrorCode.NOT_FOUND,
