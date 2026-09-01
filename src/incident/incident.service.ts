@@ -37,6 +37,9 @@ export class IncidentService {
     ) {}
 
     private readonly logger = new Logger('IncidentService');
+    /** `true` while a deposit cycle is running, so ticks never overlap. */
+    private isDepositingIncidents = false;
+
     private readonly intervalValidateIncident: number =
         parseInt(process.env.INTERVAL_VALIDATE_INCIDENT_MS || '') ||
         1000 * 60 * 2;
@@ -77,6 +80,38 @@ export class IncidentService {
      * @returns Promise resolving to the open-till validation result when the till is closed, otherwise nothing.
      */
     private async _validateIncidentEmitAndPay() {
+        // Un ciclo lento no puede ser doblado por el tick siguiente:
+        // `setInterval` no espera al callback anterior, así que dos ciclos
+        // leían el mismo backlog —el primero aún no había guardado nada— y
+        // registraban en GIM dos depósitos por los mismos bondIds. Además cada
+        // ciclo reinicia desde el más antiguo, de modo que al solaparse la cola
+        // nunca llegaba a su final: los pendientes de la cola quedaban sin
+        // intentar. Con la guarda el ciclo recorre todo el backlog hasta el
+        // final antes de volver a empezar, así que todos los pendientes se
+        // intentan en cada pasada.
+        if (this.isDepositingIncidents) {
+            this.logger.warn(
+                '[Job GIM] ciclo anterior aún en curso: se omite este tick',
+            );
+            return;
+        }
+
+        this.isDepositingIncidents = true;
+        try {
+            return await this._depositPendingIncidents();
+        } finally {
+            this.isDepositingIncidents = false;
+        }
+    }
+
+    /**
+     * Registers the pending GIM deposits for every fine in the backlog, oldest
+     * first. Always run through {@link _validateIncidentEmitAndPay}, which
+     * serializes the cycles.
+     *
+     * @returns The till check when GIM is closed, nothing otherwise.
+     */
+    private async _depositPendingIncidents() {
         // Validate that the cashier window is open in GIM before proceeding
         const openTill = await this.gimService.validateOpenTill();
         this.logger.log(

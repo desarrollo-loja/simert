@@ -3,6 +3,16 @@ import { IncidentStatus } from 'src/common/glob/type/type_incident';
 
 import { CheckService } from '../check.service';
 
+/**
+ * Drains the microtask queue so a cycle whose collaborators are immediate mocks
+ * advances up to its first genuinely pending promise.
+ *
+ * @returns A promise resolved once the queue is drained.
+ */
+const flushMicrotasks = async () => {
+  for (let i = 0; i < 50; i++) await Promise.resolve();
+};
+
 describe('CheckService', () => {
   let service: CheckService;
 
@@ -252,6 +262,59 @@ describe('CheckService', () => {
       expect(checkboxRepository.find).toHaveBeenCalledWith(
         expect.objectContaining({ order: { register: 'ASC', id: 'ASC' } }),
       );
+    });
+
+    it('never doubles a slow cycle, so no deposit is registered twice', async () => {
+      // Same guard as the fines job: two overlapping cycles read the same
+      // backlog and deposited the same bondIds twice in GIM.
+      const checkbox = buildCheckbox(IncidentStatus.SUPPLIED);
+      const { checkboxRepository, gimService } = arrange(checkbox);
+      let releaseDeposit: () => void = () => undefined;
+      gimService.registerDeposit.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            releaseDeposit = () => resolve({ errorCode: ErrorCode.NONE, data: { ok: true } });
+          }),
+      );
+
+      const firstCycle = (service as any)._validateCheckboxToEmitAndPay();
+      // Let the first cycle run until it is parked on the GIM call.
+      await flushMicrotasks();
+      expect(gimService.registerDeposit).toHaveBeenCalledTimes(1);
+
+      // Second tick while the first cycle is still waiting on GIM.
+      await (service as any)._validateCheckboxToEmitAndPay();
+      expect(gimService.registerDeposit).toHaveBeenCalledTimes(1);
+
+      releaseDeposit();
+      await firstCycle;
+
+      // The guard must not latch: a charge still pending is picked up on the
+      // next tick. A fresh row is handed over because the previous one already
+      // closed its cycle (PAYED) and is no longer pending.
+      checkboxRepository.find.mockResolvedValue([
+        buildCheckbox(IncidentStatus.SUPPLIED),
+      ]);
+      gimService.registerDeposit.mockResolvedValue({
+        errorCode: ErrorCode.NONE,
+        data: { ok: true },
+      });
+
+      await (service as any)._validateCheckboxToEmitAndPay();
+      expect(gimService.registerDeposit).toHaveBeenCalledTimes(2);
+    });
+
+    it('releases the guard when the cycle throws, so the queue keeps retrying', async () => {
+      const checkbox = buildCheckbox(IncidentStatus.SUPPLIED);
+      const { checkboxRepository, gimService } = arrange(checkbox);
+      checkboxRepository.find.mockRejectedValueOnce(new Error('db caída'));
+
+      await (service as any)._validateCheckboxToEmitAndPay();
+
+      gimService.registerDeposit.mockResolvedValue({ errorCode: ErrorCode.NONE, data: { ok: true } });
+      await (service as any)._validateCheckboxToEmitAndPay();
+
+      expect(gimService.registerDeposit).toHaveBeenCalledTimes(1);
     });
 
     it('aborts without touching GIM when the till is closed', async () => {

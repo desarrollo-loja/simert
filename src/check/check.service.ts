@@ -81,6 +81,9 @@ export class CheckService {
         parseInt(process.env.INTERVAL_VALIDATE_CHECKBOX_MS || '') ||
         1000 * 60 * 2; //por defecto 3 minutos
 
+    /** `true` while a deposit cycle is running, so ticks never overlap. */
+    private isDepositingCheckboxes = false;
+
     private readonly timeCacheBlockOperator =
         60 * (Number(process.env.TIME_CACHE_BLOCK_OPERATOR) || 5);
 
@@ -332,6 +335,35 @@ export class CheckService {
      * the GIM cashier window is closed.
      */
     private async _validateCheckboxToEmitAndPay() {
+        // Misma guarda que el job de multas: `setInterval` no espera al callback
+        // anterior, así que dos ciclos leían el mismo backlog y registraban en
+        // GIM dos depósitos por los mismos bondIds. Y como cada ciclo reinicia
+        // desde el más antiguo, al solaparse la cola nunca llegaba a su final y
+        // los pendientes del final quedaban sin intentar. Con la guarda el ciclo
+        // recorre todo el backlog antes de volver a empezar.
+        if (this.isDepositingCheckboxes) {
+            this.logger.warn(
+                '[Job GIM] ciclo anterior aún en curso: se omite este tick',
+            );
+            return;
+        }
+
+        this.isDepositingCheckboxes = true;
+        try {
+            return await this._emitAndDepositPendingCheckboxes();
+        } finally {
+            this.isDepositingCheckboxes = false;
+        }
+    }
+
+    /**
+     * Issues the missing credit titles and registers the pending GIM deposits
+     * for every card purchase in the backlog, oldest first. Always run through
+     * {@link _validateCheckboxToEmitAndPay}, which serializes the cycles.
+     *
+     * @returns The till check when GIM is closed, nothing otherwise.
+     */
+    private async _emitAndDepositPendingCheckboxes() {
         // Validate that the cashier window is open in GIM
         const openTill = await this.gimService.validateOpenTill();
         this.logger.log(
