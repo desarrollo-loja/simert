@@ -27,7 +27,7 @@ ok()   { echo "${GRN}ok${OFF}     $*"; }
 if [ ! -f .env ]; then
   echo "${RED}ERROR${OFF}  falta deploy/.env. Creralo desde la plantilla:"
   echo "         cp .env.example .env"
-  echo "         y ajusta WEB_ENV_FILE (.env en desarrollo, .env.production en el servidor)."
+  echo "         y ajusta WEB_ENV_FILE al fichero que contiene las VUE_APP_* de produccion."
   exit 1
 fi
 # shellcheck disable=SC1091
@@ -74,6 +74,15 @@ check_service() {
     warn "$name: PORT_SERVER=$declared en .env, pero el stack publica $expected_port."
     echo "         El contenedor usara $expected_port (compose lo fija). Si el nginx"
     echo "         del host apunta a $declared, ajusta deploy/.env."
+  fi
+
+  # 5. Nunca permitir synchronize en el arranque productivo. TypeORM puede
+  #    alterar el esquema automaticamente antes de que se verifiquen logs o
+  #    salud; las migraciones deben ejecutarse de forma explicita.
+  local synchronize
+  synchronize=$(grep -E '^[[:space:]]*SYNCHRONIZE[[:space:]]*=' "$dir/.env" | tail -1 | cut -d= -f2- | tr -d " '\"" | tr '[:lower:]' '[:upper:]')
+  if [ "$synchronize" = "TRUE" ]; then
+    err "$name: SYNCHRONIZE=TRUE no es seguro para produccion. Cambialo a FALSE antes de desplegar."
   fi
 
   [ $errors -eq $before ] && ok "$name"

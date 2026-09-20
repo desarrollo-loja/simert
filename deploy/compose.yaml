@@ -1,23 +1,23 @@
 # Stack SIMERT Loja — reemplazo de PM2 por Docker.
 #
-# Topologia (identica a la que levanta ecosystem.config.js hoy):
+# Topologia inicial (identica a la que corre en el servidor hoy):
 #
 #   nginx del host (sin cambios)
 #        |
 #        v  127.0.0.1:3000/3001/3002/3003
 #   +----------- gateway (nginx) -----------+
-#   |    reparte entre las instancias       |
+#   |       enruta a cada servicio          |
 #   +---------------------------------------+
 #     |            |            |         |
-#   auth-0/1     pay-0/1    simert-0/1  socket-0
+#    auth-0       pay-0       simert-0    socket-0
 #
-# Por que dos contenedores por servicio en vez de `--scale`:
+# El primer despliegue conserva una instancia por servicio. Si se escala:
 # `isPrimaryInstance()` (src/common/glob/utilities/cluster.ts) decide quien
 # corre los jobs singleton leyendo NODE_APP_INSTANCE, que exporta PM2. Compose
 # da el mismo entorno a todas las replicas de un mismo servicio, asi que con
 # `--scale` TODAS creerian ser la instancia 0 y se duplicarian la conciliacion
-# GIM y los ciclos de deposito. Declarando cada instancia por separado se le
-# puede fijar su indice y la semantica queda exactamente igual que con PM2.
+# GIM y los ciclos de deposito. Toda instancia futura debe declararse como un
+# servicio separado con el siguiente NODE_APP_INSTANCE; nunca uses `--scale`.
 #
 # Ver deploy/README.md para el detalle y el procedimiento de arranque.
 
@@ -49,11 +49,8 @@ x-nest-service: &nest-service
         memory: ${NEST_MEM_LIMIT:-1g}
 
 x-nest-env: &nest-env
-  # PM2 inyecta NODE_ENV=production via `env_production` y dotenv NO pisa una
-  # variable que ya existe en el proceso, por eso hoy manda production aunque
-  # el .env diga development. Hay que reproducirlo explicitamente: de ello
-  # dependen el prefijo de Redis (P| vs D|), el dominio de CORS que se aplica
-  # y si se expone Swagger.
+  # El stack de produccion fija NODE_ENV explicitamente. De ello dependen el
+  # prefijo de Redis (P| vs D|), el dominio de CORS y si se expone Swagger.
   NODE_ENV: production
   TZ: ${TZ:-America/Guayaquil}
   NODE_OPTIONS: --max-old-space-size=${NEST_HEAP_MB:-768}
@@ -96,28 +93,6 @@ services:
       DOMINIO_SIMERT: http://gateway:${SIMERT_PORT}/
       DOMINIO_SOCKET: http://gateway:${SOCKET_PORT}/
 
-  auth-1:
-    <<: *nest-service
-    build:
-      context: ../../simert-auth
-      args:
-        NODE_VERSION: ${NODE_VERSION:-24-alpine}
-    image: simert/auth:${TAG:-local}
-    volumes:
-      # El .env se monta tal cual y lo parsea el dotenv de la propia app
-      # (ConfigModule.forRoot), exactamente igual que bajo PM2. No se usa
-      # `env_file:` a proposito: el parser de Compose es mas estricto que
-      # dotenv y rechaza ficheros que hoy la aplicacion lee sin problema.
-      - ../../simert-auth/.env:/app/.env:ro
-    environment:
-      <<: *nest-env
-      PORT_SERVER: ${AUTH_PORT}
-      NODE_APP_INSTANCE: "1"
-      DOMINIO_AUTH: http://gateway:${AUTH_PORT}/
-      DOMINIO_PAY: http://gateway:${PAY_PORT}/
-      DOMINIO_SIMERT: http://gateway:${SIMERT_PORT}/
-      DOMINIO_SOCKET: http://gateway:${SOCKET_PORT}/
-
   # -------------------------------------------------------------------------
   # simert-pay (:3001)
   # -------------------------------------------------------------------------
@@ -147,31 +122,6 @@ services:
       DOMINIO_SIMERT: http://gateway:${SIMERT_PORT}/
       DOMINIO_SOCKET: http://gateway:${SOCKET_PORT}/
 
-  pay-1:
-    <<: *nest-service
-    build:
-      context: ../../simert-pay
-      args:
-        NODE_VERSION: ${NODE_VERSION:-24-alpine}
-    image: simert/pay:${TAG:-local}
-    volumes:
-      # El .env se monta tal cual y lo parsea el dotenv de la propia app
-      # (ConfigModule.forRoot), exactamente igual que bajo PM2. No se usa
-      # `env_file:` a proposito: el parser de Compose es mas estricto que
-      # dotenv y rechaza ficheros que hoy la aplicacion lee sin problema.
-      - ../../simert-pay/.env:/app/.env:ro
-      # Claves de Ahorita: quedan fuera de la imagen a proposito
-      # (.dockerignore) y se montan de solo lectura.
-      - ../../simert-pay/ahorita_keys:/app/ahorita_keys:ro
-    environment:
-      <<: *nest-env
-      PORT_SERVER: ${PAY_PORT}
-      NODE_APP_INSTANCE: "1"
-      DOMINIO_AUTH: http://gateway:${AUTH_PORT}/
-      DOMINIO_PAY: http://gateway:${PAY_PORT}/
-      DOMINIO_SIMERT: http://gateway:${SIMERT_PORT}/
-      DOMINIO_SOCKET: http://gateway:${SOCKET_PORT}/
-
   # -------------------------------------------------------------------------
   # simert (:3002)
   # -------------------------------------------------------------------------
@@ -194,28 +144,6 @@ services:
       # Instancia 0: la unica que corre los jobs de src/check, src/incident y
       # src/data (depositos en GIM, archivado historico, barridos de expiracion).
       NODE_APP_INSTANCE: "0"
-      DOMINIO_AUTH: http://gateway:${AUTH_PORT}/
-      DOMINIO_PAY: http://gateway:${PAY_PORT}/
-      DOMINIO_SIMERT: http://gateway:${SIMERT_PORT}/
-      DOMINIO_SOCKET: http://gateway:${SOCKET_PORT}/
-
-  simert-1:
-    <<: *nest-service
-    build:
-      context: ../../simert
-      args:
-        NODE_VERSION: ${NODE_VERSION:-24-alpine}
-    image: simert/simert:${TAG:-local}
-    volumes:
-      # El .env se monta tal cual y lo parsea el dotenv de la propia app
-      # (ConfigModule.forRoot), exactamente igual que bajo PM2. No se usa
-      # `env_file:` a proposito: el parser de Compose es mas estricto que
-      # dotenv y rechaza ficheros que hoy la aplicacion lee sin problema.
-      - ../../simert/.env:/app/.env:ro
-    environment:
-      <<: *nest-env
-      PORT_SERVER: ${SIMERT_PORT}
-      NODE_APP_INSTANCE: "1"
       DOMINIO_AUTH: http://gateway:${AUTH_PORT}/
       DOMINIO_PAY: http://gateway:${PAY_PORT}/
       DOMINIO_SIMERT: http://gateway:${SIMERT_PORT}/
@@ -251,7 +179,7 @@ services:
     image: nginx:1.27-alpine
     restart: unless-stopped
     networks: [simert]
-    depends_on: [auth-0, auth-1, pay-0, pay-1, simert-0, simert-1, socket-0]
+    depends_on: [auth-0, pay-0, simert-0, socket-0]
     ports:
       - "${BIND_ADDR:-127.0.0.1}:${AUTH_PORT}:${AUTH_PORT}"
       - "${BIND_ADDR:-127.0.0.1}:${PAY_PORT}:${PAY_PORT}"

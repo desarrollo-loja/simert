@@ -16,23 +16,17 @@ map $http_upgrade $connection_upgrade {
 }
 
 upstream auth_backend {
-    least_conn;
     server auth-0:${AUTH_PORT} max_fails=3 fail_timeout=10s;
-    server auth-1:${AUTH_PORT} max_fails=3 fail_timeout=10s;
     keepalive 32;
 }
 
 upstream pay_backend {
-    least_conn;
     server pay-0:${PAY_PORT} max_fails=3 fail_timeout=10s;
-    server pay-1:${PAY_PORT} max_fails=3 fail_timeout=10s;
     keepalive 32;
 }
 
 upstream simert_backend {
-    least_conn;
     server simert-0:${SIMERT_PORT} max_fails=3 fail_timeout=10s;
-    server simert-1:${SIMERT_PORT} max_fails=3 fail_timeout=10s;
     keepalive 32;
 }
 

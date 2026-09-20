@@ -23,16 +23,16 @@ que el codigo tiene de PM2 se reproducen con variables de entorno. Ver
    ```
 3. El `.env` de cada servicio en su sitio (estan en `.gitignore`: no vienen del
    repositorio). El stack los monta tal cual, no los modifica.
-4. Para el front, el fichero de entorno con el que se quiere hornear el bundle
-   (`.env.production` en el servidor). Ver `WEB_ENV_FILE` en `.env`.
+4. Para el front, el fichero de entorno con el que se quiere hornear el bundle.
+   En el servidor actual es `.env`, porque ahi estan sus URLs publicas de
+   produccion. Ver `WEB_ENV_FILE` en `deploy/.env`.
 
 5. El `.env` de la orquestacion, que es por maquina y no se versiona:
    ```bash
    cp .env.example .env
    ```
-   Ajusta sobre todo `WEB_ENV_FILE`: `.env` en desarrollo, `.env.production` en
-   el servidor. Vue CLI hornea las `VUE_APP_*` en tiempo de build, asi que ese
-   valor decide contra que backend apunta el bundle.
+   Ajusta sobre todo `WEB_ENV_FILE`. Vue CLI hornea las `VUE_APP_*` en tiempo
+   de build, asi que ese valor decide contra que backend apunta el bundle.
 
 Comprueba todo de una vez:
 
@@ -76,11 +76,11 @@ El front queda en 127.0.0.1:8080.
 ### Por servicio
 
 ```bash
-docker compose up -d auth-0 auth-1          # levantar solo auth
+docker compose up -d auth-0                 # levantar solo auth
 docker compose restart simert-0             # reiniciar una instancia
-docker compose stop pay-0 pay-1             # parar pay
+docker compose stop pay-0                   # parar pay
 docker compose logs -f --tail=100 socket-0  # logs de uno
-docker compose up -d --no-deps --build simert-0 simert-1   # redesplegar simert
+docker compose up -d --no-deps --build simert-0             # redesplegar simert
 ```
 
 ---
@@ -90,15 +90,15 @@ docker compose up -d --no-deps --build simert-0 simert-1   # redesplegar simert
 | PM2 | Docker Compose |
 |---|---|
 | `pm2 start ecosystem.config.js --env production` | `docker compose up -d` |
-| `pm2 restart simert` | `docker compose restart simert-0 simert-1` |
-| `pm2 stop simert-auth` | `docker compose stop auth-0 auth-1` |
-| `pm2 logs simert --lines 100` | `docker compose logs -f --tail=100 simert-0 simert-1` |
+| `pm2 restart simert` | `docker compose restart simert-0` |
+| `pm2 stop simert-auth` | `docker compose stop auth-0` |
+| `pm2 logs simert --lines 100` | `docker compose logs -f --tail=100 simert-0` |
 | `pm2 list` | `docker compose ps` |
 | `pm2 monit` | `docker stats` |
-| `pm2 delete simert` | `docker compose rm -sf simert-0 simert-1` |
+| `pm2 delete simert` | `docker compose rm -sf simert-0` |
 | `max_memory_restart: '600M'` | `NEST_MEM_LIMIT` + `NEST_HEAP_MB` en `.env` |
 | `kill_timeout: 5000` | `stop_grace_period: 15s` |
-| `instances: 2` | dos servicios declarados (`-0` y `-1`) |
+| una instancia PM2 | un servicio declarado (`-0`) |
 
 ---
 
@@ -113,10 +113,11 @@ en vez de cambiar el codigo.
 ejecuta la conciliacion GIM, el archivado historico y los barridos de
 expiracion. Lee `NODE_APP_INSTANCE`, que exporta PM2 en modo cluster.
 
-Compose da el mismo entorno a todas las replicas de un servicio, asi que con
+El despliegue inicial conserva una instancia por servicio, como el servidor
+actual. Compose da el mismo entorno a todas las replicas, asi que con
 `docker compose up --scale simert=2` **las dos** creerian ser la instancia 0 y
-duplicarian los depositos en GIM. Por eso cada instancia se declara como un
-servicio aparte (`simert-0`, `simert-1`) con su indice fijado a mano.
+duplicarian los depositos en GIM. Toda instancia futura debe declararse como
+un servicio separado (`simert-1`, etc.) con su indice fijado a mano.
 
 > Al escalar hay que anadir un servicio nuevo con el siguiente indice, nunca
 > usar `--scale` sobre `simert`, `pay` o `auth`.
@@ -186,8 +187,8 @@ Orden recomendado:
 1. **`simert-socket`** — levantalo en Docker con PM2 todavia corriendo, manda
    algo de trafico y compara. Sin ventana de mantenimiento.
 2. **`simert-auth`** — igual.
-3. **`simert-pay`** — `pm2 stop simert-pay` y despues `docker compose up -d pay-0 pay-1`.
-4. **`simert`** — `pm2 stop simert` y despues `docker compose up -d simert-0 simert-1`.
+3. **`simert-pay`** — `pm2 stop simert-pay` y despues `docker compose up -d pay-0`.
+4. **`simert`** — `pm2 stop simert` y despues `docker compose up -d simert-0`.
 5. **`simert-web`** — cuando el resto este estable, apunta el nginx del host al
    puerto 8080 en vez de al directorio de estaticos actual.
 
@@ -217,7 +218,7 @@ cp .env.example .env
 En ese `.env`, para servidor:
 
 ```bash
-WEB_ENV_FILE=.env.production   # el bundle se hornea contra produccion
+WEB_ENV_FILE=.env              # contiene las URLs publicas actuales
 TAG=prod
 BIND_ADDR=127.0.0.1            # no lo cambies: ver "Publicacion en 127.0.0.1"
 ```
@@ -226,7 +227,7 @@ Y asegurate de que estan en su sitio los ficheros que **no vienen del repo**
 porque estan en `.gitignore`:
 
 - el `.env` de cada uno de los cuatro servicios Node,
-- `simert-web/.env.production`,
+- el fichero de `simert-web` indicado por `WEB_ENV_FILE` (`.env` actualmente),
 - `simert-pay/ahorita_keys/keys.txt`.
 
 `./bin/preflight.sh` te dice cual falta.
@@ -298,20 +299,20 @@ sudo nginx -t && sudo systemctl reload nginx
 - El front carga y navega (el router usa hash, sin rewrites).
 - Login y una operacion de cada servicio.
 - `docker compose logs` sin errores de conexion a base de datos ni a Redis.
-- Que los jobs corren **una sola vez**: en los logs de `simert-0` debe
-  aparecer la conciliacion GIM, y en `simert-1` no.
+- Que los jobs corren **una sola vez** en los logs de `simert-0`.
 - La hora de los logs en `-05`, no en UTC.
 
 ---
 
 ## Rollback
 
-PM2 sigue siendo la red de seguridad. No borres `ecosystem.config.js` ni el
-`dist/` del servidor hasta que Docker lleve semanas estable.
+PM2 sigue siendo la red de seguridad. Antes de migrar ejecuta `pm2 save` para
+guardar exactamente los procesos actuales. No borres el `dist/` del servidor
+hasta que Docker lleve semanas estable.
 
 ```bash
 docker compose down
-pm2 start ecosystem.config.js --env production   # en cada servicio
+pm2 resurrect
 ```
 
 ---
@@ -333,8 +334,8 @@ codigo o decisiones de producto:
   `max_connections` de PostgreSQL. Al anadir instancias, revisarlo. PgBouncer
   es el siguiente paso natural.
 - **Cero-downtime.** `docker compose up -d` recrea el contenedor: hay unos
-  segundos de corte, a diferencia de `pm2 reload`. Con dos instancias por
-  servicio se puede recrear una a la vez a mano.
+  segundos de corte, a diferencia de `pm2 reload`. El despliegue inicial
+  conserva una instancia por servicio; el escalado se hara en una fase aparte.
 - **`simert-socket` tiene dependencias inconsistentes.** Su
   `package-lock.json` esta desincronizado con el `package.json`, y declara
   `@eslint/js@^10.0.1` junto a `eslint@^9.39.4` (las otras tres usan `^9`).
@@ -342,10 +343,9 @@ codigo o decisiones de producto:
   Dockerfile cae a `npm install --legacy-peer-deps` cuando `npm ci` falla, y
   avisa en el log del build. Los otros tres servicios si instalan desde el
   lock. Arreglo real: bajar `@eslint/js` a `^9.39.4` y regenerar el lock.
-- **`SYNCHRONIZE='TRUE'` en el `.env` de desarrollo de `simert`.** Con eso
-  TypeORM altera el esquema al arrancar. Es el comportamiento actual bajo PM2,
-  el stack no lo cambia, pero conviene confirmar que en el servidor esta en
-  `FALSE`.
+- **`SYNCHRONIZE='TRUE'` no se admite en produccion.** Con eso TypeORM puede
+  alterar el esquema al arrancar. `bin/preflight.sh` bloquea el despliegue
+  hasta cambiarlo conscientemente a `FALSE`.
 - **`.env` malformados.** `bin/preflight.sh` los reporta; corregirlos cambia el
   valor que recibe la aplicacion (hoy llega truncado), asi que es una decision
   consciente, no un arreglo automatico.

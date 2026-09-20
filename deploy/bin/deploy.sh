@@ -24,8 +24,8 @@ step() { echo; echo "${BLD}==> $*${OFF}"; }
 
 # --- Mapa de servicios -------------------------------------------------------
 #
-# Nombre corto -> servicios de compose. Los que tienen dos instancias las llevan
-# declaradas por separado (ver README: `--scale` duplicaria los jobs singleton).
+# Nombre corto -> servicio de compose. El despliegue inicial conserva una sola
+# instancia por servicio, igual que el servidor actual.
 #
 # El tercer campo dice si el servicio puede convivir con su proceso de PM2:
 #   safe   sin jobs singleton, las dos copias pueden correr a la vez
@@ -33,9 +33,9 @@ step() { echo; echo "${BLD}==> $*${OFF}"; }
 services_for() {
   case "$1" in
     socket)  echo "socket-0" ;;
-    auth)    echo "auth-0 auth-1" ;;
-    pay)     echo "pay-0 pay-1" ;;
-    simert)  echo "simert-0 simert-1" ;;
+    auth)    echo "auth-0" ;;
+    pay)     echo "pay-0" ;;
+    simert)  echo "simert-0" ;;
     web)     echo "web" ;;
     gateway) echo "gateway" ;;
     *)       echo "" ;;
