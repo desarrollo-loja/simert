@@ -29,5 +29,7 @@ eslint-report.json
 sonar-project.properties
 docker-compose.yaml
 compose.yaml
+# La orquestacion no forma parte de la imagen de este servicio.
+deploy
 Dockerfile
 .dockerignore

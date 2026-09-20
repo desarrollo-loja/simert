@@ -5,6 +5,9 @@
 .env
 .env.dev
 .env.pro
+# Excepcion: deploy/.env son parametros de la orquestacion (puertos, TZ,
+# limites de memoria), no credenciales, y el stack no arranca sin el.
+!deploy/.env
 package-lock.json
 
 # Logs

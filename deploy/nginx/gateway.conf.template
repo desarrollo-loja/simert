@@ -1,0 +1,140 @@
+# Gateway interno del stack SIMERT.
+#
+# Escucha en los MISMOS puertos que usa PM2 hoy (3000-3003) y reparte entre las
+# instancias de cada servicio. Para el nginx del host nada cambia: sigue
+# haciendo proxy a 127.0.0.1:300x igual que siempre.
+#
+# Este fichero es una plantilla: la imagen oficial de nginx sustituye las
+# ${VARIABLES} con envsubst al arrancar. Solo se sustituyen las que existen
+# como variables de entorno del contenedor, por eso las variables propias de
+# nginx ($host, $remote_addr, $http_upgrade...) quedan intactas.
+
+# Necesario para que el handshake de WebSocket pase a traves del proxy.
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    ''      close;
+}
+
+upstream auth_backend {
+    least_conn;
+    server auth-0:${AUTH_PORT} max_fails=3 fail_timeout=10s;
+    server auth-1:${AUTH_PORT} max_fails=3 fail_timeout=10s;
+    keepalive 32;
+}
+
+upstream pay_backend {
+    least_conn;
+    server pay-0:${PAY_PORT} max_fails=3 fail_timeout=10s;
+    server pay-1:${PAY_PORT} max_fails=3 fail_timeout=10s;
+    keepalive 32;
+}
+
+upstream simert_backend {
+    least_conn;
+    server simert-0:${SIMERT_PORT} max_fails=3 fail_timeout=10s;
+    server simert-1:${SIMERT_PORT} max_fails=3 fail_timeout=10s;
+    keepalive 32;
+}
+
+upstream socket_backend {
+    server socket-0:${SOCKET_PORT} max_fails=3 fail_timeout=10s;
+}
+
+# --- Ajustes compartidos -----------------------------------------------------
+#
+# client_max_body_size: nginx limita a 1 MB por defecto. Sin esto, subidas que
+# hoy funcionan (documentos hacia Alfresco, imagenes de incidencias) empezarian
+# a fallar con 413 al meter este salto de proxy.
+#
+# X-Forwarded-For con $proxy_add_x_forwarded_for: APPEND, no reemplazo. Conserva
+# la cadena que ya arma el nginx del host, que es de donde express-ip saca la IP
+# real del cliente.
+#
+# proxy_read_timeout 300s: las llamadas a GIM/ANT pueden tardar. Con el default
+# de 60s este gateway devolveria 504 en peticiones que hoy sí completan.
+
+server {
+    listen ${AUTH_PORT};
+    server_name _;
+
+    client_max_body_size 50m;
+
+    location / {
+        proxy_pass http://auth_backend;
+        proxy_http_version 1.1;
+        proxy_set_header Connection        "";
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_connect_timeout 10s;
+        proxy_send_timeout    300s;
+        proxy_read_timeout    300s;
+    }
+}
+
+server {
+    listen ${PAY_PORT};
+    server_name _;
+
+    client_max_body_size 50m;
+
+    location / {
+        proxy_pass http://pay_backend;
+        proxy_http_version 1.1;
+        proxy_set_header Connection        "";
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_connect_timeout 10s;
+        proxy_send_timeout    300s;
+        proxy_read_timeout    300s;
+    }
+}
+
+server {
+    listen ${SIMERT_PORT};
+    server_name _;
+
+    client_max_body_size 50m;
+
+    location / {
+        proxy_pass http://simert_backend;
+        proxy_http_version 1.1;
+        proxy_set_header Connection        "";
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_connect_timeout 10s;
+        proxy_send_timeout    300s;
+        proxy_read_timeout    300s;
+    }
+}
+
+# WebSockets. El gateway usa `transports: ['websocket']` del lado del cliente,
+# asi que no hay long-polling y no hacen falta sticky sessions; ademas
+# simert-socket ya coordina varias instancias con @socket.io/redis-adapter.
+server {
+    listen ${SOCKET_PORT};
+    server_name _;
+
+    client_max_body_size 50m;
+
+    location / {
+        proxy_pass http://socket_backend;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade           $http_upgrade;
+        proxy_set_header Connection        $connection_upgrade;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_connect_timeout 10s;
+        proxy_send_timeout    7d;
+        # Conexiones de larga duracion: sin esto nginx corta el socket al
+        # minuto de inactividad y los clientes reconectan en bucle.
+        proxy_read_timeout    7d;
+    }
+}
