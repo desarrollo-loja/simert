@@ -1,0 +1,33 @@
+# Contexto de build: solo lo necesario para `npm ci` + `nest build`.
+# OJO: no excluir src/common — es el submodulo simert-common y sin el no compila.
+
+.git
+.gitmodules
+node_modules
+dist
+coverage
+.nyc_output
+.scannerwork
+
+# Secretos y configuracion: se inyectan en runtime via compose (env_file).
+.env
+.env.*
+!.env.example
+ahorita_keys
+
+# Ruido de desarrollo
+.idea
+.vscode
+.DS_Store
+*.log
+logs
+docs
+tool
+*.md
+!README.md
+eslint-report.json
+sonar-project.properties
+docker-compose.yaml
+compose.yaml
+Dockerfile
+.dockerignore
