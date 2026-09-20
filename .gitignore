@@ -44,3 +44,9 @@ lerna-debug.log*
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
+
+# Claude Code: configuracion y notas locales de la herramienta.
+# No forman parte del proyecto y no deben subirse al repositorio.
+.claude/
+CLAUDE.md
+.mcp.json
