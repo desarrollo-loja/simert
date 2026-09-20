@@ -43,10 +43,12 @@ services_for() {
 }
 
 pm2_name_for() {
+  # Nombres reales registrados en PM2 en el servidor de produccion. No son
+  # iguales a los nombres de los repositorios.
   case "$1" in
-    socket) echo "simert-socket" ;;
-    auth)   echo "simert-auth" ;;
-    pay)    echo "simert-pay" ;;
+    socket) echo "socket" ;;
+    auth)   echo "auth" ;;
+    pay)    echo "pay" ;;
     simert) echo "simert" ;;
     *)      echo "" ;;
   esac

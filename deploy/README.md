@@ -91,7 +91,7 @@ docker compose up -d --no-deps --build simert-0             # redesplegar simert
 |---|---|
 | `pm2 start ecosystem.config.js --env production` | `docker compose up -d` |
 | `pm2 restart simert` | `docker compose restart simert-0` |
-| `pm2 stop simert-auth` | `docker compose stop auth-0` |
+| `pm2 stop auth` | `docker compose stop auth-0` |
 | `pm2 logs simert --lines 100` | `docker compose logs -f --tail=100 simert-0` |
 | `pm2 list` | `docker compose ps` |
 | `pm2 monit` | `docker stats` |
@@ -187,7 +187,7 @@ Orden recomendado:
 1. **`simert-socket`** — levantalo en Docker con PM2 todavia corriendo, manda
    algo de trafico y compara. Sin ventana de mantenimiento.
 2. **`simert-auth`** — igual.
-3. **`simert-pay`** — `pm2 stop simert-pay` y despues `docker compose up -d pay-0`.
+3. **`simert-pay`** — `pm2 stop pay` y despues `docker compose up -d pay-0`.
 4. **`simert`** — `pm2 stop simert` y despues `docker compose up -d simert-0`.
 5. **`simert-web`** — cuando el resto este estable, apunta el nginx del host al
    puerto 8080 en vez de al directorio de estaticos actual.
