@@ -5,7 +5,11 @@
 # No modifica nada: solo revisa que estan las piezas que Docker necesita y
 # avisa de las cosas que dotenv tolera en silencio pero conviene mirar.
 #
-#   ./bin/preflight.sh
+#   ./bin/preflight.sh                 # revisa todo
+#   ./bin/preflight.sh web             # revisa solo el front
+#   ./bin/preflight.sh auth pay        # revisa solo esos servicios
+#
+# Servicios: socket | auth | pay | simert | web | gateway
 #
 set -uo pipefail
 
@@ -20,8 +24,14 @@ warn() { echo "${YEL}AVISO${OFF}  $*"; warns=$((warns + 1)); }
 ok()   { echo "${GRN}ok${OFF}     $*"; }
 
 # Puertos declarados en deploy/.env, para contrastarlos con cada servicio.
+if [ ! -f .env ]; then
+  echo "${RED}ERROR${OFF}  falta deploy/.env. Creralo desde la plantilla:"
+  echo "         cp .env.example .env"
+  echo "         y ajusta WEB_ENV_FILE (.env en desarrollo, .env.production en el servidor)."
+  exit 1
+fi
 # shellcheck disable=SC1091
-[ -f .env ] && . ./.env
+. ./.env
 
 echo "== Servicios NestJS =="
 check_service() {
@@ -69,20 +79,34 @@ check_service() {
   [ $errors -eq $before ] && ok "$name"
 }
 
-check_service ../../simert-auth   "${AUTH_PORT:-3000}"
-check_service ../../simert-pay    "${PAY_PORT:-3001}"
-check_service ../../simert        "${SIMERT_PORT:-3002}"
-check_service ../../simert-socket "${SOCKET_PORT:-3003}"
+# Sin argumentos se revisa todo; con argumentos, solo lo pedido. `gateway` no
+# tiene comprobaciones propias: depende de que los demas esten bien.
+WANT="${*:-socket auth pay simert web gateway}"
+# El gateway arrastra los cuatro backends por `depends_on`, asi que revisarlo
+# a el implica revisarlos a todos: si a alguno le falta su .env, el bind mount
+# crearia un directorio vacio y ese servicio arrancaria sin configuracion.
+case " $WANT " in *" gateway "*) WANT="$WANT socket auth pay simert" ;; esac
+wants() { echo " $WANT " | grep -q " $1 "; }
+
+wants auth   && check_service ../../simert-auth   "${AUTH_PORT:-3000}"
+wants pay    && check_service ../../simert-pay    "${PAY_PORT:-3001}"
+wants simert && check_service ../../simert        "${SIMERT_PORT:-3002}"
+wants socket && check_service ../../simert-socket "${SOCKET_PORT:-3003}"
+wants auth || wants pay || wants simert || wants socket || echo "  (ninguno seleccionado)"
 
 echo
 echo "== Front =="
 web_env="${WEB_ENV_FILE:-.env}"
-if [ ! -f "../../simert-web/$web_env" ]; then
-  err "simert-web: falta ../../simert-web/$web_env (WEB_ENV_FILE en deploy/.env)."
-  echo "         Vue CLI hornea las VUE_APP_* en tiempo de build: sin ese fichero"
-  echo "         no se puede construir la imagen del front."
-else
-  ok "simert-web ($web_env)"
+if ! wants web; then
+  echo "  (no seleccionado)"
+elif true; then
+  if [ ! -f "../../simert-web/$web_env" ]; then
+    err "simert-web: falta ../../simert-web/$web_env (WEB_ENV_FILE en deploy/.env)."
+    echo "         Vue CLI hornea las VUE_APP_* en tiempo de build: sin ese fichero"
+    echo "         no se puede construir la imagen del front."
+  else
+    ok "simert-web ($web_env)"
+  fi
 fi
 
 echo

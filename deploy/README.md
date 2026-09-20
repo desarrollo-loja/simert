@@ -26,19 +26,42 @@ que el codigo tiene de PM2 se reproducen con variables de entorno. Ver
 4. Para el front, el fichero de entorno con el que se quiere hornear el bundle
    (`.env.production` en el servidor). Ver `WEB_ENV_FILE` en `.env`.
 
+5. El `.env` de la orquestacion, que es por maquina y no se versiona:
+   ```bash
+   cp .env.example .env
+   ```
+   Ajusta sobre todo `WEB_ENV_FILE`: `.env` en desarrollo, `.env.production` en
+   el servidor. Vue CLI hornea las `VUE_APP_*` en tiempo de build, asi que ese
+   valor decide contra que backend apunta el bundle.
+
 Comprueba todo de una vez:
 
 ```bash
-./bin/preflight.sh
+./bin/preflight.sh            # revisa los cinco componentes
+./bin/preflight.sh web        # revisa solo uno
 ```
 
 ---
 
 ## Arranque
 
+La via recomendada es `bin/deploy.sh`, que encadena verificacion, build,
+arranque y chequeo de salud, y ademas **impide el unico error que cuesta
+dinero**: levantar `simert` o `simert-pay` mientras su proceso de PM2 sigue
+online contra la misma base de datos.
+
 ```bash
 cd deploy
 
+./bin/deploy.sh all --build     # todo, en el orden correcto
+./bin/deploy.sh web             # un componente
+./bin/deploy.sh auth --build    # reconstruyendo antes
+./bin/deploy.sh pay --stop-pm2  # parando PM2 primero (obligatorio en pay y simert)
+```
+
+A mano, si prefieres control paso a paso:
+
+```bash
 ./bin/preflight.sh          # 1. verifica submodulos, .env y PM2
 docker compose build        # 2. construye las 5 imagenes
 docker compose up -d        # 3. levanta el stack
@@ -170,6 +193,114 @@ Orden recomendado:
 
 Mientras dure la fase mixta, un contenedor alcanza un servicio que siga en PM2
 por `http://host.docker.internal:PUERTO/` (ya configurado con `extra_hosts`).
+
+---
+
+## Despliegue en el servidor
+
+Lo que cambia respecto a una maquina de desarrollo son tres cosas: el entorno
+con el que se hornea el front, donde se construyen las imagenes, y que el
+nginx del host deja de servir archivos para hacer proxy al contenedor.
+
+### Preparacion (una sola vez)
+
+```bash
+cd /ruta/Simert-loja
+for s in simert simert-auth simert-pay simert-socket simert-web; do
+  (cd "$s" && git pull && git submodule update --init --recursive)
+done
+
+cd simert/deploy
+cp .env.example .env
+```
+
+En ese `.env`, para servidor:
+
+```bash
+WEB_ENV_FILE=.env.production   # el bundle se hornea contra produccion
+TAG=prod
+BIND_ADDR=127.0.0.1            # no lo cambies: ver "Publicacion en 127.0.0.1"
+```
+
+Y asegurate de que estan en su sitio los ficheros que **no vienen del repo**
+porque estan en `.gitignore`:
+
+- el `.env` de cada uno de los cuatro servicios Node,
+- `simert-web/.env.production`,
+- `simert-pay/ahorita_keys/keys.txt`.
+
+`./bin/preflight.sh` te dice cual falta.
+
+### Donde se construyen las imagenes
+
+Por defecto, **en el servidor**: el `compose.yaml` construye desde el codigo
+fuente. Eso implica que el build del front (35 chunks, unos 30 s) compite por
+CPU y memoria con los servicios que ya corren ahi. Si el pico molesta,
+constryelas donde construyes hoy y publicalas a un registro
+(`docker push` / `docker pull`); el stack acepta cualquiera de las dos vias,
+pero el registro hay que montarlo aparte.
+
+### Orden de migracion
+
+El orden no es preferencia: `simert` y `simert-pay` tienen jobs singleton y no
+pueden correr a la vez en PM2 y en Docker contra la misma base. `deploy.sh` lo
+impide salvo que pases `--stop-pm2`.
+
+```bash
+./bin/deploy.sh socket --build              # convive con PM2: sin corte
+./bin/deploy.sh auth   --build              # convive con PM2: sin corte
+./bin/deploy.sh pay    --build --stop-pm2   # para PM2 y levanta
+./bin/deploy.sh simert --build --stop-pm2   # para PM2 y levanta
+./bin/deploy.sh web    --build              # el front, todavia sin trafico
+./bin/deploy.sh gateway                     # ultimo: necesita 3000-3003 libres
+```
+
+Entre paso y paso, verifica antes de seguir:
+
+```bash
+docker compose ps
+docker compose logs -f --tail=100 <servicio>
+```
+
+El gateway va al final porque publica los puertos 3000-3003 y no puede
+arrancar mientras PM2 los ocupe. `deploy.sh` lo detecta y te lo dice en vez de
+fallar con un error de bind.
+
+### El nginx del host
+
+Hasta aqui no se ha tocado el trafico real: los contenedores estan arriba pero
+quien atiende sigue siendo lo de siempre. El ultimo paso es mover el front.
+
+`nginx/host-site.example.conf` tiene la plantilla comentada. En resumen, el
+bloque que servia el `dist` pasa de `root` a `proxy_pass`:
+
+```nginx
+location / {
+    proxy_pass http://127.0.0.1:8080;
+    proxy_set_header Host              $host;
+    proxy_set_header X-Real-IP         $remote_addr;
+    proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+```
+
+El bloque `/api` **no se toca**: sigue apuntando a `127.0.0.1:3000-3003`, que es
+exactamente donde publica el gateway. nginx elige por prefijo mas largo, asi
+que `/api` gana sobre `/`.
+
+```bash
+curl -I http://127.0.0.1:8080/        # comprueba el contenedor ANTES
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+### Que verificar despues
+
+- El front carga y navega (el router usa hash, sin rewrites).
+- Login y una operacion de cada servicio.
+- `docker compose logs` sin errores de conexion a base de datos ni a Redis.
+- Que los jobs corren **una sola vez**: en los logs de `simert-0` debe
+  aparecer la conciliacion GIM, y en `simert-1` no.
+- La hora de los logs en `-05`, no en UTC.
 
 ---
 
