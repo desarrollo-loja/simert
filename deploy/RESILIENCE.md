@@ -24,8 +24,9 @@ siendo independiente. Estos valores son punto de partida, no una cuota diaria.
    falta la cabecera, el gateway usa `$binary_remote_addr`, que podría agrupar
    a todos los usuarios detrás del Nginx del host.
 2. Validar que una respuesta 429 del gateway conserva CORS para el origen
-   autorizado; sin ello el navegador podría mostrar un error CORS en lugar del
-   429. No activar el bloqueo hasta resolverlo.
+   autorizado mediante las cabeceras condicionales de este overlay; sin ello
+   el navegador podría mostrar un error CORS en lugar del 429. No activar el
+   bloqueo hasta verificarlo con una solicitud real.
 3. Ejecutar pruebas de ráfaga y fallos en un entorno aislado, con una
    dependencia GIM simulada. No detener GIM, Keycloak ni PostgreSQL reales.
 4. Vigilar CPU, memoria, conexiones y errores de los contenedores durante la

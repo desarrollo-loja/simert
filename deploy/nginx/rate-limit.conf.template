@@ -6,8 +6,26 @@ map $http_x_forwarded_for $simert_rate_key {
     ~(?:^|,)\s*(?<simert_last_proxy_ip>[^,\s]+)\s*$ $simert_last_proxy_ip;
 }
 
+# Gateway-generated 429 responses need CORS so the admin browser can see the
+# actual status, but successful upstream responses keep their existing CORS.
+map "$status:$http_origin" $simert_rate_cors_origin {
+    default "";
+    "429:${SIMERT_RATE_LIMIT_ALLOWED_ORIGIN}" $http_origin;
+}
+map $simert_rate_cors_origin $simert_rate_cors_credentials {
+    default "";
+    ~.+ "true";
+}
+map $status $simert_rate_retry_after {
+    default "";
+    429 "1";
+}
+
 limit_req_zone $simert_rate_key zone=simert_per_client:10m rate=${SIMERT_RATE_LIMIT_RATE};
 limit_req zone=simert_per_client burst=${SIMERT_RATE_LIMIT_BURST} nodelay;
 limit_req_status 429;
 limit_req_dry_run ${SIMERT_RATE_LIMIT_DRY_RUN};
 limit_req_log_level notice;
+add_header Access-Control-Allow-Origin $simert_rate_cors_origin always;
+add_header Access-Control-Allow-Credentials $simert_rate_cors_credentials always;
+add_header Retry-After $simert_rate_retry_after always;
