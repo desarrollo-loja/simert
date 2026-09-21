@@ -52,6 +52,35 @@ invocación de Compose. El valor predeterminado `SIMERT_RATE_LIMIT_DRY_RUN=on`
 cuenta excesos y los registra, pero no rechaza peticiones. El overlay no se
 aplica al comando de producción existente hasta que se incluya explícitamente.
 
+Desde `deploy/`, primer paso en el servidor (reinicia solo el gateway; puede
+haber unos segundos de reconexión):
+
+```bash
+SIMERT_RATE_LIMIT_DRY_RUN=on docker compose -f compose.yaml -f compose.waf.yaml -f compose.resilience.yaml up -d --no-deps --force-recreate gateway
+docker exec simert-gateway-1 nginx -T 2>&1 | grep -E 'limit_req(_dry_run|_zone|_status)? '
+docker compose -f compose.yaml -f compose.waf.yaml -f compose.resilience.yaml ps gateway
+```
+
+En este paso el limitador solo observa: el login, las consultas y los pagos no
+deben recibir 429 por esta capa. Si se observa una regresión, volver al gateway
+anterior con:
+
+```bash
+docker compose -f compose.yaml -f compose.waf.yaml up -d --no-deps --force-recreate gateway
+```
+
+Antes de pasar a bloqueo se necesita revisar registros de excesos en tráfico
+normal y confirmar que la cuota propuesta no perjudica usuarios compartiendo
+IP (por ejemplo, una red municipal). `30r/s` con ráfaga `60` es un presupuesto
+por IP, no una cuota diaria. El cambio a bloqueo se realiza recreando solo el
+gateway con `SIMERT_RATE_LIMIT_DRY_RUN=off`; hacerlo en una ventana vigilada y
+mantener el comando de reversión anterior a mano.
+
+La protección de GIM se configura en la misma capa, pero queda apagada hasta
+activar explícitamente `GIM_READ_RESILIENCE_ENABLED=true` y desplegar la imagen
+del servicio `simert-0` que contiene el código nuevo. No recrear ese servicio
+solo por activar la observación del gateway.
+
 ## Evidencia requerida para cerrar el escenario
 
 - Carga normal: respuestas correctas sin 429.
