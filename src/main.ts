@@ -14,10 +14,9 @@ const expressip = require('express-ip');
 
 const developmentDomain =
     process.env.DEVELOPMENT_ALLOWED_DOMAIN ||
-    '"https://www.web.clipp.app", "https://web.clipp.app", "http://localhost:8080", "https://localhost:8080"';
+    '"http://localhost:8080", "https://localhost:8080"';
 const productionDomain =
-    process.env.PRODUCTION_ALLOWED_DOMAIN ||
-    '"https://www.maas.clipp.app", "https://maas.clipp.app", "https://teva.clipp.app", "https://www.teva.clipp.app"';
+    process.env.PRODUCTION_ALLOWED_DOMAIN || '"http://181.113.129.20"';
 
 const development: string[] = developmentDomain
     .replace(/"/g, '')
@@ -61,37 +60,12 @@ async function bootstrap() {
         }),
     );
 
-    app.use((req, res, next) => {
-        res.setHeader('Access-Control-Allow-Credentials', 'true');
-        if (process.env.NODE_ENV === 'development') {
-            development.forEach((dominio) => {
-                res.setHeader('Access-Control-Allow-Origin', dominio);
-            });
-        } else if (process.env.NODE_ENV === 'production') {
-            production.forEach((dominio) => {
-                res.setHeader('Access-Control-Allow-Origin', dominio);
-            });
-        }
-        next();
-    });
-
     app.useGlobalPipes(
         new ValidationPipe({
             whitelist: true,
             forbidNonWhitelisted: true,
         }),
     );
-
-    const allowedOrigins = [];
-    if (process.env.NODE_ENV === 'development') {
-        development.forEach((dominio) => {
-            allowedOrigins.push(dominio);
-        });
-    } else if (process.env.NODE_ENV === 'production') {
-        production.forEach((dominio) => {
-            allowedOrigins.push(dominio);
-        });
-    }
 
     const swaggerConfig = new DocumentBuilder()
         .setTitle('Parking Simert API')
@@ -170,7 +144,8 @@ async function bootstrap() {
     );
 
     app.enableCors({
-        origin: true,
+        origin:
+            process.env.NODE_ENV === 'development' ? development : production,
         methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
         allowedHeaders: [
             'Content-Type',
