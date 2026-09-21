@@ -12,6 +12,8 @@ import { IdTypeUser } from 'src/common/glob/id/id_type_user';
 import { TypeRol } from 'src/common/glob/type/type_rol';
 import { LoggerService } from 'src/common/logger.service.ts';
 
+import { jwtSignOptionsForApp } from '../jwt-claims';
+
 const MUNICIPALITY_ROLES = [
     TypeRol.ADMIN,
     TypeRol.CONTROLLER,
@@ -142,6 +144,8 @@ export class KeycloakTokenGuard implements CanActivate {
         const res = context.switchToHttp().getResponse();
         const user = req.user;
 
+        if (user?.roles?.includes(TypeRol.SERVER)) return true;
+
         if (!user?.kcToken) {
             throw new UnauthorizedException('Keycloak token not found');
         }
@@ -159,6 +163,16 @@ export class KeycloakTokenGuard implements CanActivate {
             kcBaseUrl,
             kcClientParams,
         );
+
+        if (
+            introspection.active &&
+            introspection.clientId &&
+            introspection.clientId !== kcClientParams.client_id
+        ) {
+            throw new UnauthorizedException(
+                'Keycloak token was issued for another client',
+            );
+        }
 
         if (!introspection.active) {
             if (!user.kcRefreshToken) {
@@ -204,12 +218,15 @@ export class KeycloakTokenGuard implements CanActivate {
             throw new UnauthorizedException('Keycloak session expired');
         }
 
-        const { iat: _iat, exp: _exp, ...payload } = user;
-        const newJwt = this.jwtService.sign({
-            ...payload,
-            kcToken: refreshed.access_token,
-            kcRefreshToken: refreshed.refresh_token,
-        });
+        const { iat: _iat, exp: _exp, iss: _iss, aud: _aud, ...payload } = user;
+        const newJwt = this.jwtService.sign(
+            {
+                ...payload,
+                kcToken: refreshed.access_token,
+                kcRefreshToken: refreshed.refresh_token,
+            },
+            jwtSignOptionsForApp(user.idApp),
+        );
 
         res.setHeader('x-token', newJwt);
         return true;
@@ -226,7 +243,7 @@ export class KeycloakTokenGuard implements CanActivate {
         token: string,
         kcBaseUrl: string,
         kcClientParams: Record<string, string>,
-    ): Promise<{ active: boolean; exp?: number }> {
+    ): Promise<{ active: boolean; exp?: number; clientId?: string }> {
         try {
             const params = new URLSearchParams({ token, ...kcClientParams });
             const { data } = await axios.post(
@@ -238,7 +255,11 @@ export class KeycloakTokenGuard implements CanActivate {
                     },
                 },
             );
-            return { active: data?.active === true, exp: data?.exp };
+            return {
+                active: data?.active === true,
+                exp: data?.exp,
+                clientId: data?.client_id ?? data?.azp,
+            };
         } catch (error) {
             this.logger.error(`Keycloak introspect error: ${error?.message}`);
             this.logKeycloakFailure(

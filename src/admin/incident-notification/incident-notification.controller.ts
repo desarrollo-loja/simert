@@ -8,6 +8,8 @@ import {
     Post,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { AuthWithKeycloak } from 'src/auth/decorators';
+import { TypeRol } from 'src/common/glob/type/type_rol';
 
 import { CreateIncidentNotificationDto } from './dto/create-incident-notification.dto';
 import { UpdateIncidentNotificationDto } from './dto/update-incident-notification.dto';
@@ -19,6 +21,7 @@ import { IncidentNotificationService } from './incident-notification.service';
  */
 @ApiTags('Admin - Incident Notification')
 @ApiBearerAuth('keycloak')
+@AuthWithKeycloak(TypeRol.ADMIN)
 @Controller('admin/incident-notification')
 export class IncidentNotificationController {
     /**

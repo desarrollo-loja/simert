@@ -1227,7 +1227,10 @@ export class KeycloakService {
                 endpoint,
                 { fullName, email, password, phone },
                 {
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${process.env.AUTORIZATION}`,
+                    },
                     validateStatus: () => true,
                 },
             );

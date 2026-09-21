@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AuthModule } from 'src/auth/auth.module';
 import { LoggerModule } from 'src/common/logger.module';
 
 import { CheckboxUser } from '../checkbox-user/entities/checkbox-user.entity';
@@ -20,6 +21,7 @@ import { RangeSalePointTransactionService } from './range-sale-point-transaction
             RangeSalePoint,
             CheckboxUser,
         ]),
+        AuthModule,
         LoggerModule,
     ],
     exports: [RangeSalePointTransactionService],

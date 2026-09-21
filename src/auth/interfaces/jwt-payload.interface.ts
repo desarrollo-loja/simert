@@ -9,4 +9,7 @@ export interface JwtPayload {
     kcToken?: string;
     kcRefreshToken?: string;
     isActive?: boolean;
+    iat?: number;
+    iss?: string;
+    aud?: string | string[];
 }

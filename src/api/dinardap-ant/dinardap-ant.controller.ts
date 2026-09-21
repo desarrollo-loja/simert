@@ -1,7 +1,9 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { AuthWithKeycloak } from 'src/auth/decorators';
 import { ApiStandardResponse } from 'src/common/decorators/api-standard-response.decorator';
 import { ErrorCode } from 'src/common/glob/error';
+import { TypeRol } from 'src/common/glob/type/type_rol';
 
 import { DinardapAntService } from './dinardap-ant.service';
 /**
@@ -11,6 +13,14 @@ import { DinardapAntService } from './dinardap-ant.service';
  */
 @ApiTags('Api - Dinardap Ant')
 @ApiBearerAuth('keycloak')
+@AuthWithKeycloak(
+    TypeRol.SERVER,
+    TypeRol.ADMIN,
+    TypeRol.CLIENT,
+    TypeRol.CONTROLLER,
+    TypeRol.SUPERVISOR,
+    TypeRol.SALE_POINT,
+)
 @Controller('api/dinardap-ant')
 export class DinardapAntController {
     /**

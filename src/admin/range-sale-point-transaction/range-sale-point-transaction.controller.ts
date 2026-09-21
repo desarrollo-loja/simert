@@ -9,7 +9,9 @@ import {
     Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { AuthWithKeycloak } from 'src/auth/decorators';
 import { FilterDto } from 'src/common/dto/filter.dto';
+import { TypeRol } from 'src/common/glob/type/type_rol';
 
 import { CreateRangeSalePointTransactionDto } from './dto/create-range-sale-point-transaction.dto';
 import { RangeSalePointTransactionService } from './range-sale-point-transaction.service';
@@ -20,6 +22,7 @@ import { RangeSalePointTransactionService } from './range-sale-point-transaction
  */
 @ApiTags('Admin - Range Sale Point Transaction')
 @ApiBearerAuth('keycloak')
+@AuthWithKeycloak(TypeRol.ADMIN)
 @Controller('admin/range-sale-point-transaction')
 export class RangeSalePointTransactionController {
     /**

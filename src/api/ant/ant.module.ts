@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { AuthModule } from 'src/auth/auth.module';
 import { LoggerModule } from 'src/common/logger.module';
 
 import { AntController } from './ant.controller';
@@ -11,7 +12,7 @@ import { AntService } from './ant.service';
  * integration failures can be audited in the `logsant` collection.
  */
 @Module({
-    imports: [ConfigModule, LoggerModule],
+    imports: [ConfigModule, LoggerModule, AuthModule],
     providers: [AntService],
     controllers: [AntController],
     exports: [AntService],

@@ -1,6 +1,8 @@
 import { Controller, Get, Param } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { AuthWithKeycloak } from 'src/auth/decorators';
 import { ApiStandardResponse } from 'src/common/decorators/api-standard-response.decorator';
+import { TypeRol } from 'src/common/glob/type/type_rol';
 
 import { PortalService } from './portal.service';
 // TODO: ADD THE PORTAL ENDPOINTS HERE AND VERIFY WHETHER THE USER HAS ALREADY BEEN REGISTERED OR NOT
@@ -11,6 +13,7 @@ import { PortalService } from './portal.service';
  */
 @ApiTags('Api - Portal')
 @ApiBearerAuth('keycloak')
+@AuthWithKeycloak(TypeRol.ADMIN, TypeRol.CLIENT, TypeRol.SUPERVISOR)
 @Controller('portal')
 export class PortalController {
     /**

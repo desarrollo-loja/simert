@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { AuthModule } from 'src/auth/auth.module';
 import { CommonGimModule } from 'src/common/common.gim.module';
 import { LoggerModule } from 'src/common/logger.module';
 
@@ -13,7 +14,7 @@ import { DinardapAntService } from './dinardap-ant.service';
  * in the `logsant` collection.
  */
 @Module({
-    imports: [ConfigModule, CommonGimModule, LoggerModule],
+    imports: [ConfigModule, CommonGimModule, LoggerModule, AuthModule],
     controllers: [DinardapAntController],
     providers: [DinardapAntService],
     exports: [DinardapAntService],

@@ -7,6 +7,8 @@ import {
     Post,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { AuthWithKeycloak } from 'src/auth/decorators';
+import { TypeRol } from 'src/common/glob/type/type_rol';
 
 import { CreateRangeSalePointTransactionDto } from './dto/create-range-sale-point-transaction.dto';
 import { RangeSalePointTransactionService } from './range-sale-point-transaction.service';
@@ -38,6 +40,7 @@ export class RangeSalePointTransactionController {
     @ApiOperation({
         summary: 'Create a new range sale point transaction for a user',
     })
+    @AuthWithKeycloak(TypeRol.ADMIN, TypeRol.SALE_POINT_CARD_SALE)
     @Post('create/:userId/:idDevice/:version')
     create(
         @Param('userId', ParseIntPipe) userId: number,

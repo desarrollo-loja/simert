@@ -7,12 +7,15 @@ import {
     ParseUUIDPipe,
     Post,
     Query,
+    UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthWithKeycloak, GetUser } from 'src/auth/decorators';
+import { IncidentCapabilityGuard } from 'src/auth/guards/incident-capability.guard';
 import { JwtPayload } from 'src/auth/interfaces';
 import { GetMeta } from 'src/common/decorators/get-meta.decorator';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
+import { TypeRol } from 'src/common/glob/type/type_rol';
 import { MetaInterface } from 'src/common/intefaces/meta.interface';
 
 import { CreateIncidentDto } from '../incident/dto/create-incident.dto';
@@ -46,7 +49,13 @@ export class OperatorController {
      */
     @ApiOperation({ summary: 'Create an incident from the operator app' })
     // @Auth()
-    @AuthWithKeycloak()
+    @AuthWithKeycloak(
+        TypeRol.ADMIN,
+        TypeRol.CONTROLLER,
+        TypeRol.CONTROLLER_LOGBOOK,
+        TypeRol.CONTROLLER_SANCTIONS,
+    )
+    @UseGuards(IncidentCapabilityGuard)
     @Post('create-incident/:userId/:idDevice')
     createIncident(
         @Body() createIncidentDto: CreateIncidentDto,
@@ -74,7 +83,7 @@ export class OperatorController {
         summary: 'Finish an active parking fraction from the operator app',
     })
     // @Auth()
-    @AuthWithKeycloak()
+    @AuthWithKeycloak(TypeRol.ADMIN, TypeRol.CONTROLLER_PARKING_CONTROL)
     @Post('finished/:userId/:idDevice/:fractionId/:version')
     finished(
         @GetUser() user: JwtPayload,
@@ -101,7 +110,7 @@ export class OperatorController {
         summary: 'Register (start) a parking session from the operator app',
     })
     // @Auth()
-    @AuthWithKeycloak()
+    @AuthWithKeycloak(TypeRol.ADMIN, TypeRol.CONTROLLER_PARKING_CONTROL)
     @Post('register/:userId/:idDevice/:version')
     register(
         @GetUser() user: JwtPayload,
@@ -130,7 +139,7 @@ export class OperatorController {
         summary: 'Extend parking time for an active fraction (operator app)',
     })
     // @Auth()
-    @AuthWithKeycloak()
+    @AuthWithKeycloak(TypeRol.ADMIN, TypeRol.CONTROLLER_PARKING_CONTROL)
     @Post('increment-time/:userId/:idDevice/:version')
     incrementTime(
         @GetUser() user: JwtPayload,
@@ -159,7 +168,7 @@ export class OperatorController {
      */
     @ApiOperation({ summary: 'List blocks assigned to the operator user' })
     // @Auth()
-    @AuthWithKeycloak()
+    @AuthWithKeycloak(TypeRol.ADMIN, TypeRol.CONTROLLER, TypeRol.SUPERVISOR)
     @Get('find-all-bloclks/:userId/:idDevice/:version')
     findAllBlocks(
         @GetUser() user: JwtPayload,
@@ -185,7 +194,7 @@ export class OperatorController {
         summary: 'List active parking fractions for a block (operator view)',
     })
     // @Auth()
-    //@AuthWithKeycloak()
+    @AuthWithKeycloak(TypeRol.ADMIN, TypeRol.CONTROLLER, TypeRol.SUPERVISOR)
     @Get('find-all-fractions/:userId/:idDevice/:blockId/:version')
     findAllFractions(
         //@GetUser() user: JwtPayload,
@@ -217,7 +226,7 @@ export class OperatorController {
         summary: 'Get a single fraction detail by fractionId (operator view)',
     })
     // @Auth()
-    @AuthWithKeycloak()
+    @AuthWithKeycloak(TypeRol.ADMIN, TypeRol.CONTROLLER, TypeRol.SUPERVISOR)
     @Get('find-fraction-by-id/:userId/:idDevice/:fractionId/:version')
     findFractionById(
         @GetUser() user: JwtPayload,
@@ -244,7 +253,7 @@ export class OperatorController {
         summary: 'Search active fractions by plate number or other criteria',
     })
     // @Auth()
-    @AuthWithKeycloak()
+    @AuthWithKeycloak(TypeRol.ADMIN, TypeRol.CONTROLLER, TypeRol.SUPERVISOR)
     @Get('find-by-criteria/:criteria/:userId/:idDevice/:version')
     findAllFractionsByPlate(
         @GetUser() user: JwtPayload,
@@ -271,7 +280,7 @@ export class OperatorController {
             'Get the current virtual server time (for operator clock sync)',
     })
     // @Auth()
-    @AuthWithKeycloak()
+    @AuthWithKeycloak(TypeRol.ADMIN, TypeRol.CONTROLLER, TypeRol.SUPERVISOR)
     @Get('time-virtual/:userId/:idDevice/:version')
     timeVirtual(
         @GetUser() _user: JwtPayload,
@@ -298,7 +307,7 @@ export class OperatorController {
             'List physical card slots available for the given card identifier',
     })
     // @Auth()
-    @AuthWithKeycloak()
+    @AuthWithKeycloak(TypeRol.ADMIN, TypeRol.SALE_POINT_CARD_SALE)
     @Get('find-all-physic/:userId/:idDevice/:card/:version')
     findAllPhysic(
         @GetUser() user: JwtPayload,
@@ -325,7 +334,7 @@ export class OperatorController {
             'Get slot pricing and availability by slot name/code (operator)',
     })
     // @Auth()
-    @AuthWithKeycloak()
+    @AuthWithKeycloak(TypeRol.ADMIN, TypeRol.CONTROLLER, TypeRol.SUPERVISOR)
     @Get('seach-slot/:userId/:idDevice/:searchSlot/:version')
     getPriceSlot(
         @GetUser() user: JwtPayload,
@@ -353,7 +362,11 @@ export class OperatorController {
             'Find outstanding sanctions by identity card number (operator)',
     })
     // @Auth()
-    @AuthWithKeycloak()
+    @AuthWithKeycloak(
+        TypeRol.ADMIN,
+        TypeRol.CONTROLLER_FINE_QUERY,
+        TypeRol.SALE_POINT_FINE_QUERY,
+    )
     @Post('find-by-identity-card/:userId/:idDevice/:identityCard/:version')
     findSanctionByIdentityCard(
         @GetUser() user: JwtPayload,

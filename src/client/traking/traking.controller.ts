@@ -14,6 +14,8 @@ import {
     ApiQuery,
     ApiTags,
 } from '@nestjs/swagger';
+import { AuthWithKeycloak } from 'src/auth/decorators';
+import { TypeRol } from 'src/common/glob/type/type_rol';
 
 import { PlotLocationDto } from './dto/plot-location.dto';
 import { TrakingService } from './traking.service';
@@ -42,6 +44,12 @@ export class TrakingController {
         summary:
             'Plot (record) the current user location (tracking_controller DB)',
     })
+    @AuthWithKeycloak(
+        TypeRol.ADMIN,
+        TypeRol.CONTROLLER,
+        TypeRol.SUPERVISOR,
+        TypeRol.SALE_POINT,
+    )
     @Patch('p/:userId')
     plot(
         @Param('userId', ParseIntPipe) userId: number,
@@ -57,6 +65,7 @@ export class TrakingController {
      * @returns Promise resolving to the user's tracking history.
      */
     @ApiOperation({ summary: 'Get full location tracking history for a user' })
+    @AuthWithKeycloak(TypeRol.ADMIN, TypeRol.SUPERVISOR)
     @Get('tracking-by-user-id/:userId/:idDevice/:version')
     getTrackingByUserId(
         @Param('userId', ParseIntPipe) userId: number,
@@ -75,6 +84,7 @@ export class TrakingController {
         summary:
             'Get latest location for multiple users (comma-separated userIds)',
     })
+    @AuthWithKeycloak(TypeRol.ADMIN, TypeRol.SUPERVISOR)
     @Get('trackings/:userIds/:idDevice/:version')
     getTrackings(
         @Param('userIds') userIds: string,
@@ -95,6 +105,7 @@ export class TrakingController {
         summary:
             'Get all tracking records for a user within a date range (from/to)',
     })
+    @AuthWithKeycloak(TypeRol.ADMIN, TypeRol.SUPERVISOR)
     @Get('all-tracking/:userId/:idDevice/:from/:to/:version')
     getAllTracking(
         @Param('userId', ParseIntPipe) userId: number,
@@ -132,6 +143,7 @@ export class TrakingController {
         summary:
             'Get tracking records for a user within a SINGLE monthly partition (year+month required). Supports optional limit/offset pagination for the table view.',
     })
+    @AuthWithKeycloak(TypeRol.ADMIN, TypeRol.SUPERVISOR)
     @ApiQuery({ name: 'year', required: true, type: Number })
     @ApiQuery({ name: 'month', required: true, type: Number })
     @ApiQuery({ name: 'limit', required: false, type: Number })
@@ -182,6 +194,7 @@ export class TrakingController {
         summary:
             'Get the downsampled lat/lng polyline for a user in a single monthly partition',
     })
+    @AuthWithKeycloak(TypeRol.ADMIN, TypeRol.SUPERVISOR)
     @ApiQuery({ name: 'year', required: true, type: Number })
     @ApiQuery({ name: 'month', required: true, type: Number })
     @ApiQuery({ name: 'maxPoints', required: false, type: Number })

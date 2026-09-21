@@ -10,6 +10,8 @@ import {
     Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { AuthWithKeycloak } from 'src/auth/decorators';
+import { TypeRol } from 'src/common/glob/type/type_rol';
 
 import { FilterDto } from '../../common/dto/filter.dto';
 import { CardService } from './card.service';
@@ -23,6 +25,7 @@ import { UpdateCardDto } from './dto/update-card.dto';
  */
 @ApiTags('Admin - Card')
 @ApiBearerAuth('keycloak')
+@AuthWithKeycloak(TypeRol.ADMIN)
 @Controller('admin/card')
 export class CardController {
     /**

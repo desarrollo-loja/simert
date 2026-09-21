@@ -6,6 +6,7 @@ import { ErrorCode } from 'src/common/glob/error';
 import { TypeRol } from 'src/common/glob/type/type_rol';
 
 import { JwtPayload } from '../interfaces/jwt-payload.interface';
+import { validateJwtApplicationClaims } from '../jwt-claims';
 
 /**
  * Passport JWT strategy that validates bearer tokens and resolves the
@@ -13,6 +14,7 @@ import { JwtPayload } from '../interfaces/jwt-payload.interface';
  */
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
+    private readonly legacyClaimsCutoff = Math.floor(Date.now() / 1000);
     /**
      * Creates a new JwtStrategy and configures the JWT secret and extractor.
      * @param commonAuthService Shared auth service used to resolve users from token claims.
@@ -20,6 +22,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     constructor(private readonly commonAuthService: CommonAuthService) {
         super({
             secretOrKey: process.env.JWT_SECREAT,
+            algorithms: ['HS256'],
             jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
         });
     }
@@ -32,6 +35,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
      */
     async validate(payload: JwtPayload): Promise<JwtPayload> {
         const { id, roles } = payload;
+
+        if (!validateJwtApplicationClaims(payload, this.legacyClaimsCutoff))
+            throw new UnauthorizedException(
+                'Token issuer or audience not valid',
+            );
 
         if (roles?.includes(TypeRol.SERVER)) return payload as any;
 

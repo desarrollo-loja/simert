@@ -16,8 +16,8 @@ import { RoleProtected } from './role-protected.decorator';
 
 export function Auth(...roles: TypeRol[]) {
     return applyDecorators(
-        RoleProtected(...roles),
-        UseGuards(AuthGuard(), UserRoleGuard),
+        ...(roles.length > 0 ? [RoleProtected(...roles)] : []),
+        UseGuards(AuthGuard('jwt'), UserRoleGuard),
     );
 }
 
@@ -31,7 +31,7 @@ export function Auth(...roles: TypeRol[]) {
 
 export function AuthWithKeycloak(...roles: TypeRol[]) {
     return applyDecorators(
-        RoleProtected(...roles),
-        UseGuards(AuthGuard(), UserRoleGuard, KeycloakTokenGuard),
+        ...(roles.length > 0 ? [RoleProtected(...roles)] : []),
+        UseGuards(AuthGuard('jwt'), UserRoleGuard, KeycloakTokenGuard),
     );
 }

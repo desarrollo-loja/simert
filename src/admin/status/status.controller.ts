@@ -1,5 +1,7 @@
 import { Controller, Get, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { AuthWithKeycloak } from 'src/auth/decorators';
+import { TypeRol } from 'src/common/glob/type/type_rol';
 
 import { StatusService } from './status.service';
 /**
@@ -9,6 +11,7 @@ import { StatusService } from './status.service';
  */
 @ApiTags('Admin - Status')
 @ApiBearerAuth('keycloak')
+@AuthWithKeycloak(TypeRol.ADMIN)
 @Controller('admin/status')
 export class StatusController {
     /**
