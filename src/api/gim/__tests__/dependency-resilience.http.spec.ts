@@ -17,8 +17,12 @@ describe('GIM read policy against a simulated HTTP dependency', () => {
     beforeEach(async () => {
         calls = 0;
         mode = 'unavailable';
-        server = createServer((_request, response) => {
+        server = createServer((request, response) => {
             calls += 1;
+            if (request.method !== 'POST') {
+                response.writeHead(405).end('method not allowed');
+                return;
+            }
             if (mode === 'unavailable') {
                 response.writeHead(503).end('unavailable');
             } else if (mode === 'slow') {
@@ -27,15 +31,21 @@ describe('GIM read policy against a simulated HTTP dependency', () => {
                 response.writeHead(200).end('recovered');
             }
         });
-        await new Promise<void>((resolve) =>
-            server.listen(0, '127.0.0.1', resolve),
-        );
-        url = `http://127.0.0.1:${(server.address() as AddressInfo).port}/gim`;
+        await new Promise<void>((resolve, reject) => {
+            server.once('error', reject);
+            server.listen(0, '127.0.0.1', () => {
+                server.off('error', reject);
+                resolve();
+            });
+        });
+        url = `http://127.0.0.1:${(server.address() as AddressInfo).port}/api/external/simert/paid-obligations`;
     });
 
     afterEach(async () => {
-        server.closeAllConnections();
-        await new Promise<void>((resolve) => server.close(() => resolve()));
+        if (server.listening) {
+            server.closeAllConnections();
+            await new Promise<void>((resolve) => server.close(() => resolve()));
+        }
     });
 
     const transient = (error: unknown) =>
@@ -47,7 +57,7 @@ describe('GIM read policy against a simulated HTTP dependency', () => {
         const read = () =>
             breaker.execute(() =>
                 retryIdempotent(
-                    () => axios.get(url, { timeout: 50, proxy: false }),
+                    () => axios.post(url, { page: 0 }, { timeout: 50, proxy: false }),
                     1,
                     1,
                     transient,
@@ -73,7 +83,7 @@ describe('GIM read policy against a simulated HTTP dependency', () => {
         mode = 'slow';
         const read = () =>
             retryIdempotent(
-                () => axios.get(url, { timeout: 30, proxy: false }),
+                () => axios.post(url, { page: 0 }, { timeout: 30, proxy: false }),
                 1,
                 1,
                 transient,

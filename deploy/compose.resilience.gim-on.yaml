@@ -1,0 +1,7 @@
+# Apply after compose.resilience.yaml only when deploying a simert-0 image
+# containing the read-only paid-obligations resilience policy.
+# Omit this overlay to disable the policy without reverting the image.
+services:
+  simert-0:
+    environment:
+      GIM_READ_RESILIENCE_ENABLED: "true"

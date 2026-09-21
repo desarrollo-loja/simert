@@ -1,13 +1,11 @@
 import { ErrorCode } from 'src/common/glob/error';
 import { StatusObligation } from 'src/common/glob/responses-gim';
 import { IncidentStatus } from 'src/common/glob/type/type_incident';
-import { CircuitOpenError } from '../dependency-resilience';
 
 jest.mock('axios', () => ({
   __esModule: true,
   default: {
     post: jest.fn(),
-    get: jest.fn(),
     isAxiosError: jest.fn(() => false),
   },
 }));
@@ -53,7 +51,6 @@ describe('GimService', () => {
 
   beforeEach(() => {
     (axios.post as jest.Mock).mockReset();
-    (axios.get as jest.Mock).mockReset();
     incidentService = buildIncidentService();
     incidentTypeService = buildIncidentTypeService();
     commonGim = buildCommonGimMock();
@@ -77,12 +74,14 @@ describe('GimService', () => {
     afterEach(() => {
       delete process.env.GIM_READ_RESILIENCE_ENABLED;
       delete process.env.GIM_READ_RETRY_DELAY_MS;
+      delete process.env.GIM_READ_CIRCUIT_RESET_MS;
       (axios.isAxiosError as unknown as jest.Mock).mockReturnValue(false);
     });
 
-    it('bounds GET retries, sets a timeout, opens the circuit, and never retries POST', async () => {
+    it('protects the paid-obligations query while never retrying a write', async () => {
       process.env.GIM_READ_RESILIENCE_ENABLED = 'true';
       process.env.GIM_READ_RETRY_DELAY_MS = '1';
+      process.env.GIM_READ_CIRCUIT_RESET_MS = '30';
       service = new GimService(
         commonAuth as any,
         buildConfigMock() as any,
@@ -97,24 +96,71 @@ describe('GimService', () => {
       const unavailable = Object.assign(new Error('GIM unavailable'), {
         response: { status: 503 },
       });
-      (axios.get as jest.Mock).mockRejectedValue(unavailable);
+      (axios.post as jest.Mock).mockRejectedValue(unavailable);
+
+      const query = {
+        startDate: '2026-07-01',
+        endDate: '2026-07-15',
+        concept: ConceptPaidObligation.FINE,
+        page: 0,
+        size: 50,
+      };
 
       for (let request = 0; request < 3; request += 1) {
-        await expect(
-          (service as any)._getFromExternalApi('lookup', {}),
-        ).rejects.toThrow('GIM unavailable');
+        await expect(service.findPaidObligations(query)).resolves.toMatchObject({
+          errorCode: ErrorCode.HTTP_ERROR_REINTENT,
+        });
       }
-      await expect(
-        (service as any)._getFromExternalApi('lookup', {}),
-      ).rejects.toBeInstanceOf(CircuitOpenError);
-      expect(axios.get).toHaveBeenCalledTimes(6);
-      expect((axios.get as jest.Mock).mock.calls[0][1].timeout).toBe(20000);
+      expect((service as any).readBreaker.state).toBe('open');
+      await expect(service.findPaidObligations(query)).resolves.toMatchObject({
+        errorCode: ErrorCode.HTTP_ERROR_REINTENT,
+      });
+      expect(axios.post).toHaveBeenCalledTimes(6);
+      expect((axios.post as jest.Mock).mock.calls[0][2].timeout).toBe(20000);
 
-      (axios.post as jest.Mock).mockRejectedValue(unavailable);
       await expect(
         (service as any)._postToExternalApi('write', { value: 1 }),
       ).rejects.toThrow('GIM unavailable');
+      expect(axios.post).toHaveBeenCalledTimes(7);
+      expect((axios.post as jest.Mock).mock.calls[6][2].timeout).toBeUndefined();
+
+      (axios.post as jest.Mock).mockResolvedValue({
+        data: { ok: true, code: '200', obligations: [] },
+      });
+      await new Promise((resolve) => setTimeout(resolve, 40));
+      await expect(service.findPaidObligations(query)).resolves.toMatchObject({
+        errorCode: ErrorCode.NONE,
+      });
+      expect(axios.post).toHaveBeenCalledTimes(8);
+      expect((service as any).readBreaker.state).toBe('closed');
+    });
+
+    it('does not retry a GIM business rejection', async () => {
+      process.env.GIM_READ_RESILIENCE_ENABLED = 'true';
+      service = new GimService(
+        commonAuth as any,
+        buildConfigMock() as any,
+        incidentService as any,
+        incidentTypeService as any,
+        commonGim as any,
+        dinardap as any,
+        loggerService as any,
+      );
+      (service as any).logger = { error: jest.fn(), warn: jest.fn() };
+      (axios.isAxiosError as unknown as jest.Mock).mockReturnValue(true);
+      (axios.post as jest.Mock).mockRejectedValue(
+        Object.assign(new Error('bad request'), { response: { status: 400 } }),
+      );
+
+      await service.findPaidObligations({
+        startDate: '2026-07-01',
+        endDate: '2026-07-15',
+        concept: ConceptPaidObligation.FINE,
+        page: 0,
+        size: 50,
+      });
       expect(axios.post).toHaveBeenCalledTimes(1);
+      expect((service as any).readBreaker.state).toBe('closed');
     });
   });
 

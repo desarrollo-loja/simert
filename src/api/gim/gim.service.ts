@@ -98,8 +98,8 @@ export class GimService {
     // the same time, so a burst of expired-token calls triggers one login
     // instead of one per request.
     private tokenRefresh: Promise<string | null> | null = null;
-    // Opt-in until the bounded policy has been exercised against a GIM stub.
-    // This protects only read-only GETs; financial POSTs must never be replayed.
+    // Opt-in until the bounded policy is exercised against the deployed route.
+    // Only explicitly marked read-only queries are retried; financial writes are not.
     private readonly readResilienceEnabled =
         process.env.GIM_READ_RESILIENCE_ENABLED?.toLowerCase() === 'true';
 
@@ -332,6 +332,8 @@ export class GimService {
      * @param method Operation recorded in the audit log; defaults to `endpointPath`.
      * @param baseUrl Host serving the resource; defaults to `GIM_BASE_URL`. Kept
      * last so the existing callers that pass only `method` keep working.
+     * @param readOnly True only for an audited, side-effect-free query. GIM
+     *   exposes some reads as POST with a filter body; writes must not opt in.
      * @returns The parsed response body returned by GIM.
      */
     private async _postToExternalApi<T>(
@@ -339,64 +341,34 @@ export class GimService {
         body: unknown,
         method: string = endpointPath,
         baseUrl: string = this.gimBaseUrl,
-    ): Promise<T> {
-        const url = this._externalApiUrl(endpointPath, baseUrl);
-        try {
-            const { data } = await this._retryOn401(method, () =>
-                axios.post<T>(url, body, {
-                    headers: this._authJsonHeaders(),
-                }),
-            );
-            return data;
-        } catch (error: any) {
-            this._logGimError(method, url, error);
-            throw error;
-        }
-    }
-
-    /**
-     * Performs an authenticated GET against a GIM "external" API endpoint, the
-     * read-only counterpart of {@link _postToExternalApi}: same base-URL
-     * composition and Bearer-token header, with the filter sent as query params.
-     *
-     * @typeParam T Expected response payload shape.
-     * @param endpointPath Path under `/api/external/` (e.g. `simert/paid-obligations`).
-     * @param params Query parameters appended to the URL.
-     * @param baseUrl Host serving the resource; defaults to `GIM_BASE_URL`.
-     * @param method Operation recorded in the audit log; defaults to `endpointPath`.
-     * @returns The parsed response body returned by GIM.
-     */
-    private async _getFromExternalApi<T>(
-        endpointPath: string,
-        params: Record<string, unknown>,
-        baseUrl: string = this.gimBaseUrl,
-        method: string = endpointPath,
+        readOnly: boolean = false,
     ): Promise<T> {
         const url = this._externalApiUrl(endpointPath, baseUrl);
         try {
             const request = () =>
                 this._retryOn401(method, () =>
-                    axios.get<T>(url, {
+                    axios.post<T>(url, body, {
                         headers: this._authJsonHeaders(),
-                        params,
-                        ...(this.readResilienceEnabled && {
+                        ...(readOnly && this.readResilienceEnabled && {
                             timeout: this.readTimeoutMs,
                         }),
                     }),
                 );
-            const { data } = this.readResilienceEnabled
-                ? await this.readBreaker.execute(() =>
-                      retryIdempotent(
-                          request,
-                          this.readMaxRetries,
-                          this.readRetryDelayMs,
-                          (error) => this._isTransientGimFailure(error),
-                      ),
-                  )
-                : await request();
+            const { data } =
+                readOnly && this.readResilienceEnabled
+                    ? await this.readBreaker.execute(() =>
+                          retryIdempotent(
+                              request,
+                              this.readMaxRetries,
+                              this.readRetryDelayMs,
+                              (error) => this._isTransientGimFailure(error),
+                          ),
+                      )
+                    : await request();
             return data;
         } catch (error: any) {
             if (
+                readOnly &&
                 this.readResilienceEnabled &&
                 this.readBreaker.state === 'open' &&
                 Date.now() - this.lastOpenWarningAt >= 30000
@@ -1659,6 +1631,7 @@ export class GimService {
                     },
                     'findPaidObligations',
                     this.gimBaseUrlPaidObligations,
+                    true,
                 );
 
             // The resource may answer with the GIM envelope (`ok`/`code`) or with a

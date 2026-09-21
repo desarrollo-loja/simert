@@ -9,11 +9,13 @@ evidencia de una prueba controlada y de una ejecución real sin regresiones.
 | --- | --- | --- |
 | Gateway, por último IP de `X-Forwarded-For` | 30 solicitudes/s, ráfaga de 60 | Observación (`SIMERT_RATE_LIMIT_DRY_RUN=on`) |
 | Rechazo del gateway al superar el límite | HTTP 429 | Solo con modo bloqueo |
-| Lecturas GET de GIM | Timeout 20 s; máximo 1 reintento tras 200 ms ante fallo de transporte/5xx | Desactivada (`GIM_READ_RESILIENCE_ENABLED=false`) |
-| Circuit breaker de lecturas GET de GIM | Abre tras 3 solicitudes fallidas; una prueba de recuperación después de 30 s | Desactivado; estado por proceso |
+| Consulta de títulos pagados en GIM (POST de solo lectura) | Timeout 20 s; máximo 1 reintento tras 200 ms ante fallo de transporte/5xx | Desactivada (`GIM_READ_RESILIENCE_ENABLED=false`) |
+| Circuit breaker de esa consulta GIM | Abre tras 3 solicitudes fallidas; una prueba de recuperación después de 30 s | Desactivado; estado por proceso |
 
-Los POST a GIM, incluidos los que registran transacciones, no tienen reintento
-automático. El reintento existente ante 401 tras renovar un token continúa
+Los POST de escritura a GIM, incluidos los que registran transacciones, no
+tienen reintento automático. La única excepción es
+`simert/paid-obligations`: GIM la expone como POST, pero solo consulta títulos
+ya pagados. El reintento existente ante 401 tras renovar un token continúa
 siendo independiente. Estos valores son punto de partida, no una cuota diaria.
 
 ## Precondiciones antes del modo bloqueo
@@ -39,7 +41,7 @@ comprueba 429, CORS y separación por cliente, y detiene el contenedor al salir.
 No usa credenciales ni genera carga sostenida. Requiere que los contenedores
 WAF y auth existentes estén disponibles en la red de Compose.
 
-La política de lecturas GIM se comprueba además con un servidor HTTP simulado
+La política de consultas GIM se comprueba además con un servidor HTTP simulado
 local mediante `npm test -- --runInBand
 src/api/gim/__tests__/dependency-resilience.http.spec.ts`. Esta prueba cubre
 respuesta 503, timeout, número de intentos, apertura y recuperación del
@@ -70,16 +72,56 @@ docker compose -f compose.yaml -f compose.waf.yaml up -d --no-deps --force-recre
 ```
 
 Antes de pasar a bloqueo se necesita revisar registros de excesos en tráfico
-normal y confirmar que la cuota propuesta no perjudica usuarios compartiendo
-IP (por ejemplo, una red municipal). `30r/s` con ráfaga `60` es un presupuesto
-por IP, no una cuota diaria. El cambio a bloqueo se realiza recreando solo el
-gateway con `SIMERT_RATE_LIMIT_DRY_RUN=off`; hacerlo en una ventana vigilada y
-mantener el comando de reversión anterior a mano.
+normal y confirmar que el presupuesto propuesto no perjudica usuarios
+compartiendo IP (por ejemplo, una red municipal). `30r/s` con ráfaga `60` es
+un presupuesto por IP, no una cuota diaria. Obtener un conteo sin imprimir
+direcciones ni rutas de usuarios:
 
-La protección de GIM se configura en la misma capa, pero queda apagada hasta
-activar explícitamente `GIM_READ_RESILIENCE_ENABLED=true` y desplegar la imagen
-del servicio `simert-0` que contiene el código nuevo. No recrear ese servicio
-solo por activar la observación del gateway.
+```bash
+docker logs --since 30m simert-gateway-1 2>&1 | grep -c 'limiting requests, dry run' || true
+```
+
+Si el conteo es inesperado, revisar el umbral antes de bloquear. El modo
+bloqueo es un overlay adicional y reversible. Desde `deploy/`, en una ventana
+vigilada:
+
+```bash
+docker compose -f compose.yaml -f compose.waf.yaml -f compose.resilience.yaml -f compose.resilience.gateway-blocking.yaml config --quiet
+docker compose -f compose.yaml -f compose.waf.yaml -f compose.resilience.yaml -f compose.resilience.gateway-blocking.yaml up -d --no-deps --force-recreate gateway
+docker exec simert-gateway-1 nginx -T 2>&1 | grep -E 'limit_req(_dry_run|_zone|_status)? '
+```
+
+La línea efectiva debe ser `limit_req_dry_run off;`. Repetir login, consultas,
+pagos y la prueba de 429. Si hay una regresión, volver inmediatamente a
+observación sin desactivar el WAF:
+
+```bash
+SIMERT_RATE_LIMIT_DRY_RUN=on docker compose -f compose.yaml -f compose.waf.yaml -f compose.resilience.yaml up -d --no-deps --force-recreate gateway
+```
+
+La protección de la consulta de títulos pagados de GIM se activa por separado.
+El código de `simert-0` debe reconstruirse después de actualizar el repositorio;
+no basta recrear el contenedor antiguo. Desplegar en una ventana vigilada y
+mantener disponibles los flujos de recaudación para la prueba funcional:
+
+```bash
+docker compose -f compose.yaml -f compose.waf.yaml -f compose.resilience.yaml -f compose.resilience.gim-on.yaml config --quiet
+docker compose -f compose.yaml -f compose.waf.yaml -f compose.resilience.yaml -f compose.resilience.gim-on.yaml up -d --no-deps --build simert-0
+docker compose -f compose.yaml -f compose.waf.yaml -f compose.resilience.yaml -f compose.resilience.gim-on.yaml exec -T simert-0 printenv GIM_READ_RESILIENCE_ENABLED
+```
+
+La variable debe indicar `true`. La prueba de caída/latencia usa GIM simulado;
+no se debe detener GIM real. Si aparece una regresión, conservar la nueva
+imagen pero desactivar la política y recrear solo `simert-0`:
+
+```bash
+GIM_READ_RESILIENCE_ENABLED=false docker compose -f compose.yaml -f compose.waf.yaml -f compose.resilience.yaml up -d --no-deps --force-recreate simert-0
+```
+
+Mientras estas capas estén activas, incluir los overlays correspondientes en
+los futuros comandos `docker compose` que recrean `gateway` o `simert-0`; si
+se omiten, Compose tomará el valor definido en `deploy/.env` o el valor
+predeterminado (observación/off). Verificar ese valor antes de recrear.
 
 ## Evidencia requerida para cerrar el escenario
 

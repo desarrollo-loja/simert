@@ -1,0 +1,6 @@
+# Apply after compose.resilience.yaml only after dry-run observation and
+# isolated 429/CORS tests. Omit this overlay to roll back to dry-run.
+services:
+  gateway:
+    environment:
+      SIMERT_RATE_LIMIT_DRY_RUN: "off"

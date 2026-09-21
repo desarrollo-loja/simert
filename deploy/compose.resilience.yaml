@@ -10,8 +10,8 @@ services:
       SIMERT_RATE_LIMIT_DRY_RUN: ${SIMERT_RATE_LIMIT_DRY_RUN:-on}
       SIMERT_RATE_LIMIT_ALLOWED_ORIGIN: ${SIMERT_RATE_LIMIT_ALLOWED_ORIGIN:-http://181.113.129.20}
 
-  # GET-only GIM protection. Remains off unless explicitly enabled for the
-  # simert-0 process; financial POST requests are never automatically retried.
+  # Only the paid-obligations read query (a POST in GIM's API) opts in.
+  # Financial write requests are never automatically retried.
   simert-0:
     environment:
       GIM_READ_RESILIENCE_ENABLED: ${GIM_READ_RESILIENCE_ENABLED:-false}
