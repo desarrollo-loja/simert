@@ -1,0 +1,74 @@
+# Capa WAF optativa. Se activa SOLO con:
+# docker compose -f compose.yaml -f compose.waf.yaml ...
+# El gateway conserva sus puertos y URLs; los contenedores WAF no publican puertos.
+# La imagen se fija a una version concreta para evitar cambios inesperados.
+
+x-waf-service: &waf-service
+  image: owasp/modsecurity-crs:4.25.1-nginx-202609180209
+  restart: unless-stopped
+  networks: [simert]
+  volumes:
+    - ./nginx/waf-buffers.conf:/etc/nginx/conf.d/90-simert-buffers.conf:ro
+  environment: &waf-env
+    TZ: ${TZ:-America/Guayaquil}
+    PORT: "8080"
+    MODSEC_RULE_ENGINE: ${WAF_RULE_ENGINE:-DetectionOnly}
+    BLOCKING_PARANOIA: "1"
+    DETECTION_PARANOIA: "1"
+    ANOMALY_INBOUND: "5"
+    ALLOWED_METHODS: "GET HEAD POST PUT PATCH DELETE OPTIONS"
+    MODSEC_REQ_BODY_LIMIT: "52428800"
+    MODSEC_REQ_BODY_NOFILES_LIMIT: "52428800"
+    MODSEC_REQ_BODY_LIMIT_ACTION: ProcessPartial
+    MODSEC_RESP_BODY_ACCESS: "Off"
+    MODSEC_AUDIT_ENGINE: RelevantOnly
+    # No incluir cuerpos ni cabeceras HTTP (contraseñas y JWT) en el audit log.
+    MODSEC_AUDIT_LOG_PARTS: AHZ
+    # La imagen usa * por defecto en sus 403. No abrir CORS al añadir el WAF.
+    CORS_HEADER_403_ALLOW_ORIGIN: ${WAF_CORS_ALLOWED_ORIGIN:-http://181.113.129.20}
+    CORS_HEADER_403_ALLOW_METHODS: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+    CORS_HEADER_ACCESS_CONTROL_ALLOW_HEADERS: "Content-Type, Authorization, platform, brand, versionapp"
+    # No reemplazar el X-Real-IP que ya fijo el gateway del stack.
+    REAL_IP_PROXY_HEADER: X-WAF-Peer-IP
+  logging:
+    driver: json-file
+    options:
+      max-size: "20m"
+      max-file: "5"
+
+services:
+  waf-auth:
+    <<: *waf-service
+    environment:
+      <<: *waf-env
+      BACKEND: http://auth-0:${AUTH_PORT}
+
+  waf-pay:
+    <<: *waf-service
+    environment:
+      <<: *waf-env
+      BACKEND: http://pay-0:${PAY_PORT}
+
+  waf-simert:
+    <<: *waf-service
+    environment:
+      <<: *waf-env
+      BACKEND: http://simert-0:${SIMERT_PORT}
+
+  waf-socket:
+    <<: *waf-service
+    environment:
+      <<: *waf-env
+      BACKEND: http://socket-0:${SOCKET_PORT}
+
+  gateway:
+    depends_on: [waf-auth, waf-pay, waf-simert, waf-socket]
+    environment:
+      AUTH_UPSTREAM_HOST: waf-auth
+      AUTH_UPSTREAM_PORT: "8080"
+      PAY_UPSTREAM_HOST: waf-pay
+      PAY_UPSTREAM_PORT: "8080"
+      SIMERT_UPSTREAM_HOST: waf-simert
+      SIMERT_UPSTREAM_PORT: "8080"
+      SOCKET_UPSTREAM_HOST: waf-socket
+      SOCKET_UPSTREAM_PORT: "8080"

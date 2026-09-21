@@ -193,6 +193,14 @@ services:
       PAY_PORT: ${PAY_PORT}
       SIMERT_PORT: ${SIMERT_PORT}
       SOCKET_PORT: ${SOCKET_PORT}
+      AUTH_UPSTREAM_HOST: auth-0
+      AUTH_UPSTREAM_PORT: ${AUTH_PORT}
+      PAY_UPSTREAM_HOST: pay-0
+      PAY_UPSTREAM_PORT: ${PAY_PORT}
+      SIMERT_UPSTREAM_HOST: simert-0
+      SIMERT_UPSTREAM_PORT: ${SIMERT_PORT}
+      SOCKET_UPSTREAM_HOST: socket-0
+      SOCKET_UPSTREAM_PORT: ${SOCKET_PORT}
     logging:
       driver: json-file
       options:

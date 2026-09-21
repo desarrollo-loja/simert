@@ -73,6 +73,98 @@ Los servicios quedan escuchando en **los mismos puertos que hoy**
 (127.0.0.1:3000-3003), asi que **el nginx del host no necesita ningun cambio**.
 El front queda en 127.0.0.1:8080.
 
+## Prueba perimetral sin HTTPS (CORS y WAF)
+
+`compose.waf.yaml` agrega OWASP ModSecurity + CRS delante de cada API, sin
+cambiar los puertos publicos ni las rutas. Es optativo: `compose.yaml` solo
+sigue conectando el gateway directamente a los cuatro servicios. La imagen WAF
+esta fijada a una version concreta y sus contenedores no publican puertos.
+**No habilita TLS/HTTPS**; esa parte de la prueba sigue pendiente.
+
+La IP `181.113.129.20` configurada como origen CORS identifica a la web, **no**
+es una allow list de IP de clientes. No se restringe por IP el login ni las APIs
+publicas: se bloquearia a usuarios moviles y administradores en otras redes.
+No se ha identificado una ruta exclusivamente interna ni IPs de clientes fijas;
+por tanto, la allow list *por ruta* queda pendiente de definicion, no se
+simula con una ruta ficticia. Para una ruta interna real, Nginx puede aplicar
+`allow <IP/CIDR>; deny all;` en su `location` despues de comprobar la IP
+original que llega a esa capa.
+
+### Activacion controlada
+
+Desde `/opt/simert/simert/deploy`, despues de actualizar el repositorio:
+Antes de arrancar los cuatro contenedores adicionales, comprobar que el
+servidor dispone de memoria libre (`free -h` y `docker stats --no-stream`).
+
+```bash
+# 1. Comprobar la combinacion sin tocar el stack activo.
+docker compose -f compose.yaml -f compose.waf.yaml config --quiet
+
+# 2. Preparar las cuatro capas WAF en solo deteccion. No reciben trafico aun.
+docker compose -f compose.yaml -f compose.waf.yaml up -d --no-deps \
+  waf-auth waf-pay waf-simert waf-socket
+docker compose -f compose.yaml -f compose.waf.yaml ps \
+  waf-auth waf-pay waf-simert waf-socket
+
+# 3. Validar la nueva configuracion del gateway antes de cambiarlo.
+docker compose -f compose.yaml -f compose.waf.yaml run --rm --no-deps \
+  gateway nginx -t
+
+# 4. Solo si nginx -t y los cuatro WAF estan sanos: conectar el gateway.
+docker compose -f compose.yaml -f compose.waf.yaml up -d --no-deps \
+  --force-recreate gateway
+
+# 5. Verificar CORS y que las rutas normales aun responden.
+./bin/verify-perimeter.sh
+./bin/verify-perimeter.sh http://127.0.0.1:3001/api/pay/
+./bin/verify-perimeter.sh http://127.0.0.1:3002/api/simert/
+./bin/verify-perimeter.sh http://127.0.0.1:3003/api/socket/
+```
+
+En esta fase `WAF_RULE_ENGINE=DetectionOnly` (valor por defecto): se registran
+las coincidencias, pero **aun no cumple el criterio de bloqueo**. Probar
+login, administracion, pagos, subida de archivos y WebSocket con cuentas de
+prueba. Revisar solo identificadores de reglas y codigos HTTP en los logs;
+los logs WAF pueden contener datos sensibles, no compartirlos sin depurar.
+El limite de cuerpo del WAF coincide con los 50 MiB del gateway y los metodos
+incluyen los que hoy acepta CORS (incluido PATCH y OPTIONS).
+
+Tras revisar falsos positivos, activar bloqueo sin cambiar codigo:
+
+```bash
+# Anadir WAF_RULE_ENGINE=On al .env NO versionado de deploy.
+docker compose -f compose.yaml -f compose.waf.yaml up -d --no-deps \
+  --force-recreate waf-auth waf-pay waf-simert waf-socket
+# El gateway resuelve los upstreams al arrancar: refrescarlo si los WAF
+# fueron recreados y cambiaron de IP interna.
+docker compose -f compose.yaml -f compose.waf.yaml up -d --no-deps \
+  --force-recreate gateway
+./bin/verify-perimeter.sh http://127.0.0.1:3000/api/auth/ \
+  http://181.113.129.20 blocking
+./bin/verify-perimeter.sh http://127.0.0.1:3001/api/pay/ \
+  http://181.113.129.20 blocking
+./bin/verify-perimeter.sh http://127.0.0.1:3002/api/simert/ \
+  http://181.113.129.20 blocking
+./bin/verify-perimeter.sh http://127.0.0.1:3003/api/socket/ \
+  http://181.113.129.20 blocking
+```
+
+La ultima prueba envia a `auth` una consulta GET inofensiva con un patron
+controlado documentado por OWASP CRS; debe recibir `403` del WAF. El login y
+los otros flujos legitimos deben seguir funcionando. Si aparece un falso
+positivo, volver a `DetectionOnly` y revisar la regla antes de aplicar una
+exclusion limitada a esa ruta/parametro; no desactivar CRS completo.
+
+Para volver de inmediato al enrutamiento anterior, sin parar los backends:
+
+```bash
+docker compose -f compose.yaml up -d --no-deps --force-recreate gateway
+```
+
+El proxy del host no se modifica. El resultado de CORS/WAF solo puede
+registrarse como conforme **despues** de ejecutar las pruebas en el servidor;
+HTTPS/TLS seguira sin cumplir hasta que se implemente por separado.
+
 ### Por servicio
 
 ```bash
