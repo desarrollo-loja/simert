@@ -1,0 +1,13 @@
+# Included in nginx's http context by the official image's template entrypoint.
+# The host proxy must APPEND the real peer to X-Forwarded-For. Using the final
+# entry discards client-supplied spoofed entries at the start of the chain.
+map $http_x_forwarded_for $simert_rate_key {
+    default $binary_remote_addr;
+    ~(?:^|,)\s*(?<simert_last_proxy_ip>[^,\s]+)\s*$ $simert_last_proxy_ip;
+}
+
+limit_req_zone $simert_rate_key zone=simert_per_client:10m rate=${SIMERT_RATE_LIMIT_RATE};
+limit_req zone=simert_per_client burst=${SIMERT_RATE_LIMIT_BURST} nodelay;
+limit_req_status 429;
+limit_req_dry_run ${SIMERT_RATE_LIMIT_DRY_RUN};
+limit_req_log_level notice;

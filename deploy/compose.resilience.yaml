@@ -1,0 +1,10 @@
+# Optional gateway request budget. Starts in observation mode and must not be
+# enabled for blocking until the host proxy's X-Forwarded-For policy is checked.
+services:
+  gateway:
+    volumes:
+      - ./nginx/rate-limit.conf.template:/etc/nginx/templates/99-rate-limit.conf.template:ro
+    environment:
+      SIMERT_RATE_LIMIT_RATE: ${SIMERT_RATE_LIMIT_RATE:-30r/s}
+      SIMERT_RATE_LIMIT_BURST: ${SIMERT_RATE_LIMIT_BURST:-60}
+      SIMERT_RATE_LIMIT_DRY_RUN: ${SIMERT_RATE_LIMIT_DRY_RUN:-on}

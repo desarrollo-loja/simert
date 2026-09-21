@@ -1,6 +1,7 @@
 import { ErrorCode } from 'src/common/glob/error';
 import { StatusObligation } from 'src/common/glob/responses-gim';
 import { IncidentStatus } from 'src/common/glob/type/type_incident';
+import { CircuitOpenError } from '../dependency-resilience';
 
 jest.mock('axios', () => ({
   __esModule: true,
@@ -70,6 +71,51 @@ describe('GimService', () => {
       loggerService as any,
     );
     (service as any).logger = { error: jest.fn(), warn: jest.fn(), log: jest.fn(), debug: jest.fn() };
+  });
+
+  describe('opt-in GIM read resilience', () => {
+    afterEach(() => {
+      delete process.env.GIM_READ_RESILIENCE_ENABLED;
+      delete process.env.GIM_READ_RETRY_DELAY_MS;
+      (axios.isAxiosError as unknown as jest.Mock).mockReturnValue(false);
+    });
+
+    it('bounds GET retries, sets a timeout, opens the circuit, and never retries POST', async () => {
+      process.env.GIM_READ_RESILIENCE_ENABLED = 'true';
+      process.env.GIM_READ_RETRY_DELAY_MS = '1';
+      service = new GimService(
+        commonAuth as any,
+        buildConfigMock() as any,
+        incidentService as any,
+        incidentTypeService as any,
+        commonGim as any,
+        dinardap as any,
+        loggerService as any,
+      );
+      (service as any).logger = { error: jest.fn(), warn: jest.fn() };
+      (axios.isAxiosError as unknown as jest.Mock).mockReturnValue(true);
+      const unavailable = Object.assign(new Error('GIM unavailable'), {
+        response: { status: 503 },
+      });
+      (axios.get as jest.Mock).mockRejectedValue(unavailable);
+
+      for (let request = 0; request < 3; request += 1) {
+        await expect(
+          (service as any)._getFromExternalApi('lookup', {}),
+        ).rejects.toThrow('GIM unavailable');
+      }
+      await expect(
+        (service as any)._getFromExternalApi('lookup', {}),
+      ).rejects.toBeInstanceOf(CircuitOpenError);
+      expect(axios.get).toHaveBeenCalledTimes(6);
+      expect((axios.get as jest.Mock).mock.calls[0][1].timeout).toBe(20000);
+
+      (axios.post as jest.Mock).mockRejectedValue(unavailable);
+      await expect(
+        (service as any)._postToExternalApi('write', { value: 1 }),
+      ).rejects.toThrow('GIM unavailable');
+      expect(axios.post).toHaveBeenCalledTimes(1);
+    });
   });
 
   // ─── getToken ────────────────────────────────────────────────────────────

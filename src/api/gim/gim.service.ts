@@ -31,6 +31,11 @@ import { KeycloakTokenResponse } from 'src/common/intefaces/gim-responses.interf
 import { LoggerService } from 'src/common/logger.service.ts';
 
 import { DinardapAntService } from '../dinardap-ant/dinardap-ant.service';
+import {
+    CircuitBreaker,
+    CircuitOpenError,
+    retryIdempotent,
+} from './dependency-resilience';
 // import { CreateClientDto } from './dto/create-client.dto';
 import { CreateGimDto } from './dto/create-gim.dto';
 import FindBondNumberDto from './dto/find-bond-number';
@@ -54,6 +59,16 @@ import {
 
 /** Page size used when the `paid-obligations` caller does not send one. */
 const DEFAULT_SIZE_PAID_OBLIGATIONS = 50;
+
+function positiveIntEnv(name: string, fallback: number): number {
+    const value = Number(process.env[name]);
+    return Number.isSafeInteger(value) && value > 0 ? value : fallback;
+}
+
+function nonNegativeIntEnv(name: string, fallback: number): number {
+    const value = Number(process.env[name]);
+    return Number.isSafeInteger(value) && value >= 0 ? value : fallback;
+}
 
 /**
  * Service that integrates Simert with the GIM municipal platform: issues
@@ -83,6 +98,38 @@ export class GimService {
     // the same time, so a burst of expired-token calls triggers one login
     // instead of one per request.
     private tokenRefresh: Promise<string | null> | null = null;
+    // Opt-in until the bounded policy has been exercised against a GIM stub.
+    // This protects only read-only GETs; financial POSTs must never be replayed.
+    private readonly readResilienceEnabled =
+        process.env.GIM_READ_RESILIENCE_ENABLED?.toLowerCase() === 'true';
+
+    private readonly readTimeoutMs = positiveIntEnv(
+        'GIM_READ_TIMEOUT_MS',
+        20000,
+    );
+
+    private readonly readMaxRetries = Math.min(
+        nonNegativeIntEnv('GIM_READ_MAX_RETRIES', 1),
+        2,
+    );
+
+    private readonly readRetryDelayMs = positiveIntEnv(
+        'GIM_READ_RETRY_DELAY_MS',
+        200,
+    );
+
+    private readonly readBreaker = new CircuitBreaker(
+        positiveIntEnv('GIM_READ_CIRCUIT_FAILURES', 3),
+        positiveIntEnv('GIM_READ_CIRCUIT_RESET_MS', 30000),
+        (error) => this._isTransientGimFailure(error),
+    );
+
+    private lastOpenWarningAt = 0;
+
+    private _isTransientGimFailure(error: unknown): boolean {
+        if (!axios.isAxiosError(error)) return false;
+        return !error.response || error.response.status >= 500;
+    }
 
     /**
      * Creates the GIM service and resolves GIM base URLs and realm from config.
@@ -327,14 +374,38 @@ export class GimService {
     ): Promise<T> {
         const url = this._externalApiUrl(endpointPath, baseUrl);
         try {
-            const { data } = await this._retryOn401(method, () =>
-                axios.get<T>(url, {
-                    headers: this._authJsonHeaders(),
-                    params,
-                }),
-            );
+            const request = () =>
+                this._retryOn401(method, () =>
+                    axios.get<T>(url, {
+                        headers: this._authJsonHeaders(),
+                        params,
+                        ...(this.readResilienceEnabled && {
+                            timeout: this.readTimeoutMs,
+                        }),
+                    }),
+                );
+            const { data } = this.readResilienceEnabled
+                ? await this.readBreaker.execute(() =>
+                      retryIdempotent(
+                          request,
+                          this.readMaxRetries,
+                          this.readRetryDelayMs,
+                          (error) => this._isTransientGimFailure(error),
+                      ),
+                  )
+                : await request();
             return data;
         } catch (error: any) {
+            if (
+                this.readResilienceEnabled &&
+                this.readBreaker.state === 'open' &&
+                Date.now() - this.lastOpenWarningAt >= 30000
+            ) {
+                this.logger.warn(
+                    'GIM read circuit open after repeated failures',
+                );
+                this.lastOpenWarningAt = Date.now();
+            }
             this._logGimError(method, url, error);
             throw error;
         }
@@ -356,7 +427,9 @@ export class GimService {
         error: any,
     ): { errorCode: number; data: null; message: string } | null {
         const status = error?.response?.status;
-        const isTransportError = axios.isAxiosError(error) && !error.response;
+        const isTransportError =
+            error instanceof CircuitOpenError ||
+            (axios.isAxiosError(error) && !error.response);
         const isTimeout =
             error?.code === 'ECONNABORTED' || error?.code === 'ETIMEDOUT';
         const isServerError = typeof status === 'number' && status >= 500;
