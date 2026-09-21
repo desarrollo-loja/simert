@@ -81,6 +81,11 @@ server {
     location / {
         proxy_pass http://pay_backend;
         proxy_http_version 1.1;
+        # pay-0 can return a renewed X-Token and WAF response headers. Keep
+        # the same header budget already proven for auth-0.
+        proxy_buffer_size 64k;
+        proxy_buffers 4 64k;
+        proxy_busy_buffers_size 128k;
         proxy_set_header Connection        "";
         proxy_set_header Host              $host;
         proxy_set_header X-Real-IP         $remote_addr;
@@ -101,6 +106,10 @@ server {
     location / {
         proxy_pass http://simert_backend;
         proxy_http_version 1.1;
+        # Protected GIM routes can also return large auth/WAF headers.
+        proxy_buffer_size 64k;
+        proxy_buffers 4 64k;
+        proxy_busy_buffers_size 128k;
         proxy_set_header Connection        "";
         proxy_set_header Host              $host;
         proxy_set_header X-Real-IP         $remote_addr;
