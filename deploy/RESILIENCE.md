@@ -39,6 +39,12 @@ comprueba 429, CORS y separación por cliente, y detiene el contenedor al salir.
 No usa credenciales ni genera carga sostenida. Requiere que los contenedores
 WAF y auth existentes estén disponibles en la red de Compose.
 
+La política de lecturas GIM se comprueba además con un servidor HTTP simulado
+local mediante `npm test -- --runInBand
+src/api/gim/__tests__/dependency-resilience.http.spec.ts`. Esta prueba cubre
+respuesta 503, timeout, número de intentos, apertura y recuperación del
+circuito. No sustituye una prueba funcional del servicio desplegado.
+
 ## Integración optativa del gateway
 
 Añadir `-f compose.resilience.yaml` **después** de `compose.waf.yaml` a la
