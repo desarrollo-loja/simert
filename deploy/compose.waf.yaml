@@ -51,6 +51,9 @@ services:
 
   waf-simert:
     <<: *waf-service
+    volumes:
+      - ./nginx/waf-buffers.conf:/etc/nginx/conf.d/90-simert-buffers.conf:ro
+      - ./waf/REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf:/etc/modsecurity.d/owasp-crs/rules/REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf:ro
     environment:
       <<: *waf-env
       BACKEND: http://simert-0:${SIMERT_PORT}
