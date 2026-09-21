@@ -59,6 +59,8 @@ server {
         # auth-0 puede devolver un JWT renovado en X-Token. Su cabecera de
         # respuesta no cabe en el buffer por defecto de nginx (4/8 KiB).
         proxy_buffer_size 64k;
+        proxy_buffers 4 64k;
+        proxy_busy_buffers_size 128k;
         proxy_set_header Connection        "";
         proxy_set_header Host              $host;
         proxy_set_header X-Real-IP         $remote_addr;
