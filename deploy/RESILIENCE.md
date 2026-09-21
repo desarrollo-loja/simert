@@ -123,6 +123,25 @@ los futuros comandos `docker compose` que recrean `gateway` o `simert-0`; si
 se omiten, Compose tomará el valor definido en `deploy/.env` o el valor
 predeterminado (observación/off). Verificar ese valor antes de recrear.
 
+### Después de recrear contenedores
+
+Nginx puede conservar la IP anterior de un contenedor de Docker. En esta
+prueba, tras recrear `pay-0`, la ruta de pagos devolvió 502 hasta recargar el
+WAF de pagos y el gateway. Una vez que el backend esté `healthy`, probar cada
+salto y recargar la configuración del proxy correspondiente sin recrearlo:
+
+```bash
+docker exec simert-waf-pay-1 nginx -t
+docker exec simert-waf-pay-1 nginx -s reload
+docker exec simert-gateway-1 nginx -t
+docker exec simert-gateway-1 nginx -s reload
+```
+
+Para `simert-0` usar `simert-waf-simert-1`; para `auth-0`,
+`simert-waf-auth-1`; para `socket-0`, `simert-waf-socket-1`. Si se recrea un
+WAF, recargar también el gateway después. Un 502 tras un despliegue no prueba
+que la lógica de negocio falló: localizar primero cuál salto no responde.
+
 ## Evidencia requerida para cerrar el escenario
 
 - Carga normal: respuestas correctas sin 429.
