@@ -32,6 +32,13 @@ siendo independiente. Estos valores son punto de partida, no una cuota diaria.
 4. Vigilar CPU, memoria, conexiones y errores de los contenedores durante la
    prueba. Definir la carga máxima según la capacidad observada.
 
+Para comprobar el límite sin modificar el gateway activo, ejecutar desde
+`deploy/` `./bin/verify-rate-limit-isolated.sh`. El script crea un gateway
+temporal sin puertos publicados, envía una ráfaga pequeña con IP de ejemplo,
+comprueba 429, CORS y separación por cliente, y detiene el contenedor al salir.
+No usa credenciales ni genera carga sostenida. Requiere que los contenedores
+WAF y auth existentes estén disponibles en la red de Compose.
+
 ## Integración optativa del gateway
 
 Añadir `-f compose.resilience.yaml` **después** de `compose.waf.yaml` a la
