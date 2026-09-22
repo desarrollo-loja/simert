@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import axios, { AxiosRequestConfig } from 'axios';
 import { CommonGimService } from 'src/common/common.gim.service';
 import { ErrorCode } from 'src/common/glob/error';
+import { providerMessage } from 'src/provider-message';
 import { AntResponse } from 'src/common/intefaces/ant_response.interface';
 import { LoggerService } from 'src/common/logger.service.ts';
 
@@ -162,9 +163,11 @@ export class DinardapAntService {
         errorCode: ErrorCode;
         message: string;
     } {
+        const upstreamMessage = providerMessage(error?.response?.data);
         const fallback = {
             errorCode: ErrorCode.SYSTEM_INACTIVE,
             message:
+                upstreamMessage ??
                 'El sistema de la ANT se encuentra fuera de servicio, por favor inténtalo más tarde',
         };
 
@@ -174,31 +177,32 @@ export class DinardapAntService {
         if (status === 400) {
             return {
                 errorCode: ErrorCode.UNKNOWN,
-                message: '400 Solicitud incorrecta hacia el servicio de la ANT',
+                message: upstreamMessage ?? '400 Solicitud incorrecta hacia el servicio de la ANT',
             };
         }
         if (status === 401) {
             return {
                 errorCode: ErrorCode.UNAUTHORIZED,
-                message: '401 No autorizado para consumir el recurso de la ANT',
+                message: upstreamMessage ?? '401 No autorizado para consumir el recurso de la ANT',
             };
         }
         if (status === 403) {
             return {
                 errorCode: ErrorCode.UNAUTHORIZED,
-                message: '403 Acceso prohibido al recurso de la ANT',
+                message: upstreamMessage ?? '403 Acceso prohibido al recurso de la ANT',
             };
         }
         if (status === 404) {
             return {
                 errorCode: ErrorCode.NOT_FOUND,
-                message: '404 Recurso no encontrado en la ANT',
+                message: upstreamMessage ?? '404 Recurso no encontrado en la ANT',
             };
         }
         if (status === 408 || code === 'ECONNABORTED' || code === 'ETIMEDOUT') {
             return {
                 errorCode: ErrorCode.HTTP_ERROR_REINTENT,
                 message:
+                    upstreamMessage ??
                     'No se pudo establecer comunicación con la ANT, inténtalo más tarde',
             };
         }
@@ -206,6 +210,7 @@ export class DinardapAntService {
             return {
                 errorCode: ErrorCode.UNKNOWN,
                 message:
+                    upstreamMessage ??
                     '429 Demasiadas solicitudes a la ANT, inténtalo más tarde',
             };
         }
@@ -317,6 +322,7 @@ export class DinardapAntService {
                     data: null,
                     errorCode: ErrorCode.NOT_FOUND,
                     message:
+                        providerMessage(data) ??
                         'No se encontró información del vehículo en el sistema de la ANT',
                 };
             }
@@ -372,6 +378,7 @@ export class DinardapAntService {
                     data: null,
                     errorCode: ErrorCode.NOT_FOUND,
                     message:
+                        providerMessage(data) ??
                         'La respuesta del sistema ANT no contiene datos útiles para esta placa',
                 };
             }

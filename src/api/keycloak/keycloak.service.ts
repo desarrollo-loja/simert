@@ -7,6 +7,7 @@ import { LoginKeycloakClientDto } from 'src/common/dto/login-keycloak-client.dto
 import { UpdateKeycloakUserDto } from 'src/common/dto/update-keycloak-user.dto';
 import { ErrorCode } from 'src/common/glob/error';
 import { LoggerService } from 'src/common/logger.service.ts';
+import { providerMessage } from 'src/provider-message';
 
 import { FindAccountRefDto, FindAccountsDto } from './dto/find-accounts.dto';
 
@@ -42,6 +43,8 @@ export class KeycloakService {
     // ServiceHub token cache
     private serviceHubToken: string | null = null;
     private serviceHubTokenExpiresAt = 0; // timestamp in ms
+    private serviceHubTokenFailureMessage: string | undefined;
+    private municipalityTokenFailureMessage: string | undefined;
 
     // In-flight re-login per realm, shared by every request that got a 401 at
     // the same time so the burst produces one login instead of one per request.
@@ -97,6 +100,9 @@ export class KeycloakService {
         const result = await this.commonGimService.loginGimServiceHub();
 
         if (result.errorCode !== ErrorCode.NONE || !result.data) {
+            this.serviceHubTokenFailureMessage = result.httpStatus
+                ? providerMessage({ error: result.message })
+                : undefined;
             // CommonGimService lives in the shared library and has no audit
             // logger of its own, so the login failure is recorded here — the
             // first point that can see it and reach LoggerService. Without this
@@ -114,6 +120,7 @@ export class KeycloakService {
         }
 
         this.serviceHubToken = result.data.access_token;
+        this.serviceHubTokenFailureMessage = undefined;
         // expires_in is in seconds
         this.serviceHubTokenExpiresAt = now + result.data.expires_in * 1000;
 
@@ -131,6 +138,9 @@ export class KeycloakService {
         const result = await this.commonGimService.loginGimMunicipalityK();
 
         if (result.errorCode !== ErrorCode.NONE || !result.data) {
+            this.municipalityTokenFailureMessage = result.httpStatus
+                ? providerMessage({ error: result.message })
+                : undefined;
             this._logKeycloakFailure({
                 method: 'getTokenMunicipalityK',
                 endpoint: `${process.env.GIM_BASE_URL_LOGIN}/realms/${this.gim2RealmMunicipality}/protocol/openid-connect/token`,
@@ -143,6 +153,7 @@ export class KeycloakService {
             return null;
         }
 
+        this.municipalityTokenFailureMessage = undefined;
         return result.data.access_token;
     }
 
@@ -342,7 +353,8 @@ export class KeycloakService {
      * **returned** instead of thrown, so the HTTP status stays 2xx and the client
      * reads the outcome from `errorCode` without it being treated as a hard error.
      *
-     * The client-facing Spanish messages are kept verbatim (they are contracts).
+     * When Keycloak supplies a readable reason, that reason is returned to the
+     * client. The existing Spanish text remains the fallback when it does not.
      *
      * @param context Name of the calling operation, used only for server-side logging.
      * @param error Error raised by axios: a connection error (`error.code`) or an
@@ -362,6 +374,7 @@ export class KeycloakService {
             'ENOTFOUND',
         ].includes(error?.code);
         const logMessage = `Error ${context} | status: ${status} | code: ${error?.code} | msg: ${error?.message}`;
+        const upstreamMessage = providerMessage(error?.response?.data);
 
         // A 401 is an expected client-side failure (bad credentials / unauthorized),
         // so it is logged as a warning; everything else points to an infra/server issue.
@@ -381,12 +394,14 @@ export class KeycloakService {
                 return {
                     errorCode: ErrorCode.UNAUTHORIZED,
                     message:
+                        upstreamMessage ??
                         'Credenciales incorrectas, por favor verifique su usuario y contraseña',
                 };
             }
             return {
                 errorCode: ErrorCode.UNAUTHORIZED,
                 message:
+                    upstreamMessage ??
                     'Usuario no autorizado en el sistema municipal, por favor comuníquese con el administrador',
             };
         }
@@ -395,6 +410,7 @@ export class KeycloakService {
             return {
                 errorCode: ErrorCode.RESPONSE,
                 message:
+                    upstreamMessage ??
                     'Error con el sistema municipal, por favor comuníquese con el administrador',
             };
         }
@@ -403,27 +419,23 @@ export class KeycloakService {
             return {
                 errorCode: ErrorCode.RESPONSE,
                 message:
+                    upstreamMessage ??
                     'El usuario ya existe en el sistema municipal, por favor comuníquese con el administrador',
             };
         }
 
-        const rawMessage: string =
-            error?.response?.data?.message ??
-            error?.response?.data?.error ??
-            error?.message ??
-            'Error inesperado en Keycloak';
-
-        if (rawMessage.includes('Account disabled')) {
+        if (upstreamMessage?.includes('Account disabled')) {
             return {
                 errorCode: ErrorCode.UNAUTHORIZED,
                 message:
-                    'Su cuenta está deshabilitada en el sistema municipal. Por favor comuníquese con el administrador',
+                    upstreamMessage,
             };
         }
 
         return {
             errorCode: ErrorCode.RESPONSE,
             message:
+                upstreamMessage ??
                 'Error al verificar el usuario en el municipio. Por favor comuníquese con el administrador.',
         };
     }
@@ -442,7 +454,7 @@ export class KeycloakService {
         if (!token)
             return {
                 errorCode: ErrorCode.NOT_FOUND,
-                message: 'No se pudo obtener el token de Keycloak ServiceHub',
+                message: this.serviceHubTokenFailureMessage ?? 'No se pudo obtener el token de Keycloak ServiceHub',
             };
 
         try {
@@ -488,7 +500,7 @@ export class KeycloakService {
         if (!token)
             return {
                 errorCode: ErrorCode.NOT_FOUND,
-                message: 'No se pudo obtener el token de Keycloak Municipal',
+                message: this.municipalityTokenFailureMessage ?? 'No se pudo obtener el token de Keycloak Municipal',
             };
 
         try {
@@ -534,7 +546,7 @@ export class KeycloakService {
         if (!token)
             return {
                 errorCode: ErrorCode.NOT_FOUND,
-                message: 'No se pudo obtener el token de Keycloak Municipal',
+                message: this.municipalityTokenFailureMessage ?? 'No se pudo obtener el token de Keycloak Municipal',
             };
 
         try {
@@ -564,7 +576,7 @@ export class KeycloakService {
         if (!token)
             return {
                 errorCode: ErrorCode.NOT_FOUND,
-                message: 'No se pudo obtener el token de Keycloak Municipal',
+                message: this.municipalityTokenFailureMessage ?? 'No se pudo obtener el token de Keycloak Municipal',
             };
 
         try {
@@ -600,7 +612,7 @@ export class KeycloakService {
         if (!token)
             return {
                 errorCode: ErrorCode.NOT_FOUND,
-                message: 'No se pudo obtener el token de Keycloak ServiceHub',
+                message: this.serviceHubTokenFailureMessage ?? 'No se pudo obtener el token de Keycloak ServiceHub',
             };
 
         try {
@@ -637,7 +649,7 @@ export class KeycloakService {
         if (!token)
             return {
                 errorCode: ErrorCode.NOT_FOUND,
-                message: 'No se pudo obtener el token de Keycloak Municipal',
+                message: this.municipalityTokenFailureMessage ?? 'No se pudo obtener el token de Keycloak Municipal',
             };
 
         try {
@@ -677,7 +689,7 @@ export class KeycloakService {
         if (!token)
             return {
                 errorCode: ErrorCode.NOT_FOUND,
-                message: 'No se pudo obtener el token de Keycloak ServiceHub',
+                message: this.serviceHubTokenFailureMessage ?? 'No se pudo obtener el token de Keycloak ServiceHub',
             };
 
         try {
@@ -719,7 +731,7 @@ export class KeycloakService {
         if (!token)
             return {
                 errorCode: ErrorCode.NOT_FOUND,
-                message: 'No se pudo obtener el token de Keycloak ServiceHub',
+                message: this.serviceHubTokenFailureMessage ?? 'No se pudo obtener el token de Keycloak ServiceHub',
             };
 
         try {
@@ -843,7 +855,7 @@ export class KeycloakService {
         if (!token)
             return {
                 errorCode: ErrorCode.NOT_FOUND,
-                message: 'No se pudo obtener el token de Keycloak ServiceHub',
+                message: this.serviceHubTokenFailureMessage ?? 'No se pudo obtener el token de Keycloak ServiceHub',
             };
 
         try {
@@ -893,7 +905,7 @@ export class KeycloakService {
         if (!token)
             return {
                 errorCode: ErrorCode.NOT_FOUND,
-                message: 'No se pudo obtener el token de Keycloak ServiceHub',
+                message: this.serviceHubTokenFailureMessage ?? 'No se pudo obtener el token de Keycloak ServiceHub',
             };
 
         try {
@@ -976,7 +988,7 @@ export class KeycloakService {
         if (!token)
             return {
                 errorCode: ErrorCode.NOT_FOUND,
-                message: 'No se pudo obtener el token de Keycloak Municipal',
+                message: this.municipalityTokenFailureMessage ?? 'No se pudo obtener el token de Keycloak Municipal',
             };
 
         try {
@@ -1063,7 +1075,7 @@ export class KeycloakService {
         if (!token)
             return {
                 errorCode: ErrorCode.NOT_FOUND,
-                message: 'No se pudo obtener el token de Keycloak ServiceHub',
+                message: this.serviceHubTokenFailureMessage ?? 'No se pudo obtener el token de Keycloak ServiceHub',
             };
 
         try {
@@ -1134,7 +1146,7 @@ export class KeycloakService {
         if (!token)
             return {
                 errorCode: ErrorCode.NOT_FOUND,
-                message: 'No se pudo obtener el token de Keycloak Municipal',
+                message: this.municipalityTokenFailureMessage ?? 'No se pudo obtener el token de Keycloak Municipal',
             };
 
         try {
@@ -1293,7 +1305,7 @@ export class KeycloakService {
         if (!token)
             return {
                 errorCode: ErrorCode.NOT_FOUND,
-                message: 'No se pudo obtener el token de Keycloak ServiceHub',
+                message: this.serviceHubTokenFailureMessage ?? 'No se pudo obtener el token de Keycloak ServiceHub',
             };
 
         try {
@@ -1335,7 +1347,7 @@ export class KeycloakService {
         if (!token)
             return {
                 errorCode: ErrorCode.NOT_FOUND,
-                message: 'No se pudo obtener el token de Keycloak Municipal',
+                message: this.municipalityTokenFailureMessage ?? 'No se pudo obtener el token de Keycloak Municipal',
             };
 
         try {
@@ -1381,7 +1393,7 @@ export class KeycloakService {
         if (!token)
             return {
                 errorCode: ErrorCode.NOT_FOUND,
-                message: 'No se pudo obtener el token de Keycloak ServiceHub',
+                message: this.serviceHubTokenFailureMessage ?? 'No se pudo obtener el token de Keycloak ServiceHub',
             };
 
         try {
@@ -1417,7 +1429,7 @@ export class KeycloakService {
         if (!token)
             return {
                 errorCode: ErrorCode.NOT_FOUND,
-                message: 'No se pudo obtener el token de Keycloak Municipal',
+                message: this.municipalityTokenFailureMessage ?? 'No se pudo obtener el token de Keycloak Municipal',
             };
 
         try {
@@ -1457,7 +1469,7 @@ export class KeycloakService {
         if (!token)
             return {
                 errorCode: ErrorCode.NOT_FOUND,
-                message: 'No se pudo obtener el token de Keycloak Municipal',
+                message: this.municipalityTokenFailureMessage ?? 'No se pudo obtener el token de Keycloak Municipal',
             };
 
         try {
@@ -1596,8 +1608,8 @@ export class KeycloakService {
             return {
                 errorCode: ErrorCode.NOT_FOUND,
                 message: isMunicipality
-                    ? 'No se pudo obtener el token de Keycloak Municipal'
-                    : 'No se pudo obtener el token de Keycloak ServiceHub',
+                    ? this.municipalityTokenFailureMessage ?? 'No se pudo obtener el token de Keycloak Municipal'
+                    : this.serviceHubTokenFailureMessage ?? 'No se pudo obtener el token de Keycloak ServiceHub',
                 data: [],
             };
 

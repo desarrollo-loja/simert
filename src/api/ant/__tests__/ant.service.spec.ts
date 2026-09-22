@@ -65,6 +65,17 @@ describe('AntService', () => {
       expect(result.errorCode).toBe(ErrorCode.NOT_FOUND);
     });
 
+    it('returns the SOAP fault text when ANT sends one', async () => {
+      (axios.request as jest.Mock).mockResolvedValueOnce({
+        data: '<Envelope><Body><Fault><faultstring>Placa no registrada en ANT</faultstring></Fault></Body></Envelope>',
+      });
+
+      const result = await service.getUserDataByPlateAnt('ABC');
+
+      expect(result.errorCode).toBe(ErrorCode.NOT_FOUND);
+      expect(result.message).toBe('Placa no registrada en ANT');
+    });
+
     it('returns mapped data when SOAP response contains vehicle info', async () => {
       (axios.request as jest.Mock).mockResolvedValueOnce({
         data: `<?xml version="1.0"?>
@@ -114,7 +125,7 @@ describe('AntService', () => {
       expect(result.errorCode).toBe(ErrorCode.NOT_FOUND);
     });
 
-    it('warns when SOAP returns a non-200 code but vehicle present', async () => {
+    it('returns the ANT message when SOAP rejects even if a vehicle is present', async () => {
       (axios.request as jest.Mock).mockResolvedValueOnce({
         data: `<?xml version="1.0"?>
           <Envelope><Body>
@@ -131,7 +142,8 @@ describe('AntService', () => {
       const result = await service.getUserDataByPlateAnt('ABC');
 
       expect((service as any).logger.warn).toHaveBeenCalled();
-      expect(result.errorCode).toBe(ErrorCode.NONE);
+      expect(result.errorCode).toBe(ErrorCode.NOT_FOUND);
+      expect(result.message).toBe('fail');
     });
 
     it('returns NOT_FOUND when axios throws', async () => {
@@ -140,6 +152,19 @@ describe('AntService', () => {
       const result = await service.getUserDataByPlateAnt('ABC');
 
       expect(result.errorCode).toBe(ErrorCode.NOT_FOUND);
+    });
+
+    it('returns a SOAP fault included in an HTTP error response', async () => {
+      (axios.request as jest.Mock).mockRejectedValueOnce({
+        response: {
+          status: 500,
+          data: '<Envelope><Body><Fault><faultstring>Servicio ANT no disponible</faultstring></Fault></Body></Envelope>',
+        },
+      });
+
+      const result = await service.getUserDataByPlateAnt('ABC');
+
+      expect(result.message).toBe('Servicio ANT no disponible');
     });
   });
 });

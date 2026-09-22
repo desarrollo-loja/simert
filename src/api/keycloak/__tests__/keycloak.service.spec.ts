@@ -178,9 +178,10 @@ describe('KeycloakService', () => {
     });
 
     it('returns NOT_FOUND when ServiceHub login fails', async () => {
-      commonGim.loginGimServiceHub.mockResolvedValueOnce({ errorCode: ErrorCode.NOT_FOUND, data: null });
+      commonGim.loginGimServiceHub.mockResolvedValueOnce({ errorCode: ErrorCode.NOT_FOUND, data: null, message: 'Cuenta de servicio bloqueada', httpStatus: 401 });
       const result = await service.findByUsername('a');
       expect(result.errorCode).toBe(ErrorCode.NOT_FOUND);
+      expect(result.message).toBe('Cuenta de servicio bloqueada');
     });
 
     it('returns NOT_FOUND when ServiceHub login returns NONE without data', async () => {
@@ -919,6 +920,10 @@ describe('KeycloakService', () => {
       expect(fire({ response: { status: 401, data: {} } }).errorCode).toBe(ErrorCode.UNAUTHORIZED);
     });
 
+    it('returns the Keycloak error description when present', () => {
+      expect(fire({ response: { status: 401, data: { error: 'invalid_grant', error_description: 'Invalid user credentials' } } }).message).toBe('Invalid user credentials');
+    });
+
     it('maps 500 to BAD_GATEWAY', () => {
       expect(fire({ response: { status: 500 } }).errorCode).toBe(ErrorCode.RESPONSE);
     });
@@ -930,7 +935,7 @@ describe('KeycloakService', () => {
     it('maps "Account disabled" message to FORBIDDEN', () => {
       const result = fire({ response: { status: 400, data: { message: 'Account disabled' } } });
       expect(result.errorCode).toBe(ErrorCode.UNAUTHORIZED);
-      expect(result.message).toMatch(/deshabilitada/i);
+      expect(result.message).toBe('Account disabled');
     });
 
     it('falls back to response.data.error when message missing', () => {

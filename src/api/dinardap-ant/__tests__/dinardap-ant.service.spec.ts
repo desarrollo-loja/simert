@@ -260,6 +260,17 @@ describe('DinardapAntService', () => {
       expect((result as any).message).toMatch(/404/);
     });
 
+    it('returns the DINARDAP message when its response includes one', async () => {
+      (axios.request as jest.Mock).mockRejectedValueOnce({
+        response: { status: 404, data: { message: 'Vehículo no registrado' } },
+      });
+
+      const result = await service.getUserDataByPlateAnt('ABC12');
+
+      expect(result.errorCode).toBe(ErrorCode.NOT_FOUND);
+      expect(result.message).toBe('Vehículo no registrado');
+    });
+
     it('maps 5xx from axios to SYSTEM_INACTIVE with the generic message', async () => {
       (axios.request as jest.Mock).mockRejectedValueOnce({
         response: { status: 503, data: { msg: 'down' } },

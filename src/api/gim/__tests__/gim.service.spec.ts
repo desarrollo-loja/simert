@@ -1017,19 +1017,19 @@ describe('GimService', () => {
     it('returns NOT_FOUND on response.data.error', async () => {
       (axios.post as jest.Mock).mockRejectedValueOnce({ response: { data: { error: 'invalid_grant' } } });
       const result = await service.loginGim();
-      expect(result.message).toBe('invalid_grant');
+      expect(result.message).toBe('No se pudo iniciar sesión en Keycloak');
     });
 
     it('returns NOT_FOUND on plain Error', async () => {
       (axios.post as jest.Mock).mockRejectedValueOnce(new Error('net down'));
       const result = await service.loginGim();
-      expect(result.message).toBe('net down');
+      expect(result.message).toBe('No se pudo iniciar sesión en Keycloak');
     });
 
     it('returns NOT_FOUND with default message when nothing available', async () => {
       (axios.post as jest.Mock).mockRejectedValueOnce({});
       const result = await service.loginGim();
-      expect(result.message).toBe('Error desconocido');
+      expect(result.message).toBe('No se pudo iniciar sesión en Keycloak');
     });
   });
 
@@ -1114,8 +1114,8 @@ describe('GimService', () => {
 
       const result = await service.registerDeposit({ amount: '5' } as any);
 
-      // The client keeps the generic summary; only the audit entry is enriched.
-      expect(result.message).toBe('No se logró realizar el depósito');
+      // The client sees GIM's reason; the audit retains its contextual prefix.
+      expect(result.message).toBe('La obligación ya se encuentra pagada');
       expect(loggerService.saveLogsGimLogger).toHaveBeenCalledWith(
         expect.objectContaining({
           method: 'registerDeposit',
@@ -1185,6 +1185,14 @@ describe('GimService', () => {
     it('returns NOT_FOUND on exception with response message', async () => {
       (axios.post as jest.Mock).mockRejectedValueOnce({ response: { data: { message: 'bad' } } });
       expect((await service.findObligations({} as any)).message).toBe('bad');
+    });
+
+    it('keeps the GIM reason on a server error', async () => {
+      (axios.post as jest.Mock).mockRejectedValueOnce({ response: { status: 503, data: { message: 'Servicio en mantenimiento' } } });
+      expect(await service.findObligations({} as any)).toMatchObject({
+        errorCode: ErrorCode.HTTP_ERROR_REINTENT,
+        message: 'Servicio en mantenimiento',
+      });
     });
 
     it('returns NOT_FOUND on plain exception', async () => {

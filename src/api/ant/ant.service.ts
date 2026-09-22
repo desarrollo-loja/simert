@@ -4,6 +4,7 @@ import axios, { AxiosRequestConfig } from 'axios';
 import { XMLParser } from 'fast-xml-parser';
 import { ErrorCode } from 'src/common/glob/error';
 import { LoggerService } from 'src/common/logger.service.ts';
+import { providerMessage } from 'src/provider-message';
 
 import { AntDataByPlateResponse } from './interfaces/ant-responses.interfaces';
 
@@ -81,20 +82,20 @@ export class AntService {
      * @returns Promise resolving to the lookup result with owner data or a not-found error.
      */
     async getUserDataByPlateAnt(plate: string): Promise<AntLookupResult> {
-        const antData = await this._getAntDataByPlate(plate);
+        const antResult = await this._getAntDataByPlate(plate);
 
-        if (!antData) {
+        if (!antResult.data) {
             return {
                 errorCode: ErrorCode.NOT_FOUND,
                 data: null,
-                message: 'No se encontró información del vehículo',
+                message: antResult.message ?? 'No se encontró información del vehículo',
             };
         }
 
         return {
             errorCode: ErrorCode.NONE,
-            data: antData,
-            message: 'Información del vehículo obtenida correctamente',
+            data: antResult.data,
+            message: antResult.message ?? 'Información del vehículo obtenida correctamente',
         };
     }
 
@@ -107,7 +108,7 @@ export class AntService {
      */
     private async _getAntDataByPlate(
         plate: string,
-    ): Promise<AntDataResponse | null> {
+    ): Promise<{ data: AntDataResponse | null; message?: string }> {
         if (!this.antBaseUrl) {
             this.logger.error('ANT_BASE_URL not configured');
             this.loggerService.saveLogsAntLogger({
@@ -119,7 +120,7 @@ export class AntService {
                 message: 'ANT_BASE_URL not configured',
             });
 
-            return null;
+            return { data: null };
         }
 
         const url = `${this.antBaseUrl}/middleApp-1.0-SNAPSHOT/InfractionWSV2`;
@@ -174,19 +175,39 @@ export class AntService {
             // WSDL final return shape: responseVehiculo { code, message, vehicle }
             const code = Number(payload?.code ?? payload?.Code ?? 0);
             const vehicle = payload?.vehicle;
+            const soapFault = body?.Fault;
+            const serviceMessage =
+                providerMessage(payload) ??
+                (typeof soapFault?.faultstring === 'string'
+                    ? soapFault.faultstring.trim()
+                    : undefined);
 
-            if (!vehicle) return null;
+            if (!vehicle) return { data: null, message: serviceMessage };
 
             // Non-zero / non-200 code means failure — adjust condition if the service uses 200.
             if (code && code !== 200) {
                 this.logger.warn(
                     `ANT responded code=${code} message=${payload?.message ?? ''}`,
                 );
-                // Could also return null here depending on desired behavior.
+                return { data: null, message: serviceMessage };
             }
 
-            return this._buildAntDataResponse(vehicle);
+            return {
+                data: await this._buildAntDataResponse(vehicle),
+                message: serviceMessage,
+            };
         } catch (error: any) {
+            let serviceMessage = providerMessage(error?.response?.data);
+            if (!serviceMessage && typeof error?.response?.data === 'string') {
+                try {
+                    const fault = this.xmlParser.parse(error.response.data)?.Envelope?.Body?.Fault;
+                    if (typeof fault?.faultstring === 'string') {
+                        serviceMessage = fault.faultstring.trim();
+                    }
+                } catch {
+                    // Invalid XML is not a provider message.
+                }
+            }
             this.logger.error(
                 `ANT lookup failed plate=${plate}: ${error?.message ?? error}`,
             );
@@ -204,7 +225,7 @@ export class AntService {
                     : String(error),
             });
 
-            return null;
+            return { data: null, message: serviceMessage };
         }
     }
 

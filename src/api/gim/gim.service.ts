@@ -14,6 +14,7 @@ import { EmissionSanctionDto } from 'src/common/dto/emission-sanction.dto';
 import { RegisterDepositGimDto } from 'src/common/dto/register-deposit-gim.dto';
 // import handleDbExceptions from 'src/common/exceptions/error.db.exception';
 import { ErrorCode } from 'src/common/glob/error';
+import { providerMessage } from 'src/provider-message';
 import {
     ResponseCodeGim,
     StatusObligation,
@@ -410,6 +411,7 @@ export class GimService {
             return {
                 errorCode: ErrorCode.HTTP_ERROR_REINTENT,
                 message:
+                    providerMessage(error?.response?.data) ??
                     'No hay comunicación con el municipio (GIM), el recurso no está disponible, por favor intente más tarde',
                 data: null,
             };
@@ -611,7 +613,7 @@ export class GimService {
                 if (antData.errorCode !== ErrorCode.NONE) {
                     return {
                         errorCode: ErrorCode.NOT_FOUND,
-                        message: 'Error al obtener la cedula desde la ANT',
+                        message: antData.message ?? 'Error al obtener la cedula desde la ANT',
                         data: antData,
                     };
                 }
@@ -654,7 +656,7 @@ export class GimService {
                     if (createClientGim.errorCode !== ErrorCode.NONE) {
                         return {
                             errorCode: ErrorCode.NOT_FOUND,
-                            message: 'Error al crear el cliente en el GIM',
+                            message: createClientGim.message ?? 'Error al crear el cliente en el GIM',
                             data: createClientGim,
                         };
                     }
@@ -706,7 +708,7 @@ export class GimService {
             if (responeEmit.errorCode !== ErrorCode.NONE) {
                 return {
                     errorCode: ErrorCode.NOT_FOUND,
-                    message: responeEmit.data?.message,
+                    message: responeEmit.message ?? providerMessage(responeEmit.data) ?? 'No se pudo emitir la deuda en GIM',
                     data: responeEmit.data,
                 };
             }
@@ -880,6 +882,7 @@ export class GimService {
             return {
                 errorCode: ErrorCode.NOT_FOUND,
                 taxpayer: null,
+                message: providerMessage(data) ?? 'No se encontró el contribuyente en GIM',
             };
         } catch (error: any) {
             this.logger.error(
@@ -889,6 +892,9 @@ export class GimService {
             return {
                 errorCode: ErrorCode.HTTP_ERROR_REINTENT,
                 taxpayer: null,
+                message:
+                    providerMessage(error?.response?.data) ??
+                    'No se pudo consultar el contribuyente en GIM',
             };
         }
     }
@@ -1036,6 +1042,7 @@ export class GimService {
             return {
                 errorCode: ErrorCode.NOT_FOUND,
                 residentDTO: null,
+                message: providerMessage(data) ?? 'No se pudo crear el contribuyente en GIM',
             };
         } catch (error: any) {
             this.logger.error(` ${error}`);
@@ -1051,6 +1058,7 @@ export class GimService {
             return {
                 errorCode: ErrorCode.HTTP_ERROR_REINTENT,
                 residentDTO: null,
+                message: providerMessage(error?.response?.data) ?? 'No se pudo crear el contribuyente en GIM',
             };
         }
     }
@@ -1142,6 +1150,7 @@ export class GimService {
             return {
                 errorCode: ErrorCode.NOT_FOUND,
                 residentDTO: null,
+                message: providerMessage(data) ?? 'No se pudo crear el contribuyente en GIM',
             };
         } catch (error: any) {
             this.logger.error(` ${error}`);
@@ -1152,6 +1161,7 @@ export class GimService {
             return {
                 errorCode: ErrorCode.HTTP_ERROR_REINTENT,
                 residentDTO: null,
+                message: providerMessage(error?.response?.data) ?? 'No se pudo crear el contribuyente en GIM',
             };
         }
     }
@@ -1187,6 +1197,7 @@ export class GimService {
             return {
                 errorCode: ErrorCode.NOT_FOUND,
                 taxpayer: null,
+                message: providerMessage(data) ?? 'No se pudo verificar la incidencia en GIM',
             };
         } catch (error: any) {
             this.logger.error(`Error verifateIncidentGim: ${error.message}`);
@@ -1195,6 +1206,7 @@ export class GimService {
             return {
                 errorCode: ErrorCode.HTTP_ERROR_REINTENT,
                 taxpayer: null,
+                message: providerMessage(error?.response?.data) ?? 'No se pudo verificar la incidencia en GIM',
             };
         }
     }
@@ -1273,6 +1285,7 @@ export class GimService {
 
             if (!data.ok && data.code === '400') {
                 const message =
+                    providerMessage(data) ??
                     'Fuera del horario, jornada no aperturada, comuniquese con el administrador';
                 this._logGimRejection('emitInfractionGim', url, data, message);
                 return {
@@ -1305,7 +1318,9 @@ export class GimService {
                         );
                         return {
                             errorCode: ErrorCode.NOT_FOUND,
-                            message: `El rubro ${rubro}, no esta correctamente definido o no esta permitido por favor comuniquese con el administrador`,
+                            message:
+                                providerMessage(responseData) ??
+                                `El rubro ${rubro}, no esta correctamente definido o no esta permitido por favor comuniquese con el administrador`,
                             data: responseData,
                         };
                     }
@@ -1316,6 +1331,7 @@ export class GimService {
                     return {
                         errorCode: ErrorCode.NOT_FOUND,
                         message:
+                            providerMessage(responseData) ??
                             'Fuera del horario, jornada no aperturada en el municipio, comuniquese con el administrador',
                         data: responseData,
                     };
@@ -1333,6 +1349,7 @@ export class GimService {
             return {
                 errorCode: ErrorCode.HTTP_ERROR_REINTENT,
                 message:
+                    providerMessage(responseData) ??
                     'Error interno del municipio al generar la deuda, por favor intente más tarde',
                 data: null,
             };
@@ -1376,7 +1393,7 @@ export class GimService {
                 }
                 return {
                     errorCode: ErrorCode.NOT_FOUND,
-                    message: 'No se encontro la deuda',
+                    message: providerMessage(data) ?? 'No se encontro la deuda',
                     data: null,
                 };
             }
@@ -1385,7 +1402,7 @@ export class GimService {
             this._logGimError('findBondByNumber', url, error);
             return {
                 errorCode: ErrorCode.NOT_FOUND,
-                message: error.message,
+                message: providerMessage(error?.response?.data) ?? 'No se pudo consultar la deuda en GIM',
                 data: null,
             };
         }
@@ -1440,7 +1457,7 @@ export class GimService {
             } else {
                 return {
                     errorCode: ErrorCode.NOT_FOUND,
-                    message: 'No se encontro la deuda',
+                    message: providerMessage(data) ?? 'No se encontro la deuda',
                     data: null,
                 };
             }
@@ -1450,7 +1467,7 @@ export class GimService {
             );
             return {
                 errorCode: ErrorCode.NOT_FOUND,
-                message: error.message,
+                message: providerMessage(error?.response?.data) ?? 'No se pudo consultar la deuda en GIM',
                 data: null,
             };
         }
@@ -1679,7 +1696,7 @@ export class GimService {
 
             return {
                 errorCode: ErrorCode.NOT_FOUND,
-                message: error.message,
+                message: providerMessage(error?.response?.data) ?? 'No se pudo consultar los títulos pagados en GIM',
                 data: null,
             };
         }
@@ -1728,7 +1745,7 @@ export class GimService {
             } else {
                 return {
                     errorCode: ErrorCode.NOT_FOUND,
-                    message: 'No se encontro la deuda',
+                    message: providerMessage(data) ?? 'No se encontro la deuda',
                     data: null,
                 };
             }
@@ -1738,7 +1755,7 @@ export class GimService {
             );
             return {
                 errorCode: ErrorCode.NOT_FOUND,
-                message: error.message,
+                message: providerMessage(error?.response?.data) ?? 'No se pudo consultar la deuda en GIM',
                 data: null,
             };
         }
@@ -1962,6 +1979,7 @@ export class GimService {
             }
 
             const message =
+                providerMessage(data) ??
                 'No se logró verificar el horario laboral, por favor intente más tarde';
             this._logGimRejection(
                 'validateOpenTill',
@@ -1983,6 +2001,7 @@ export class GimService {
                 error?.message,
             );
             const status = error?.response?.status;
+            const upstreamMessage = providerMessage(error?.response?.data);
             const isTimeout =
                 error?.code === 'ECONNABORTED' || error?.code === 'ETIMEDOUT';
 
@@ -2008,6 +2027,7 @@ export class GimService {
                 return {
                     errorCode: ErrorCode.HTTP_ERROR_REINTENT,
                     message:
+                        upstreamMessage ??
                         'No se pudo verificar al usuario, por favor intente más tarde',
                     data: null,
                 };
@@ -2020,6 +2040,7 @@ export class GimService {
                 return {
                     errorCode: ErrorCode.HTTP_ERROR_REINTENT,
                     message:
+                        upstreamMessage ??
                         'Ocurrió un error al verificar el horario laboral del municipio, por favor intente más tarde',
                     data: null,
                 };
@@ -2029,6 +2050,7 @@ export class GimService {
             return {
                 errorCode: ErrorCode.HTTP_ERROR_REINTENT,
                 message:
+                    upstreamMessage ??
                     'Ocurrió un error al verificar el horario laboral del municipio, por favor intente más tarde',
                 data: null,
             };
@@ -2074,7 +2096,7 @@ export class GimService {
                 return { errorCode: ErrorCode.NONE, data };
             }
 
-            const message = 'No se pudo obtener access_token desde Keycloak';
+            const message = providerMessage(data) ?? 'No se pudo obtener access_token desde Keycloak';
             this._logGimRejection('loginGim', url, data, message);
 
             return {
@@ -2083,11 +2105,7 @@ export class GimService {
                 data: null,
             };
         } catch (error: any) {
-            const msg =
-                error?.response?.data?.error_description ||
-                error?.response?.data?.error ||
-                error?.message ||
-                'Error desconocido';
+            const msg = providerMessage(error?.response?.data) ?? 'No se pudo iniciar sesión en Keycloak';
 
             this.logger.error(`Error loginGim: ${msg}`);
             this._logGimError('loginGim', url, error);
@@ -2132,7 +2150,7 @@ export class GimService {
                     data: sorted, // Returns vehicleTypes; adjust mapping if the contract changes
                 };
             } else {
-                const message = 'No se encontraron tipos de vehículos';
+                const message = providerMessage(data) ?? 'No se encontraron tipos de vehículos';
                 this._logGimRejection(
                     'findVehicleTypesForSimert',
                     this._externalApiUrl('findVehicleTypesForSimert'),
@@ -2151,7 +2169,7 @@ export class GimService {
             );
             return {
                 errorCode: ErrorCode.NOT_FOUND,
-                message: error.message,
+                message: providerMessage(error?.response?.data) ?? 'No se pudo consultar los tipos de vehículos en GIM',
                 data: null,
             };
         }
@@ -2189,7 +2207,7 @@ export class GimService {
                     data: data,
                 };
             } else {
-                const message = 'No se logró realizar la emisión de la tarjeta';
+                const message = providerMessage(data) ?? 'No se logró realizar la emisión de la tarjeta';
                 this._logGimRejection(
                     'emissionTitleCreditCard',
                     this._externalApiUrl('emitSimertCard'),
@@ -2209,7 +2227,7 @@ export class GimService {
             return {
                 errorCode: ErrorCode.NOT_FOUND,
                 message:
-                    error.response?.data?.message ||
+                    providerMessage(error?.response?.data) ??
                     'No se logró emitir la tarjeta en el GIM, por favor intente más tarde',
                 data: error.response?.data || null,
             };
@@ -2244,12 +2262,12 @@ export class GimService {
                     data: data,
                 };
             } else {
-                const message = 'No se logró realizar el depósito';
+                const message = providerMessage(data) ?? 'No se logró realizar el depósito';
                 this._logGimRejection(
                     'registerDeposit',
                     this._externalApiUrl('registerDeposit'),
                     data,
-                    this._rejectionAuditMessage(message, data),
+                    this._rejectionAuditMessage('No se logró realizar el depósito', data),
                 );
                 return {
                     errorCode: ErrorCode.NOT_FOUND,
@@ -2263,7 +2281,7 @@ export class GimService {
             return {
                 errorCode: ErrorCode.NOT_FOUND,
                 message:
-                    error.response?.data?.message ||
+                    providerMessage(error?.response?.data) ??
                     'No se logró registrar el depósito en el GIM, por favor intente más tarde',
                 data: error.response?.data || null,
             };
@@ -2303,9 +2321,8 @@ export class GimService {
                 };
             } else {
                 const message =
-                    data?.ok === false && data.message?.trim()
-                        ? data.message
-                        : 'No se lograron obtener las obligaciones';
+                    providerMessage(data) ??
+                    'No se lograron obtener las obligaciones';
                 // A client with no outstanding bonds is normal; audit only an explicit
                 // GIM rejection.
                 if (data && data.ok === false) {
@@ -2334,7 +2351,7 @@ export class GimService {
             return {
                 errorCode: ErrorCode.NOT_FOUND,
                 message:
-                    error.response?.data?.message ||
+                    providerMessage(error?.response?.data) ??
                     'No se lograron obtener las obligaciones del GIM, por favor intente más tarde',
                 data: error.response?.data || null,
             };
@@ -2375,7 +2392,7 @@ export class GimService {
                     data: data,
                 };
             } else {
-                const message = 'No se logró realizar la emisión de la sanción';
+                const message = providerMessage(data) ?? 'No se logró realizar la emisión de la sanción';
                 this._logGimRejection(
                     'emitSanction',
                     this._externalApiUrl('emitSanction'),
@@ -2393,7 +2410,7 @@ export class GimService {
             return {
                 errorCode: ErrorCode.NOT_FOUND,
                 message:
-                    error.response?.data?.message ||
+                    providerMessage(error?.response?.data) ??
                     'No se logró emitir la sanción en el GIM, por favor intente más tarde',
                 data: error.response?.data || null,
             };
@@ -2425,7 +2442,7 @@ export class GimService {
             if (responeEmit.errorCode !== ErrorCode.NONE) {
                 return {
                     errorCode: ErrorCode.NOT_FOUND,
-                    message: responeEmit.data?.message,
+                    message: responeEmit.message ?? providerMessage(responeEmit.data) ?? 'No se pudo emitir la deuda en GIM',
                     data: responeEmit.data,
                 };
             }

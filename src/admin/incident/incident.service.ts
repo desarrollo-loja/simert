@@ -5,6 +5,7 @@ import { CommonGimService } from 'src/common/common.gim.service';
 import { FilterDto } from 'src/common/dto/filter.dto';
 import handleDbExceptions from 'src/common/exceptions/error.db.exception';
 import { ErrorCode } from 'src/common/glob/error';
+import { providerMessage } from 'src/provider-message';
 import { IncidentStatus } from 'src/common/glob/type/type_incident';
 import { InternalStateIncident } from 'src/common/glob/type/type_internal_state_incident';
 import { TypeOperation } from 'src/common/glob/type/type_operation';
@@ -796,8 +797,7 @@ export class IncidentService {
             httpStatus: error?.response?.status,
             errorCode: ErrorCode.HTTP_ERROR_REINTENT,
             message:
-                error?.response?.data?.error?.briefSummary ??
-                error?.message ??
+                providerMessage(error?.response?.data) ??
                 'Error al consumir el recurso de Alfresco',
             response: error?.response?.data,
             exception: error?.name
@@ -827,7 +827,7 @@ export class IncidentService {
         try {
             const credentials = this._getAlfrescoCredentials();
             if (!credentials) {
-                return { errorCode: ErrorCode.HTTP_ERROR_REINTENT };
+                return { errorCode: ErrorCode.HTTP_ERROR_REINTENT, message: 'Alfresco no está configurado' };
             }
             const { alfrescoBaseUrl, username, password, directory } =
                 credentials;
@@ -874,7 +874,10 @@ export class IncidentService {
                         'Alfresco respondió sin el nodo creado (falta `entry`)',
                     response: data,
                 });
-                return { errorCode: ErrorCode.HTTP_ERROR_REINTENT };
+                return {
+                    errorCode: ErrorCode.HTTP_ERROR_REINTENT,
+                    message: providerMessage(data) ?? 'Alfresco respondió sin el nodo creado',
+                };
             }
 
             return { errorCode: ErrorCode.NONE, alfrescoData: data };
@@ -888,9 +891,11 @@ export class IncidentService {
                 { fileName, relativePath },
                 error,
             );
+            return {
+                errorCode: ErrorCode.HTTP_ERROR_REINTENT,
+                message: providerMessage(error?.response?.data) ?? 'No se pudo cargar el archivo en Alfresco',
+            };
         }
-
-        return { errorCode: ErrorCode.HTTP_ERROR_REINTENT };
     }
 
     /**
@@ -909,7 +914,7 @@ export class IncidentService {
         try {
             const credentials = this._getAlfrescoCredentials();
             if (!credentials) {
-                return { errorCode: ErrorCode.HTTP_ERROR_REINTENT };
+                return { errorCode: ErrorCode.HTTP_ERROR_REINTENT, message: 'Alfresco no está configurado' };
             }
             const { alfrescoBaseUrl, username, password } = credentials;
 
@@ -921,7 +926,7 @@ export class IncidentService {
                     message:
                         'No se recibió el identificador del nodo de Alfresco a compartir',
                 });
-                return { errorCode: ErrorCode.HTTP_ERROR_REINTENT };
+                return { errorCode: ErrorCode.HTTP_ERROR_REINTENT, message: 'Falta el identificador del archivo de Alfresco' };
             }
 
             const payload = {
@@ -956,7 +961,10 @@ export class IncidentService {
                         'Alfresco respondió sin el enlace compartido (falta `entry.id`)',
                     response: data,
                 });
-                return { errorCode: ErrorCode.HTTP_ERROR_REINTENT };
+                return {
+                    errorCode: ErrorCode.HTTP_ERROR_REINTENT,
+                    message: providerMessage(data) ?? 'Alfresco respondió sin el enlace compartido',
+                };
             }
 
             // The shared-link id is used to build the public download URL:
@@ -980,7 +988,10 @@ export class IncidentService {
                 { alfrescoId },
                 error,
             );
-            return { errorCode: ErrorCode.HTTP_ERROR_REINTENT };
+            return {
+                errorCode: ErrorCode.HTTP_ERROR_REINTENT,
+                message: providerMessage(error?.response?.data) ?? 'No se pudo crear el enlace en Alfresco',
+            };
         }
     }
 
@@ -999,7 +1010,7 @@ export class IncidentService {
         try {
             const credentials = this._getAlfrescoCredentials();
             if (!credentials) {
-                return { errorCode: ErrorCode.HTTP_ERROR_REINTENT };
+                return { errorCode: ErrorCode.HTTP_ERROR_REINTENT, message: 'Alfresco no está configurado' };
             }
             const { alfrescoBaseUrl, username, password } = credentials;
 
@@ -1013,7 +1024,7 @@ export class IncidentService {
                     message:
                         'No se pudo extraer el identificador del enlace compartido de Alfresco',
                 });
-                return { errorCode: ErrorCode.HTTP_ERROR_REINTENT };
+                return { errorCode: ErrorCode.HTTP_ERROR_REINTENT, message: 'El enlace de Alfresco no tiene un identificador válido' };
             }
 
             const config: AxiosRequestConfig = {
@@ -1039,7 +1050,10 @@ export class IncidentService {
                         'Alfresco respondió sin el nodo del enlace compartido (falta `entry.nodeId`)',
                     response: data,
                 });
-                return { errorCode: ErrorCode.HTTP_ERROR_REINTENT };
+                return {
+                    errorCode: ErrorCode.HTTP_ERROR_REINTENT,
+                    message: providerMessage(data) ?? 'Alfresco respondió sin el identificador del archivo',
+                };
             }
 
             return {
@@ -1058,7 +1072,10 @@ export class IncidentService {
                 { sharedUrlOrId },
                 error,
             );
-            return { errorCode: ErrorCode.HTTP_ERROR_REINTENT };
+            return {
+                errorCode: ErrorCode.HTTP_ERROR_REINTENT,
+                message: providerMessage(error?.response?.data) ?? 'No se pudo consultar el enlace en Alfresco',
+            };
         }
     }
 

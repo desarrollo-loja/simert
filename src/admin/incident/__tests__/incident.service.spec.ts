@@ -475,7 +475,7 @@ describe('IncidentService', () => {
     it('returns HTTP_ERROR_REINTENT when Alfresco env vars are missing', async () => {
       delete process.env.ALFRESCO_BASE_URL;
       const result = await service.uploadToAlfresco(Buffer.from('x'), 'f.pdf');
-      expect(result).toEqual({ errorCode: ErrorCode.HTTP_ERROR_REINTENT });
+      expect(result).toMatchObject({ errorCode: ErrorCode.HTTP_ERROR_REINTENT });
     });
 
     it('uploads file and returns the Alfresco entry on success', async () => {
@@ -495,13 +495,14 @@ describe('IncidentService', () => {
     it('returns HTTP_ERROR_REINTENT when response has no entry', async () => {
       (axios.request as jest.Mock).mockResolvedValueOnce({ data: {} });
       const result = await service.uploadToAlfresco(Buffer.from('x'), 'f.pdf');
-      expect(result).toEqual({ errorCode: ErrorCode.HTTP_ERROR_REINTENT });
+      expect(result).toMatchObject({ errorCode: ErrorCode.HTTP_ERROR_REINTENT });
     });
 
     it('returns HTTP_ERROR_REINTENT on axios error', async () => {
-      (axios.request as jest.Mock).mockRejectedValueOnce({ response: { data: { msg: 'fail' } } });
+      (axios.request as jest.Mock).mockRejectedValueOnce({ response: { data: { error: { briefSummary: 'Documento rechazado por Alfresco' } } } });
       const result = await service.uploadToAlfresco(Buffer.from('x'), 'f.pdf');
-      expect(result).toEqual({ errorCode: ErrorCode.HTTP_ERROR_REINTENT });
+      expect(result).toMatchObject({ errorCode: ErrorCode.HTTP_ERROR_REINTENT });
+      expect(result).toMatchObject({ message: 'Documento rechazado por Alfresco' });
     });
   });
 
@@ -525,12 +526,12 @@ describe('IncidentService', () => {
     it('returns HTTP_ERROR_REINTENT when env is missing', async () => {
       delete process.env.ALFRESCO_BASE_URL;
       const result = await service.getFileUrlAlfresco('node-1');
-      expect(result).toEqual({ errorCode: ErrorCode.HTTP_ERROR_REINTENT });
+      expect(result).toMatchObject({ errorCode: ErrorCode.HTTP_ERROR_REINTENT });
     });
 
     it('returns HTTP_ERROR_REINTENT when alfrescoId is empty', async () => {
       const result = await service.getFileUrlAlfresco('');
-      expect(result).toEqual({ errorCode: ErrorCode.HTTP_ERROR_REINTENT });
+      expect(result).toMatchObject({ errorCode: ErrorCode.HTTP_ERROR_REINTENT });
     });
 
     it('builds the public shared URL on success', async () => {
@@ -549,13 +550,13 @@ describe('IncidentService', () => {
     it('returns HTTP_ERROR_REINTENT when response has no entry id', async () => {
       (axios.request as jest.Mock).mockResolvedValueOnce({ data: { entry: {} } });
       const result = await service.getFileUrlAlfresco('node-1');
-      expect(result).toEqual({ errorCode: ErrorCode.HTTP_ERROR_REINTENT });
+      expect(result).toMatchObject({ errorCode: ErrorCode.HTTP_ERROR_REINTENT });
     });
 
     it('returns HTTP_ERROR_REINTENT on axios error', async () => {
       (axios.request as jest.Mock).mockRejectedValueOnce({ response: { data: {} } });
       const result = await service.getFileUrlAlfresco('node-1');
-      expect(result).toEqual({ errorCode: ErrorCode.HTTP_ERROR_REINTENT });
+      expect(result).toMatchObject({ errorCode: ErrorCode.HTTP_ERROR_REINTENT });
     });
   });
 
@@ -578,17 +579,17 @@ describe('IncidentService', () => {
     it('returns HTTP_ERROR_REINTENT when env is missing', async () => {
       delete process.env.ALFRESCO_BASE_URL;
       const result = await service.getAlfrescoIdBySharedUrl('shared-1');
-      expect(result).toEqual({ errorCode: ErrorCode.HTTP_ERROR_REINTENT });
+      expect(result).toMatchObject({ errorCode: ErrorCode.HTTP_ERROR_REINTENT });
     });
 
     it('returns HTTP_ERROR_REINTENT when input is empty', async () => {
       const result = await service.getAlfrescoIdBySharedUrl('');
-      expect(result).toEqual({ errorCode: ErrorCode.HTTP_ERROR_REINTENT });
+      expect(result).toMatchObject({ errorCode: ErrorCode.HTTP_ERROR_REINTENT });
     });
 
     it('returns HTTP_ERROR_REINTENT when input has slashes but no shared-links segment', async () => {
       const result = await service.getAlfrescoIdBySharedUrl('http://foo/bar/baz');
-      expect(result).toEqual({ errorCode: ErrorCode.HTTP_ERROR_REINTENT });
+      expect(result).toMatchObject({ errorCode: ErrorCode.HTTP_ERROR_REINTENT });
       expect(axios.request).not.toHaveBeenCalled();
     });
 
@@ -630,13 +631,13 @@ describe('IncidentService', () => {
         data: { entry: { id: 'shared-1' } },
       });
       const result = await service.getAlfrescoIdBySharedUrl('shared-1');
-      expect(result).toEqual({ errorCode: ErrorCode.HTTP_ERROR_REINTENT });
+      expect(result).toMatchObject({ errorCode: ErrorCode.HTTP_ERROR_REINTENT });
     });
 
     it('returns HTTP_ERROR_REINTENT on axios error', async () => {
       (axios.request as jest.Mock).mockRejectedValueOnce({ response: { data: {} } });
       const result = await service.getAlfrescoIdBySharedUrl('shared-1');
-      expect(result).toEqual({ errorCode: ErrorCode.HTTP_ERROR_REINTENT });
+      expect(result).toMatchObject({ errorCode: ErrorCode.HTTP_ERROR_REINTENT });
     });
   });
 
