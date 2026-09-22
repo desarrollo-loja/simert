@@ -6,11 +6,36 @@ Reemplazo de PM2 por Docker Compose para los cinco componentes de servidor:
 Las tres apps Flutter (`parking_app_user`, `simert-store-loja`,
 `simert-supervisor-loja`) quedan fuera: son aplicaciones moviles, no servicios.
 
-**No se modifico ni una linea de codigo de la aplicacion.** Las dependencias
-que el codigo tiene de PM2 se reproducen con variables de entorno. Ver
-[Decisiones de diseno](#decisiones-de-diseno).
+Las dependencias que el codigo tiene de PM2 se reproducen con variables de
+entorno. Ver [Decisiones de diseno](#decisiones-de-diseno).
 
 ---
+
+## Observabilidad (Prometheus + Grafana)
+
+Los servicios HTTP exponen `/health` y `/metrics`. Cada petición recibe o
+conserva `X-Correlation-ID`; el mismo identificador aparece en la respuesta y
+en el log JSON, sin registrar tokens, cabeceras de autorización ni cuerpos.
+
+Para activar la monitorización en el servidor:
+
+```bash
+cd /opt/simert/simert/deploy
+# Define un valor fuerte para GRAFANA_ADMIN_PASSWORD en .env antes de exponerlo.
+docker compose -f compose.yaml -f compose.waf.yaml -f compose.resilience.yaml \
+  -f compose.observability.yaml config --quiet
+docker compose -f compose.yaml -f compose.waf.yaml -f compose.resilience.yaml \
+  -f compose.observability.yaml up -d prometheus grafana
+docker compose -f compose.yaml -f compose.waf.yaml -f compose.resilience.yaml \
+  -f compose.observability.yaml ps prometheus grafana
+curl -fsS http://127.0.0.1:3002/health
+curl -fsS http://127.0.0.1:3002/metrics | head
+```
+
+Grafana queda en `http://127.0.0.1:3004` (o el puerto definido por
+`GRAFANA_PORT`) con el dashboard `SIMERT - Observabilidad` provisionado. Para
+una prueba de trazabilidad use `curl -H 'X-Correlation-ID: prueba-001'` y
+busque `prueba-001` en los logs del gateway y del servicio.
 
 ## Requisitos previos
 

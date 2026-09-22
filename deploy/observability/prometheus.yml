@@ -1,0 +1,20 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: simert-services
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['auth-0:3000']
+        labels: { service: simert-auth }
+      - targets: ['pay-0:3001']
+        labels: { service: simert-pay }
+      - targets: ['simert-0:3002']
+        labels: { service: simert }
+      - targets: ['socket-0:3003']
+        labels: { service: simert-socket }
+
+  - job_name: prometheus
+    static_configs:
+      - targets: ['localhost:9090']
