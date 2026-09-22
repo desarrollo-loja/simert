@@ -2294,13 +2294,18 @@ export class GimService {
                     this.gimBaseUrlLocal,
                 );
 
-            if (data && data.ok && data.bonds?.length > 0) {
+            // An empty bonds list is a successful lookup, not a GIM failure.
+            // Keep malformed responses and explicit rejections on the error path.
+            if (data?.ok === true && Array.isArray(data.bonds)) {
                 return {
                     errorCode: ErrorCode.NONE,
                     data: data,
                 };
             } else {
-                const message = 'No se lograron obtener las obligaciones';
+                const message =
+                    data?.ok === false && data.message?.trim()
+                        ? data.message
+                        : 'No se lograron obtener las obligaciones';
                 // A client with no outstanding bonds is normal; audit only an explicit
                 // GIM rejection.
                 if (data && data.ok === false) {

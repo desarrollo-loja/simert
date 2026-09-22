@@ -1160,8 +1160,25 @@ describe('GimService', () => {
       expect((await service.findObligations({ identificationNumber: '1' } as any)).errorCode).toBe(ErrorCode.NONE);
     });
 
-    it('returns NOT_FOUND when bonds empty', async () => {
+    it('returns NONE with an empty list when GIM found no obligations', async () => {
       (axios.post as jest.Mock).mockResolvedValueOnce({ data: { ok: true, bonds: [] } });
+      expect(await service.findObligations({ identificationNumber: '1' } as any)).toMatchObject({
+        errorCode: ErrorCode.NONE,
+        data: { ok: true, bonds: [] },
+      });
+    });
+
+    it('returns NOT_FOUND when GIM explicitly rejects the lookup', async () => {
+      (axios.post as jest.Mock).mockResolvedValueOnce({ data: { ok: false, message: 'Consulta rechazada por GIM', bonds: [] } });
+      expect(await service.findObligations({ identificationNumber: '1' } as any)).toMatchObject({
+        errorCode: ErrorCode.NOT_FOUND,
+        message: 'Consulta rechazada por GIM',
+        data: null,
+      });
+    });
+
+    it('returns NOT_FOUND for a malformed successful response', async () => {
+      (axios.post as jest.Mock).mockResolvedValueOnce({ data: { ok: true } });
       expect((await service.findObligations({ identificationNumber: '1' } as any)).errorCode).toBe(ErrorCode.NOT_FOUND);
     });
 
