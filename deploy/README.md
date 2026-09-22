@@ -34,6 +34,9 @@ curl -fsS http://127.0.0.1:3002/metrics | head
 
 Grafana queda en `http://127.0.0.1:3004` (o el puerto definido por
 `GRAFANA_PORT`) con el dashboard `SIMERT - Observabilidad` provisionado. Para
+acceso directo desde una red autorizada, define `BIND_ADDR=0.0.0.0` y
+`GRAFANA_ROOT_URL=http://IP_DEL_SERVIDOR:3004/` en `deploy/.env`; el firewall
+debe permitir TCP/3004 únicamente desde esa red. Para
 una prueba de trazabilidad use `curl -H 'X-Correlation-ID: prueba-001'` y
 busque `prueba-001` en los logs del gateway y del servicio.
 
