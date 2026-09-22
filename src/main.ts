@@ -7,6 +7,7 @@ import { PAID_OBLIGATIONS_ROUTE } from './api/gim/external-simert.controller';
 import { AppModule } from './app.module';
 import { TypePrefix } from './common/glob/type/type_prefix';
 import { PublicModule } from './public/public.module';
+import { setupObservability } from './observability/observability';
 // express-ip is a CommonJS module loaded via require to preserve its runtime
 // interop in this already-deployed bootstrap.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -33,6 +34,7 @@ const production: string[] = productionDomain
  */
 async function bootstrap() {
     const app = await NestFactory.create(AppModule);
+    setupObservability(app, 'simert');
 
     app.enableShutdownHooks();
 
@@ -150,12 +152,13 @@ async function bootstrap() {
         allowedHeaders: [
             'Content-Type',
             'Authorization',
+            'X-Correlation-ID',
             'platform',
             'brand',
             'versionapp',
         ],
         credentials: true,
-        exposedHeaders: ['x-token'],
+        exposedHeaders: ['x-token', 'X-Correlation-ID'],
     });
     await app.listen(process.env.PORT_SERVER);
 }
