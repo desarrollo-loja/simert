@@ -49,13 +49,22 @@ export class OperatorController {
      */
     @ApiOperation({ summary: 'Create an incident from the operator app' })
     // @Auth()
+    // El orden de estos dos decoradores es significativo. Los decoradores se
+    // aplican de abajo arriba y `UseGuards` ANADE a la lista ya registrada, asi
+    // que el guard declarado mas cerca del metodo acaba ejecutandose PRIMERO.
+    //
+    // Con `@UseGuards(IncidentCapabilityGuard)` por debajo, la capacidad se
+    // comprobaba antes de autenticar: `request.user` aun no existia, sus roles
+    // se leian como `[]` y la ruta respondia 403 a cualquiera, con token valido
+    // o sin ninguno. Declarado por encima corre al final de la cadena, cuando
+    // AuthGuard ya resolvio al usuario y sus roles son los reales.
+    @UseGuards(IncidentCapabilityGuard)
     @AuthWithKeycloak(
         TypeRol.ADMIN,
         TypeRol.CONTROLLER,
         TypeRol.CONTROLLER_LOGBOOK,
         TypeRol.CONTROLLER_SANCTIONS,
     )
-    @UseGuards(IncidentCapabilityGuard)
     @Post('create-incident/:userId/:idDevice')
     createIncident(
         @Body() createIncidentDto: CreateIncidentDto,

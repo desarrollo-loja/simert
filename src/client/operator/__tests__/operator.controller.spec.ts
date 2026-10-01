@@ -1,3 +1,6 @@
+import { GUARDS_METADATA } from '@nestjs/common/constants';
+import { IncidentCapabilityGuard } from 'src/auth/guards/incident-capability.guard';
+
 import { OperatorController } from '../operator.controller';
 import { OperatorService } from '../operator.service';
 
@@ -23,6 +26,21 @@ describe('OperatorController', () => {
   beforeEach(() => {
     svc = buildServiceMock();
     controller = new OperatorController(svc as unknown as OperatorService);
+  });
+
+  // El guard de capacidad lee `request.user.roles`, asi que solo significa algo
+  // si corre DESPUES de que AuthGuard resuelva al usuario. Al declararse con un
+  // `@UseGuards` propio, su posicion depende del orden de los decoradores: si
+  // queda el primero, lee `[]` y la ruta responde 403 a todo el mundo. Su test
+  // unitario no lo ve, porque le fabrica el `user` a mano.
+  it('checks the incident capability after authentication', () => {
+    const guards = Reflect.getMetadata(
+      GUARDS_METADATA,
+      OperatorController.prototype.createIncident,
+    ) as unknown[];
+
+    expect(guards).toContain(IncidentCapabilityGuard);
+    expect(guards[guards.length - 1]).toBe(IncidentCapabilityGuard);
   });
 
   it('createIncident delegates to service', async () => {
