@@ -128,32 +128,82 @@ describe('CheckboxService', () => {
       expect(result).toEqual({ errorCode: ErrorCode.NONE, checkboxs: [{ id: 1 }] });
     });
 
-    it('returns empty when table does not exist and currentMonth is false', async () => {
-      checkboxRepo.query.mockResolvedValueOnce([{ exists: false }]);
+    it('still reads the live table for a past month with no archive', async () => {
+      // Regression: the service used to gate the live table behind the
+      // caller's `currentMonth` flag, so a month whose archive had never been
+      // created returned empty even though the rows were sitting in
+      // `checkbox`. That made unarchived purchases permanently invisible.
+      checkboxRepo.query
+        .mockResolvedValueOnce([{ exists: false }])
+        .mockResolvedValueOnce([{ id: 7 }]);
 
-      const result = await service.getTransactions(1, { year: 2025, month: 5, currentMonth: false } as any, {} as any);
+      const result = await service.getTransactions(
+        1,
+        { year: 2026, month: 8, currentMonth: false } as any,
+        { limit: 10, offset: 0 } as any,
+      );
 
-      expect(result).toEqual({ checkboxs: [] });
-      // Only the existence check should have run; no data query.
-      expect(checkboxRepo.query).toHaveBeenCalledTimes(1);
+      expect(checkboxRepo.query).toHaveBeenCalledTimes(2);
+      const dataQuery = (checkboxRepo.query as jest.Mock).mock.calls[1][0];
+      expect(dataQuery).toContain('FROM checkbox cb');
+      expect(result).toEqual({ errorCode: ErrorCode.NONE, checkboxs: [{ id: 7 }] });
     });
 
-    it('rejects out-of-range year/month and falls back to current-month branch', async () => {
-      // year out of range -> safeYear=null, month out of range -> safeMonth=null;
-      // skips history; currentMonth=true filters by year=0 and month=0 (fallback).
-      checkboxRepo.query.mockResolvedValueOnce([{ amount: 1 }]);
+    it('filters the period in business time, not raw UTC', async () => {
+      // Regression: `createdAt` is stored in UTC and displayed converted to
+      // America/Guayaquil, but the period filter used to read the raw UTC
+      // value. A purchase at 21:15 local on the last day of a month is the
+      // 1st in UTC, so it was filed under the following month and could not
+      // be found in either.
+      checkboxRepo.query
+        .mockResolvedValueOnce([{ exists: false }])
+        .mockResolvedValueOnce([]);
 
+      await service.getTransactions(
+        1,
+        { year: 2026, month: 8, currentMonth: false } as any,
+        { limit: 10, offset: 0 } as any,
+      );
+
+      const [sql, params] = (checkboxRepo.query as jest.Mock).mock.calls[1];
+      expect(sql).toContain(
+        `EXTRACT(YEAR FROM cb."createdAt" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil')`,
+      );
+      expect(sql).toContain(
+        `EXTRACT(MONTH FROM cb."createdAt" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil')`,
+      );
+      expect(params).toEqual([1, 2026, 8, 10, 0]);
+    });
+
+    it('unions archive and live table, ordering by an output column', async () => {
+      // ORDER BY after UNION ALL may only name output columns; `ORDER BY
+      // cb.id` would make Postgres reject the statement outright.
+      checkboxRepo.query
+        .mockResolvedValueOnce([{ exists: true }])
+        .mockResolvedValueOnce([{ id: 2 }]);
+
+      await service.getTransactions(
+        1,
+        { year: 2026, month: 8, currentMonth: false } as any,
+        { limit: 10, offset: 0 } as any,
+      );
+
+      const sql = (checkboxRepo.query as jest.Mock).mock.calls[1][0];
+      expect(sql).toContain('history."2026_08_checkbox"');
+      expect(sql).toContain('UNION ALL');
+      expect(sql).toContain('ORDER BY id DESC');
+      expect(sql).not.toContain('ORDER BY cb.id');
+    });
+
+    it('rejects an out-of-range period instead of querying for year 0', async () => {
       const result = await service.getTransactions(
         1,
         { year: 1999, month: 99, currentMonth: true } as any,
         { limit: 5, offset: 0 } as any,
       );
 
-      const [sql, params] = (checkboxRepo.query as jest.Mock).mock.calls[0];
-      expect(sql).toContain('FROM checkbox cb');
-      // Parameter order: userId, safeYear ?? 0, safeMonth ?? 0, limit, offset.
-      expect(params).toEqual([1, 0, 0, 5, 0]);
-      expect(result.errorCode).toBe(ErrorCode.NONE);
+      expect(result).toEqual({ errorCode: ErrorCode.NOT_VALID, checkboxs: [] });
+      expect(checkboxRepo.query).not.toHaveBeenCalled();
     });
 
     it('returns NOT_VALID when currentMonth produces no rows', async () => {

@@ -33,6 +33,11 @@ import { TypeService } from 'src/common/glob/type/type_service';
 import { DataSource, Repository } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 
+import {
+    buildMonthlyCheckboxTable,
+    LIVE_CHECKBOX_TABLE,
+    LOCAL_CREATED_AT,
+} from '../../shared/utils/monthly-table.util';
 import { CreateCheckboxDto } from './dto/create-checkbox.dto';
 
 /**
@@ -143,95 +148,47 @@ export class CheckboxService implements OnModuleInit {
         paginationDto: PaginationDto,
     ) {
         const { limit = 10, offset = 0 } = paginationDto;
-        const { year, month, currentMonth } = getTransactionDto;
-
-        const currentDate = new Date();
-        const currentDay = currentDate.getDate();
+        const { year, month } = getTransactionDto;
 
         try {
-            // Historical checkbox tables are created in the `history` schema
-            // by the archival cron (see data.service._pasarHistoricas).
-            const schema = 'history';
-            let tableName = 'checkbox';
-            let tableExists = false;
+            const period = this._resolvePeriod(year, month);
+            if (!period)
+                return { errorCode: ErrorCode.NOT_VALID, checkboxs: [] };
 
-            // Defense-in-depth: validate year/month as safe integers before
-            // interpolating into the table identifier. DTO already constrains
-            // these via class-validator, but this guard prevents any callers
-            // that bypass the pipe from injecting SQL.
-            const safeYear =
-                Number.isInteger(Number(year)) &&
-                Number(year) >= 2000 &&
-                Number(year) <= 2100
-                    ? Number(year)
-                    : null;
-            const safeMonth =
-                Number.isInteger(Number(month)) &&
-                Number(month) >= 1 &&
-                Number(month) <= 12
-                    ? Number(month)
-                    : null;
+            // Every source that can hold rows for the requested period. The
+            // live table is always one of them: whether a month has been
+            // archived is the server's business, and the caller's
+            // `currentMonth` flag used to decide it. When archiving lagged,
+            // failed, or had never been implemented for this table, that flag
+            // made the rows unreachable instead of merely slower to read.
+            const sources = await this._monthlySources(period);
 
-            if (safeYear && safeMonth) {
-                // Archival cron names tables with a zero-padded month
-                // (`to_char(..., 'YYYY_MM')`), so the lookup must match.
-                const mm = String(safeMonth).padStart(2, '0');
-                tableName = `"${safeYear}_${mm}_${tableName}"`;
-                tableName = `${schema}.${tableName}`;
-                tableExists = await this._tableExists(tableName);
-            }
-            let query: string = '';
-            const params = [];
+            const params: unknown[] = [];
             let idx = 1;
 
-            if (tableExists) {
-                query = `
-                        SELECT
-                        cb.id, cb.amount, cb.checkboxes, cb."statusPayment", TO_CHAR(cb."createdAt" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD HH24:MI:SS') AS "createdAt"
-                        FROM ${tableName} cb
-                        WHERE cb."userId" = $${idx++}
-                    `;
+            const selects = sources.map((source) => {
+                let where = `WHERE cb."userId" = $${idx++}`;
                 params.push(userId);
-            }
-
-            if (!tableExists && !currentMonth) return { checkboxs: [] };
-
-            if (currentMonth) {
-                // Parameterize year/month to prevent SQL injection in EXTRACT
-                // comparisons. Filtering by year as well as month avoids
-                // mixing same-month rows from different years (e.g., May 2024
-                // and May 2026) when the historical table for the requested
-                // period does not (yet) exist.
-                query += `
-                ${tableExists ? 'UNION ALL' : ''}
+                // The archive table *is* the month, so it needs no period
+                // filter; the live table does.
+                if (!source.isArchive) {
+                    where +=
+                        ` AND EXTRACT(YEAR FROM ${LOCAL_CREATED_AT}) = $${idx++}` +
+                        ` AND EXTRACT(MONTH FROM ${LOCAL_CREATED_AT}) = $${idx++}`;
+                    params.push(period.year, period.month);
+                }
+                return `
                 SELECT
-                cb.id, cb.amount, cb.checkboxes, cb."statusPayment", TO_CHAR(cb."createdAt" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD HH24:MI:SS') AS "createdAt"
-                FROM checkbox cb
-                WHERE cb."userId" = $${idx++}
-                  AND EXTRACT(YEAR FROM cb."createdAt") = $${idx++}
-                  AND EXTRACT(MONTH FROM cb."createdAt") = $${idx++}
+                cb.id, cb.amount, cb.checkboxes, cb."statusPayment", TO_CHAR(${LOCAL_CREATED_AT}, 'YYYY-MM-DD HH24:MI:SS') AS "createdAt"
+                FROM ${source.table} cb
+                ${where}
                 `;
-                params.push(userId, safeYear ?? 0, safeMonth ?? 0);
-            }
+            });
 
-            // On day 1 of the current month, also fetch records from the
-            // previous month still in the transactional table (the cron that
-            // moves rows to history runs every 24h, so day 1 may still see
-            // last day of the previous month).
-            else if (currentDay === 1) {
-                query += `
-                ${tableExists ? 'UNION ALL' : ''}
-                SELECT
-                cb.id, cb.amount, cb.checkboxes, cb."statusPayment", TO_CHAR(cb."createdAt" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD HH24:MI:SS') AS "createdAt"
-                FROM checkbox cb
-                WHERE cb."userId" = $${idx++}
-                  AND EXTRACT(YEAR FROM cb."createdAt") = $${idx++}
-                  AND EXTRACT(MONTH FROM cb."createdAt") = $${idx++}
-                `;
-                params.push(userId, safeYear ?? 0, safeMonth ?? 0);
-            }
-
-            query += `
+            // ORDER BY after UNION ALL may only name output columns, never a
+            // table alias.
+            const query = `
+            ${selects.join(' UNION ALL ')}
             ORDER BY id DESC
             LIMIT $${idx++} OFFSET $${idx++};
             `;
@@ -248,6 +205,52 @@ export class CheckboxService implements OnModuleInit {
         } catch (error) {
             handleDbExceptions(error, this.logger);
         }
+    }
+
+    /**
+     * Validates a caller-supplied period, rejecting anything that could not be
+     * a real year/month before it reaches a table identifier.
+     *
+     * @param year Four-digit year.
+     * @param month Month number (1-12).
+     * @returns The period as numbers, or null when either value is unusable.
+     */
+    private _resolvePeriod(
+        year: number,
+        month: number,
+    ): { year: number; month: number } | null {
+        const safeYear = Number(year);
+        const safeMonth = Number(month);
+        const validYear =
+            Number.isInteger(safeYear) && safeYear >= 2000 && safeYear <= 2100;
+        const validMonth =
+            Number.isInteger(safeMonth) && safeMonth >= 1 && safeMonth <= 12;
+        return validYear && validMonth
+            ? { year: safeYear, month: safeMonth }
+            : null;
+    }
+
+    /**
+     * Resolves every table that can hold checkbox rows for [period].
+     *
+     * The live table is always included, so a missing or lagging monthly
+     * archive degrades to a slower read rather than to silently empty
+     * results. The archive is prepended when it exists, as an optimization.
+     *
+     * @param period Year and month being queried.
+     * @param period.year Four-digit year.
+     * @param period.month Month number (1-12).
+     * @returns Sources to UNION, archive first.
+     */
+    private async _monthlySources(period: {
+        year: number;
+        month: number;
+    }): Promise<{ table: string; isArchive: boolean }[]> {
+        const sources = [{ table: LIVE_CHECKBOX_TABLE, isArchive: false }];
+        const archive = buildMonthlyCheckboxTable(period.year, period.month);
+        if (await this._tableExists(archive))
+            sources.unshift({ table: archive, isArchive: true });
+        return sources;
     }
 
     /**
